@@ -12,7 +12,7 @@ class TenantController extends Controller
     //method for creating tenant
     public function store(Request $request)
     {
-        
+
         try {
             // Create the tenant record in the tenants table
             $tenant = Tenant::create([
@@ -45,17 +45,12 @@ class TenantController extends Controller
     //method for deleting tenant
     public function deleteTenant($id)
     {
-        // Ensure the tenant exists
-        $tenant = Tenant::findOrFail($id);
 
         try {
-            // Delete the tenant's schema and record from tenants table
+            $tenant = Tenant::findOrFail($id);
             Tenancy::find($id)->delete();
-
-            // Return success response
             return response()->json(['message' => 'Tenant deleted successfully'], 200);
         } catch (\Exception $e) {
-            // Handle error if deletion fails
             return response()->json(['error' => 'Failed to delete tenant: ' . $e->getMessage()], 500);
         }
     }
