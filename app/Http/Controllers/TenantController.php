@@ -4,34 +4,59 @@ namespace App\Http\Controllers;
 
 use App\Models\Tenant;
 use Illuminate\Http\Request;
+use Stancl\Tenancy\Facades\Tenancy;
 
 class TenantController extends Controller
 {
+
+    //method for creating tenant
     public function store(Request $request)
     {
+        
+        try {
+            // Create the tenant record in the tenants table
+            $tenant = Tenant::create([
+                'id' => $request->subdomain, // Tenant ID (subdomain)
+                'data' => [
+                    'name' => $request->name,    // Name
+                    'email' => $request->email,  // Email
+                ],
+            ]);
 
-        // $request->validate([
-        //     'name' => 'required|string',
-        //     'email' => 'required|email',
-        //     'subdomain' => 'required|string|unique:tenants,id',
-        // ]);
+            // Create a domain record for the tenant (optional)
+            $tenant->domains()->create([
+                'domain' => "{$request->subdomain}.yourdomain.test", // Assign domain
+            ]);
 
+            // Return success response
+            return response()->json([
+                'message' => 'Tenant created successfully',
+                'tenant_id' => $tenant->id,
+                'domain' => "{$request->subdomain}.yourdomain.test",
+            ], 201);
+        } catch (\Exception $e) {
+            // Handle any exceptions during tenant creation
+            return response()->json([
+                'error' => 'Failed to create tenant: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 
-        $tenant = Tenant::create([
-            'id' => $request->subdomain, // Or UUID
-            'data' => [
-                'name' => $request->name,
-                'email' => $request->email,
-            ],
-        ]);
+    //method for deleting tenant
+    public function deleteTenant($id)
+    {
+        // Ensure the tenant exists
+        $tenant = Tenant::findOrFail($id);
 
-        $tenant->domains()->create([
-            'domain' => "{$request->subdomain}.yourdomain.test",
-        ]);
+        try {
+            // Delete the tenant's schema and record from tenants table
+            Tenancy::find($id)->delete();
 
-        return response()->json([
-        'message' => 'Tenant created successfully',
-        'tenant_id' => $tenant->id,
-        'domain' => "{$request->subdomain}.yourdomain.test"
-        ]);    }
+            // Return success response
+            return response()->json(['message' => 'Tenant deleted successfully'], 200);
+        } catch (\Exception $e) {
+            // Handle error if deletion fails
+            return response()->json(['error' => 'Failed to delete tenant: ' . $e->getMessage()], 500);
+        }
+    }
 }

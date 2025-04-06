@@ -15,7 +15,7 @@ foreach (config('tenancy.central_domains') as $domain) {
                 'message' => 'This is your central application.',
             ]);
         });
-        Route::post('/tenants', [TenantController::class, 'store']);
-
+        Route::post('/tenant', [TenantController::class, 'store']);
+        Route::delete('/tenant/{id}', [TenantController::class, 'deleteTenant']);
     });
 }
