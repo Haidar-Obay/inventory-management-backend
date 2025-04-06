@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('refer_by', function (Blueprint $table) {
+        Schema::create('refer_bies', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->text('address')->nullable();
