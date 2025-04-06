@@ -24,6 +24,7 @@ Route::middleware([
     InitializeTenancyBySubdomain::class,
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
+
     Route::get('/', function () {
             dd(\App\Models\User::all());
         return response()->json([
@@ -31,5 +32,6 @@ Route::middleware([
             'tenant_id' => tenant('id'),
         ]);
     });
+    
 });
 

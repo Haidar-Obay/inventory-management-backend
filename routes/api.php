@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\TenantController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -14,5 +15,7 @@ foreach (config('tenancy.central_domains') as $domain) {
                 'message' => 'This is your central application.',
             ]);
         });
+        Route::post('/tenants', [TenantController::class, 'store']);
+
     });
 }
