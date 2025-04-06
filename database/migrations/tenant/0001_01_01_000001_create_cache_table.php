@@ -20,7 +20,11 @@ return new class extends Migration
             $table->integer('expiration');
         });
     }
+<<<<<<<<< Temporary merge branch 1
 
+=========
+    
+>>>>>>>>> Temporary merge branch 2
     public function down(): void
     {
         Schema::dropIfExists('cache');
