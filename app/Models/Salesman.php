@@ -4,15 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class ReferBy extends Model
+class Salesman extends Model
 {
     protected $guarded = ["id"];
-    protected $table = 'refer_bies';
+    protected $table = 'salesmens';
     protected $primaryKey = 'id';
     public $timestamps = false;
-    
+
     public function customers ()
     {
-        return $this->hasMany(Customers::class,'refer_by_id');
+        return $this->hasMany(Customers::class,'salesman_id');
     }
 }

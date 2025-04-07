@@ -4,15 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Province extends Model
+class CustomerGroup extends Model
 {
     protected $guarded = ['id'];
-    protected $table = 'provinces';
+    protected $table = 'customer_groups';
     protected $primaryKey = 'id';
     public $timestamps = false;
 
-    public function addresses()
+    public function customers()
     {
-        return $this->hasMany(Address::class, 'province_id');
+        return $this->hasMany(Customer::class,'customer_group_id');
     }
 }
