@@ -26,8 +26,13 @@ class Address extends Model
         return $this->belongsTo(Province::class);
     }
 
-    public function customers ()
+    public function billingCustomers()
     {
-        return $this->hasOne(Customers::class);
+        return $this->hasMany(Customer::class, 'billing_address_id');
+    }
+
+    public function shippingCustomers()
+    {
+        return $this->hasMany(Customer::class, 'shipping_address_id');
     }
 }

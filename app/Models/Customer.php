@@ -42,9 +42,14 @@ class Customer extends Model
         return $this->belongsTo(Currency::class, 'opening_currency_id');
     }
 
-    public function Address()
+    public function billingAddress()
     {
-        return $this->hasMany(Address::class, 'id', 'billing_address_id');
+        return $this->belongsTo(Address::class, 'billing_address_id');
+    }
+
+    public function shippingAddress()
+    {
+        return $this->belongsTo(Address::class, 'shipping_address_id');
     }
 
     public function parentCustomer()

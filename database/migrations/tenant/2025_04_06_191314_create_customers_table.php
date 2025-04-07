@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         Schema::create('customers', function (Blueprint $table) {
@@ -23,8 +22,8 @@ return new class extends Migration
             $table->string('email')->nullable();
             $table->string('website')->nullable();
             $table->string('file_number')->nullable();
-            $table->foreignId('billing_address_id')->constrained('addresses');
-            $table->foreignId('shipping_address_id')->constrained('addresses');
+            $table->foreignId('billing_address_id')->constrained('addresses')->cascadeOnDelete();
+            $table->foreignId('shipping_address_id')->constrained('addresses')->cascadeOnDelete();
             $table->boolean('is_sub_customer')->default(false);
             $table->foreignId('parent_customer_id')->nullable()->constrained('customers');
             $table->foreignId('customer_group_id')->nullable()->constrained();
