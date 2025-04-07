@@ -14,12 +14,12 @@ class Customer extends Model
 
     public function customerGroup()
     {
-        return $this->belongsTo(CustomerGroups::class, 'customer_group_id');
+        return $this->belongsTo(CustomerGroup::class, 'customer_group_id');
     }
 
     public function salesman()
     {
-        return $this->belongsTo(Salesmen::class, 'salesman_id');
+        return $this->belongsTo(Salesman::class, 'salesman_id');
     }
 
     public function referBy()
@@ -29,12 +29,12 @@ class Customer extends Model
 
     public function paymentTerm()
     {
-        return $this->belongsTo(PaymentTerms::class, 'payment_term_id');
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
 
     public function primaryPaymentMethod()
     {
-        return $this->belongsTo(PaymentMethods::class, 'primary_payment_method_id');
+        return $this->belongsTo(PaymentMethod::class, 'primary_payment_method_id');
     }
 
     public function openingCurrency()
