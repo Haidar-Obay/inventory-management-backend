@@ -13,6 +13,6 @@ class Salesman extends Model
 
     public function customers ()
     {
-        return $this->hasMany(Customers::class,'salesman_id');
+        return $this->hasMany(Customer::class,'salesman_id');
     }
 }

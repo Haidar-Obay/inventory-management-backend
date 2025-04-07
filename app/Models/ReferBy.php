@@ -13,6 +13,6 @@ class ReferBy extends Model
     
     public function customers ()
     {
-        return $this->hasMany(Customers::class,'refer_by_id');
+        return $this->hasMany(Customer::class,'refer_by_id');
     }
 }
