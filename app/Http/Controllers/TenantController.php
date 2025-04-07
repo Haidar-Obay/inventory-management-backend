@@ -51,7 +51,7 @@ public function store(Request $request)
     } catch (\Exception $e) {
         return response()->json([
             'error' => 'Failed to create tenant: ' . $e->getMessage(),
-        ], 500);
+        ],500);
     }
 }
 
