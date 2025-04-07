@@ -5,42 +5,55 @@ namespace App\Http\Controllers;
 use App\Models\Tenant;
 use Illuminate\Http\Request;
 use Stancl\Tenancy\Facades\Tenancy;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User; 
 
 class TenantController extends Controller
 {
 
     //method for creating tenant
-    public function store(Request $request)
-    {
+   
+public function store(Request $request)
+{
+    try {
+        // 1. Create the tenant record
+        $tenant = Tenant::create([
+            'id' => $request->subdomain,
+            'data' => [
+                'name' => $request->name,
+                'email' => $request->email,
+            ],
+        ]);
 
-        try {
-            // Create the tenant record in the tenants table
-            $tenant = Tenant::create([
-                'id' => $request->subdomain, // Tenant ID (subdomain)
-                'data' => [
-                    'name' => $request->name,    // Name
-                    'email' => $request->email,  // Email
-                ],
-            ]);
+        // 2. Create a domain record for the tenant
+        $tenant->domains()->create([
+            'domain' => "{$request->subdomain}.yourdomain.test",
+        ]);
 
-            // Create a domain record for the tenant (optional)
-            $tenant->domains()->create([
-                'domain' => "{$request->subdomain}.yourdomain.test", // Assign domain
-            ]);
+        // 3. Initialize tenancy context
+        tenancy()->initialize($tenant);
 
-            // Return success response
-            return response()->json([
-                'message' => 'Tenant created successfully',
-                'tenant_id' => $tenant->id,
-                'domain' => "{$request->subdomain}.yourdomain.test",
-            ], 201);
-        } catch (\Exception $e) {
-            // Handle any exceptions during tenant creation
-            return response()->json([
-                'error' => 'Failed to create tenant: ' . $e->getMessage(),
-            ], 500);
-        }
+        // 5. Create the super user in the tenant's DB
+        User::create([
+            'name' => 'Admin',
+            'email' => $request->email,
+            'password' => Hash::make('password'), // Or use $request->password
+            'role' => 'super_user', // Make sure 'role' column exists
+        ]);
+
+        // 6. Return success
+        return response()->json([
+            'message' => 'Tenant and super user created successfully',
+            'tenant_id' => $tenant->id,
+            'domain' => "{$request->subdomain}.yourdomain.test",
+        ], 201);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Failed to create tenant: ' . $e->getMessage(),
+        ], 500);
     }
+}
 
     //method for deleting tenant
     public function deleteTenant($id)

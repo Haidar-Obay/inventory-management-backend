@@ -10,11 +10,13 @@ Route::get('/user', function (Request $request) {
 
 foreach (config('tenancy.central_domains') as $domain) {
     Route::domain($domain)->group(function () {
+
         Route::get('/', function () {
             return response()->json([
                 'message' => 'This is your central application.',
             ]);
         });
+        
         Route::post('/tenant', [TenantController::class, 'store']);
         Route::delete('/tenant/{id}', [TenantController::class, 'deleteTenant']);
     });
