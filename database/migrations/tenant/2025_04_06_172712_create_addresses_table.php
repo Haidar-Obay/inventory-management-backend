@@ -12,9 +12,11 @@ return new class extends Migration {
             $table->id();
             $table->string('address_line1');
             $table->string('address_line2')->nullable();
+
             $table->foreignId('country_id')->constrained();
             $table->foreignId('city_id')->constrained();
             $table->foreignId('province_id')->constrained();
+
             $table->string('postal_code')->nullable();
             $table->string('complex')->nullable();
             $table->string('building')->nullable();
