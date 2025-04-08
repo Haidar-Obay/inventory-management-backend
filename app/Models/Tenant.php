@@ -12,4 +12,9 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     use HasDatabase, HasDomains;
     protected $fillable = ['id', 'name', 'email'];
 
+    public function users()
+    {
+        return $this->hasMany(User::class );
+    }
+
 }

@@ -50,6 +50,7 @@ class TenantController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make('password'), // Or use $request->password
                 'role' => 'super_user', // Make sure 'role' column exists
+                'tenant_id' => $tenant->id,
             ]);
 
             // 6. Return success
