@@ -24,6 +24,11 @@ class User extends Authenticatable
         'role',
     ];
 
+    public function tenant()
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *
