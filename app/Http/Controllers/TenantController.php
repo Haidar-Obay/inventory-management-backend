@@ -38,7 +38,7 @@ class TenantController extends Controller
 
             // 2. Create a domain record for the tenant
             $tenant->domains()->create([
-                'domain' => "{$request->subdomain}.yourdomain.test",
+                'domain' => "{$request->subdomain}." . env('CENTRAL_DOMAIN'),
             ]);
 
             // 3. Initialize tenancy context
@@ -56,7 +56,7 @@ class TenantController extends Controller
             return response()->json([
                 'message' => 'Tenant and super user created successfully',
                 'tenant_id' => $tenant->id,
-                'domain' => "{$request->subdomain}.yourdomain.test",
+                'domain' => "{$request->subdomain}." . env('CENTRAL_DOMAIN'),
             ], 201);
 
         } catch (\Exception $e) {
@@ -116,10 +116,10 @@ class TenantController extends Controller
 
             if ($request->filled('subdomain')) {
                 $tenant->domains()->update([
-                    'domain' => "{$request->subdomain}.yourdomain.test"
+                    'domain' => "{$request->subdomain}." . env('CENTRAL_DOMAIN'),
                 ]);
             }
-            
+
             return response()->json([
                 'message' => 'Tenant updated successfully',
                 'tenant' => [
