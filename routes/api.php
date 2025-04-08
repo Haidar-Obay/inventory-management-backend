@@ -17,10 +17,12 @@ foreach (config('tenancy.central_domains') as $domain) {
             ]);
         });
         
-        Route::post('/tenant', [TenantController::class, 'store']);
-        Route::delete('/tenant/{id}', [TenantController::class, 'deleteTenant']);
-        Route::get('/tenants', [TenantController::class, 'getAllTenants']);
-        Route::get('/tenant/{id}', [TenantController::class, 'getTenant']);
-        Route::put('/tenant/{id}', [TenantController::class, 'updateTenant']);
+        Route::prefix('tenant')->group(function () {
+            Route::post('', [TenantController::class, 'store']);
+            Route::delete('/{id}', [TenantController::class, 'deleteTenant']);
+            Route::get('/all', [TenantController::class, 'getAllTenants']);
+            Route::get('/{id}', [TenantController::class, 'getTenant']);
+            Route::put('/{id}', [TenantController::class, 'updateTenant']);
+        });
     });
 }
