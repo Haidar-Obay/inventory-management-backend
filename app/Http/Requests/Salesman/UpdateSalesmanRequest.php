@@ -1,14 +1,11 @@
 <?php
 
-namespace App\Http\Requests\PaymentMethods;
+namespace App\Http\Requests\Salesman;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class CreatePaymentMethodRequest extends FormRequest
+class UpdateSalesmanRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
@@ -22,9 +19,12 @@ class CreatePaymentMethodRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
-            'is_credit_card' => 'nullable|boolean',
-            'is_online_payment' => 'nullable|boolean',
+            'name' => 'nullable|string|max:255',
+            'address' => 'nullable|string',
+            'phone1' => 'nullable|string|max:20',
+            'phone2' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'fix_commission' => 'nullable|numeric|min:0',
             'is_inactive' => 'nullable|boolean',
         ];
     }

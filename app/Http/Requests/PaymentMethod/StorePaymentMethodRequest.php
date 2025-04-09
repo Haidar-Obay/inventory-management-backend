@@ -1,14 +1,11 @@
 <?php
 
-namespace App\Http\Requests\PaymentTerms;
+namespace App\Http\Requests\PaymentMethod;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class CreatePaymentTermRequest extends FormRequest
+class StorePaymentMethodRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
@@ -23,7 +20,8 @@ class CreatePaymentTermRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
-            'no_of_days' => 'required|integer|min:1',
+            'is_credit_card' => 'nullable|boolean',
+            'is_online_payment' => 'nullable|boolean',
             'is_inactive' => 'nullable|boolean',
         ];
     }

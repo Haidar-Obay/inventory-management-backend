@@ -1,14 +1,11 @@
 <?php
 
-namespace App\Http\Requests\ReferBy;
+namespace App\Http\Requests\Salesman;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class CreateReferByRequest extends FormRequest
+class StoreSalesmanRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
@@ -28,6 +25,7 @@ class CreateReferByRequest extends FormRequest
             'phone2' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
             'fix_commission' => 'nullable|numeric|min:0',
+            'is_inactive' => 'nullable|boolean',
         ];
     }
 }

@@ -1,14 +1,11 @@
 <?php
 
-namespace App\Http\Requests\PaymentTerms;
+namespace App\Http\Requests\Currency;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdatePaymentTermRequest extends FormRequest
+class StoreCurrencyRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
@@ -22,9 +19,10 @@ class UpdatePaymentTermRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'nullable|string|max:255',
-            'no_of_days' => 'nullable|integer|min:1',
-            'is_inactive' => 'nullable|boolean',
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:10|unique:currencies,code',
+            'iso_code' => 'required|string|max:10',
+            'rate' => 'required|numeric|min:0',
         ];
     }
 }
