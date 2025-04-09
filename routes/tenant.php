@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain;
@@ -28,7 +29,11 @@ Route::middleware([
     Route::get('/', function () {
         return response()->json([
             'tenant_id' => tenant('id'),
-            'message' => 'Welcome to your tenant API!',
+            'tenant_domain' => tenant('domains')->first()->domain,
+            'tenant_name' => tenant('name'),
+            'tenant_email' => tenant('email'),
+            'super_user' => User::where('role', 'super_user')->first()->name,
+            'message' => tenant('name').' welcome to your tenant API!',
         ]);
     });
 

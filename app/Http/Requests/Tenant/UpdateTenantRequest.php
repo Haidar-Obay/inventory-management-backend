@@ -7,9 +7,7 @@ use Illuminate\Validation\Rule;
 
 class UpdateTenantRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
+
     public function authorize(): bool
     {
         return true;
@@ -30,11 +28,16 @@ class UpdateTenantRequest extends FormRequest
                 'email',
                 Rule::unique('tenants', 'email')->ignore($tenantId),
             ],
-            'subdomain' => [
+            'domain' => [
                 'nullable',
                 'string',
                 Rule::unique('domains', 'domain')->ignore($tenantId, 'tenant_id'),
             ],
+            'password' => [
+            'nullable',
+            'string',
+            'min:8',        
+        ],
         ];
     }
 }
