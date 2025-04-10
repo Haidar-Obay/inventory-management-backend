@@ -84,4 +84,12 @@ class CurrencyController extends Controller
 
         return response()->json($currency);
     }
+    public function destroy($id)
+{
+    $currency = Currency::findOrFail($id);
+    $currency->delete();
+
+    return response()->json(['message' => 'Currency deleted successfully.']);
+}
+
 }
