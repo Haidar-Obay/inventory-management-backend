@@ -9,6 +9,8 @@ use Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\CountryController;
+use App\Http\Controllers\ProvinceController;
+
 
 
 /*
@@ -41,6 +43,8 @@ Route::middleware([
     });
     Route::apiResource('cities', CityController::class);
     Route::apiResource('countries', CountryController::class);
+    Route::apiResource('provinces', ProvinceController::class);
+
 
 });
 
