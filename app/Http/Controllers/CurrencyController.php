@@ -17,6 +17,8 @@ class CurrencyController extends Controller
 
     public function store(StoreCurrencyRequest $request)
     {
+        \Log::info($request->all());
+
         $apiKey = config('services.exchange_rate.key');
         $baseCurrency = 'USD';
         $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";

@@ -17,12 +17,11 @@ class StoreCurrencyRequest extends FormRequest
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
-    {
-        return [
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:10|unique:currencies,code',
-            'iso_code' => 'required|string|max:10',
-            'rate' => 'required|numeric|min:0',
-        ];
-    }
+{
+    return [
+        'name' => 'required|string',
+        'code' => 'required|string|size:3',
+        'iso_code' => 'required|string|size:3',
+    ];
+}
 }
