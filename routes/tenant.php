@@ -10,6 +10,8 @@ use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\ProvinceController;
+use App\Http\Controllers\CurrencyController;
+
 
 
 
@@ -44,7 +46,6 @@ Route::middleware([
     Route::apiResource('cities', CityController::class);
     Route::apiResource('countries', CountryController::class);
     Route::apiResource('provinces', ProvinceController::class);
-
-
+    Route::apiResource('currencies', CurrencyController::class);
 });
 
