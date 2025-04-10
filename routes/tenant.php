@@ -37,7 +37,5 @@ Route::middleware([
         ]);
     });
 
-    
-
 });
 
