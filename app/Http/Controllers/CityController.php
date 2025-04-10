@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\City;
 use Illuminate\Http\Request;
-
+use Illuminate\Validation\Rule;
 class CityController extends Controller
 {
     public function index()
@@ -52,7 +52,7 @@ class CityController extends Controller
             'sometimes',
             'string',
             'max:255',
-            Rule::unique('cities', 'name')->ignore($name)
+            Rule::unique('cities', 'name')->ignore($city->id)
             ]
         ]);
 

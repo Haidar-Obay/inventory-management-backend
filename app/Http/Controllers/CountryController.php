@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Country;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CountryController extends Controller
 {
@@ -52,7 +53,7 @@ class CountryController extends Controller
             'sometimes',
             'string',
             'max:255',
-            Rule::unique('countries', 'name')->ignore($name)
+            Rule::unique('countries', 'name')->ignore($country->id)
             ]
         ]);
 
