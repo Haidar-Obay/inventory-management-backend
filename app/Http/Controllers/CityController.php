@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\City;
 use Illuminate\Http\Request;
-use App\Http\Requests\StoreCityRequest;
+
 class CityController extends Controller
 {
     public function index()
@@ -19,15 +19,19 @@ class CityController extends Controller
         ]);
     }
 
-    public function store(StoreCityRequest $request)
-{
-    $city = City::create($request->validated());
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'unique:cities,name|required|string|max:255',
+        ]);
 
-    return response()->json([
-        'message' => 'City created successfully',
-        'city' => $city,
-    ], 201);
-}
+        $city = City::create($validated);
+
+        return response()->json([
+            'message' => 'City created successfully',
+            'city' => $city,
+        ], 201);
+    }
 
     public function show(City $city)
     {
@@ -43,7 +47,13 @@ class CityController extends Controller
     public function update(Request $request, City $city)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 
+            [
+            'sometimes',
+            'string',
+            'max:255',
+            Rule::unique('cities', 'name')->ignore($name)
+            ]
         ]);
 
         $city->update($validated);
@@ -65,4 +75,3 @@ class CityController extends Controller
         ]);
     }
 }
-
