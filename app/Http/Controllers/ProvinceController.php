@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Province;
 use Illuminate\Http\Request;
-
+use Illuminate\Validation\Rule;
 class ProvinceController extends Controller
 {
     public function index()
@@ -52,7 +52,7 @@ class ProvinceController extends Controller
             'sometimes',
             'string',
             'max:255',
-            Rule::unique('provinces', 'name')->ignore($name)
+            Rule::unique('provinces', 'name')->ignore($province->id)
             ]
         ]);
 
