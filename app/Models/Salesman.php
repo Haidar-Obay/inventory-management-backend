@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Salesman extends Model
 {
     protected $guarded = ["id"];
-    protected $table = 'salesmens';
+    protected $table = 'salesmen';
     protected $primaryKey = 'id';
     public $timestamps = false;
 
