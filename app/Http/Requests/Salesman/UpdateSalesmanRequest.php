@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Currency;
+namespace App\Http\Requests\Salesman;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateCurrencyRequest extends FormRequest
+class UpdateSalesmanRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -20,9 +20,12 @@ class UpdateCurrencyRequest extends FormRequest
     {
         return [
             'name' => 'nullable|string|max:255',
-            'code' => 'nullable|string|max:10|unique:currencies,code,' . $this->route('currency'),
-            'iso_code' => 'nullable|string|max:10',
-            'rate' => 'nullable|numeric|min:0',
+            'address' => 'nullable|string',
+            'phone1' => 'nullable|string|max:20',
+            'phone2' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'fix_commission' => 'nullable|numeric|min:0',
+            'is_inactive' => 'nullable|boolean',
         ];
     }
 }

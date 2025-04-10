@@ -1,14 +1,11 @@
 <?php
 
-namespace App\Http\Requests\PaymentTerms;
+namespace App\Http\Requests\Tenant;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdatePaymentTermRequest extends FormRequest
+class StoreTenantRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
@@ -22,9 +19,10 @@ class UpdatePaymentTermRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'nullable|string|max:255',
-            'no_of_days' => 'nullable|integer|min:1',
-            'is_inactive' => 'nullable|boolean',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:tenants,email',
+            'domain' => 'required|string|alpha_dash|unique:domains,domain',
+            'password' => 'required|string|min:8',
         ];
     }
 }

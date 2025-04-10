@@ -1,14 +1,11 @@
 <?php
 
-namespace App\Http\Requests\CurrencyRequest;
+namespace App\Http\Requests\ReferBy;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class CreateCurrencyRequest extends FormRequest
+class StoreReferByRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
@@ -23,9 +20,11 @@ class CreateCurrencyRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:10|unique:currencies,code',
-            'iso_code' => 'required|string|max:10',
-            'rate' => 'required|numeric|min:0',
+            'address' => 'nullable|string',
+            'phone1' => 'nullable|string|max:20',
+            'phone2' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'fix_commission' => 'nullable|numeric|min:0',
         ];
     }
 }
