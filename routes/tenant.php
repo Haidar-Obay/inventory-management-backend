@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
+use App\Http\Controllers\CityController;
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -36,6 +39,7 @@ Route::middleware([
             'message' => tenant('name').' welcome to your tenant API!',
         ]);
     });
+    Route::apiResource('cities', CityController::class);
 
 });
 

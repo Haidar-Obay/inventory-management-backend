@@ -30,6 +30,8 @@ class TenantController extends Controller
 
         return response()->json(["clients" => $tenants]);
     }
+                 //------------------------------------------------//
+
     //method for creating tenant
     public function store(StoreTenantRequest $request)
     {
