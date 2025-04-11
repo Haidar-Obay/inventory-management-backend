@@ -11,11 +11,6 @@ class UpdateCustomerRequest extends FormRequest
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
@@ -32,15 +27,50 @@ class UpdateCustomerRequest extends FormRequest
             'email' => 'nullable|email|max:255',
             'website' => 'nullable|url|max:255',
             'file_number' => 'nullable|string|max:255',
-            'billing_address_id' => 'required|exists:addresses,id',
-            'shipping_address_id' => 'required|exists:addresses,id',
+
+            // Billing address fields
+            'billing_address.address_line1' => 'required|string|max:255',
+            'billing_address.address_line2' => 'nullable|string|max:255',
+            'billing_address.country_id' => 'required|exists:countries,id',
+            'billing_address.city_id' => 'required|exists:cities,id',
+            'billing_address.province_id' => 'required|exists:provinces,id',
+            'billing_address.postal_code' => 'nullable|string|max:255',
+            'billing_address.complex' => 'nullable|string|max:255',
+            'billing_address.building' => 'nullable|string|max:255',
+            'billing_address.floor' => 'nullable|string|max:255',
+            'billing_address.suite' => 'nullable|string|max:255',
+            'billing_address.unit_number' => 'nullable|string|max:255',
+
+            // Shipping address fields
+            'shipping_address.address_line1' => 'required|string|max:255',
+            'shipping_address.address_line2' => 'nullable|string|max:255',
+            'shipping_address.country_id' => 'required|exists:countries,id',
+            'shipping_address.city_id' => 'required|exists:cities,id',
+            'shipping_address.province_id' => 'required|exists:provinces,id',
+            'shipping_address.postal_code' => 'nullable|string|max:255',
+            'shipping_address.complex' => 'nullable|string|max:255',
+            'shipping_address.building' => 'nullable|string|max:255',
+            'shipping_address.floor' => 'nullable|string|max:255',
+            'shipping_address.suite' => 'nullable|string|max:255',
+            'shipping_address.unit_number' => 'nullable|string|max:255',
+
             'is_sub_customer' => 'boolean',
             'parent_customer_id' => 'nullable|exists:customers,id',
             'customer_group_id' => 'nullable|exists:customer_groups,id',
             'salesman_id' => 'nullable|exists:salesmen,id',
             'refer_by_id' => 'nullable|exists:refer_bies,id',
-            'primary_payment_method_id' => 'nullable|exists:payment_methods,id',
-            'payment_term_id' => 'nullable|exists:payment_terms,id',
+
+            // Payment method
+            'payment_method.name' => 'required_with:payment_method|string|max:255',
+            'payment_method.is_credit_card' => 'nullable|boolean',
+            'payment_method.is_online_payment' => 'nullable|boolean',
+            'payment_method.is_inactive' => 'nullable|boolean',
+
+            // Payment term
+            'payment_term.name' => 'required_with:payment_term|string|max:255',
+            'payment_term.no_of_days' => 'nullable|integer|min:0',
+            'payment_term.is_inactive' => 'nullable|boolean',
+
             'credit_limit' => 'nullable|numeric|min:0',
             'tax_rule' => 'nullable|string|max:255',
             'tax_registration' => 'nullable|string|max:255',

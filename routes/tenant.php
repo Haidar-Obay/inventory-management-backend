@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerGroupController;
+use App\Http\Controllers\ReferByController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
@@ -41,7 +44,7 @@ Route::middleware([
             'tenant_name' => tenant('name'),
             'tenant_email' => tenant('email'),
             'super_user' => User::where('role', 'super_user')->first()->name,
-            'message' => tenant('name').' welcome to your tenant API!',
+            'message' => tenant('name') . ' welcome to your tenant API!',
         ]);
     });
     Route::apiResource('cities', CityController::class);
@@ -49,5 +52,8 @@ Route::middleware([
     Route::apiResource('provinces', ProvinceController::class);
     Route::apiResource('currencies', CurrencyController::class);
     Route::apiResource('salesmen', SalesmanController::class);
+    Route::apiResource('customer-groups', CustomerGroupController::class);
+    Route::apiResource('customers', CustomerController::class);
+    Route::apiResource('refer-bies', ReferByController::class);
 });
 
