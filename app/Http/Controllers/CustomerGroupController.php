@@ -11,8 +11,6 @@ class CustomerGroupController extends Controller
 {
     public function index()
     {
-        $this->authorizeAction();
-
         $groups = CustomerGroup::withCount('customers')
             ->orderBy('name')
             ->get();
@@ -26,8 +24,6 @@ class CustomerGroupController extends Controller
 
     public function store(Request $request)
     {
-        $this->authorizeAction();
-
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:customer_groups,name',
         ]);
@@ -43,8 +39,6 @@ class CustomerGroupController extends Controller
 
     public function show(CustomerGroup $customerGroup)
     {
-        $this->authorizeAction();
-
         $customerGroup->loadCount('customers');
 
         return response()->json([
@@ -56,8 +50,6 @@ class CustomerGroupController extends Controller
 
     public function update(Request $request, CustomerGroup $customerGroup)
     {
-        $this->authorizeAction();
-
         $validated = $request->validate([
             'name' => [
                 'required',
@@ -78,8 +70,6 @@ class CustomerGroupController extends Controller
 
     public function destroy(CustomerGroup $customerGroup)
     {
-        $this->authorizeAction();
-
         $customerGroup->delete();
 
         return response()->json([
@@ -88,12 +78,4 @@ class CustomerGroupController extends Controller
         ]);
     }
 
-    private function authorizeAction()
-    {
-        $user = Auth::user();
-
-        if (!$user) {
-            abort(response()->json(['message' => 'Unauthorized'], 401));
-        }
-    }
 }

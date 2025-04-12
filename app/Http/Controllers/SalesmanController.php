@@ -12,8 +12,6 @@ class SalesmanController extends Controller
 {
     public function index()
     {
-        $this->authorizeAction();
-
         $salesmen = Salesman::withCount('customers');
 
         return response()->json([
@@ -25,8 +23,6 @@ class SalesmanController extends Controller
 
     public function show(Salesman $salesman)
     {
-        $this->authorizeAction();
-
         $salesman->loadCount('customers');
 
         return response()->json([
@@ -38,8 +34,6 @@ class SalesmanController extends Controller
 
     public function store(StoreSalesmanRequest $request)
     {
-        $this->authorizeAction();
-
         $salesman = Salesman::create($request->validated());
 
         return response()->json([
@@ -51,8 +45,6 @@ class SalesmanController extends Controller
 
     public function update(UpdateSalesmanRequest $request, Salesman $salesman)
     {
-        $this->authorizeAction();
-
         $salesman->update($request->validated());
 
         return response()->json([
@@ -64,8 +56,6 @@ class SalesmanController extends Controller
 
     public function destroy(Salesman $salesman)
     {
-        $this->authorizeAction();
-
         $salesman->delete();
 
         return response()->json([
@@ -74,12 +64,5 @@ class SalesmanController extends Controller
         ]);
     }
 
-    private function authorizeAction()
-    {
-        $user = Auth::user();
 
-        if (!$user) {
-            abort(response()->json(['message' => 'Unauthorized'], 401));
-        }
-    }
 }

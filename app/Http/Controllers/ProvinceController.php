@@ -12,11 +12,9 @@ class ProvinceController extends Controller
 {
     public function index()
     {
-        $this->authorizeAction();
-
         $provinces = Province::withCount('addresses')
             ->orderBy('name');
-            
+
         return response()->json([
             'status' => true,
             'message' => 'Provinces fetched successfully.',
@@ -26,8 +24,6 @@ class ProvinceController extends Controller
 
     public function store(Request $request)
     {
-        $this->authorizeAction();
-
         $validated = $request->validate([
             'name' => 'unique:provinces,name|required|string|max:255',
         ]);
@@ -42,8 +38,6 @@ class ProvinceController extends Controller
 
     public function show(Province $province)
     {
-        $this->authorizeAction();
-
         $province->loadCount('addresses');
 
         return response()->json([
@@ -55,8 +49,6 @@ class ProvinceController extends Controller
 
     public function update(Request $request, Province $province)
     {
-        $this->authorizeAction();
-
         $validated = $request->validate([
             'name' => [
                 'sometimes',
@@ -77,22 +69,11 @@ class ProvinceController extends Controller
 
     public function destroy(Province $province)
     {
-        $this->authorizeAction();
-
         $province->delete();
 
         return response()->json([
             'status' => true,
             'message' => 'Province deleted successfully.',
         ]);
-    }
-
-    private function authorizeAction()
-    {
-        $user = Auth::user();
-
-        if (!$user) {
-            abort(response()->json(['message' => 'Unauthorized'], 401));
-        }
     }
 }

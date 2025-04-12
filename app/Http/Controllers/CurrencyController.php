@@ -13,15 +13,11 @@ class CurrencyController extends Controller
 {
     public function index()
     {
-        $this->authorizeAction();
-
         return response()->json(Currency::all());
     }
 
     public function store(StoreCurrencyRequest $request)
     {
-        $this->authorizeAction();
-
         $apiKey = config('services.exchange_rate.key');
         $baseCurrency = 'USD';
         $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
@@ -48,8 +44,6 @@ class CurrencyController extends Controller
 
     public function show($id)
     {
-        $this->authorizeAction();
-
         $currency = Currency::findOrFail($id);
 
         $apiKey = config('services.exchange_rate.key');
@@ -66,8 +60,6 @@ class CurrencyController extends Controller
 
     public function update(UpdateCurrencyRequest $request, $id)
     {
-        $this->authorizeAction();
-
         $currency = Currency::findOrFail($id);
 
         $apiKey = config('services.exchange_rate.key');
@@ -96,20 +88,9 @@ class CurrencyController extends Controller
 
     public function destroy($id)
     {
-        $this->authorizeAction();
-
         $currency = Currency::findOrFail($id);
         $currency->delete();
 
         return response()->json(['message' => 'Currency deleted successfully.']);
-    }
-
-    private function authorizeAction()
-    {
-        $user = Auth::user();
-
-        if (!$user) {
-            abort(response()->json(['message' => 'Unauthorized'], 401));
-        }
     }
 }

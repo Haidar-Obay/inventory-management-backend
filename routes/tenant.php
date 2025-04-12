@@ -46,23 +46,18 @@ Route::middleware([
             'message' => tenant('name') . ' welcome to your tenant API!',
         ]);
     });
-    Route::post('/login', [AuthController::class,'login']);
-
-    Route::apiResource('countries', CountryController::class);
-    Route::apiResource('provinces', ProvinceController::class);
-    Route::apiResource('currencies', CurrencyController::class);
-    Route::apiResource('salesmen', SalesmanController::class);
-    Route::apiResource('customer-groups', CustomerGroupController::class);
-    Route::apiResource('customers', CustomerController::class);
-    Route::apiResource('refer-bies', ReferByController::class);
-
+    Route::post('/login', [AuthController::class, 'login']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/register', [UserManagementController::class, 'registerUser']);
         Route::apiResource('cities', CityController::class);
-        Route::post('/logout',  [AuthController::class,'logout']);
+        Route::post('/logout',  [AuthController::class, 'logout']);
+        Route::apiResource('countries', CountryController::class);
+        Route::apiResource('provinces', ProvinceController::class);
+        Route::apiResource('currencies', CurrencyController::class);
+        Route::apiResource('salesmen', SalesmanController::class);
+        Route::apiResource('customer-groups', CustomerGroupController::class);
+        Route::apiResource('customers', CustomerController::class);
+        Route::apiResource('refer-bies', ReferByController::class);
     });
-
-
 });
-
