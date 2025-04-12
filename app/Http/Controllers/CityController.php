@@ -6,6 +6,8 @@ use App\Models\City;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Export;
 
 class CityController extends Controller
 {
@@ -76,5 +78,18 @@ class CityController extends Controller
             'status' => true,
             'message' => 'City deleted successfully.',
         ]);
+    }
+    public function export()
+    {
+        $cities = City::withCount('addresses')
+            ->orderBy('name');
+        $collection =  $cities->get();
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No currencies found.'], 404);
+        }
+        $columns = ['id', 'name'];
+        $headings = ['ID', 'Name'];
+
+        return Excel::download(new Export($cities, $columns, $headings), 'cities.xlsx');
     }
 }

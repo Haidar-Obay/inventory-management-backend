@@ -8,6 +8,8 @@ use App\Models\Tenant;
 use Stancl\Tenancy\Facades\Tenancy;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Export;
 
 class TenantController extends Controller
 {
@@ -148,4 +150,42 @@ class TenantController extends Controller
             ], 500);
         }
     }
+    public function export()
+    {
+        $query = Tenant::query()
+        ->leftJoin('domains', 'tenants.id', '=', 'domains.tenant_id')
+        ->select([
+            'tenants.id as id',
+            'tenants.name as name',
+            'tenants.email as email',
+            'domains.domain as domain',
+            'tenants.created_at as created_at',
+            'tenants.updated_at as updated_at',
+        ]);
+
+        if (!$query->exists()) {
+            return response()->json(['message' => 'No Tenant found.'], 404);
+        }
+
+        $columns = [
+            'id',
+            'name',
+            'email',
+            'domain',
+            'created_at',
+            'updated_at',
+        ];
+
+        $headings = [
+            'ID',
+            'Name',
+            'Email',
+            'Domain',
+            'Created At',
+            'Updated At',
+        ];
+
+        return Excel::download(new \App\Exports\Export($query, $columns, $headings), 'Tenant.xlsx');
+    }
+
 }

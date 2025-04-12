@@ -6,6 +6,8 @@ use App\Models\Country;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Export;
 
 class CountryController extends Controller
 {
@@ -76,5 +78,16 @@ class CountryController extends Controller
             'status' => true,
             'message' => 'Country deleted successfully.',
         ]);
+    }
+    public function export()
+    {
+        $countries = Country::query();
+        $collection =  $countries->get();
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No currencies found.'], 404);
+        }
+        $columns = ['id', 'name'];
+        $headings = ['ID', 'Name'];
+        return Excel::download(new Export($countries, $columns, $headings), 'countries.xlsx');
     }
 }

@@ -14,6 +14,8 @@ use App\Http\Requests\Customer\{
     UpdateCustomerRequest
 };
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Export;
 
 class CustomerController extends Controller
 {
@@ -140,6 +142,54 @@ class CustomerController extends Controller
             'status' => true,
             'message' => 'Customer deleted successfully.',
         ]);
+    }
+    public function export()
+    {
+        $customers = Customer::with([
+            'customerGroup',
+            'salesman',
+            'referBy',
+            'paymentTerm',
+            'primaryPaymentMethod',
+            'openingCurrency',
+            'billingAddress',
+            'shippingAddress',
+            'parentCustomer',
+            'subCustomers',
+        ])->select('id', 'first_name','last_name');
+        $collection =  $customers->get();
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No customers found.'], 404);
+        }
+        $columns = [
+            'id',
+            'first_name',
+            'last_name',
+            'customer_group_id',
+            'salesman_id',
+            'refer_by_id',
+            'payment_term_id',
+            'primary_payment_method_id',
+            'opening_currency_id',
+            'billing_address_id',
+            'shipping_address_id',
+            'parent_customer_id'
+        ];
+        $headings = [
+            'ID',
+            'First_name',
+            'Last_name',
+            'Customer Group ID',
+            'Salesman ID',
+            'Refer By ID',
+            'Payment Term ID',
+            'Primary Payment Method ID',
+            'Opening Currency ID',
+            'Billing Address ID',
+            'Shipping Address ID',
+            'Parent Customer ID'
+        ];
+        return Excel::download(new Export($customers, $columns, $headings), 'customers.xlsx');
     }
 }
 

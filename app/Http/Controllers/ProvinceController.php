@@ -7,6 +7,8 @@ use App\Models\Province;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Export;
 
 class ProvinceController extends Controller
 {
@@ -76,5 +78,16 @@ class ProvinceController extends Controller
             'status' => true,
             'message' => 'Province deleted successfully.',
         ]);
+    }
+    public function export()
+    {
+        $Province = Province::query();
+        $collection =  $Province->get();
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No Province found.'], 404);
+        }
+        $columns = ['id', 'name'];
+        $headings = ['ID', 'Name'];
+        return Excel::download(new Export($Province, $columns, $headings), 'provinces.xlsx');
     }
 }

@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\Models\Currency;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Export;
 
 class CurrencyController extends Controller
 {
@@ -93,4 +95,15 @@ class CurrencyController extends Controller
 
         return response()->json(['message' => 'Currency deleted successfully.']);
     }
+    public function export()
+    {
+        $currencies = Currency::query();
+        $collection =  $currencies->get();
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No currencies found.'], 404);
+        }
+        $columns = ['id', 'name', 'code', 'iso_code', 'rate'];
+        $headings = ['ID', 'Name', 'Code', 'ISO Code', 'Rate'];
+       return Excel::download(new Export($currencies, $columns, $headings), 'currencies.xlsx');
+}
 }
