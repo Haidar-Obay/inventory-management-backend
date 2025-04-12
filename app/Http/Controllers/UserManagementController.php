@@ -13,7 +13,7 @@ class UserManagementController extends Controller
         $authUser = auth()->user();
 
         if ($authUser->role !== 'admin') {
-            return response()->json(['message' => 'Only super users can create new users'], 403);
+            return response()->json(['message' => 'Only admins can create new users'], 403);
         }
 
         $validated = $request->validate([

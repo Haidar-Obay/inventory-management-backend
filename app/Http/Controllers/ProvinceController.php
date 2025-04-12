@@ -13,7 +13,8 @@ class ProvinceController extends Controller
     public function index()
     {
         $provinces = Province::withCount('addresses')
-            ->orderBy('name');
+            ->orderBy('name')
+            ->get();
 
         return response()->json([
             'status' => true,

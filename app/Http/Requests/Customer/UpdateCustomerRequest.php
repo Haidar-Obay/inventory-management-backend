@@ -28,7 +28,7 @@ class UpdateCustomerRequest extends FormRequest
             'website' => 'nullable|url|max:255',
             'file_number' => 'nullable|string|max:255',
 
-            // Billing address fields
+            // Billing address
             'billing_address.address_line1' => 'required|string|max:255',
             'billing_address.address_line2' => 'nullable|string|max:255',
             'billing_address.country_id' => 'required|exists:countries,id',
@@ -41,7 +41,7 @@ class UpdateCustomerRequest extends FormRequest
             'billing_address.suite' => 'nullable|string|max:255',
             'billing_address.unit_number' => 'nullable|string|max:255',
 
-            // Shipping address fields
+            // Shipping address
             'shipping_address.address_line1' => 'required|string|max:255',
             'shipping_address.address_line2' => 'nullable|string|max:255',
             'shipping_address.country_id' => 'required|exists:countries,id',
@@ -60,13 +60,10 @@ class UpdateCustomerRequest extends FormRequest
             'salesman_id' => 'nullable|exists:salesmen,id',
             'refer_by_id' => 'nullable|exists:refer_bies,id',
 
-            // Payment method
-            'payment_method.name' => 'required_with:payment_method|string|max:255',
-            'payment_method.is_credit_card' => 'nullable|boolean',
-            'payment_method.is_online_payment' => 'nullable|boolean',
-            'payment_method.is_inactive' => 'nullable|boolean',
+            // Reference existing payment method only
+            'primary_payment_method_id' => 'nullable|exists:payment_methods,id',
 
-            // Payment term
+            // Allow inline creation for payment term
             'payment_term.name' => 'required_with:payment_term|string|max:255',
             'payment_term.no_of_days' => 'nullable|integer|min:0',
             'payment_term.is_inactive' => 'nullable|boolean',

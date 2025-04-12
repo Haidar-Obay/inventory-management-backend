@@ -49,9 +49,8 @@ class CustomerController extends Controller
         $validated['billing_address_id'] = $billingAddress->id;
         $validated['shipping_address_id'] = $shippingAddress->id;
 
-        if ($request->filled('payment_method')) {
-            $paymentMethod = PaymentMethod::create($request->input('payment_method'));
-            $validated['primary_payment_method_id'] = $paymentMethod->id;
+        if ($request->filled('primary_payment_method_id')) {
+            $validated['primary_payment_method_id'] = $request->input('primary_payment_method_id');
         }
 
         if ($request->filled('payment_term')) {
@@ -106,13 +105,8 @@ class CustomerController extends Controller
             $customer->shippingAddress()->update($request->input('shipping_address'));
         }
 
-        if ($request->filled('payment_method')) {
-            if ($customer->primaryPaymentMethod) {
-                $customer->primaryPaymentMethod()->update($request->input('payment_method'));
-            } else {
-                $paymentMethod = PaymentMethod::create($request->input('payment_method'));
-                $validated['primary_payment_method_id'] = $paymentMethod->id;
-            }
+        if ($request->filled('primary_payment_method_id')) {
+            $validated['primary_payment_method_id'] = $request->input('primary_payment_method_id');
         }
 
         if ($request->filled('payment_term')) {

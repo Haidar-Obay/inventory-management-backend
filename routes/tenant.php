@@ -10,7 +10,6 @@ use App\Http\Controllers\ReferByController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
-use Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\CountryController;
@@ -60,8 +59,8 @@ Route::middleware([
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/register', [UserManagementController::class, 'registerUser']);
-        Route::apiResource('cities', CityController::class);
         Route::post('/logout',  [AuthController::class,'logout']);
+        Route::apiResource('cities', CityController::class);
         Route::apiResource('countries', CountryController::class);
         Route::apiResource('provinces', ProvinceController::class);
         Route::apiResource('currencies', CurrencyController::class);

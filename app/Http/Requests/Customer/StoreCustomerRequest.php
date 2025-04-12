@@ -60,11 +60,8 @@ class StoreCustomerRequest extends FormRequest
             'salesman_id' => 'nullable|exists:salesmen,id',
             'refer_by_id' => 'nullable|exists:refer_bies,id',
 
-            // Payment Method
-            'payment_method.name' => 'required_with:payment_method|string|max:255',
-            'payment_method.is_credit_card' => 'nullable|boolean',
-            'payment_method.is_online_payment' => 'nullable|boolean',
-            'payment_method.is_inactive' => 'nullable|boolean',
+            // Foreign key reference only
+            'primary_payment_method_id' => 'nullable|exists:payment_methods,id',
 
             // Payment Term
             'payment_term.name' => 'required_with:payment_term|string|max:255',
