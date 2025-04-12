@@ -19,8 +19,6 @@ class CustomerController extends Controller
 {
     public function index()
     {
-        $this->authorizeAction();
-
         $customers = Customer::with([
             'customerGroup',
             'salesman',
@@ -43,8 +41,6 @@ class CustomerController extends Controller
 
     public function store(StoreCustomerRequest $request)
     {
-        $this->authorizeAction();
-
         $validated = $request->validated();
 
         $billingAddress = Address::create($request->input('billing_address'));
@@ -78,8 +74,6 @@ class CustomerController extends Controller
 
     public function show(Customer $customer)
     {
-        $this->authorizeAction();
-
         $customer->load([
             'customerGroup',
             'salesman',
@@ -102,8 +96,6 @@ class CustomerController extends Controller
 
     public function update(UpdateCustomerRequest $request, Customer $customer)
     {
-        $this->authorizeAction();
-
         $validated = $request->validated();
 
         if ($request->filled('billing_address')) {
@@ -148,8 +140,6 @@ class CustomerController extends Controller
 
     public function destroy(Customer $customer)
     {
-        $this->authorizeAction();
-
         $customer->delete();
 
         return response()->json([
@@ -157,15 +147,5 @@ class CustomerController extends Controller
             'message' => 'Customer deleted successfully.',
         ]);
     }
-    
-    private function authorizeAction()
-    {
-        $user = Auth::user();
-
-        if (!$user) {
-            abort(response()->json(['message' => 'Unauthorized'], 401));
-        }
-    }
-
 }
 

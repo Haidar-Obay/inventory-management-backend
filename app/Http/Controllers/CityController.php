@@ -24,8 +24,6 @@ class CityController extends Controller
 
     public function store(Request $request)
     {
-        $this->authorizeAction();
-
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:cities,name',
         ]);
@@ -52,8 +50,6 @@ class CityController extends Controller
 
     public function update(Request $request, City $city)
     {
-        $this->authorizeAction();
-
         $validated = $request->validate([
             'name' => [
                 'sometimes',
@@ -74,22 +70,11 @@ class CityController extends Controller
 
     public function destroy(City $city)
     {
-        $this->authorizeAction();
-
         $city->delete();
 
         return response()->json([
             'status' => true,
             'message' => 'City deleted successfully.',
         ]);
-    }
-
-    private function authorizeAction()
-    {
-        $user = Auth::user();
-
-        if (!$user) {
-            abort(response()->json(['message' => 'Unauthorized'], 401));
-        }
     }
 }

@@ -47,7 +47,7 @@ Route::middleware([
             'message' => tenant('name') . ' welcome to your tenant API!',
         ]);
     });
-    Route::post('/login', [AuthController::class,'login']);
+    Route::post('/login', [AuthController::class, 'login']);
 
     Route::apiResource('countries', CountryController::class);
     Route::apiResource('provinces', ProvinceController::class);
@@ -62,7 +62,6 @@ Route::middleware([
         Route::post('/register', [UserManagementController::class, 'registerUser']);
         Route::apiResource('cities', CityController::class);
         Route::post('/logout',  [AuthController::class,'logout']);
-        Route::apiResource('payment-methods', PaymentMethodController::class);
     });
 
 

@@ -11,8 +11,6 @@ class CountryController extends Controller
 {
     public function index()
     {
-        $this->authorizeAction();
-
         $countries = Country::withCount('addresses')
             ->orderBy('name')
             ->get();
@@ -26,8 +24,6 @@ class CountryController extends Controller
 
     public function store(Request $request)
     {
-        $this->authorizeAction();
-
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:countries,name',
         ]);
@@ -43,9 +39,7 @@ class CountryController extends Controller
 
     public function show(Country $country)
     {
-        $this->authorizeAction();
-
-        $country->loadCount('addresses');
+      $country->loadCount('addresses');
 
         return response()->json([
             'status' => true,
@@ -56,8 +50,6 @@ class CountryController extends Controller
 
     public function update(Request $request, Country $country)
     {
-        $this->authorizeAction();
-
         $validated = $request->validate([
             'name' => [
                 'sometimes',
@@ -78,22 +70,11 @@ class CountryController extends Controller
 
     public function destroy(Country $country)
     {
-        $this->authorizeAction();
-
         $country->delete();
 
         return response()->json([
             'status' => true,
             'message' => 'Country deleted successfully.',
         ]);
-    }
-
-    private function authorizeAction()
-    {
-        $user = Auth::user();
-
-        if (!$user) {
-            abort(response()->json(['message' => 'Unauthorized'], 401));
-        }
     }
 }
