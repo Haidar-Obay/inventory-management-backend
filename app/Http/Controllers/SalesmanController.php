@@ -12,7 +12,7 @@ class SalesmanController extends Controller
 {
     public function index()
     {
-        $salesmen = Salesman::withCount('customers');
+        $salesmen = Salesman::withCount('customers')->get();
 
         return response()->json([
             'status' => true,
