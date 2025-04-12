@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerGroupController;
 use App\Http\Controllers\ReferByController;
@@ -15,9 +16,7 @@ use App\Http\Controllers\CountryController;
 use App\Http\Controllers\ProvinceController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\SalesmanController;
-
-
-
+use App\Http\Controllers\UserManagementController;
 
 /*
 |--------------------------------------------------------------------------
@@ -43,7 +42,7 @@ Route::middleware([
             'tenant_domain' => tenant('domains')->first()->domain,
             'tenant_name' => tenant('name'),
             'tenant_email' => tenant('email'),
-            'super_user' => User::where('role', 'super_user')->first()->name,
+            'role' => User::where('role', 'admin')->first()->name,
             'message' => tenant('name') . ' welcome to your tenant API!',
         ]);
     });
@@ -55,5 +54,13 @@ Route::middleware([
     Route::apiResource('customer-groups', CustomerGroupController::class);
     Route::apiResource('customers', CustomerController::class);
     Route::apiResource('refer-bies', ReferByController::class);
+
+    Route::post('/login', [AuthController::class,'login']);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/register', [UserManagementController::class, 'registerUser']);
+        Route::post('/logout',  [AuthController::class,'logout']);
+    });
+
+
 });
 
