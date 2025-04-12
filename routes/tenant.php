@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\CustomerGroupController;
+use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\ReferByController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -61,6 +62,7 @@ Route::middleware([
         Route::post('/register', [UserManagementController::class, 'registerUser']);
         Route::apiResource('cities', CityController::class);
         Route::post('/logout',  [AuthController::class,'logout']);
+        Route::apiResource('payment-methods', PaymentMethodController::class);
     });
 
 
