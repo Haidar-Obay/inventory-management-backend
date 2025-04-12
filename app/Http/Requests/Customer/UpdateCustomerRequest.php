@@ -72,7 +72,7 @@ class UpdateCustomerRequest extends FormRequest
             'payment_term.is_inactive' => 'nullable|boolean',
 
             'credit_limit' => 'nullable|numeric|min:0',
-            'tax_rule' => 'nullable|string|max:255',
+            'taxable' => 'nullable|boolean',
             'tax_registration' => 'nullable|string|max:255',
             'opening_currency_id' => 'nullable|exists:currencies,id',
             'opening_balance' => 'nullable|numeric',

@@ -6,7 +6,8 @@ use App\Models\{
     Customer,
     Address,
     PaymentMethod,
-    PaymentTerm
+    PaymentTerm,
+    ReferBy
 };
 use App\Http\Requests\Customer\{
     StoreCustomerRequest,
@@ -63,7 +64,10 @@ class CustomerController extends Controller
         return response()->json([
             'message' => 'Customer created successfully',
             'data' => $customer->load([
-                'billingAddress', 'shippingAddress', 'primaryPaymentMethod', 'paymentTerm'
+                'billingAddress',
+                'shippingAddress',
+                'primaryPaymentMethod',
+                'paymentTerm'
             ]),
         ], 201);
     }
@@ -127,7 +131,10 @@ class CustomerController extends Controller
             'status' => true,
             'message' => 'Customer updated successfully.',
             'data' => $customer->load([
-                'billingAddress', 'shippingAddress', 'primaryPaymentMethod', 'paymentTerm'
+                'billingAddress',
+                'shippingAddress',
+                'primaryPaymentMethod',
+                'paymentTerm'
             ]),
         ]);
     }
