@@ -6,7 +6,8 @@ use App\Models\{
     Customer,
     Address,
     PaymentMethod,
-    PaymentTerm
+    PaymentTerm,
+    ReferBy
 };
 use App\Http\Requests\Customer\{
     StoreCustomerRequest,
@@ -58,12 +59,20 @@ class CustomerController extends Controller
             $validated['payment_term_id'] = $paymentTerm->id;
         }
 
+        if ($request->filled('refer_by')) {
+            $referBy = ReferBy::create($request->input('refer_by'));
+            $validated['refer_by_id'] = $referBy->id;
+        }
+
         $customer = Customer::create($validated);
 
         return response()->json([
             'message' => 'Customer created successfully',
             'data' => $customer->load([
-                'billingAddress', 'shippingAddress', 'primaryPaymentMethod', 'paymentTerm'
+                'billingAddress',
+                'shippingAddress',
+                'primaryPaymentMethod',
+                'paymentTerm'
             ]),
         ], 201);
     }
@@ -121,13 +130,25 @@ class CustomerController extends Controller
             }
         }
 
+        if ($request->filled('refer_by')) {
+            if ($customer->referBy) {
+                $customer->referBy()->update($request->input('refer_by'));
+            } else {
+                $referBy = ReferBy::create($request->input('refer_by'));
+                $validated['refer_by_id'] = $referBy->id;
+            }
+        }
+
         $customer->update($validated);
 
         return response()->json([
             'status' => true,
             'message' => 'Customer updated successfully.',
             'data' => $customer->load([
-                'billingAddress', 'shippingAddress', 'primaryPaymentMethod', 'paymentTerm'
+                'billingAddress',
+                'shippingAddress',
+                'primaryPaymentMethod',
+                'paymentTerm'
             ]),
         ]);
     }

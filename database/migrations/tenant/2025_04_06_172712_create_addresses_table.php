@@ -21,7 +21,7 @@ return new class extends Migration {
             $table->string('complex')->nullable();
             $table->string('building')->nullable();
             $table->string('floor')->nullable();
-            $table->string('suite')->nullable();
+            $table->string('side')->nullable();
             $table->string('unit_number')->nullable();
             $table->timestamps();
         });

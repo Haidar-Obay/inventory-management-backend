@@ -32,7 +32,7 @@ return new class extends Migration {
             $table->foreignId('primary_payment_method_id')->nullable()->constrained('payment_methods');
             $table->foreignId('payment_term_id')->nullable()->constrained('payment_terms');
             $table->decimal('credit_limit', 15, 2)->nullable();
-            $table->string('tax_rule')->nullable();
+            $table->boolean('taxable')->nullable();
             $table->string('tax_registration')->nullable();
             $table->foreignId('opening_currency_id')->nullable()->constrained('currencies');
             $table->decimal('opening_balance', 15, 2)->nullable();

@@ -58,7 +58,14 @@ class StoreCustomerRequest extends FormRequest
             'parent_customer_id' => 'nullable|exists:customers,id',
             'customer_group_id' => 'nullable|exists:customer_groups,id',
             'salesman_id' => 'nullable|exists:salesmen,id',
-            'refer_by_id' => 'nullable|exists:refer_bies,id',
+            
+            // Refer By
+            'refer_by.name' => 'required_with:refer_by|string|max:255',
+            'refer_by.address' => 'nullable|string',
+            'refer_by.phone1' => 'nullable|string|max:20',
+            'refer_by.phone2' => 'nullable|string|max:20',
+            'refer_by.email' => 'nullable|email|max:255',
+            'refer_by.fix_commission' => 'nullable|numeric|min:0',
 
             // Payment Method
             'payment_method.name' => 'required_with:payment_method|string|max:255',
@@ -72,7 +79,7 @@ class StoreCustomerRequest extends FormRequest
             'payment_term.is_inactive' => 'nullable|boolean',
 
             'credit_limit' => 'nullable|numeric|min:0',
-            'tax_rule' => 'nullable|string|max:255',
+            'taxable' => 'nullable|boolean',
             'tax_registration' => 'nullable|string|max:255',
             'opening_currency_id' => 'nullable|exists:currencies,id',
             'opening_balance' => 'nullable|numeric',
