@@ -71,7 +71,6 @@ Route::middleware([
         Route::apiResource('refer-bies', ReferByController::class);
         Route::apiResource('payment-methods', PaymentMethodController::class);
     });
-
-
 });
+
 
