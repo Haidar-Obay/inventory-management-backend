@@ -79,7 +79,7 @@ class CountryController extends Controller
             'message' => 'Country deleted successfully.',
         ]);
     }
-    public function export()
+    public function exportExcell()
     {
         $countries = Country::query();
         $collection =  $countries->get();

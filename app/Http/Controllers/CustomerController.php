@@ -145,7 +145,7 @@ class CustomerController extends Controller
             'message' => 'Customer deleted successfully.',
         ]);
     }
-    public function export()
+    public function exportExcell()
     {
         $customers = Customer::with([
             'customerGroup',

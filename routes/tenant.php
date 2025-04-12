@@ -69,29 +69,29 @@ Route::middleware([
         Route::apiResource('refer-bies', ReferByController::class);
 
         // Export to Excel Routes
-        Route::prefix('export')->group(function () {
-            Route::get('customers', [CustomerController::class, 'export']);
-            Route::get('cities', [CityController::class, 'export']);
-            Route::get('countries', [CountryController::class, 'export']);
-            Route::get('provinces', [ProvinceController::class, 'export']);
-            Route::get('currencies', [CurrencyController::class, 'export']);
-            Route::get('customer-groups', [CustomerGroupController::class, 'export']);
-            Route::get('payment-methods', [PaymentMethodController::class, 'export']);
-            Route::get('salesmen', [SalesmanController::class, 'export']);
-            Route::get('refer-bies', [ReferByController::class, 'export']);
+        Route::prefix('exportExcell')->group(function () {
+            Route::get('customers', [CustomerController::class, 'exportExcell']);
+            Route::get('cities', [CityController::class, 'exportExcell']);
+            Route::get('countries', [CountryController::class, 'exportExcell']);
+            Route::get('provinces', [ProvinceController::class, 'exportExcell']);
+            Route::get('currencies', [CurrencyController::class, 'exportExcell']);
+            Route::get('customer-groups', [CustomerGroupController::class, 'exportExcell']);
+            Route::get('payment-methods', [PaymentMethodController::class, 'exportExcell']);
+            Route::get('salesmen', [SalesmanController::class, 'exportExcell']);
+            Route::get('refer-bies', [ReferByController::class, 'exportExcell']);
         });
 
         // Export to PDF Routes
-        Route::prefix('export')->group(function () {
-            Route::get('/customers/export-pdf', [CustomerController::class, 'exportPdf']);
-            Route::get('/cities/export-pdf', [CityController::class, 'exportPdf']);
-            Route::get('/countries/export-pdf', [CountryController::class, 'exportPdf']);
-            Route::get('/provinces/export-pdf', [ProvinceController::class, 'exportPdf']);
-            Route::get('/currencies/export-pdf', [CurrencyController::class, 'exportPdf']);
-            Route::get('/customer-groups/export-pdf', [CustomerGroupController::class, 'exportPdf']);
-            Route::get('/payment-methods/export-pdf', [CustomerGroupController::class, 'exportPdf']);
-            Route::get('/salesmen/export-pdf', [SalesmanController::class, 'exportPdf']);
-            Route::get('/refer-bies/export-pdf', [ReferByController::class, 'exportPdf']);
+        Route::prefix('exportPdf')->group(function () {
+            Route::get('/customers', [CustomerController::class, 'exportPdf']);
+            Route::get('/cities', [CityController::class, 'exportPdf']);
+            Route::get('/countries', [CountryController::class, 'exportPdf']);
+            Route::get('/provinces', [ProvinceController::class, 'exportPdf']);
+            Route::get('/currencies', [CurrencyController::class, 'exportPdf']);
+            Route::get('/customer-groups', [CustomerGroupController::class, 'exportPdf']);
+            Route::get('/payment-methods', [CustomerGroupController::class, 'exportPdf']);
+            Route::get('/salesmen', [SalesmanController::class, 'exportPdf']);
+            Route::get('/refer-bies', [ReferByController::class, 'exportPdf']);
         });
     });
 });

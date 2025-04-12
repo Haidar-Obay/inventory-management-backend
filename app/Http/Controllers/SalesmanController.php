@@ -63,7 +63,7 @@ class SalesmanController extends Controller
             'message' => 'Salesman deleted successfully.',
         ]);
     }
-    public function export()
+    public function exportExcell()
     {
         $salesmenQuery = Salesman::query();
 

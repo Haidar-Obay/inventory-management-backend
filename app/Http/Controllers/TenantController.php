@@ -150,7 +150,7 @@ class TenantController extends Controller
             ], 500);
         }
     }
-    public function export()
+    public function exportExcell()
     {
         $query = Tenant::query()
         ->leftJoin('domains', 'tenants.id', '=', 'domains.tenant_id')

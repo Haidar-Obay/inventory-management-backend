@@ -80,7 +80,7 @@ class CityController extends Controller
             'message' => 'City deleted successfully.',
         ]);
     }
-    public function export()
+    public function exportExcell()
     {
         $cities = City::withCount('addresses')
             ->orderBy('name');

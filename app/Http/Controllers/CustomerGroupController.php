@@ -80,7 +80,7 @@ class CustomerGroupController extends Controller
             'message' => 'Customer group deleted successfully.',
         ]);
     }
-    public function export()
+    public function exportExcell()
     {
         $CustomerGroup = CustomerGroup::query();
         $collection =  $CustomerGroup->get();

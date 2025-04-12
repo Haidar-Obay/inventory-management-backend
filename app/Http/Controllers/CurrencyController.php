@@ -95,7 +95,7 @@ class CurrencyController extends Controller
 
         return response()->json(['message' => 'Currency deleted successfully.']);
     }
-    public function export()
+    public function exportExcell()
     {
         $currencies = Currency::query();
         $collection = $currencies->get();

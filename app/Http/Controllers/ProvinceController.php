@@ -79,7 +79,7 @@ class ProvinceController extends Controller
             'message' => 'Province deleted successfully.',
         ]);
     }
-    public function export()
+    public function exportExcell()
     {
         $Province = Province::query();
         $collection =  $Province->get();

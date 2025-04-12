@@ -62,7 +62,7 @@ class ReferByController extends Controller
             'message' => 'Refer By deleted successfully.',
         ]);
     }
-    public function export()
+    public function exportExcell()
     {
         $ReferBy = ReferBy::query();
         $collection =  $ReferBy->get();

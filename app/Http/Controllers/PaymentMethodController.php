@@ -81,7 +81,7 @@ class PaymentMethodController extends Controller
             'message' => 'Payment method deleted successfully.',
         ]);
     }
-    public function export()
+    public function exportExcell()
     {
         $paymentMethod = PaymentMethod::query();
         $collection = $paymentMethod->get();

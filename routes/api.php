@@ -24,7 +24,7 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::get('/all', [TenantController::class, 'getAllTenants']);
             Route::get('/{id}', [TenantController::class, 'getTenant']);
             Route::put('/{id}', [TenantController::class, 'updateTenant']);
-            Route::get('/export/excell', [TenantController::class, 'export']);
+            Route::get('/export/excell', [TenantController::class, 'exportExcell']);
         });
     });
 }
