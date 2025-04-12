@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
-
+use App\Exports\ExportPDF;
 class ProvinceController extends Controller
 {
     public function index()
@@ -89,5 +89,27 @@ class ProvinceController extends Controller
         $columns = ['id', 'name'];
         $headings = ['ID', 'Name'];
         return Excel::download(new Export($Province, $columns, $headings), 'provinces.xlsx');
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $provinces = Province::select(
+            'id',
+            'name'
+        )->get();
+
+        if ($provinces->isEmpty()) {
+            return response()->json(['message' => 'No provinces found.'], 404);
+        }
+
+        $title = 'Province Report';
+        $headers = [
+            'id' => 'Province ID',
+            'name' => 'Province Name'
+        ];
+        $data = $provinces->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('Provinces.pdf');
     }
 }

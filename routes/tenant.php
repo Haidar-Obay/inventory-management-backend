@@ -38,12 +38,12 @@ Route::middleware([
 
     Route::get('/', function () {
         return response()->json([
-            'tenant_id'      => tenant('id'),
-            'tenant_domain'  => tenant('domains')->first()->domain,
-            'tenant_name'    => tenant('name'),
-            'tenant_email'   => tenant('email'),
-            'role'           => User::where('role', 'admin')->first()->name ?? 'N/A',
-            'message'        => tenant('name') . ' welcome to your tenant API!',
+            'tenant_id' => tenant('id'),
+            'tenant_domain' => tenant('domains')->first()->domain,
+            'tenant_name' => tenant('name'),
+            'tenant_email' => tenant('email'),
+            'role' => User::where('role', 'admin')->first()->name ?? 'N/A',
+            'message' => tenant('name') . ' welcome to your tenant API!',
         ]);
     });
 
@@ -55,8 +55,8 @@ Route::middleware([
 
         // Auth & User Management
         Route::post('/register', [UserManagementController::class, 'registerUser']);
-        Route::post('/logout',  [AuthController::class,'logout']);
-        
+        Route::post('/logout', [AuthController::class, 'logout']);
+
         // Resource APIs
         Route::apiResource('cities', CityController::class);
         Route::apiResource('countries', CountryController::class);
@@ -70,15 +70,28 @@ Route::middleware([
 
         // Export to Excel Routes
         Route::prefix('export')->group(function () {
+            Route::get('customers', [CustomerController::class, 'export']);
             Route::get('cities', [CityController::class, 'export']);
             Route::get('countries', [CountryController::class, 'export']);
-            Route::get('currencies', [CurrencyController::class, 'export']);
-            Route::get('customers', [CustomerController::class, 'export']);
-            Route::get('customer-groups', [CustomerGroupController::class, 'export']);
             Route::get('provinces', [ProvinceController::class, 'export']);
+            Route::get('currencies', [CurrencyController::class, 'export']);
+            Route::get('customer-groups', [CustomerGroupController::class, 'export']);
             Route::get('payment-methods', [PaymentMethodController::class, 'export']);
             Route::get('salesmen', [SalesmanController::class, 'export']);
             Route::get('refer-bies', [ReferByController::class, 'export']);
+        });
+
+        // Export to PDF Routes
+        Route::prefix('export')->group(function () {
+            Route::get('/customers/export-pdf', [CustomerController::class, 'exportPdf']);
+            Route::get('/cities/export-pdf', [CityController::class, 'exportPdf']);
+            Route::get('/countries/export-pdf', [CountryController::class, 'exportPdf']);
+            Route::get('/provinces/export-pdf', [ProvinceController::class, 'exportPdf']);
+            Route::get('/currencies/export-pdf', [CurrencyController::class, 'exportPdf']);
+            Route::get('/customer-groups/export-pdf', [CustomerGroupController::class, 'exportPdf']);
+            Route::get('/payment-methods/export-pdf', [CustomerGroupController::class, 'exportPdf']);
+            Route::get('/salesmen/export-pdf', [SalesmanController::class, 'exportPdf']);
+            Route::get('/refer-bies/export-pdf', [ReferByController::class, 'exportPdf']);
         });
     });
 });

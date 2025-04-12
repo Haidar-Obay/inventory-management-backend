@@ -8,6 +8,7 @@ use App\Http\Requests\ReferBy\UpdateReferByRequest;
 use Illuminate\Http\JsonResponse;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
+use App\Exports\ExportPDF;
 
 class ReferByController extends Controller
 {
@@ -72,5 +73,26 @@ class ReferByController extends Controller
         $headings = ['ID', 'Name'];
 
         return Excel::download(new Export($ReferBy, $columns, $headings), 'ReferBy.xlsx');
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $referBies = ReferBy::select(
+            'id', 'name'
+        )->get();
+
+        if ($referBies->isEmpty()) {
+            return response()->json(['message' => 'No refer bies found.'], 404);
+        }
+
+        $title = 'Refer By Group Report';
+        $headers = [
+            'id' => 'Refer By ID',
+            'name' => 'Refer By Name'
+        ];
+        $data = $referBies->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('ReferByReport.pdf');
     }
 }

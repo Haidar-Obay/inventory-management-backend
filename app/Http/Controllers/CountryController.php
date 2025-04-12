@@ -8,7 +8,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
-
+use App\Exports\ExportPDF;
 class CountryController extends Controller
 {
     public function index()
@@ -89,5 +89,27 @@ class CountryController extends Controller
         $columns = ['id', 'name'];
         $headings = ['ID', 'Name'];
         return Excel::download(new Export($countries, $columns, $headings), 'countries.xlsx');
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $countries = Country::select(
+            'id',
+            'name'
+        )->get();
+
+        if ($countries->isEmpty()) {
+            return response()->json(['message' => 'No countries found.'], 404);
+        }
+
+        $title = 'Country Report';
+        $headers = [
+            'id' => 'Country ID',
+            'name' => 'Country Name'
+        ];
+        $data = $countries->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('Countries.pdf');
     }
 }

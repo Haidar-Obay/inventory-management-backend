@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
+use App\Exports\ExportPDF;
 
 class CityController extends Controller
 {
@@ -83,7 +84,7 @@ class CityController extends Controller
     {
         $cities = City::withCount('addresses')
             ->orderBy('name');
-        $collection =  $cities->get();
+        $collection = $cities->get();
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No currencies found.'], 404);
         }
@@ -91,5 +92,27 @@ class CityController extends Controller
         $headings = ['ID', 'Name'];
 
         return Excel::download(new Export($cities, $columns, $headings), 'cities.xlsx');
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $cities = City::select(
+            'id',
+            'name'
+        )->get();
+
+        if ($cities->isEmpty()) {
+            return response()->json(['message' => 'No cities found.'], 404);
+        }
+
+        $title = 'City Report';
+        $headers = [
+            'id' => 'City ID',
+            'name' => 'City Name'
+        ];
+        $data = $cities->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('Cities.pdf');
     }
 }

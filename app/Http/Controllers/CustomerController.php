@@ -16,6 +16,8 @@ use App\Http\Requests\Customer\{
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
+use App\Exports\ExportPDF;
+
 
 class CustomerController extends Controller
 {
@@ -156,8 +158,8 @@ class CustomerController extends Controller
             'shippingAddress',
             'parentCustomer',
             'subCustomers',
-        ])->select('id', 'first_name','last_name');
-        $collection =  $customers->get();
+        ])->select('id', 'first_name', 'last_name');
+        $collection = $customers->get();
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No customers found.'], 404);
         }
@@ -191,5 +193,50 @@ class CustomerController extends Controller
         ];
         return Excel::download(new Export($customers, $columns, $headings), 'customers.xlsx');
     }
+
+    //export pdf
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $customers = Customer::select(
+            'id',
+            'first_name',
+            'last_name',
+            'customer_group_id',
+            'salesman_id',
+            'refer_by_id',
+            'payment_term_id',
+            'primary_payment_method_id',
+            'opening_currency_id',
+            'billing_address_id',
+            'shipping_address_id',
+            'parent_customer_id'
+        )->get();
+
+        if ($customers->isEmpty()) {
+            return response()->json(['message' => 'No customers found.'], 404);
+        }
+
+        $title = 'Customer Report';
+        $headers = [
+            'id' => 'Customer ID',
+            'first_name' => 'First Name',
+            'last_name' => 'Last Name',
+            'customer_group_id' => 'Customer Group',
+            'salesman_id' => 'Salesman',
+            'refer_by_id' => 'Referred By',
+            'payment_term_id' => 'Payment Term',
+            'primary_payment_method_id' => 'Payment Method',
+            'opening_currency_id' => 'Currency',
+            'billing_address_id' => 'Billing Address',
+            'shipping_address_id' => 'Shipping Address',
+            'parent_customer_id' => 'Parent Customer'
+        ];
+
+        $data = $customers->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('customers.pdf');
+    }
+
 }
 

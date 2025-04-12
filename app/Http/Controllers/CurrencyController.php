@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use App\Models\Currency;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
-
+use App\Exports\ExportPDF;
 class CurrencyController extends Controller
 {
     public function index()
@@ -98,12 +98,40 @@ class CurrencyController extends Controller
     public function export()
     {
         $currencies = Currency::query();
-        $collection =  $currencies->get();
+        $collection = $currencies->get();
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No currencies found.'], 404);
         }
         $columns = ['id', 'name', 'code', 'iso_code', 'rate'];
         $headings = ['ID', 'Name', 'Code', 'ISO Code', 'Rate'];
-       return Excel::download(new Export($currencies, $columns, $headings), 'currencies.xlsx');
-}
+        return Excel::download(new Export($currencies, $columns, $headings), 'currencies.xlsx');
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $currencies = Currency::select(
+            'id',
+            'name',
+            'code',
+            'iso_code',
+            'rate'
+        )->get();
+
+        if ($currencies->isEmpty()) {
+            return response()->json(['message' => 'No currencies found.'], 404);
+        }
+
+        $title = 'Currency Report';
+        $headers = [
+            'id' => 'Currency ID',
+            'name' => 'Currency Name',
+            'code' => 'Currency Code',
+            'iso_code' => 'ISO Code',
+            'rate' => 'Exchange Rate'
+        ];
+        $data = $currencies->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('Currencies.pdf');
+    }
 }

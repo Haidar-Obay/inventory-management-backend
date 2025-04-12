@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
+use App\Exports\ExportPDF;
 
 class PaymentMethodController extends Controller
 {
@@ -83,13 +84,35 @@ class PaymentMethodController extends Controller
     public function export()
     {
         $paymentMethod = PaymentMethod::query();
-        $collection =  $paymentMethod->get();
+        $collection = $paymentMethod->get();
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No payment_Methods found.'], 404);
         }
         $columns = ['id', 'name'];
         $headings = ['ID', 'Name'];
         return Excel::download(new Export($paymentMethod, $columns, $headings), 'payment_methods.xlsx');
-        
+
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $paymentMethods = PaymentMethod::select(
+            'id',
+            'name'
+        )->get();
+
+        if ($paymentMethods->isEmpty()) {
+            return response()->json(['message' => 'No payment methods found.'], 404);
+        }
+
+        $title = 'Payment Method Report';
+        $headers = [
+            'id' => 'Payment Method ID',
+            'name' => 'Payment Method Name'
+        ];
+        $data = $paymentMethods->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('PaymentMethods.pdf');
     }
 }

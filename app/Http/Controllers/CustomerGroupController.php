@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\CustomerGroup;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
+use App\Exports\ExportPDF;
 
 class CustomerGroupController extends Controller
 {
@@ -89,6 +90,28 @@ class CustomerGroupController extends Controller
         $columns = ['id', 'name'];
         $headings = ['ID', 'Name'];
         return Excel::download(new Export($CustomerGroup, $columns, $headings), 'CustomerGroups.xlsx');
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $customerGroups = CustomerGroup::select(
+            'id',
+            'name'
+        )->get();
+
+        if ($customerGroups->isEmpty()) {
+            return response()->json(['message' => 'No customer groups found.'], 404);
+        }
+
+        $title = 'Customer Group Report';
+        $headers = [
+            'id' => 'Customer Group ID',
+            'name' => 'Customer Group Name'
+        ];
+        $data = $customerGroups->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('CustomerGroups.pdf');
     }
 
 }
