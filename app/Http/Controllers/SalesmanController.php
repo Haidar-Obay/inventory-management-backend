@@ -6,12 +6,15 @@ use App\Models\Salesman;
 use Illuminate\Http\Request;
 use App\Http\Requests\Salesman\StoreSalesmanRequest;
 use App\Http\Requests\Salesman\UpdateSalesmanRequest;
+use Illuminate\Support\Facades\Auth;
 
 class SalesmanController extends Controller
 {
     public function index()
     {
-        $salesmen = Salesman::withCount('customers')->paginate(10);
+        $this->authorizeAction();
+
+        $salesmen = Salesman::withCount('customers');
 
         return response()->json([
             'status' => true,
@@ -22,6 +25,8 @@ class SalesmanController extends Controller
 
     public function show(Salesman $salesman)
     {
+        $this->authorizeAction();
+
         $salesman->loadCount('customers');
 
         return response()->json([
@@ -33,6 +38,8 @@ class SalesmanController extends Controller
 
     public function store(StoreSalesmanRequest $request)
     {
+        $this->authorizeAction();
+
         $salesman = Salesman::create($request->validated());
 
         return response()->json([
@@ -44,6 +51,8 @@ class SalesmanController extends Controller
 
     public function update(UpdateSalesmanRequest $request, Salesman $salesman)
     {
+        $this->authorizeAction();
+
         $salesman->update($request->validated());
 
         return response()->json([
@@ -55,11 +64,22 @@ class SalesmanController extends Controller
 
     public function destroy(Salesman $salesman)
     {
+        $this->authorizeAction();
+
         $salesman->delete();
 
         return response()->json([
             'status' => true,
             'message' => 'Salesman deleted successfully.',
         ]);
+    }
+
+    private function authorizeAction()
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            abort(response()->json(['message' => 'Unauthorized'], 401));
+        }
     }
 }

@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\City;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
+
 class CityController extends Controller
 {
     public function index()
     {
-        $cities = City::withCount('addresses')->paginate(10);
+        $cities = City::withCount('addresses')
+            ->orderBy('name')
+            ->get();
 
         return response()->json([
             'status' => true,
@@ -21,15 +24,18 @@ class CityController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorizeAction();
+
         $validated = $request->validate([
-            'name' => 'unique:cities,name|required|string|max:255',
+            'name' => 'required|string|max:255|unique:cities,name',
         ]);
 
         $city = City::create($validated);
 
         return response()->json([
-            'message' => 'City created successfully',
-            'city' => $city,
+            'status' => true,
+            'message' => 'City created successfully.',
+            'data' => $city,
         ], 201);
     }
 
@@ -46,14 +52,15 @@ class CityController extends Controller
 
     public function update(Request $request, City $city)
     {
+        $this->authorizeAction();
+
         $validated = $request->validate([
-            'name' => 
-            [
-            'sometimes',
-            'string',
-            'max:255',
-            Rule::unique('cities', 'name')->ignore($city->id)
-            ]
+            'name' => [
+                'sometimes',
+                'string',
+                'max:255',
+                Rule::unique('cities', 'name')->ignore($city->id),
+            ],
         ]);
 
         $city->update($validated);
@@ -67,11 +74,22 @@ class CityController extends Controller
 
     public function destroy(City $city)
     {
+        $this->authorizeAction();
+
         $city->delete();
 
         return response()->json([
             'status' => true,
             'message' => 'City deleted successfully.',
         ]);
+    }
+
+    private function authorizeAction()
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            abort(response()->json(['message' => 'Unauthorized'], 401));
+        }
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Currency\StoreCurrencyRequest;
 use App\Http\Requests\Currency\UpdateCurrencyRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\Models\Currency;
 
@@ -12,12 +13,14 @@ class CurrencyController extends Controller
 {
     public function index()
     {
+        $this->authorizeAction();
+
         return response()->json(Currency::all());
     }
 
     public function store(StoreCurrencyRequest $request)
     {
-        \Log::info($request->all());
+        $this->authorizeAction();
 
         $apiKey = config('services.exchange_rate.key');
         $baseCurrency = 'USD';
@@ -45,6 +48,8 @@ class CurrencyController extends Controller
 
     public function show($id)
     {
+        $this->authorizeAction();
+
         $currency = Currency::findOrFail($id);
 
         $apiKey = config('services.exchange_rate.key');
@@ -61,6 +66,8 @@ class CurrencyController extends Controller
 
     public function update(UpdateCurrencyRequest $request, $id)
     {
+        $this->authorizeAction();
+
         $currency = Currency::findOrFail($id);
 
         $apiKey = config('services.exchange_rate.key');
@@ -86,12 +93,23 @@ class CurrencyController extends Controller
 
         return response()->json($currency);
     }
+
     public function destroy($id)
-{
-    $currency = Currency::findOrFail($id);
-    $currency->delete();
+    {
+        $this->authorizeAction();
 
-    return response()->json(['message' => 'Currency deleted successfully.']);
-}
+        $currency = Currency::findOrFail($id);
+        $currency->delete();
 
+        return response()->json(['message' => 'Currency deleted successfully.']);
+    }
+
+    private function authorizeAction()
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            abort(response()->json(['message' => 'Unauthorized'], 401));
+        }
+    }
 }
