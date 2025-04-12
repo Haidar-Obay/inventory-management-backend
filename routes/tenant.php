@@ -70,7 +70,6 @@ Route::middleware([
         Route::apiResource('customers', CustomerController::class);
         Route::apiResource('refer-bies', ReferByController::class);
         Route::apiResource('payment-methods', PaymentMethodController::class);
-
     });
 
 
