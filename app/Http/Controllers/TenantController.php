@@ -15,14 +15,14 @@ class TenantController extends Controller
     public function getAllTenants()
     {
         $tenants = Tenant::all()->map(function ($tenant) {
-            tenancy()->initialize($tenant); 
-            $superUser = User::where('role', 'super_user')->first();
+            tenancy()->initialize($tenant);
+            $admin = User::where('role', 'admin')->first();
             return [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
                 'email' => $tenant->email,
                 'domain' => $tenant->domains->first()->domain ?? null,
-                'super_user' => $superUser?->name ?? null,
+                'admin' => $admin?->name ?? null,
                 'created_at' => $tenant->created_at->toDateTimeString(),
                 'updated_at' => $tenant->updated_at->toDateTimeString(),
             ];
@@ -49,18 +49,18 @@ class TenantController extends Controller
             tenancy()->initialize($tenant);
 
             User::create([
-                'name' => 'Admin',
+                'name' => $request->name.'_admin',
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
-                'role' => 'super_user',
+                'role' => 'admin',
             ]);
 
             return response()->json([
-                'message' => 'Tenant and super user created successfully',
+                'message' => 'Tenant and admin created successfully',
                 'tenant_id' => $tenant->id,
                 'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
                 'email' => $tenant->email,
-                "super_user" => User::firstWhere('role', 'super_user')->name,
+                "admin" => User::firstWhere('role', 'admin')->name,
                 "password" => $request->password
             ], 201);
         } catch (\Exception $e) {
@@ -92,14 +92,14 @@ class TenantController extends Controller
         }
 
         tenancy()->initialize($tenant);
-        $superUser = User::where('role', 'super_user')->first();
+        $admin = User::where('role', 'admin')->first();
 
         return response()->json([
             'id' => $tenant->id,
             'name' => $tenant->name,
             'email' => $tenant->email,
             'domain' => optional($tenant->domains->first())->domain,
-            'super_user' => $superUser?->name ?? null,
+            'admin' => $admin?->name ?? null,
             'created_at' => $tenant->created_at->toDateTimeString(),
             'updated_at' => $tenant->updated_at->toDateTimeString(),
 
