@@ -60,14 +60,6 @@ class UpdateCustomerRequest extends FormRequest
             'salesman_id' => 'nullable|exists:salesmen,id',
             'refer_by_id' => 'nullable|exists:refer_bies,id',
 
-            // Refer By
-            'refer_by.name' => 'required_with:refer_by|string|max:255',
-            'refer_by.address' => 'nullable|string',
-            'refer_by.phone1' => 'nullable|string|max:20',
-            'refer_by.phone2' => 'nullable|string|max:20',
-            'refer_by.email' => 'nullable|email|max:255',
-            'refer_by.fix_commission' => 'nullable|numeric|min:0',
-
             // Payment method
             'payment_method.name' => 'required_with:payment_method|string|max:255',
             'payment_method.is_credit_card' => 'nullable|boolean',

@@ -59,11 +59,6 @@ class CustomerController extends Controller
             $validated['payment_term_id'] = $paymentTerm->id;
         }
 
-        if ($request->filled('refer_by')) {
-            $referBy = ReferBy::create($request->input('refer_by'));
-            $validated['refer_by_id'] = $referBy->id;
-        }
-
         $customer = Customer::create($validated);
 
         return response()->json([
@@ -127,15 +122,6 @@ class CustomerController extends Controller
             } else {
                 $paymentTerm = PaymentTerm::create($request->input('payment_term'));
                 $validated['payment_term_id'] = $paymentTerm->id;
-            }
-        }
-
-        if ($request->filled('refer_by')) {
-            if ($customer->referBy) {
-                $customer->referBy()->update($request->input('refer_by'));
-            } else {
-                $referBy = ReferBy::create($request->input('refer_by'));
-                $validated['refer_by_id'] = $referBy->id;
             }
         }
 
