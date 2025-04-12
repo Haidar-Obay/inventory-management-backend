@@ -6,6 +6,8 @@ use App\Models\ReferBy;
 use App\Http\Requests\ReferBy\StoreReferByRequest;
 use App\Http\Requests\ReferBy\UpdateReferByRequest;
 use Illuminate\Http\JsonResponse;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Export;
 
 class ReferByController extends Controller
 {
@@ -58,5 +60,17 @@ class ReferByController extends Controller
             'status' => true,
             'message' => 'Refer By deleted successfully.',
         ]);
+    }
+    public function export()
+    {
+        $ReferBy = ReferBy::query();
+        $collection =  $ReferBy->get();
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No ReferBy found.'], 404);
+        }
+        $columns = ['id', 'name'];
+        $headings = ['ID', 'Name'];
+
+        return Excel::download(new Export($ReferBy, $columns, $headings), 'ReferBy.xlsx');
     }
 }

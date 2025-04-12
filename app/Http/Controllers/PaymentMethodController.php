@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\PaymentMethod;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Export;
 
 class PaymentMethodController extends Controller
 {
@@ -77,5 +79,17 @@ class PaymentMethodController extends Controller
             'status' => true,
             'message' => 'Payment method deleted successfully.',
         ]);
+    }
+    public function export()
+    {
+        $paymentMethod = PaymentMethod::query();
+        $collection =  $paymentMethod->get();
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No payment_Methods found.'], 404);
+        }
+        $columns = ['id', 'name'];
+        $headings = ['ID', 'Name'];
+        return Excel::download(new Export($paymentMethod, $columns, $headings), 'payment_methods.xlsx');
+        
     }
 }

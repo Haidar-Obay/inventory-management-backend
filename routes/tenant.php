@@ -2,33 +2,32 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\CustomerGroupController;
-use App\Http\Controllers\PaymentMethodController;
-use App\Http\Controllers\ReferByController;
-use App\Models\User;
 use Illuminate\Support\Facades\Route;
+use App\Models\User;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
-use Stancl\Tenancy\Middleware\InitializeTenancyBySubdomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
+
+// Controllers
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\ProvinceController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\SalesmanController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerGroupController;
+use App\Http\Controllers\PaymentMethodController;
+use App\Http\Controllers\ReferByController;
+use App\Http\Controllers\TenantController;
 use App\Http\Controllers\UserManagementController;
 
 /*
 |--------------------------------------------------------------------------
 | Tenant Routes
 |--------------------------------------------------------------------------
-|
-| Here you can register the tenant routes for your application.
-| These routes are loaded by the TenantRouteServiceProvider.
-|
-| Feel free to customize them however you want. Good luck!
-|
+| Routes loaded by TenantRouteServiceProvider, initialized per tenant.
+| Customize freely.
+|--------------------------------------------------------------------------
 */
 
 Route::middleware([
@@ -39,38 +38,47 @@ Route::middleware([
 
     Route::get('/', function () {
         return response()->json([
-            'tenant_id' => tenant('id'),
-            'tenant_domain' => tenant('domains')->first()->domain,
-            'tenant_name' => tenant('name'),
-            'tenant_email' => tenant('email'),
-            'role' => User::where('role', 'admin')->first()->name,
-            'message' => tenant('name') . ' welcome to your tenant API!',
+            'tenant_id'      => tenant('id'),
+            'tenant_domain'  => tenant('domains')->first()->domain,
+            'tenant_name'    => tenant('name'),
+            'tenant_email'   => tenant('email'),
+            'role'           => User::where('role', 'admin')->first()->name ?? 'N/A',
+            'message'        => tenant('name') . ' welcome to your tenant API!',
         ]);
     });
+
+    // Public Routes
     Route::post('/login', [AuthController::class, 'login']);
 
-    Route::apiResource('countries', CountryController::class);
-    Route::apiResource('provinces', ProvinceController::class);
-    Route::apiResource('currencies', CurrencyController::class);
-    Route::apiResource('salesmen', SalesmanController::class);
-    Route::apiResource('customer-groups', CustomerGroupController::class);
-    Route::apiResource('customers', CustomerController::class);
-    Route::apiResource('refer-bies', ReferByController::class);
-
-
+    // Protected Routes
     Route::middleware('auth:sanctum')->group(function () {
+
+        // Auth & User Management
         Route::post('/register', [UserManagementController::class, 'registerUser']);
+        Route::post('/logout',  [AuthController::class, 'logout']);
+
+        // Resource APIs
         Route::apiResource('cities', CityController::class);
-        Route::post('/logout',  [AuthController::class,'logout']);
         Route::apiResource('countries', CountryController::class);
         Route::apiResource('provinces', ProvinceController::class);
         Route::apiResource('currencies', CurrencyController::class);
         Route::apiResource('salesmen', SalesmanController::class);
-        Route::apiResource('customer-groups', CustomerGroupController::class);
         Route::apiResource('customers', CustomerController::class);
-        Route::apiResource('refer-bies', ReferByController::class);
+        Route::apiResource('customer-groups', CustomerGroupController::class);
         Route::apiResource('payment-methods', PaymentMethodController::class);
+        Route::apiResource('refer-bies', ReferByController::class);
+
+        // Export to Excel Routes
+        Route::prefix('export')->group(function () {
+            Route::get('cities', [CityController::class, 'export']);
+            Route::get('countries', [CountryController::class, 'export']);
+            Route::get('currencies', [CurrencyController::class, 'export']);
+            Route::get('customers', [CustomerController::class, 'export']);
+            Route::get('customer-groups', [CustomerGroupController::class, 'export']);
+            Route::get('provinces', [ProvinceController::class, 'export']);
+            Route::get('payment-methods', [PaymentMethodController::class, 'export']);
+            Route::get('salesmen', [SalesmanController::class, 'export']);
+            Route::get('refer-bies', [ReferByController::class, 'export']);
+        });
     });
 });
-
-
