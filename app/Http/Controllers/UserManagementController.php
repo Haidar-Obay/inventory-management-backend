@@ -20,7 +20,7 @@ class UserManagementController extends Controller
             'name' => 'required',
             'email' => 'required|email|unique:users',
             'password' => 'required|confirmed',
-            'role' => 'nullable|in:user,admin',
+            'role' => 'nullable|in:user,admin|default:user',
         ]);
 
         $user = User::create([
