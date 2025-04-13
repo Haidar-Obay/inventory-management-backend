@@ -34,4 +34,110 @@ class UserManagementController extends Controller
 
         return response()->json(['message' => 'User created. Verification email sent.']);
     }
+
+    public function getAllUsers()
+    {
+        $authUser = auth()->user();
+
+        if ($authUser->role !== 'admin') {
+            return response()->json(['message' => 'Only admins can view users.'], 403);
+        }
+
+        $users = User::select('id', 'name', 'email', 'role', 'created_at')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'message' => 'Users retrieved successfully.',
+            'users' => $users,
+        ]);
+    }
+
+    public function getUser($id)
+    {
+        $authUser = auth()->user();
+
+        if ($authUser->role !== 'admin') {
+            return response()->json(['message' => 'Only admins can view user details.'], 403);
+        }
+
+        $user = User::select('id', 'name', 'email', 'role', 'created_at')
+            ->find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        return response()->json([
+            'message' => 'User retrieved successfully.',
+            'user' => $user,
+        ]);
+    }
+
+    public function deleteUser(Request $request)
+    {
+        $authUser = auth()->user();
+
+        if ($authUser->role !== 'admin') {
+            return response()->json(['message' => 'Only admins can delete users.'], 403);
+        }
+
+        $request->validate([
+            'id' => 'required|exists:users,id',
+        ]);
+
+        if ($request->id == $authUser->id) {
+            return response()->json(['message' => 'You cannot delete your own account.'], 403);
+        }
+
+        try {
+            User::where('id', $request->id)->delete();
+            return response()->json(['message' => 'User deleted successfully.']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json(['message' => 'User could not be deleted.'], 400);
+        }
+    }
+
+    public function bulkDeleteUsers(Request $request)
+    {
+        $authUser = auth()->user();
+
+        if ($authUser->role !== 'admin') {
+            return response()->json(['message' => 'Only admins can delete users.'], 403);
+        }
+
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:users,id',
+        ]);
+
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->ids as $id) {
+            try {
+                // Prevent admin from deleting themselves
+                if ($authUser->id == $id) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete the currently authenticated admin.',
+                    ];
+                    continue;
+                }
+
+                $deleted += User::where('id', $id)->delete();
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Deletion failed due to constraints or DB error.',
+                ];
+            }
+        }
+
+        return response()->json([
+            'message' => 'Bulk user deletion completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
+    }
 }

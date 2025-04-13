@@ -58,6 +58,10 @@ Route::middleware([
         // Auth & User Management
         Route::post('/register', [UserManagementController::class, 'registerUser']);
         Route::post('/logout', [AuthController::class, 'logout']);
+        Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsers']);
+        Route::get('/get-user/{id}', action: [UserManagementController::class, 'getUser']);
+        Route::delete('/delete-user', [UserManagementController::class, 'deleteUser']);
+        Route::delete('/bulk-delete-users', [UserManagementController::class, 'bulkDeleteUsers']);
 
         // Resource APIs
         Route::apiResource('cities', CityController::class);
@@ -112,7 +116,9 @@ Route::middleware([
             Route::post('/refer-bies', [ReferByController::class, 'importFromExcel']);
         });
 
-        Route::prefix('bulk-delete')->group(function() {
+        // Bulk Delete Routes
+        // Note: The bulk delete routes are prefixed with 'bulk-delete' to avoid confusion with the import/export routes.
+        Route::prefix('bulk-delete')->group(function () {
             Route::delete('/customers', [CustomerController::class, 'bulkDelete']);
             Route::delete('/cities', [CityController::class, 'bulkDelete']);
             Route::delete('/countries', [CountryController::class, 'bulkDelete']);
