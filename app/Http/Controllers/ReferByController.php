@@ -10,7 +10,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
-
+use Illuminate\Http\Request;
 class ReferByController extends Controller
 {
     public function index(): JsonResponse
