@@ -97,6 +97,32 @@ class CurrencyController extends Controller
 
         return response()->json(['message' => 'Currency deleted successfully.']);
     }
+
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:currencies,id',
+        ]);
+
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->ids as $id) {
+            try {
+                $deleted += Currency::where('id', $id)->delete();
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
+    }
+
     public function exportExcell()
     {
         $currencies = Currency::query();
@@ -138,47 +164,51 @@ class CurrencyController extends Controller
     }
 
     public function importFromExcel(Request $request)
-{
-    $request->validate([
-        'file' => 'required|file|mimes:xlsx,xls,csv',
-    ]);
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
 
-    $import = new DynamicExcelImport(
-        Currency::class,
-        ['name', 'code', 'iso_code', 'rate'],
-        function ($row) {
-            $errors = [];
+        $import = new DynamicExcelImport(
+            Currency::class,
+            ['name', 'code', 'iso_code', 'rate'],
+            function ($row) {
+                $errors = [];
 
-            if (empty($row['name'])) $errors[] = 'Missing name';
-            if (empty($row['code'])) $errors[] = 'Missing code';
-            if (empty($row['iso_code'])) $errors[] = 'Missing ISO code';
-            elseif (!is_numeric($row['iso_code'])) $errors[] = 'ISO code must be numeric';
+                if (empty($row['name']))
+                    $errors[] = 'Missing name';
+                if (empty($row['code']))
+                    $errors[] = 'Missing code';
+                if (empty($row['iso_code']))
+                    $errors[] = 'Missing ISO code';
+                elseif (!is_numeric($row['iso_code']))
+                    $errors[] = 'ISO code must be numeric';
 
-            if (!isset($row['rate']) || !is_numeric($row['rate'])) {
-                $errors[] = 'Rate must be numeric';
+                if (!isset($row['rate']) || !is_numeric($row['rate'])) {
+                    $errors[] = 'Rate must be numeric';
+                }
+
+                return $errors;
+            },
+            function ($row) {
+                return [
+                    'name' => $row['name'],
+                    'code' => $row['code'],
+                    'iso_code' => $row['iso_code'],
+                    'rate' => $row['rate'],
+                ];
             }
+        );
 
-            return $errors;
-        },
-        function ($row) {
-            return [
-                'name' => $row['name'],
-                'code' => $row['code'],
-                'iso_code' => $row['iso_code'],
-                'rate' => $row['rate'],
-            ];
-        }
-    );
+        Excel::import($import, $request->file('file'));
 
-    Excel::import($import, $request->file('file'));
-
-    return response()->json([
-        'success' => true,
-        'rows_imported' => $import->getImportedCount(),
-        'rows_skipped_count' => $import->getSkippedCount(),
-        'skipped_rows' => $import->getSkippedRows(),
-    ]);
-}
+        return response()->json([
+            'success' => true,
+            'rows_imported' => $import->getImportedCount(),
+            'rows_skipped_count' => $import->getSkippedCount(),
+            'skipped_rows' => $import->getSkippedRows(),
+        ]);
+    }
 
 
 }

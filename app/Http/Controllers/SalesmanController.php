@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Models\Customer;
 use App\Models\Salesman;
 use Illuminate\Http\Request;
 use App\Http\Requests\Salesman\StoreSalesmanRequest;
@@ -65,6 +66,32 @@ class SalesmanController extends Controller
             'message' => 'Salesman deleted successfully.',
         ]);
     }
+
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:salesmen,id',
+        ]);
+
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->ids as $id) {
+            try {
+                $deleted += Salesman::where('id', $id)->delete();
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
+    }
+
     public function exportExcell()
     {
         $salesmenQuery = Salesman::query();

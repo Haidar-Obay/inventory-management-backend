@@ -50,15 +50,7 @@ Route::middleware([
     // Public Routes
     Route::post('/login', [AuthController::class, 'login']);
 
-    Route::post('/customers/import', [CustomerController::class, 'importFromExcel']);
-    Route::post('/cities/import', [CityController::class, 'importFromExcel']);
-    Route::post('/countries/import', [CountryController::class, 'importFromExcel']);
-    Route::post('/provinces/import', [ProvinceController::class, 'importFromExcel']);
-    Route::post('/currencies/import', [CurrencyController::class, 'importFromExcel']);
-    Route::post('/customer-groups/import', [CustomerGroupController::class, 'importFromExcel']);
-    Route::post('/payment-methods/import', [PaymentMethodController::class, 'importFromExcel']);
-    Route::post('/salesmen/import', [SalesmanController::class, 'importFromExcel']);
-    Route::post('/refer-bies/import', [ReferByController::class, 'importFromExcel']);
+
 
     // Protected Routes
     Route::middleware('auth:sanctum')->group(function () {
@@ -79,6 +71,7 @@ Route::middleware([
         Route::apiResource('refer-bies', ReferByController::class);
 
         // Export to Excel Routes
+        // Note: The export routes are prefixed with 'exportExcell' to avoid confusion with the import routes.
         Route::prefix('exportExcell')->group(function () {
             Route::get('customers', [CustomerController::class, 'exportExcell']);
             Route::get('cities', [CityController::class, 'exportExcell']);
@@ -92,6 +85,7 @@ Route::middleware([
         });
 
         // Export to PDF Routes
+        // Note: The export routes are prefixed with 'exportPdf' to avoid confusion with the import routes.
         Route::prefix('exportPdf')->group(function () {
             Route::get('/customers', [CustomerController::class, 'exportPdf']);
             Route::get('/cities', [CityController::class, 'exportPdf']);
@@ -102,6 +96,32 @@ Route::middleware([
             Route::get('/payment-methods', [CustomerGroupController::class, 'exportPdf']);
             Route::get('/salesmen', [SalesmanController::class, 'exportPdf']);
             Route::get('/refer-bies', [ReferByController::class, 'exportPdf']);
+        });
+
+        // Import from Excel Routes
+        // Note: The import routes are prefixed with 'importFromExcel' to avoid confusion with the export routes.
+        Route::prefix('importFromExcel')->group(function () {
+            Route::post('/customers', [CustomerController::class, 'importFromExcel']);
+            Route::post('/cities', [CityController::class, 'importFromExcel']);
+            Route::post('/countries', [CountryController::class, 'importFromExcel']);
+            Route::post('/provinces', [ProvinceController::class, 'importFromExcel']);
+            Route::post('/currencies', [CurrencyController::class, 'importFromExcel']);
+            Route::post('/customer-groups', [CustomerGroupController::class, 'importFromExcel']);
+            Route::post('/payment-methods', [PaymentMethodController::class, 'importFromExcel']);
+            Route::post('/salesmen', [SalesmanController::class, 'importFromExcel']);
+            Route::post('/refer-bies', [ReferByController::class, 'importFromExcel']);
+        });
+
+        Route::prefix('bulk-delete')->group(function() {
+            Route::delete('/customers', [CustomerController::class, 'bulkDelete']);
+            Route::delete('/cities', [CityController::class, 'bulkDelete']);
+            Route::delete('/countries', [CountryController::class, 'bulkDelete']);
+            Route::delete('/provinces', [ProvinceController::class, 'bulkDelete']);
+            Route::delete('/currencies', [CurrencyController::class, 'bulkDelete']);
+            Route::delete('/customer-groups', [CustomerGroupController::class, 'bulkDelete']);
+            Route::delete('/salesmen', [SalesmanController::class, 'bulkDelete']);
+            Route::delete('/payment-methods', [PaymentMethodController::class, 'bulkDelete']);
+            Route::delete('/refer-bies', [ReferByController::class, 'bulkDelete']);
         });
     });
 });

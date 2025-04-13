@@ -80,10 +80,36 @@ class ProvinceController extends Controller
             'message' => 'Province deleted successfully.',
         ]);
     }
+
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:provinces,id',
+        ]);
+
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->ids as $id) {
+            try {
+                $deleted += Province::where('id', $id)->delete();
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
+    }
+
     public function exportExcell()
     {
         $Province = Province::query();
-        $collection =  $Province->get();
+        $collection = $Province->get();
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No Province found.'], 404);
         }
@@ -115,40 +141,40 @@ class ProvinceController extends Controller
     }
 
     public function importFromExcel(Request $request)
-{
-    $request->validate([
-        'file' => 'required|file|mimes:xlsx,xls,csv',
-    ]);
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
 
-    $import = new DynamicExcelImport(
-        Province::class,
-        ['name'],
-        function ($row) {
-            $errors = [];
+        $import = new DynamicExcelImport(
+            Province::class,
+            ['name'],
+            function ($row) {
+                $errors = [];
 
-            if (empty($row['name'])) {
-                $errors[] = 'Missing name';
-            } elseif (preg_match('/[0-9]/', $row['name'])) {
-                $errors[] = 'Province name must not contain numbers';
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
+                } elseif (preg_match('/[0-9]/', $row['name'])) {
+                    $errors[] = 'Province name must not contain numbers';
+                }
+
+                return $errors;
+            },
+            function ($row) {
+                return [
+                    'name' => $row['name'],
+                ];
             }
+        );
 
-            return $errors;
-        },
-        function ($row) {
-            return [
-                'name' => $row['name'],
-            ];
-        }
-    );
+        Excel::import($import, $request->file('file'));
 
-    Excel::import($import, $request->file('file'));
-
-    return response()->json([
-        'success' => true,
-        'rows_imported' => $import->getImportedCount(),
-        'rows_skipped_count' => $import->getSkippedCount(),
-        'skipped_rows' => $import->getSkippedRows(),
-    ]);
-}
+        return response()->json([
+            'success' => true,
+            'rows_imported' => $import->getImportedCount(),
+            'rows_skipped_count' => $import->getSkippedCount(),
+            'skipped_rows' => $import->getSkippedRows(),
+        ]);
+    }
 
 }

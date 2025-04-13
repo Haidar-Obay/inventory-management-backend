@@ -143,6 +143,32 @@ class CustomerController extends Controller
             'message' => 'Customer deleted successfully.',
         ]);
     }
+
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:customers,id',
+        ]);
+
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->ids as $id) {
+            try {
+                $deleted += Customer::where('id', $id)->delete();
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
+    }
+
     public function exportExcell()
     {
         $customers = Customer::with([

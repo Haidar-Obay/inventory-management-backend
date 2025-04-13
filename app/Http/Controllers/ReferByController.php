@@ -63,6 +63,32 @@ class ReferByController extends Controller
             'message' => 'Refer By deleted successfully.',
         ]);
     }
+
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:refer_bies,id',
+        ]);
+
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->ids as $id) {
+            try {
+                $deleted += ReferBy::where('id', $id)->delete();
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
+    }
+
     public function exportExcell()
     {
         $ReferBy = ReferBy::query();
