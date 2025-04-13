@@ -11,6 +11,8 @@ use App\Models\Currency;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
+
 class CurrencyController extends Controller
 {
     public function index()
@@ -134,4 +136,49 @@ class CurrencyController extends Controller
         $pdf = $pdfService->generatePdf($title, $headers, $data);
         return $pdf->download('Currencies.pdf');
     }
+
+    public function importFromExcel(Request $request)
+{
+    $request->validate([
+        'file' => 'required|file|mimes:xlsx,xls,csv',
+    ]);
+
+    $import = new DynamicExcelImport(
+        Currency::class,
+        ['name', 'code', 'iso_code', 'rate'],
+        function ($row) {
+            $errors = [];
+
+            if (empty($row['name'])) $errors[] = 'Missing name';
+            if (empty($row['code'])) $errors[] = 'Missing code';
+            if (empty($row['iso_code'])) $errors[] = 'Missing ISO code';
+            elseif (!is_numeric($row['iso_code'])) $errors[] = 'ISO code must be numeric';
+
+            if (!isset($row['rate']) || !is_numeric($row['rate'])) {
+                $errors[] = 'Rate must be numeric';
+            }
+
+            return $errors;
+        },
+        function ($row) {
+            return [
+                'name' => $row['name'],
+                'code' => $row['code'],
+                'iso_code' => $row['iso_code'],
+                'rate' => $row['rate'],
+            ];
+        }
+    );
+
+    Excel::import($import, $request->file('file'));
+
+    return response()->json([
+        'success' => true,
+        'rows_imported' => $import->getImportedCount(),
+        'rows_skipped_count' => $import->getSkippedCount(),
+        'skipped_rows' => $import->getSkippedRows(),
+    ]);
+}
+
+
 }

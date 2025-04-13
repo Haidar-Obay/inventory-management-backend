@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Country;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
+
 class CountryController extends Controller
 {
     public function index()
@@ -112,4 +113,42 @@ class CountryController extends Controller
         $pdf = $pdfService->generatePdf($title, $headers, $data);
         return $pdf->download('Countries.pdf');
     }
+
+    public function importFromExcel(Request $request)
+{
+    $request->validate([
+        'file' => 'required|file|mimes:xlsx,xls,csv',
+    ]);
+
+    $import = new DynamicExcelImport(
+        Country::class,
+        ['name'],
+        function ($row) {
+            $errors = [];
+
+            if (empty($row['name'])) {
+                $errors[] = 'Missing name';
+            } elseif (preg_match('/[0-9]/', $row['name'])) {
+                $errors[] = 'Country name must not contain numbers';
+            }
+
+            return $errors;
+        },
+        function ($row) {
+            return [
+                'name' => $row['name'],
+            ];
+        }
+    );
+
+    Excel::import($import, $request->file('file'));
+
+    return response()->json([
+        'success' => true,
+        'rows_imported' => $import->getImportedCount(),
+        'rows_skipped_count' => $import->getSkippedCount(),
+        'skipped_rows' => $import->getSkippedRows(),
+    ]);
+}
+
 }

@@ -50,6 +50,16 @@ Route::middleware([
     // Public Routes
     Route::post('/login', [AuthController::class, 'login']);
 
+    Route::post('/customers/import', [CustomerController::class, 'importFromExcel']);
+    Route::post('/cities/import', [CityController::class, 'importFromExcel']);
+    Route::post('/countries/import', [CountryController::class, 'importFromExcel']);
+    Route::post('/provinces/import', [ProvinceController::class, 'importFromExcel']);
+    Route::post('/currencies/import', [CurrencyController::class, 'importFromExcel']);
+    Route::post('/customer-groups/import', [CustomerGroupController::class, 'importFromExcel']);
+    Route::post('/payment-methods/import', [PaymentMethodController::class, 'importFromExcel']);
+    Route::post('/salesmen/import', [SalesmanController::class, 'importFromExcel']);
+    Route::post('/refer-bies/import', [ReferByController::class, 'importFromExcel']);
+
     // Protected Routes
     Route::middleware('auth:sanctum')->group(function () {
 

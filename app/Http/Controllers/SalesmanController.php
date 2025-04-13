@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 use App\Models\Salesman;
+use Illuminate\Http\Request;
 use App\Http\Requests\Salesman\StoreSalesmanRequest;
 use App\Http\Requests\Salesman\UpdateSalesmanRequest;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 
 class SalesmanController extends Controller
 {
@@ -135,5 +137,82 @@ class SalesmanController extends Controller
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
         return $pdf->download('Salesmen.pdf');
+    }
+
+    public function importFromExcel(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        $import = new DynamicExcelImport(
+            Salesman::class,
+            [
+                'name',
+                'email',
+                'phone1',
+                'phone2',
+                'address',
+                'fix_commission',
+                'is_inactive'
+            ],
+            function ($row) {
+                $errors = [];
+
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
+                } elseif (preg_match('/\d/', $row['name'])) {
+                    $errors[] = 'Name cannot contain numbers';
+                }
+
+                if (empty($row['email'])) {
+                    $errors[] = 'Missing email';
+                } elseif (!filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
+                    $errors[] = 'Invalid email format';
+                }
+
+                if (empty($row['phone1']) || !ctype_digit(strval($row['phone1']))) {
+                    $errors[] = 'Invalid or missing phone1';
+                }
+
+                if (empty($row['phone2']) || !ctype_digit(strval($row['phone2']))) {
+                    $errors[] = 'Invalid or missing phone2';
+                }
+
+                if (empty($row['address'])) {
+                    $errors[] = 'Missing address';
+                }
+
+                if (!isset($row['fix_commission']) || !is_numeric($row['fix_commission'])) {
+                    $errors[] = 'Missing or invalid fix_commission';
+                }
+
+                if (!isset($row['is_inactive'])) {
+                    $errors[] = 'Missing is_inactive';
+                }
+
+                return $errors;
+            },
+            function ($row) {
+                return [
+                    'name' => $row['name'],
+                    'email' => $row['email'],
+                    'phone1' => $row['phone1'],
+                    'phone2' => $row['phone2'],
+                    'address' => $row['address'],
+                    'fix_commission' => floatval($row['fix_commission']),
+                    'is_inactive' => boolval($row['is_inactive']),
+                ];
+            }
+        );
+
+        Excel::import($import, $request->file('file'));
+
+        return response()->json([
+            'success' => true,
+            'rows_imported' => $import->getImportedCount(),
+            'rows_skipped_count' => $import->getSkippedCount(),
+            'skipped_rows' => $import->getSkippedRows(),
+        ]);
     }
 }

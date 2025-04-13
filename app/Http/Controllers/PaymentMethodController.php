@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 
 class PaymentMethodController extends Controller
 {
@@ -115,4 +116,50 @@ class PaymentMethodController extends Controller
         $pdf = $pdfService->generatePdf($title, $headers, $data);
         return $pdf->download('PaymentMethods.pdf');
     }
+
+    public function importFromExcel(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        $import = new DynamicExcelImport(
+            PaymentMethod::class,
+            ['name', 'is_credit_card', 'is_online_payment', 'is_inactive'],
+            function ($row) {
+                $errors = [];
+
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
+                }
+
+                foreach (['is_credit_card', 'is_online_payment', 'is_inactive'] as $field) {
+                    if (!isset($row[$field]) || !in_array($row[$field], [0, 1, '0', '1'], true)) {
+                        $errors[] = "$field must be 0 or 1";
+                    }
+                }
+
+                return $errors;
+            },
+            function ($row) {
+                return [
+                    'name' => $row['name'],
+                    'is_credit_card' => (bool) $row['is_credit_card'],
+                    'is_online_payment' => (bool) $row['is_online_payment'],
+                    'is_inactive' => (bool) $row['is_inactive'],
+                ];
+            }
+        );
+
+        Excel::import($import, $request->file('file'));
+
+        return response()->json([
+            'success' => true,
+            'rows_imported' => $import->getImportedCount(),
+            'rows_skipped_count' => $import->getSkippedCount(),
+            'skipped_rows' => $import->getSkippedRows(),
+        ]);
+    }
+
+
 }

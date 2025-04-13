@@ -9,6 +9,7 @@ use App\Models\CustomerGroup;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 
 class CustomerGroupController extends Controller
 {
@@ -83,7 +84,7 @@ class CustomerGroupController extends Controller
     public function exportExcell()
     {
         $CustomerGroup = CustomerGroup::query();
-        $collection =  $CustomerGroup->get();
+        $collection = $CustomerGroup->get();
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No Customer_Groups found.'], 404);
         }
@@ -113,5 +114,41 @@ class CustomerGroupController extends Controller
         $pdf = $pdfService->generatePdf($title, $headers, $data);
         return $pdf->download('CustomerGroups.pdf');
     }
+
+    public function importFromExcel(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        $import = new DynamicExcelImport(
+            CustomerGroup::class,
+            ['name'],
+            function ($row) {
+                $errors = [];
+
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
+                }
+
+                return $errors;
+            },
+            function ($row) {
+                return [
+                    'name' => $row['name'],
+                ];
+            }
+        );
+
+        Excel::import($import, $request->file('file'));
+
+        return response()->json([
+            'success' => true,
+            'rows_imported' => $import->getImportedCount(),
+            'rows_skipped_count' => $import->getSkippedCount(),
+            'skipped_rows' => $import->getSkippedRows(),
+        ]);
+    }
+
 
 }

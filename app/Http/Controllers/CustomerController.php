@@ -5,19 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\{
     Customer,
     Address,
-    PaymentMethod,
-    PaymentTerm,
-    ReferBy
+    PaymentTerm
 };
 use App\Http\Requests\Customer\{
     StoreCustomerRequest,
     UpdateCustomerRequest
 };
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
-
+use App\Imports\DynamicExcelImport;
 
 class CustomerController extends Controller
 {
@@ -236,6 +234,100 @@ class CustomerController extends Controller
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
         return $pdf->download('customers.pdf');
+    }
+
+    public function importFromExcel(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        $import = new DynamicExcelImport(
+            Customer::class,
+            [
+                'first_name',
+                'last_name',
+                'billing_address_id',
+                'shipping_address_id',
+            ],
+            function ($row) {
+                $errors = [];
+
+                // Required fields
+                if (empty($row['first_name']))
+                    $errors[] = 'Missing first_name';
+                if (empty($row['last_name']))
+                    $errors[] = 'Missing last_name';
+                if (empty($row['billing_address_id']))
+                    $errors[] = 'Missing billing_address_id';
+                if (empty($row['shipping_address_id']))
+                    $errors[] = 'Missing shipping_address_id';
+
+                // Optional validations
+                if (!empty($row['email']) && !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
+                    $errors[] = 'Invalid email format';
+                }
+
+                foreach (['phone1', 'phone2', 'phone3'] as $phoneField) {
+                    if (!empty($row[$phoneField]) && !ctype_digit(strval($row[$phoneField]))) {
+                        $errors[] = "$phoneField must be numeric";
+                    }
+                }
+
+                if (isset($row['credit_limit']) && !is_numeric($row['credit_limit'])) {
+                    $errors[] = 'credit_limit must be numeric';
+                }
+
+                if (isset($row['opening_balance']) && !is_numeric($row['opening_balance'])) {
+                    $errors[] = 'opening_balance must be numeric';
+                }
+
+                return $errors;
+            },
+            function ($row) {
+                return [
+                    'title' => $row['title'] ?? null,
+                    'first_name' => $row['first_name'],
+                    'middle_name' => $row['middle_name'] ?? null,
+                    'last_name' => $row['last_name'],
+                    'suffix' => $row['suffix'] ?? null,
+                    'display_name' => $row['display_name'] ?? null,
+                    'company_name' => $row['company_name'] ?? null,
+                    'phone1' => $row['phone1'] ?? null,
+                    'phone2' => $row['phone2'] ?? null,
+                    'phone3' => $row['phone3'] ?? null,
+                    'email' => $row['email'] ?? null,
+                    'website' => $row['website'] ?? null,
+                    'file_number' => $row['file_number'] ?? null,
+                    'billing_address_id' => $row['billing_address_id'],
+                    'shipping_address_id' => $row['shipping_address_id'],
+                    'is_sub_customer' => boolval($row['is_sub_customer'] ?? false),
+                    'parent_customer_id' => $row['parent_customer_id'] ?? null,
+                    'customer_group_id' => $row['customer_group_id'] ?? null,
+                    'salesman_id' => $row['salesman_id'] ?? null,
+                    'refer_by_id' => $row['refer_by_id'] ?? null,
+                    'primary_payment_method_id' => $row['primary_payment_method_id'] ?? null,
+                    'payment_term_id' => $row['payment_term_id'] ?? null,
+                    'credit_limit' => $row['credit_limit'] ?? null,
+                    'taxable' => $row['taxable'] ?? null,
+                    'tax_registration' => $row['tax_registration'] ?? null,
+                    'opening_currency_id' => $row['opening_currency_id'] ?? null,
+                    'opening_balance' => $row['opening_balance'] ?? null,
+                    'notes' => $row['notes'] ?? null,
+                    'attachments' => $row['attachments'] ?? null,
+                    'is_inactive' => boolval($row['is_inactive'] ?? false),
+                ];
+            }
+        );
+
+        Excel::import($import, $request->file('file'));
+
+        return response()->json([
+            'success' => true,
+            'rows_imported' => $import->getImportedCount(),
+            'rows_skipped_count' => $import->getSkippedCount(),
+            'skipped_rows' => $import->getSkippedRows(),
+        ]);
     }
 
 }
