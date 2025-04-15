@@ -12,6 +12,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "maatwebsite/excel": "^3.1",
+        "owen-it/laravel-auditing": "^14.0",
         "stancl/tenancy": "^3.9"
     },
     "require-dev": {

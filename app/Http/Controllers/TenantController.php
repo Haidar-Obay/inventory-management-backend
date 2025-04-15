@@ -9,10 +9,9 @@ use Stancl\Tenancy\Facades\Tenancy;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-
 class TenantController extends Controller
 {
+
     //method for getting all tenants
     public function getAllTenants()
     {

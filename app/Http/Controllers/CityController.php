@@ -28,6 +28,8 @@ class CityController extends Controller
 
     public function store(Request $request)
     {
+        // dd(auth()->user());
+        $user = Auth::user();
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:cities,name',
         ]);
@@ -38,6 +40,7 @@ class CityController extends Controller
             'status' => true,
             'message' => 'City created successfully.',
             'data' => $city,
+            'user' => $user,
         ], 201);
     }
 
@@ -106,7 +109,7 @@ class CityController extends Controller
             'skipped' => $skipped,
         ]);
     }
-    
+
     public function exportExcell()
     {
         $cities = City::withCount('addresses')

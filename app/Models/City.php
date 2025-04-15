@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
-class City extends Model
+use OwenIt\Auditing\Contracts\Auditable;
+class City extends Model implements Auditable
 {
+    use \OwenIt\Auditing\Auditable;
+
     protected $guarded = ['id'];
     protected $table = 'cities';
     protected $primaryKey = 'id';
