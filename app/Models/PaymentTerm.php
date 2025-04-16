@@ -3,9 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
-class PaymentTerm extends Model
+use OwenIt\Auditing\Contracts\Auditable;
+class PaymentTerm extends Model implements Auditable
 {
+    use \OwenIt\Auditing\Auditable;
     protected $guarded = ['id'];
     protected $table = 'payment_terms';
     protected $primaryKey = 'id';

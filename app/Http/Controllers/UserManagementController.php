@@ -5,15 +5,37 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-
+use Illuminate\Support\Facades\Http;
 class UserManagementController extends Controller
 {
     public function registerUser(Request $request)
     {
         $authUser = auth()->user();
-
         if ($authUser->role !== 'admin') {
             return response()->json(['message' => 'Only admins can create new users'], 403);
+        }
+        $email = $request->email;
+        $url = "https://apilayer.net/api/check?access_key=774df7c6873b3b081fb76f9e71580f93&email={$email}&smtp=1&format=1";
+        $response = Http::get($url);
+
+        if ($response->successful()) {
+            $data = $response->json();
+
+            if (
+                !isset($data['format_valid'], $data['mx_found'], $data['smtp_check']) ||
+                !($data['format_valid'] && $data['mx_found'] && $data['smtp_check'])
+            )
+            {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Email appears to be invalid or unreachable.',
+                ], 422);
+            }
+        } else {
+            return response()->json([
+                'status' => false,
+                'message' => 'Could not validate email address. Try again later.',
+            ], 500);
         }
 
         $validated = $request->validate([
@@ -30,7 +52,7 @@ class UserManagementController extends Controller
             'role' => $validated['role'],
         ]);
 
-        // $user->sendEmailVerificationNotification();
+        $user->sendEmailVerificationNotification();
 
         return response()->json(['message' => 'User created. Verification email sent.']);
     }

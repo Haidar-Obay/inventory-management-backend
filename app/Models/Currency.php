@@ -3,9 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
-class Currency extends Model
+use OwenIt\Auditing\Contracts\Auditable;
+class Currency extends Model implements Auditable
 {
+    use \OwenIt\Auditing\Auditable;
     protected $guarded = ['id'];
     protected $table = 'currencies';
     protected $primaryKey = 'id';

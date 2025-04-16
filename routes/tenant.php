@@ -21,6 +21,8 @@ use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\ReferByController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\UserManagementController;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
+use Illuminate\Http\Request;
 
 /*
 |--------------------------------------------------------------------------
@@ -54,7 +56,7 @@ Route::middleware([
 
 
     // Protected Routes
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
         // Auth & User Management
         Route::post('/register', [UserManagementController::class, 'registerUser']);
@@ -131,5 +133,16 @@ Route::middleware([
             Route::delete('/payment-methods', [PaymentMethodController::class, 'bulkDelete']);
             Route::delete('/refer-bies', [ReferByController::class, 'bulkDelete']);
         });
+        
+        //Email Verification Routes
+        Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+            $request->fulfill();
+            return response()->json(['message' => 'Email verified!']);
+        })->middleware(['auth:sanctum', 'signed'])->name('verification.verify');
+
+        Route::post('/email/verification-notification', function (Request $request) {
+            $request->user()->sendEmailVerificationNotification();
+            return response()->json(['message' => 'Verification email resent']);
+        })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
     });
 });
