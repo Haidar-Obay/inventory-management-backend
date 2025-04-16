@@ -9,6 +9,7 @@ use Stancl\Tenancy\Facades\Tenancy;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Http;
 class TenantController extends Controller
 {
 
@@ -35,41 +36,68 @@ class TenantController extends Controller
 
     //method for creating tenant
     public function store(StoreTenantRequest $request)
-    {
-        try {
-            $tenant = Tenant::create([
-                'id' => $request->domain,
-                'name' => $request->name,
-                'email' => $request->email,
-            ]);
+{
+    try {
+        // Step 1: Check if the email is valid and exists
+        $email = $request->email;
+        $url = "https://apilayer.net/api/check?access_key=774df7c6873b3b081fb76f9e71580f93&email={$email}&smtp=1&format=1";
+        $response = Http::get($url);
 
-            $tenant->domains()->create([
-                'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
-            ]);
+        if ($response->successful()) {
+            $data = $response->json();
 
-            tenancy()->initialize($tenant);
-
-            User::create([
-                'name' => $request->name.'_admin',
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'role' => 'admin',
-            ]);
-
+            if (!($data['format_valid'] && $data['mx_found'] && $data['smtp_check']))
+            {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Email appears to be invalid or unreachable.',
+                ], 422);
+            }
+        } else {
             return response()->json([
-                'message' => 'Tenant and admin created successfully',
-                'tenant_id' => $tenant->id,
-                'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
-                'email' => $tenant->email,
-                "admin" => User::firstWhere('role', 'admin')->name,
-                "password" => $request->password
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Failed to create tenant: ' . $e->getMessage(),
+                'status' => false,
+                'message' => 'Could not validate email address. Try again later.',
             ], 500);
         }
+
+        // Step 2: Create the tenant
+        $tenant = Tenant::create([
+            'id' => $request->domain,
+            'name' => $request->name,
+            'email' => $request->email,
+        ]);
+
+        $tenant->domains()->create([
+            'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
+        ]);
+
+        tenancy()->initialize($tenant);
+
+       $user =  User::create([
+            'name' => $request->name . '_admin',
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'role' => 'admin',
+        ]);
+
+        $user->sendEmailVerificationNotification();
+
+        return response()->json([
+            'message' => 'Tenant and admin created successfully',
+            'tenant_id' => $tenant->id,
+            'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
+            'email' => $tenant->email,
+            "admin" => User::firstWhere('role', 'admin')->name,
+            "password" => $request->password
+        ], 201);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Failed to create tenant: ' . $e->getMessage(),
+        ], 500);
     }
+}
+
 
     //method for deleting tenant
     public function deleteTenant($id)
