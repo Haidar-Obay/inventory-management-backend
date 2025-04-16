@@ -4,17 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use OwenIt\Auditing\Contracts\Auditable;
-
-class CustomerGroup extends Model implements Auditable
+class City extends Model implements Auditable
 {
     use \OwenIt\Auditing\Auditable;
+
     protected $guarded = ['id'];
-    protected $table = 'customer_groups';
+    protected $table = 'cities';
     protected $primaryKey = 'id';
     public $timestamps = false;
 
-    public function customers()
+    public function addresses()
     {
-        return $this->hasMany(Customer::class,'customer_group_id');
+        return $this->hasMany(Address::class, 'city_id');
     }
 }
