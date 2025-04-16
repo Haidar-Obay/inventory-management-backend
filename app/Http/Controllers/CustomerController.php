@@ -11,7 +11,9 @@ use App\Http\Requests\Customer\{
     StoreCustomerRequest,
     UpdateCustomerRequest
 };
+use App\Models\CustomerAttachment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
@@ -32,6 +34,7 @@ class CustomerController extends Controller
             'shippingAddress',
             'parentCustomer',
             'subCustomers',
+            'attachments'
         ])->paginate(10);
 
         return response()->json([
@@ -62,14 +65,44 @@ class CustomerController extends Controller
 
         $customer = Customer::create($validated);
 
+        $attachmentIds = [];
+
+        if ($request->hasFile('attachments')) {
+            $tenantId = tenant('id');
+            $files = is_array($request->file('attachments'))
+                ? $request->file('attachments')
+                : [$request->file('attachments')];
+
+            foreach ($files as $file) {
+                $path = Storage::disk('public')->putFile(
+                    "tenants/{$tenantId}/{$customer->id}/attachments",
+                    $file
+                );
+
+                $attachment = CustomerAttachment::create([
+                    'customer_id' => $customer->id,
+                    'file_path' => url(Storage::url($path)),
+                ]);
+
+                $attachmentIds[] = $attachment->id;
+            }
+
+            // Save the attachment IDs as JSON
+            $customer->update([
+                'attachment_ids' => $attachmentIds
+            ]);
+        }
+
         return response()->json([
             'message' => 'Customer created successfully',
             'data' => $customer->load([
                 'billingAddress',
                 'shippingAddress',
                 'primaryPaymentMethod',
-                'paymentTerm'
-            ]),
+                'paymentTerm',
+            ])->toArray() + [
+                'attachments' => $customer->attachments()->pluck('file_path'),
+            ],
         ], 201);
     }
 
@@ -86,6 +119,7 @@ class CustomerController extends Controller
             'shippingAddress',
             'parentCustomer',
             'subCustomers',
+            'attachments'
         ]);
 
         return response()->json([
@@ -98,7 +132,7 @@ class CustomerController extends Controller
     public function update(UpdateCustomerRequest $request, Customer $customer)
     {
         $validated = $request->validated();
-
+        logger()->info('Validated data', $validated);
         if ($request->filled('billing_address')) {
             $customer->billingAddress()->update($request->input('billing_address'));
         }
@@ -122,6 +156,40 @@ class CustomerController extends Controller
 
         $customer->update($validated);
 
+        if ($request->hasFile('attachments')) {
+            $tenantId = tenant('id');
+
+            // Delete old files
+            foreach ($customer->attachments as $attachment) {
+                $relativePath = str_replace(url('/storage'), '', $attachment->file_path);
+                Storage::disk('public')->delete($relativePath);
+                $attachment->delete();
+            }
+
+            $newAttachmentIds = [];
+            $files = is_array($request->file('attachments'))
+                ? $request->file('attachments')
+                : [$request->file('attachments')];
+
+            foreach ($files as $file) {
+                $path = Storage::disk('public')->putFile(
+                    "tenants/{$tenantId}/{$customer->id}/attachments",
+                    $file
+                );
+
+                $attachment = CustomerAttachment::create([
+                    'customer_id' => $customer->id,
+                    'file_path' => url(Storage::url($path)),
+                ]);
+
+                $newAttachmentIds[] = $attachment->id;
+            }
+
+            $customer->update([
+                'attachment_ids' => $newAttachmentIds,
+            ]);
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'Customer updated successfully.',
@@ -129,9 +197,11 @@ class CustomerController extends Controller
                 'billingAddress',
                 'shippingAddress',
                 'primaryPaymentMethod',
-                'paymentTerm'
+                'paymentTerm',
+                'attachments',
             ]),
         ]);
+        
     }
 
     public function destroy(Customer $customer)

@@ -74,7 +74,8 @@ class StoreCustomerRequest extends FormRequest
             'opening_currency_id' => 'nullable|exists:currencies,id',
             'opening_balance' => 'nullable|numeric',
             'notes' => 'nullable|string',
-            'attachments' => 'nullable|string',
+            'attachments' => 'nullable|array',
+            'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,docx,xlsx,txt|max:5120',
             'is_inactive' => 'boolean',
         ];
     }

@@ -12,6 +12,10 @@ class Customer extends Model
 
     protected $guarded = ['id'];
 
+    protected $casts = [
+        'attachment_ids' => 'array', // auto-casts to array on get/set
+    ];
+
     public function customerGroup()
     {
         return $this->belongsTo(CustomerGroup::class, 'customer_group_id');
@@ -50,6 +54,11 @@ class Customer extends Model
     public function shippingAddress()
     {
         return $this->belongsTo(Address::class, 'shipping_address_id');
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(CustomerAttachment::class);
     }
 
     public function parentCustomer()

@@ -37,7 +37,7 @@ return new class extends Migration {
             $table->foreignId('opening_currency_id')->nullable()->constrained('currencies');
             $table->decimal('opening_balance', 15, 2)->nullable();
             $table->text('notes')->nullable();
-            $table->text('attachments')->nullable();
+            $table->json('attachment_ids')->nullable();
             $table->boolean('is_inactive')->default(false);
             $table->timestamps();
         });

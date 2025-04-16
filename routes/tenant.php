@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\CustomerAttachmentController;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
@@ -71,6 +72,7 @@ Route::middleware([
         Route::apiResource('salesmen', SalesmanController::class);
         Route::apiResource('customers', CustomerController::class);
         Route::apiResource('customer-groups', CustomerGroupController::class);
+        // Route::apiResource('customer-attachments', CustomerAttachmentController::class);
         Route::apiResource('payment-methods', PaymentMethodController::class);
         Route::apiResource('refer-bies', ReferByController::class);
 
