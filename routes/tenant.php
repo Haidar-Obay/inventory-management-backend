@@ -24,6 +24,7 @@ use App\Http\Controllers\UserManagementController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 
+
 /*
 |--------------------------------------------------------------------------
 | Tenant Routes
