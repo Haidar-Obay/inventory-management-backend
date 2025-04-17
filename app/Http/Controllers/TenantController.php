@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+
 use App\Http\Requests\Tenant\StoreTenantRequest;
 use App\Http\Requests\Tenant\UpdateTenantRequest;
 use App\Models\Tenant;
@@ -71,7 +72,7 @@ class TenantController extends Controller
             'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
         ]);
 
-        tenancy()->initialize($tenant);
+    tenancy()->initialize($tenant);
 
        $user =  User::create([
             'name' => $request->name . '_admin',
@@ -80,10 +81,10 @@ class TenantController extends Controller
             'role' => 'admin',
         ]);
 
-        $user->sendEmailVerificationNotification();
+        // $user->sendEmailVerificationNotification();
 
         return response()->json([
-            'message' => 'Tenant and admin created successfully',
+            'message' => 'Tenant and admin created successfully !',
             'tenant_id' => $tenant->id,
             'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
             'email' => $tenant->email,
@@ -97,7 +98,6 @@ class TenantController extends Controller
         ], 500);
     }
 }
-
 
     //method for deleting tenant
     public function deleteTenant($id)
