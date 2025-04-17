@@ -23,6 +23,8 @@ use App\Http\Controllers\TenantController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Auth\Events\Verified;
 
 
 /*
@@ -134,16 +136,37 @@ Route::middleware([
             Route::delete('/payment-methods', [PaymentMethodController::class, 'bulkDelete']);
             Route::delete('/refer-bies', [ReferByController::class, 'bulkDelete']);
         });
-        
-        //Email Verification Routes
-        Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-            $request->fulfill();
-            return response()->json(['message' => 'Email verified!']);
-        })->middleware(['auth:sanctum', 'signed'])->name('verification.verify');
-
-        Route::post('/email/verification-notification', function (Request $request) {
-            $request->user()->sendEmailVerificationNotification();
-            return response()->json(['message' => 'Verification email resent']);
-        })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
     });
+     //Email Verification Routes
+     Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
+        $user = User::find($id);
+
+        if (! $user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        Auth::login($user); // Log the user in manually in tenant context
+
+        if (! hash_equals((string) $id, (string) $user->getKey())) {
+            return response()->json(['message' => 'Invalid user ID.'], 403);
+        }
+
+        if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
+            return response()->json(['message' => 'Invalid email hash.'], 403);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email already verified.']);
+        }
+
+        $user->markEmailAsVerified();
+        event(new Verified($user));
+
+        return response()->json(['message' => 'Email verified successfully!']);
+    })->middleware(['signed'])->name('verification.verify');
+
+    Route::post('/email/verification-notification', function (Request $request) {
+        $request->user()->sendEmailVerificationNotification();
+        return response()->json(['message' => 'Verification email resent']);
+    })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
 });

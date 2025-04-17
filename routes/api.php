@@ -9,6 +9,7 @@ use App\Http\Controllers\TenantUserManagementController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 
 /*
 |--------------------------------------------------------------------------
@@ -70,5 +71,15 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::delete('/delete-user', [TenantUserManagementController::class, 'deleteUser']);
             Route::delete('/bulk-delete-users', [TenantUserManagementController::class, 'bulkDeleteUsers']);
         });
+
+        // Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+        //     $request->fulfill();
+        //     return response()->json(['message' => 'Email verified!']);
+        // })->middleware(['signed'])->name('verification.verify');
+
+        // Route::post('/email/verification-notification', function (Request $request) {
+        //     $request->user()->sendEmailVerificationNotification();
+        //     return response()->json(['message' => 'Verification email resent']);
+        // })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
     });
 }

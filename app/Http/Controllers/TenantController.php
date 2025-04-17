@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+
 use App\Http\Requests\Tenant\StoreTenantRequest;
 use App\Http\Requests\Tenant\UpdateTenantRequest;
 use App\Models\Tenant;
@@ -76,14 +77,14 @@ class TenantController extends Controller
                 'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
             ]);
 
-            tenancy()->initialize($tenant);
+        tenancy()->initialize($tenant);
 
-            $user = User::create([
-                'name' => $request->name . '_admin',
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'role' => 'admin',
-            ]);
+       $user =  User::create([
+            'name' => $request->name . '_admin',
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'role' => 'admin',
+        ]);
 
             $admins = User::where('role', 'admin')->get();
             Notification::send(
@@ -91,24 +92,26 @@ class TenantController extends Controller
                 new TenantCreated($tenant, $user)
             );
 
-            $user->sendEmailVerificationNotification();
+        $user->sendEmailVerificationNotification();
 
-            return response()->json([
-                'message' => 'Tenant and admin created successfully',
-                'tenant_id' => $tenant->id,
-                'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
-                'email' => $tenant->email,
-                "admin" => User::firstWhere('role', 'admin')->name,
-                "password" => $request->password
-            ], 201);
+        return response()->json([
+            'message' => 'Tenant and admin created successfully',
+            'tenant_id' => $tenant->id,
+            'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
+            'email' => $tenant->email,
+            "admin" => User::firstWhere('role', 'admin')->name,
+            "password" => $request->password
+        ], 201);
 
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Failed to create tenant: ' . $e->getMessage(),
-            ], 500);
-        }
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'Failed to create tenant: ' . $e->getMessage(),
+        ], 500);
     }
+}
 
+
+    //method for deleting tenant
     public function deleteTenant($id)
     {
         if (auth()->user()->role !== 'admin') {
