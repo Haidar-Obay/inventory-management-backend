@@ -16,19 +16,19 @@ use Illuminate\Support\Facades\Route;
 | Email Verification (must be loaded before tenancy routes)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth:sanctum', 'signed'])
-    ->get('email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-        $request->fulfill();
-        return response()->json(['message' => 'Email verified!']);
-    })
-    ->name('verification.verify');
+// Route::middleware(['auth:sanctum', 'signed'])
+//     ->get('email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+//         $request->fulfill();
+//         return response()->json(['message' => 'Email verified!']);
+//     })
+//     ->name('verification.verify');
 
-Route::middleware(['auth:sanctum', 'throttle:6,1'])
-    ->post('email/verification-notification', function (Request $request) {
-        $request->user()->sendEmailVerificationNotification();
-        return response()->json(['message' => 'Verification email resent']);
-    })
-    ->name('verification.send');
+// Route::middleware(['auth:sanctum', 'throttle:6,1'])
+//     ->post('email/verification-notification', function (Request $request) {
+//         $request->user()->sendEmailVerificationNotification();
+//         return response()->json(['message' => 'Verification email resent']);
+//     })
+//     ->name('verification.send');
 
 /*
 |--------------------------------------------------------------------------
