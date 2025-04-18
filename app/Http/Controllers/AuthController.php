@@ -9,6 +9,12 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
+          // Validate input
+        //   $credentials = $request->validate([
+        //     'email'    => 'required|email',
+        //     'password' => 'required',
+        // ]);
+
         $credentials = $request->only('email', 'password');
 
         if (!Auth::attempt($credentials)) {
@@ -28,6 +34,7 @@ class AuthController extends Controller
             'message' => 'Login successful',
             'access_token' => $token,
             'token_type' => 'Bearer',
+            'user'=> $user,
         ]);
     }
 
