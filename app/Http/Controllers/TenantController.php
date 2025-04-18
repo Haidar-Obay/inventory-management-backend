@@ -47,25 +47,25 @@ class TenantController extends Controller
         }
 
         try {
-            $email = $request->email;
-            $url = "https://apilayer.net/api/check?access_key=774df7c6873b3b081fb76f9e71580f93&email={$email}&smtp=1&format=1";
-            $response = Http::get($url);
+            // $email = $request->email;
+            // $url = "https://apilayer.net/api/check?access_key=774df7c6873b3b081fb76f9e71580f93&email={$email}&smtp=1&format=1";
+            // $response = Http::get($url);
 
-            if ($response->successful()) {
-                $data = $response->json();
+            // if ($response->successful()) {
+            //     $data = $response->json();
 
-                if (!($data['format_valid'] && $data['mx_found'] && $data['smtp_check'])) {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'Email appears to be invalid or unreachable.',
-                    ], 422);
-                }
-            } else {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Could not validate email address. Try again later.',
-                ], 500);
-            }
+            //     if (!($data['format_valid'] && $data['mx_found'] && $data['smtp_check'])) {
+            //         return response()->json([
+            //             'status' => false,
+            //             'message' => 'Email appears to be invalid or unreachable.',
+            //         ], 422);
+            //     }
+            // } else {
+            //     return response()->json([
+            //         'status' => false,
+            //         'message' => 'Could not validate email address. Try again later.',
+            //     ], 500);
+            // }
 
             $tenant = Tenant::create([
                 'id' => $request->domain,
