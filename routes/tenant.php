@@ -66,7 +66,7 @@ Route::middleware([
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsers']);
         Route::get('/get-user/{id}', action: [UserManagementController::class, 'getUser']);
-        Route::delete('/delete-user', [UserManagementController::class, 'deleteUser']);
+        Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser']);
         Route::delete('/bulk-delete-users', [UserManagementController::class, 'bulkDeleteUsers']);
 
         // Resource APIs
@@ -138,35 +138,29 @@ Route::middleware([
         });
     });
      //Email Verification Routes
-     Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
-        $user = User::find($id);
+    //  Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
+    //     $user = User::find($id);
+    //     if (! $user) {
+    //         return response()->json(['message' => 'User not found.'], 404);
+    //     }
+    //     Auth::login($user); // Log the user in manually in tenant context
+    //     if (! hash_equals((string) $id, (string) $user->getKey())) {
+    //       return response()->json(['message' => 'Invalid user ID.'], 403);
+    //     }
+    //     if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
+    //      return response()->json(['message' => 'Invalid email hash.'], 403);
+    //     }
+    //     if ($user->hasVerifiedEmail()) {
+    //         return response()->json(['message' => 'Email already verified.']);
+    //     }
+    //     $user->markEmailAsVerified();
+    //     event(new Verified($user));
 
-        if (! $user) {
-            return response()->json(['message' => 'User not found.'], 404);
-        }
+    //     return response()->json(['message' => 'Email verified successfully!']);
+    // })->middleware(['signed'])->name('verification.verify');
 
-        Auth::login($user); // Log the user in manually in tenant context
-
-        if (! hash_equals((string) $id, (string) $user->getKey())) {
-            return response()->json(['message' => 'Invalid user ID.'], 403);
-        }
-
-        if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
-            return response()->json(['message' => 'Invalid email hash.'], 403);
-        }
-
-        if ($user->hasVerifiedEmail()) {
-            return response()->json(['message' => 'Email already verified.']);
-        }
-
-        $user->markEmailAsVerified();
-        event(new Verified($user));
-
-        return response()->json(['message' => 'Email verified successfully!']);
-    })->middleware(['signed'])->name('verification.verify');
-
-    Route::post('/email/verification-notification', function (Request $request) {
-        $request->user()->sendEmailVerificationNotification();
-        return response()->json(['message' => 'Verification email resent']);
-    })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
+    // Route::post('/email/verification-notification', function (Request $request) {
+    //     $request->user()->sendEmailVerificationNotification();
+    //     return response()->json(['message' => 'Verification email resent']);
+    // })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
 });

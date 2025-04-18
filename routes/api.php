@@ -3,32 +3,16 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\TenantAuthController;
+// use App\Http\Controllers\TenantAuthController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantUserManagementController;
+use App\Http\Controllers\UserManagementController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
-
-/*
-|--------------------------------------------------------------------------
-| Email Verification (must be loaded before tenancy routes)
-|--------------------------------------------------------------------------
-*/
-Route::middleware(['auth:sanctum', 'signed'])
-    ->get('email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-        $request->fulfill();
-        return response()->json(['message' => 'Email verified!']);
-    })
-    ->name('verification.verify');
-
-Route::middleware(['auth:sanctum', 'throttle:6,1'])
-    ->post('email/verification-notification', function (Request $request) {
-        $request->user()->sendEmailVerificationNotification();
-        return response()->json(['message' => 'Verification email resent']);
-    })
-    ->name('verification.send');
+use App\Models\User;
+use Illuminate\Auth\Events\Verified;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -50,6 +34,8 @@ foreach (config('tenancy.central_domains') as $domain) {
             'message' => 'This is your central application.',
         ]));
 
+
+
         // Tenant CRUD
         Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
             Route::post('', [TenantController::class, 'store']);
@@ -60,26 +46,44 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::get('export/excell', [TenantController::class, 'exportExcell']);
         });
 
+
+
+
+        // Auth & User Management
         Route::post('/login', [AuthController::class, 'login']);
 
-        Route::middleware(['auth:sanctum'])->group(function () {
-            // Auth & User Management
-            Route::post('/register', [TenantUserManagementController::class, 'registerUser']);
-            Route::post('/logout', [TenantAuthController::class, 'logout']);
-            Route::get('/get-all-users', action: [TenantUserManagementController::class, 'getAllUsers']);
-            Route::get('/get-user/{id}', action: [TenantUserManagementController::class, 'getUser']);
-            Route::delete('/delete-user', [TenantUserManagementController::class, 'deleteUser']);
-            Route::delete('/bulk-delete-users', [TenantUserManagementController::class, 'bulkDeleteUsers']);
+
+
+        Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+            Route::post('/register', [UserManagementController::class, 'registerUser']);
+            Route::post('/logout', [AuthController::class, 'logout']);
+            Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsers']);
+            Route::get('/get-user/{id}', action: [UserManagementController::class, 'getUser']);
+            Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser']);
+            Route::delete('/bulk-delete-users', [UserManagementController::class, 'bulkDeleteUsers']);
         });
 
-        // Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
-        //     $request->fulfill();
-        //     return response()->json(['message' => 'Email verified!']);
-        // })->middleware(['signed'])->name('verification.verify');
 
-        // Route::post('/email/verification-notification', function (Request $request) {
-        //     $request->user()->sendEmailVerificationNotification();
-        //     return response()->json(['message' => 'Verification email resent']);
-        // })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
+
+        Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
+            $user = User::find($id);
+
+            if (! $user) {
+                return response()->json(['message' => 'User not found'], 404);
+            }
+
+            if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+                return response()->json(['message' => 'Invalid verification link'], 403);
+            }
+
+            if ($user->hasVerifiedEmail()) {
+                return response()->json(['message' => 'Email already verified']);
+            }
+
+            $user->markEmailAsVerified();
+            event(new Verified($user));
+
+            return response()->json(['message' => 'Email verified successfully']);
+        })->middleware(['signed'])->name('verification.verify');
     });
 }

@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+
 class UserManagementController extends Controller
 {
     public function registerUser(Request $request)
@@ -14,29 +15,28 @@ class UserManagementController extends Controller
         if ($authUser->role !== 'admin') {
             return response()->json(['message' => 'Only admins can create new users'], 403);
         }
-        $email = $request->email;
-        $url = "https://apilayer.net/api/check?access_key=774df7c6873b3b081fb76f9e71580f93&email={$email}&smtp=1&format=1";
-        $response = Http::get($url);
+        // $email = $request->email;
+        // $url = "https://apilayer.net/api/check?access_key=774df7c6873b3b081fb76f9e71580f93&email={$email}&smtp=1&format=1";
+        // $response = Http::get($url);
 
-        if ($response->successful()) {
-            $data = $response->json();
+        // if ($response->successful()) {
+        //     $data = $response->json();
 
-            if (
-                !isset($data['format_valid'], $data['mx_found'], $data['smtp_check']) ||
-                !($data['format_valid'] && $data['mx_found'] && $data['smtp_check'])
-            )
-            {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Email appears to be invalid or unreachable.',
-                ], 422);
-            }
-        } else {
-            return response()->json([
-                'status' => false,
-                'message' => 'Could not validate email address. Try again later.',
-            ], 500);
-        }
+        //     if (
+        //         !isset($data['format_valid'], $data['mx_found'], $data['smtp_check']) ||
+        //         !($data['format_valid'] && $data['mx_found'] && $data['smtp_check'])
+        //     ) {
+        //         return response()->json([
+        //             'status' => false,
+        //             'message' => 'Email appears to be invalid or unreachable.',
+        //         ], 422);
+        //     }
+        // } else {
+        //     return response()->json([
+        //         'status' => false,
+        //         'message' => 'Could not validate email address. Try again later.',
+        //     ], 500);
+        // }
 
         $validated = $request->validate([
             'name' => 'required',
@@ -51,10 +51,8 @@ class UserManagementController extends Controller
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
         ]);
-
-        $user->sendEmailVerificationNotification();
-
-        return response()->json(['message' => 'User created. Verification email sent.']);
+        // $user->sendEmailVerificationNotification();
+        return response()->json(['message' => 'User created successfully.', 'user' => $user], 201);
     }
 
     public function getAllUsers()
@@ -96,7 +94,7 @@ class UserManagementController extends Controller
         ]);
     }
 
-    public function deleteUser(Request $request)
+    public function deleteUser($id)
     {
         $authUser = auth()->user();
 
@@ -104,21 +102,24 @@ class UserManagementController extends Controller
             return response()->json(['message' => 'Only admins can delete users.'], 403);
         }
 
-        $request->validate([
-            'id' => 'required|exists:users,id',
-        ]);
-
-        if ($request->id == $authUser->id) {
+        if ($authUser->id == $id) {
             return response()->json(['message' => 'You cannot delete your own account.'], 403);
         }
 
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
         try {
-            User::where('id', $request->id)->delete();
+            $user->delete();
             return response()->json(['message' => 'User deleted successfully.']);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json(['message' => 'User could not be deleted.'], 400);
         }
     }
+
 
     public function bulkDeleteUsers(Request $request)
     {
