@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CustomerAttachmentController;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
@@ -163,4 +165,9 @@ Route::middleware([
         $request->user()->sendEmailVerificationNotification();
         return response()->json(['message' => 'Verification email resent']);
     })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
+
+    // Password Reset Routes
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
+    Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
+
 });

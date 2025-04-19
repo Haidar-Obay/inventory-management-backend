@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -34,6 +37,7 @@ foreach (config('tenancy.central_domains') as $domain) {
         Route::get('/', fn() => response()->json([
             'message' => 'This is your central application.',
         ]));
+
 
 
 
@@ -93,5 +97,12 @@ foreach (config('tenancy.central_domains') as $domain) {
             $request->user()->sendEmailVerificationNotification();
             return response()->json(['message' => 'Verification link sent!']);
         })->middleware(['auth:sanctum'])->name('verification.resend');
+
+
+
+        //reset password
+        Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
+        Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
+
     });
 }
