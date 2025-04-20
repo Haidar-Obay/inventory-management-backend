@@ -108,8 +108,6 @@ foreach (config('tenancy.central_domains') as $domain) {
             return response()->json(['message' => 'Verification link sent!']);
         })->middleware(['auth:sanctum'])->name('verification.resend');
 
-
-
         //reset password
         Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
         Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
