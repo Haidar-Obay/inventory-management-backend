@@ -11,17 +11,13 @@ class StoreCurrencyRequest extends FormRequest
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
-{
-    return [
-        'name' => 'required|string',
-        'code' => 'required|string|size:3',
-        'iso_code' => 'required|string|size:3',
-    ];
-}
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'code' => 'required|string|max:10|unique:currencies,code',
+            'iso_code' => 'required|string|max:10|unique:currencies,iso_code',
+            'rate' => 'nullable|numeric|min:0',
+        ];
+    }
 }

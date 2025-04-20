@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Currency;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\Rule;
 use App\Http\Requests\Currency\StoreCurrencyRequest;
 use App\Http\Requests\Currency\UpdateCurrencyRequest;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\Request;
-use App\Models\Currency;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
@@ -17,7 +17,17 @@ class CurrencyController extends Controller
 {
     public function index()
     {
-        return response()->json(Currency::all());
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_currencies";
+
+        $currencies = app('cache')->store('database')->get($key);
+
+        if (!$currencies) {
+            $currencies = Currency::all();
+            app('cache')->store('database')->forever($key, $currencies);
+        }
+
+        return response()->json($currencies);
     }
 
     public function store(StoreCurrencyRequest $request)
@@ -43,20 +53,31 @@ class CurrencyController extends Controller
             'rate' => $rate,
         ]);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_currencies");
+
         return response()->json($currency, 201);
     }
 
     public function show($id)
     {
-        $currency = Currency::findOrFail($id);
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_currency_show_{$id}";
 
-        $apiKey = config('services.exchange_rate.key');
-        $baseCurrency = 'USD';
-        $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
+        $cached = app('cache')->store('database')->get($key);
 
-        $response = Http::get($url);
-        if ($response->ok()) {
-            $currency->rate = $response['conversion_rates'][$currency->code] ?? $currency->rate;
+        if (!$cached) {
+            $currency = Currency::findOrFail($id);
+            $apiKey = config('services.exchange_rate.key');
+            $baseCurrency = 'USD';
+            $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
+            $response = Http::get($url);
+            if ($response->ok()) {
+                $currency->rate = $response['conversion_rates'][$currency->code] ?? $currency->rate;
+            }
+            app('cache')->store('database')->forever($key, $currency);
+        } else {
+            $currency = $cached;
         }
 
         return response()->json($currency);
@@ -87,6 +108,10 @@ class CurrencyController extends Controller
             'rate' => $rate,
         ]);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_currencies");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_currency_show_{$id}");
+
         return response()->json($currency);
     }
 
@@ -94,6 +119,10 @@ class CurrencyController extends Controller
     {
         $currency = Currency::findOrFail($id);
         $currency->delete();
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_currencies");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_currency_show_{$id}");
 
         return response()->json(['message' => 'Currency deleted successfully.']);
     }
@@ -107,14 +136,18 @@ class CurrencyController extends Controller
 
         $skipped = [];
         $deleted = 0;
+        $tenantId = tenant('id');
 
         foreach ($request->ids as $id) {
             try {
                 $deleted += Currency::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_currency_show_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
+        app('cache')->store('database')->forget("tenant_{$tenantId}_currencies");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -137,13 +170,7 @@ class CurrencyController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $currencies = Currency::select(
-            'id',
-            'name',
-            'code',
-            'iso_code',
-            'rate'
-        )->get();
+        $currencies = Currency::select('id', 'name', 'code', 'iso_code', 'rate')->get();
 
         if ($currencies->isEmpty()) {
             return response()->json(['message' => 'No currencies found.'], 404);
@@ -175,14 +202,10 @@ class CurrencyController extends Controller
             function ($row) {
                 $errors = [];
 
-                if (empty($row['name']))
-                    $errors[] = 'Missing name';
-                if (empty($row['code']))
-                    $errors[] = 'Missing code';
-                if (empty($row['iso_code']))
-                    $errors[] = 'Missing ISO code';
-                elseif (!is_numeric($row['iso_code']))
-                    $errors[] = 'ISO code must be numeric';
+                if (empty($row['name'])) $errors[] = 'Missing name';
+                if (empty($row['code'])) $errors[] = 'Missing code';
+                if (empty($row['iso_code'])) $errors[] = 'Missing ISO code';
+                elseif (!is_numeric($row['iso_code'])) $errors[] = 'ISO code must be numeric';
 
                 if (!isset($row['rate']) || !is_numeric($row['rate'])) {
                     $errors[] = 'Rate must be numeric';
@@ -202,6 +225,8 @@ class CurrencyController extends Controller
 
         Excel::import($import, $request->file('file'));
 
+        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_currencies");
+
         return response()->json([
             'success' => true,
             'rows_imported' => $import->getImportedCount(),
@@ -209,6 +234,4 @@ class CurrencyController extends Controller
             'skipped_rows' => $import->getSkippedRows(),
         ]);
     }
-
-
 }

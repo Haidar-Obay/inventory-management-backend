@@ -15,9 +15,18 @@ class CityController extends Controller
 {
     public function index()
     {
-        $cities = City::withCount('addresses')
-            ->orderBy('name')
-            ->get();
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_cities";
+
+        $cities = app('cache')->store('database')->get($key);
+
+        if (!$cities) {
+            $cities = City::withCount('addresses')
+                ->orderBy('name')
+                ->get();
+
+            app('cache')->store('database')->forever($key, $cities);
+        }
 
         return response()->json([
             'status' => true,
@@ -28,13 +37,15 @@ class CityController extends Controller
 
     public function store(Request $request)
     {
-        // dd(auth()->user());
         $user = Auth::user();
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:cities,name',
         ]);
 
         $city = City::create($validated);
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_cities");
 
         return response()->json([
             'status' => true,
@@ -46,12 +57,22 @@ class CityController extends Controller
 
     public function show(City $city)
     {
-        $city->loadCount('addresses');
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_city_{$city->id}";
+
+        $cachedCity = app('cache')->store('database')->get($key);
+
+        if (!$cachedCity) {
+            $city->loadCount('addresses');
+            $cachedCity = $city;
+
+            app('cache')->store('database')->forever($key, $cachedCity);
+        }
 
         return response()->json([
             'status' => true,
             'message' => 'City details fetched successfully.',
-            'data' => $city,
+            'data' => $cachedCity,
         ]);
     }
 
@@ -68,6 +89,10 @@ class CityController extends Controller
 
         $city->update($validated);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_cities");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_city_{$city->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'City updated successfully.',
@@ -78,6 +103,10 @@ class CityController extends Controller
     public function destroy(City $city)
     {
         $city->delete();
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_cities");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_city_{$city->id}");
 
         return response()->json([
             'status' => true,
@@ -92,16 +121,20 @@ class CityController extends Controller
             'ids.*' => 'exists:cities,id',
         ]);
 
+        $tenantId = tenant('id');
         $skipped = [];
         $deleted = 0;
 
         foreach ($request->ids as $id) {
             try {
                 $deleted += City::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_city_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
+        app('cache')->store('database')->forget("tenant_{$tenantId}_cities");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -116,7 +149,7 @@ class CityController extends Controller
             ->orderBy('name');
         $collection = $cities->get();
         if ($collection->isEmpty()) {
-            return response()->json(['message' => 'No currencies found.'], 404);
+            return response()->json(['message' => 'No cities found.'], 404);
         }
         $columns = ['id', 'name'];
         $headings = ['ID', 'Name'];
@@ -154,7 +187,7 @@ class CityController extends Controller
 
         $import = new DynamicExcelImport(
             City::class,
-            ['name'], // required columns
+            ['name'],
             function ($row) {
                 $errors = [];
 
@@ -174,6 +207,8 @@ class CityController extends Controller
         );
 
         Excel::import($import, $request->file('file'));
+
+        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_cities');
 
         return response()->json([
             'success' => true,

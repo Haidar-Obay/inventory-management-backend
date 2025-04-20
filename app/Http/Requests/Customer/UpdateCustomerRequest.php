@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Customer;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateCustomerRequest extends FormRequest
 {
@@ -13,6 +14,8 @@ class UpdateCustomerRequest extends FormRequest
 
     public function rules(): array
     {
+        $customerId = $this->route('customer'); // Adjust this if your route parameter is named differently
+
         return [
             'title' => 'sometimes|nullable|string|max:255',
             'first_name' => 'sometimes|required|string|max:255',
@@ -21,12 +24,43 @@ class UpdateCustomerRequest extends FormRequest
             'suffix' => 'sometimes|nullable|string|max:255',
             'display_name' => 'sometimes|nullable|string|max:255',
             'company_name' => 'sometimes|nullable|string|max:255',
-            'phone1' => 'sometimes|nullable|string|max:20',
-            'phone2' => 'sometimes|nullable|string|max:20',
-            'phone3' => 'sometimes|nullable|string|max:20',
-            'email' => 'sometimes|nullable|email|max:255',
+
+            'phone1' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('customers', 'phone1')->ignore($customerId),
+            ],
+            'phone2' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('customers', 'phone2')->ignore($customerId),
+            ],
+            'phone3' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('customers', 'phone3')->ignore($customerId),
+            ],
+            'email' => [
+                'sometimes',
+                'nullable',
+                'email',
+                'max:255',
+                Rule::unique('customers', 'email')->ignore($customerId),
+            ],
             'website' => 'sometimes|nullable|url|max:255',
-            'file_number' => 'sometimes|nullable|string|max:255',
+            'file_number' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:255',
+                Rule::unique('customers', 'file_number')->ignore($customerId),
+            ],
 
             // Billing address
             'billing_address.address_line1' => 'sometimes|required|string|max:255',
@@ -60,24 +94,22 @@ class UpdateCustomerRequest extends FormRequest
             'salesman_id' => 'sometimes|nullable|exists:salesmen,id',
             'refer_by_id' => 'sometimes|nullable|exists:refer_bies,id',
 
-            // Reference existing payment method only
             'primary_payment_method_id' => 'sometimes|nullable|exists:payment_methods,id',
 
-            // Allow inline creation for payment term
             'payment_term.name' => 'sometimes|required_with:payment_term|string|max:255',
             'payment_term.no_of_days' => 'sometimes|nullable|integer|min:0',
             'payment_term.is_inactive' => 'sometimes|nullable|boolean',
 
             'credit_limit' => 'sometimes|nullable|numeric|min:0',
             'taxable' => 'sometimes|nullable|boolean',
-            'tax_registration' => 'sometimes|nullable|string|max:255',
+            'tax_registration' => 'sometimes|nullable|string|max:255', // no unique constraint
             'opening_currency_id' => 'sometimes|nullable|exists:currencies,id',
             'opening_balance' => 'sometimes|nullable|numeric',
             'notes' => 'sometimes|nullable|string',
 
             'attachments' => 'sometimes|nullable|array',
             'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,docx,xlsx,txt|max:5120',
-            
+
             'is_inactive' => 'sometimes|boolean',
         ];
     }

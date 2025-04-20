@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Province;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,9 +14,18 @@ class ProvinceController extends Controller
 {
     public function index()
     {
-        $provinces = Province::withCount('addresses')
-            ->orderBy('name')
-            ->get();
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_provinces";
+
+        $provinces = app('cache')->store('database')->get($key);
+
+        if (!$provinces) {
+            $provinces = Province::withCount('addresses')
+                ->orderBy('name')
+                ->get();
+
+            app('cache')->store('database')->forever($key, $provinces);
+        }
 
         return response()->json([
             'status' => true,
@@ -34,6 +42,8 @@ class ProvinceController extends Controller
 
         $province = Province::create($validated);
 
+        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_provinces');
+
         return response()->json([
             'message' => 'Province created successfully',
             'province' => $province,
@@ -42,7 +52,17 @@ class ProvinceController extends Controller
 
     public function show(Province $province)
     {
-        $province->loadCount('addresses');
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_province_show_{$province->id}";
+
+        $cached = app('cache')->store('database')->get($key);
+
+        if (!$cached) {
+            $province->loadCount('addresses');
+            app('cache')->store('database')->forever($key, $province);
+        } else {
+            $province = $cached;
+        }
 
         return response()->json([
             'status' => true,
@@ -64,6 +84,10 @@ class ProvinceController extends Controller
 
         $province->update($validated);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_provinces");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_province_show_{$province->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'Province updated successfully.',
@@ -74,6 +98,10 @@ class ProvinceController extends Controller
     public function destroy(Province $province)
     {
         $province->delete();
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_provinces");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_province_show_{$province->id}");
 
         return response()->json([
             'status' => true,
@@ -90,14 +118,18 @@ class ProvinceController extends Controller
 
         $skipped = [];
         $deleted = 0;
+        $tenantId = tenant('id');
 
         foreach ($request->ids as $id) {
             try {
                 $deleted += Province::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_province_show_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
+        app('cache')->store('database')->forget("tenant_{$tenantId}_provinces");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -120,10 +152,7 @@ class ProvinceController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $provinces = Province::select(
-            'id',
-            'name'
-        )->get();
+        $provinces = Province::select('id', 'name')->get();
 
         if ($provinces->isEmpty()) {
             return response()->json(['message' => 'No provinces found.'], 404);
@@ -161,13 +190,13 @@ class ProvinceController extends Controller
                 return $errors;
             },
             function ($row) {
-                return [
-                    'name' => $row['name'],
-                ];
+                return ['name' => $row['name']];
             }
         );
 
         Excel::import($import, $request->file('file'));
+
+        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_provinces");
 
         return response()->json([
             'success' => true,
@@ -176,5 +205,4 @@ class ProvinceController extends Controller
             'skipped_rows' => $import->getSkippedRows(),
         ]);
     }
-
 }

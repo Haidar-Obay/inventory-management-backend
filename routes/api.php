@@ -10,9 +10,6 @@ use App\Http\Controllers\UserManagementController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-
-
-
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Support\Facades\Auth;
@@ -37,15 +34,21 @@ foreach (config('tenancy.central_domains') as $domain) {
         ]));
 
 
-
+            
         // Tenant CRUD
         Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
             Route::post('', [TenantController::class, 'store']);
+
+
+            Route::delete('bulk-delete-tenants', [TenantController::class, 'bulkDeleteTenants']);
+
+
             Route::delete('{id}', [TenantController::class, 'deleteTenant']);
             Route::get('all', [TenantController::class, 'getAllTenants']);
             Route::get('{id}', [TenantController::class, 'getTenant']);
             Route::put('{id}', [TenantController::class, 'updateTenant']);
             Route::get('export/excell', [TenantController::class, 'exportExcell']);
+            Route::get('/exportPdf', [TenantController::class, 'exportPdf']);
         });
 
 
@@ -56,7 +59,7 @@ foreach (config('tenancy.central_domains') as $domain) {
 
 
 
-        Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+        Route::middleware(['auth:sanctum'])->group(function () {
             Route::post('/register', [UserManagementController::class, 'registerUser']);
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsers']);

@@ -26,6 +26,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Auth\Events\Verified;
 
+use Illuminate\Support\Facades\Cache;
 
 /*
 |--------------------------------------------------------------------------
@@ -50,6 +51,16 @@ Route::middleware([
             'tenant_email' => tenant('email'),
             'role' => User::where('role', 'admin')->first()->name ?? 'N/A',
             'message' => tenant('name') . ' welcome to your tenant API!',
+        ]);
+    });
+
+    Route::get('/test-cache', function () {
+        $key = 'tenant_' . tenant('id') . '_test_message';
+
+        app('cache')->store('database')->put($key, 'Hello Tenant!', 600);
+
+        return response()->json([
+            'cached' => app('cache')->store('database')->get($key),
         ]);
     });
 
@@ -137,30 +148,31 @@ Route::middleware([
             Route::delete('/refer-bies', [ReferByController::class, 'bulkDelete']);
         });
     });
-     //Email Verification Routes
-    //  Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
-    //     $user = User::find($id);
-    //     if (! $user) {
-    //         return response()->json(['message' => 'User not found.'], 404);
-    //     }
-    //     Auth::login($user); // Log the user in manually in tenant context
-    //     if (! hash_equals((string) $id, (string) $user->getKey())) {
-    //       return response()->json(['message' => 'Invalid user ID.'], 403);
-    //     }
-    //     if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
-    //      return response()->json(['message' => 'Invalid email hash.'], 403);
-    //     }
-    //     if ($user->hasVerifiedEmail()) {
-    //         return response()->json(['message' => 'Email already verified.']);
-    //     }
-    //     $user->markEmailAsVerified();
-    //     event(new Verified($user));
 
-    //     return response()->json(['message' => 'Email verified successfully!']);
-    // })->middleware(['signed'])->name('verification.verify');
+    //Email Verification Routes
+    Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
+        $user = User::find($id);
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+        Auth::login($user); // Log the user in manually in tenant context
+        if (!hash_equals((string) $id, (string) $user->getKey())) {
+            return response()->json(['message' => 'Invalid user ID.'], 403);
+        }
+        if (!hash_equals(sha1($user->getEmailForVerification()), $hash)) {
+            return response()->json(['message' => 'Invalid email hash.'], 403);
+        }
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email already verified.']);
+        }
+        $user->markEmailAsVerified();
+        event(new Verified($user));
 
-    // Route::post('/email/verification-notification', function (Request $request) {
-    //     $request->user()->sendEmailVerificationNotification();
-    //     return response()->json(['message' => 'Verification email resent']);
-    // })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
+        return response()->json(['message' => 'Email verified successfully!']);
+    })->middleware(['signed'])->name('verification.verify');
+
+    Route::post('/email/verification-notification', function (Request $request) {
+        $request->user()->sendEmailVerificationNotification();
+        return response()->json(['message' => 'Verification email resent']);
+    })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
 });

@@ -23,19 +23,28 @@ class CustomerController extends Controller
 {
     public function index()
     {
-        $customers = Customer::with([
-            'customerGroup',
-            'salesman',
-            'referBy',
-            'paymentTerm',
-            'primaryPaymentMethod',
-            'openingCurrency',
-            'billingAddress',
-            'shippingAddress',
-            'parentCustomer',
-            'subCustomers',
-            'attachments'
-        ])->paginate(10);
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_customers";
+
+        $customers = app('cache')->store('database')->get($key);
+
+        if (!$customers) {
+            $customers = Customer::with([
+                'customerGroup',
+                'salesman',
+                'referBy',
+                'paymentTerm',
+                'primaryPaymentMethod',
+                'openingCurrency',
+                'billingAddress',
+                'shippingAddress',
+                'parentCustomer',
+                'subCustomers',
+                'attachments'
+            ])->paginate(10);
+
+            app('cache')->store('database')->forever($key, $customers);
+        }
 
         return response()->json([
             'status' => true,
@@ -87,11 +96,12 @@ class CustomerController extends Controller
                 $attachmentIds[] = $attachment->id;
             }
 
-            // Save the attachment IDs as JSON
             $customer->update([
                 'attachment_ids' => $attachmentIds
             ]);
         }
+
+        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_customers");
 
         return response()->json([
             'message' => 'Customer created successfully',
@@ -108,24 +118,33 @@ class CustomerController extends Controller
 
     public function show(Customer $customer)
     {
-        $customer->load([
-            'customerGroup',
-            'salesman',
-            'referBy',
-            'paymentTerm',
-            'primaryPaymentMethod',
-            'openingCurrency',
-            'billingAddress',
-            'shippingAddress',
-            'parentCustomer',
-            'subCustomers',
-            'attachments'
-        ]);
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_customer_show_{$customer->id}";
+
+        $cached = app('cache')->store('database')->get($key);
+
+        if (!$cached) {
+            $customer->load([
+                'customerGroup',
+                'salesman',
+                'referBy',
+                'paymentTerm',
+                'primaryPaymentMethod',
+                'openingCurrency',
+                'billingAddress',
+                'shippingAddress',
+                'parentCustomer',
+                'subCustomers',
+                'attachments'
+            ]);
+            $cached = $customer;
+            app('cache')->store('database')->forever($key, $cached);
+        }
 
         return response()->json([
             'status' => true,
             'message' => 'Customer details fetched successfully.',
-            'data' => $customer,
+            'data' => $cached,
         ]);
     }
 
@@ -159,7 +178,6 @@ class CustomerController extends Controller
         if ($request->hasFile('attachments')) {
             $tenantId = tenant('id');
 
-            // Delete old files
             foreach ($customer->attachments as $attachment) {
                 $relativePath = str_replace(url('/storage'), '', $attachment->file_path);
                 Storage::disk('public')->delete($relativePath);
@@ -190,6 +208,10 @@ class CustomerController extends Controller
             ]);
         }
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customers");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_show_{$customer->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'Customer updated successfully.',
@@ -201,12 +223,15 @@ class CustomerController extends Controller
                 'attachments',
             ]),
         ]);
-        
     }
 
     public function destroy(Customer $customer)
     {
         $customer->delete();
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customers");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_show_{$customer->id}");
 
         return response()->json([
             'status' => true,
@@ -223,14 +248,18 @@ class CustomerController extends Controller
 
         $skipped = [];
         $deleted = 0;
+        $tenantId = tenant('id');
 
         foreach ($request->ids as $id) {
             try {
                 $deleted += Customer::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_customer_show_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customers");
 
         return response()->json([
             'message' => 'Bulk delete completed.',

@@ -23,10 +23,10 @@ class AuthController extends Controller
 
         $user = Auth::user();
 
-        if (! $user->hasVerifiedEmail()) {
-            $user->sendEmailVerificationNotification();
-            return response()->json(['message' => 'email verification sent ! please check you email and relogin'], 401);
-        }
+        // if (! $user->hasVerifiedEmail()) {
+        //     $user->sendEmailVerificationNotification();
+        //     return response()->json(['message' => 'email verification sent ! please check you email and relogin'], 401);
+        // }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 

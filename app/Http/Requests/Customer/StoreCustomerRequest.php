@@ -21,12 +21,12 @@ class StoreCustomerRequest extends FormRequest
             'suffix' => 'nullable|string|max:255',
             'display_name' => 'nullable|string|max:255',
             'company_name' => 'nullable|string|max:255',
-            'phone1' => 'nullable|string|max:20',
-            'phone2' => 'nullable|string|max:20',
-            'phone3' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
+            'phone1' => 'nullable|string|max:20|unique:customers,phone1',
+            'phone2' => 'nullable|string|max:20|unique:customers,phone2',
+            'phone3' => 'nullable|string|max:20|unique:customers,phone3',
+            'email' => 'nullable|email|max:255|unique:customers,email',
             'website' => 'nullable|url|max:255',
-            'file_number' => 'nullable|string|max:255',
+            'file_number' => 'nullable|string|max:255|unique:customers,file_number',
 
             // Billing address fields
             'billing_address.address_line1' => 'required|string|max:255',
@@ -60,7 +60,6 @@ class StoreCustomerRequest extends FormRequest
             'salesman_id' => 'nullable|exists:salesmen,id',
             'refer_by_id' => 'nullable|exists:refer_bies,id',
 
-            // Foreign key reference only
             'primary_payment_method_id' => 'nullable|exists:payment_methods,id',
 
             // Payment Term

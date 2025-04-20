@@ -14,7 +14,15 @@ class PaymentMethodController extends Controller
 {
     public function index()
     {
-        $methods = PaymentMethod::orderBy('name')->get();
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_payment_methods";
+
+        $methods = app('cache')->store('database')->get($key);
+
+        if (!$methods) {
+            $methods = PaymentMethod::orderBy('name')->get();
+            app('cache')->store('database')->forever($key, $methods);
+        }
 
         return response()->json([
             'status' => true,
@@ -34,6 +42,8 @@ class PaymentMethodController extends Controller
 
         $method = PaymentMethod::create($validated);
 
+        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_payment_methods");
+
         return response()->json([
             'status' => true,
             'message' => 'Payment method created successfully.',
@@ -43,6 +53,17 @@ class PaymentMethodController extends Controller
 
     public function show(PaymentMethod $paymentMethod)
     {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_payment_method_{$paymentMethod->id}";
+
+        $cached = app('cache')->store('database')->get($key);
+
+        if (!$cached) {
+            app('cache')->store('database')->forever($key, $paymentMethod);
+        } else {
+            $paymentMethod = $cached;
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'Payment method details fetched successfully.',
@@ -66,6 +87,10 @@ class PaymentMethodController extends Controller
 
         $paymentMethod->update($validated);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_methods");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_method_{$paymentMethod->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'Payment method updated successfully.',
@@ -76,6 +101,10 @@ class PaymentMethodController extends Controller
     public function destroy(PaymentMethod $paymentMethod)
     {
         $paymentMethod->delete();
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_methods");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_method_{$paymentMethod->id}");
 
         return response()->json([
             'status' => true,
@@ -92,14 +121,18 @@ class PaymentMethodController extends Controller
 
         $skipped = [];
         $deleted = 0;
+        $tenantId = tenant('id');
 
         foreach ($request->ids as $id) {
             try {
                 $deleted += PaymentMethod::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_payment_method_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_methods");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -118,15 +151,11 @@ class PaymentMethodController extends Controller
         $columns = ['id', 'name'];
         $headings = ['ID', 'Name'];
         return Excel::download(new Export($paymentMethod, $columns, $headings), 'payment_methods.xlsx');
-
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $paymentMethods = PaymentMethod::select(
-            'id',
-            'name'
-        )->get();
+        $paymentMethods = PaymentMethod::select('id', 'name')->get();
 
         if ($paymentMethods->isEmpty()) {
             return response()->json(['message' => 'No payment methods found.'], 404);
@@ -179,6 +208,8 @@ class PaymentMethodController extends Controller
 
         Excel::import($import, $request->file('file'));
 
+        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_payment_methods");
+
         return response()->json([
             'success' => true,
             'rows_imported' => $import->getImportedCount(),
@@ -186,6 +217,4 @@ class PaymentMethodController extends Controller
             'skipped_rows' => $import->getSkippedRows(),
         ]);
     }
-
-
 }

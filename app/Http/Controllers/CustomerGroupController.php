@@ -15,9 +15,15 @@ class CustomerGroupController extends Controller
 {
     public function index()
     {
-        $groups = CustomerGroup::withCount('customers')
-            ->orderBy('name')
-            ->get();
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_customer_groups";
+
+        $groups = app('cache')->store('database')->get($key);
+
+        if (!$groups) {
+            $groups = CustomerGroup::withCount('customers')->orderBy('name')->get();
+            app('cache')->store('database')->forever($key, $groups);
+        }
 
         return response()->json([
             'status' => true,
@@ -34,6 +40,9 @@ class CustomerGroupController extends Controller
 
         $group = CustomerGroup::create($validated);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
+
         return response()->json([
             'status' => true,
             'message' => 'Customer group created successfully.',
@@ -43,7 +52,17 @@ class CustomerGroupController extends Controller
 
     public function show(CustomerGroup $customerGroup)
     {
-        $customerGroup->loadCount('customers');
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_customer_group_{$customerGroup->id}";
+
+        $cached = app('cache')->store('database')->get($key);
+
+        if (!$cached) {
+            $customerGroup->loadCount('customers');
+            app('cache')->store('database')->forever($key, $customerGroup);
+        } else {
+            $customerGroup = $cached;
+        }
 
         return response()->json([
             'status' => true,
@@ -65,6 +84,10 @@ class CustomerGroupController extends Controller
 
         $customerGroup->update($validated);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_group_{$customerGroup->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'Customer group updated successfully.',
@@ -75,6 +98,10 @@ class CustomerGroupController extends Controller
     public function destroy(CustomerGroup $customerGroup)
     {
         $customerGroup->delete();
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_group_{$customerGroup->id}");
 
         return response()->json([
             'status' => true,
@@ -91,14 +118,18 @@ class CustomerGroupController extends Controller
 
         $skipped = [];
         $deleted = 0;
+        $tenantId = tenant('id');
 
         foreach ($request->ids as $id) {
             try {
                 $deleted += CustomerGroup::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_customer_group_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -121,10 +152,7 @@ class CustomerGroupController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $customerGroups = CustomerGroup::select(
-            'id',
-            'name'
-        )->get();
+        $customerGroups = CustomerGroup::select('id', 'name')->get();
 
         if ($customerGroups->isEmpty()) {
             return response()->json(['message' => 'No customer groups found.'], 404);
@@ -168,6 +196,8 @@ class CustomerGroupController extends Controller
 
         Excel::import($import, $request->file('file'));
 
+        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_customer_groups");
+
         return response()->json([
             'success' => true,
             'rows_imported' => $import->getImportedCount(),
@@ -175,6 +205,4 @@ class CustomerGroupController extends Controller
             'skipped_rows' => $import->getSkippedRows(),
         ]);
     }
-
-
 }

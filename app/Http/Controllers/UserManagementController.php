@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use App\Helpers\CacheHelper;
 
 class UserManagementController extends Controller
 {
@@ -15,6 +16,7 @@ class UserManagementController extends Controller
         if ($authUser->role !== 'admin') {
             return response()->json(['message' => 'Only admins can create new users'], 403);
         }
+
         // $email = $request->email;
         // $url = "https://apilayer.net/api/check?access_key=774df7c6873b3b081fb76f9e71580f93&email={$email}&smtp=1&format=1";
         // $response = Http::get($url);
@@ -52,6 +54,13 @@ class UserManagementController extends Controller
             'role' => $validated['role'],
         ]);
         // $user->sendEmailVerificationNotification();
+
+        $cacheKey = tenancy()->initialized
+            ? 'tenant_' . tenant('id') . '_users'
+            : 'central_users';
+
+        CacheHelper::cacheInContext($cacheKey, null);
+
         return response()->json(['message' => 'User created successfully.', 'user' => $user], 201);
     }
 
@@ -63,9 +72,21 @@ class UserManagementController extends Controller
             return response()->json(['message' => 'Only admins can view users.'], 403);
         }
 
-        $users = User::select('id', 'name', 'email', 'role', 'created_at')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $cacheKey = tenancy()->initialized
+            ? 'tenant_' . tenant('id') . '_users'
+            : 'central_users';
+
+        $users = CacheHelper::cacheInContext($cacheKey);
+
+        if (!$users) {
+            $users = User::select('id', 'name', 'email', 'role', 'created_at')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            CacheHelper::cacheInContext($cacheKey, $users); // Store forever
+        }
+
+        \Log::info('Returned users from cache or DB:', ['users' => $users]);
 
         return response()->json([
             'message' => 'Users retrieved successfully.',
@@ -81,11 +102,20 @@ class UserManagementController extends Controller
             return response()->json(['message' => 'Only admins can view user details.'], 403);
         }
 
-        $user = User::select('id', 'name', 'email', 'role', 'created_at')
-            ->find($id);
+        $cacheKey = tenancy()->initialized
+            ? "tenant_" . tenant('id') . "_user_{$id}"
+            : "central_user_{$id}";
+
+        $user = CacheHelper::cacheInContext($cacheKey);
 
         if (!$user) {
-            return response()->json(['message' => 'User not found.'], 404);
+            $user = User::select('id', 'name', 'email', 'role', 'created_at')->find($id);
+
+            if (!$user) {
+                return response()->json(['message' => 'User not found.'], 404);
+            }
+
+            CacheHelper::cacheInContext($cacheKey, $user);
         }
 
         return response()->json([
@@ -114,12 +144,23 @@ class UserManagementController extends Controller
 
         try {
             $user->delete();
+
+            $listKey = tenancy()->initialized
+                ? 'tenant_' . tenant('id') . '_users'
+                : 'central_users';
+
+            $userKey = tenancy()->initialized
+                ? "tenant_" . tenant('id') . "_user_{$id}"
+                : "central_user_{$id}";
+
+            CacheHelper::cacheInContext($listKey, null);
+            CacheHelper::cacheInContext($userKey, null);
+
             return response()->json(['message' => 'User deleted successfully.']);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json(['message' => 'User could not be deleted.'], 400);
         }
     }
-
 
     public function bulkDeleteUsers(Request $request)
     {
@@ -139,7 +180,6 @@ class UserManagementController extends Controller
 
         foreach ($request->ids as $id) {
             try {
-                // Prevent admin from deleting themselves
                 if ($authUser->id == $id) {
                     $skipped[] = [
                         'id' => $id,
@@ -149,6 +189,12 @@ class UserManagementController extends Controller
                 }
 
                 $deleted += User::where('id', $id)->delete();
+
+                $userKey = tenancy()->initialized
+                    ? "tenant_" . tenant('id') . "_user_{$id}"
+                    : "central_user_{$id}";
+
+                CacheHelper::cacheInContext($userKey, null);
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = [
                     'id' => $id,
@@ -156,6 +202,12 @@ class UserManagementController extends Controller
                 ];
             }
         }
+
+        $listKey = tenancy()->initialized
+            ? 'tenant_' . tenant('id') . '_users'
+            : 'central_users';
+
+        CacheHelper::cacheInContext($listKey, null);
 
         return response()->json([
             'message' => 'Bulk user deletion completed.',

@@ -11,19 +11,14 @@ class StoreSalesmanRequest extends FormRequest
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:salesmen,name',
             'address' => 'nullable|string',
-            'phone1' => 'nullable|string|max:20',
-            'phone2' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
+            'phone1' => 'nullable|string|max:20|unique:salesmen,phone1',
+            'phone2' => 'nullable|string|max:20|unique:salesmen,phone2',
+            'email' => 'nullable|email|max:255|unique:salesmen,email',
             'fix_commission' => 'nullable|numeric|min:0',
             'is_inactive' => 'nullable|boolean',
         ];

@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Models\Customer;
 use App\Models\Salesman;
 use Illuminate\Http\Request;
@@ -15,7 +16,15 @@ class SalesmanController extends Controller
 {
     public function index()
     {
-        $salesmen = Salesman::withCount('customers')->get();
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_salesmen";
+
+        $salesmen = app('cache')->store('database')->get($key);
+
+        if (!$salesmen) {
+            $salesmen = Salesman::withCount('customers')->get();
+            app('cache')->store('database')->forever($key, $salesmen);
+        }
 
         return response()->json([
             'status' => true,
@@ -26,7 +35,17 @@ class SalesmanController extends Controller
 
     public function show(Salesman $salesman)
     {
-        $salesman->loadCount('customers');
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_salesman_{$salesman->id}";
+
+        $cached = app('cache')->store('database')->get($key);
+
+        if (!$cached) {
+            $salesman->loadCount('customers');
+            app('cache')->store('database')->forever($key, $salesman);
+        } else {
+            $salesman = $cached;
+        }
 
         return response()->json([
             'status' => true,
@@ -39,6 +58,9 @@ class SalesmanController extends Controller
     {
         $salesman = Salesman::create($request->validated());
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_salesmen");
+
         return response()->json([
             'status' => true,
             'message' => 'Salesman created successfully.',
@@ -50,6 +72,10 @@ class SalesmanController extends Controller
     {
         $salesman->update($request->validated());
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_salesmen");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_salesman_{$salesman->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'Salesman updated successfully.',
@@ -60,6 +86,10 @@ class SalesmanController extends Controller
     public function destroy(Salesman $salesman)
     {
         $salesman->delete();
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_salesmen");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_salesman_{$salesman->id}");
 
         return response()->json([
             'status' => true,
@@ -76,14 +106,18 @@ class SalesmanController extends Controller
 
         $skipped = [];
         $deleted = 0;
+        $tenantId = tenant('id');
 
         foreach ($request->ids as $id) {
             try {
                 $deleted += Salesman::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_salesman_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
+        app('cache')->store('database')->forget("tenant_{$tenantId}_salesmen");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -96,54 +130,22 @@ class SalesmanController extends Controller
     {
         $salesmenQuery = Salesman::query();
 
-        // Check if any data exists before exporting
         if (!$salesmenQuery->exists()) {
             return response()->json(['message' => 'No Salesman found.'], 404);
         }
 
-        // Instead of transforming the Eloquent models, let's use selectRaw to convert bools to readable format in SQL
         $transformedQuery = Salesman::query()
-            ->selectRaw('id, name, email, phone1, phone2, address, fix_commission,
-            CASE WHEN is_inactive THEN \'Yes\' ELSE \'No\' END as is_inactive');
+            ->selectRaw("id, name, email, phone1, phone2, address, fix_commission, CASE WHEN is_inactive THEN 'Yes' ELSE 'No' END as is_inactive");
 
-        $columns = [
-            'id',
-            'name',
-            'email',
-            'phone1',
-            'phone2',
-            'address',
-            'fix_commission',
-            'is_inactive',
-        ];
-
-        $headings = [
-            'ID',
-            'Name',
-            'Email',
-            'Phone 1',
-            'Phone 2',
-            'Address',
-            'Fix Commission',
-            'Is Inactive',
-        ];
+        $columns = ['id', 'name', 'email', 'phone1', 'phone2', 'address', 'fix_commission', 'is_inactive'];
+        $headings = ['ID', 'Name', 'Email', 'Phone 1', 'Phone 2', 'Address', 'Fix Commission', 'Is Inactive'];
 
         return Excel::download(new Export($transformedQuery, $columns, $headings), 'Salesman.xlsx');
     }
 
-
     public function exportPdf(ExportPDF $pdfService)
     {
-        $salesmen = Salesman::select(
-            'id',
-            'name',
-            'email',
-            'phone1',
-            'phone2',
-            'address',
-            'fix_commission',
-            'is_inactive',
-        )->get();
+        $salesmen = Salesman::select('id', 'name', 'email', 'phone1', 'phone2', 'address', 'fix_commission', 'is_inactive')->get();
 
         if ($salesmen->isEmpty()) {
             return response()->json(['message' => 'No salesmen found.'], 404);
@@ -174,15 +176,7 @@ class SalesmanController extends Controller
 
         $import = new DynamicExcelImport(
             Salesman::class,
-            [
-                'name',
-                'email',
-                'phone1',
-                'phone2',
-                'address',
-                'fix_commission',
-                'is_inactive'
-            ],
+            ['name', 'email', 'phone1', 'phone2', 'address', 'fix_commission', 'is_inactive'],
             function ($row) {
                 $errors = [];
 
@@ -192,18 +186,14 @@ class SalesmanController extends Controller
                     $errors[] = 'Name cannot contain numbers';
                 }
 
-                if (empty($row['email'])) {
-                    $errors[] = 'Missing email';
-                } elseif (!filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
-                    $errors[] = 'Invalid email format';
+                if (empty($row['email']) || !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
+                    $errors[] = 'Invalid or missing email';
                 }
 
-                if (empty($row['phone1']) || !ctype_digit(strval($row['phone1']))) {
-                    $errors[] = 'Invalid or missing phone1';
-                }
-
-                if (empty($row['phone2']) || !ctype_digit(strval($row['phone2']))) {
-                    $errors[] = 'Invalid or missing phone2';
+                foreach (['phone1', 'phone2'] as $phoneField) {
+                    if (empty($row[$phoneField]) || !ctype_digit(strval($row[$phoneField]))) {
+                        $errors[] = "Invalid or missing $phoneField";
+                    }
                 }
 
                 if (empty($row['address'])) {
@@ -234,6 +224,8 @@ class SalesmanController extends Controller
         );
 
         Excel::import($import, $request->file('file'));
+
+        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_salesmen");
 
         return response()->json([
             'success' => true,

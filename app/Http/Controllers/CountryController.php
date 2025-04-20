@@ -14,9 +14,18 @@ class CountryController extends Controller
 {
     public function index()
     {
-        $countries = Country::withCount('addresses')
-            ->orderBy('name')
-            ->get();
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_countries";
+
+        $countries = app('cache')->store('database')->get($key);
+
+        if (!$countries) {
+            $countries = Country::withCount('addresses')
+                ->orderBy('name')
+                ->get();
+
+            app('cache')->store('database')->forever($key, $countries);
+        }
 
         return response()->json([
             'status' => true,
@@ -33,6 +42,9 @@ class CountryController extends Controller
 
         $country = Country::create($validated);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_countries");
+
         return response()->json([
             'status' => true,
             'message' => 'Country created successfully.',
@@ -42,12 +54,22 @@ class CountryController extends Controller
 
     public function show(Country $country)
     {
-        $country->loadCount('addresses');
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_country_{$country->id}";
+
+        $cachedCountry = app('cache')->store('database')->get($key);
+
+        if (!$cachedCountry) {
+            $country->loadCount('addresses');
+            $cachedCountry = $country;
+
+            app('cache')->store('database')->forever($key, $cachedCountry);
+        }
 
         return response()->json([
             'status' => true,
             'message' => 'Country details fetched successfully.',
-            'data' => $country,
+            'data' => $cachedCountry,
         ]);
     }
 
@@ -64,6 +86,10 @@ class CountryController extends Controller
 
         $country->update($validated);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_countries");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_country_{$country->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'Country updated successfully.',
@@ -74,6 +100,10 @@ class CountryController extends Controller
     public function destroy(Country $country)
     {
         $country->delete();
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_countries");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_country_{$country->id}");
 
         return response()->json([
             'status' => true,
@@ -88,16 +118,20 @@ class CountryController extends Controller
             'ids.*' => 'exists:countries,id',
         ]);
 
+        $tenantId = tenant('id');
         $skipped = [];
         $deleted = 0;
 
         foreach ($request->ids as $id) {
             try {
                 $deleted += Country::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_country_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
+        app('cache')->store('database')->forget("tenant_{$tenantId}_countries");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -108,22 +142,22 @@ class CountryController extends Controller
 
     public function exportExcell()
     {
-        $countries = Country::query();
+        $countries = Country::withCount('addresses')->orderBy('name');
         $collection = $countries->get();
+
         if ($collection->isEmpty()) {
-            return response()->json(['message' => 'No currencies found.'], 404);
+            return response()->json(['message' => 'No countries found.'], 404);
         }
+
         $columns = ['id', 'name'];
         $headings = ['ID', 'Name'];
+
         return Excel::download(new Export($countries, $columns, $headings), 'countries.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $countries = Country::select(
-            'id',
-            'name'
-        )->get();
+        $countries = Country::select('id', 'name')->get();
 
         if ($countries->isEmpty()) {
             return response()->json(['message' => 'No countries found.'], 404);
@@ -132,7 +166,7 @@ class CountryController extends Controller
         $title = 'Country Report';
         $headers = [
             'id' => 'Country ID',
-            'name' => 'Country Name'
+            'name' => 'Country Name',
         ];
         $data = $countries->toArray();
 
@@ -169,6 +203,8 @@ class CountryController extends Controller
 
         Excel::import($import, $request->file('file'));
 
+        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_countries');
+
         return response()->json([
             'success' => true,
             'rows_imported' => $import->getImportedCount(),
@@ -176,5 +212,4 @@ class CountryController extends Controller
             'skipped_rows' => $import->getSkippedRows(),
         ]);
     }
-
 }

@@ -11,11 +11,20 @@ use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use Illuminate\Http\Request;
+
 class ReferByController extends Controller
 {
     public function index(): JsonResponse
     {
-        $referBies = ReferBy::paginate(10);
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_refer_bies";
+
+        $referBies = app('cache')->store('database')->get($key);
+
+        if (!$referBies) {
+            $referBies = ReferBy::paginate(10);
+            app('cache')->store('database')->forever($key, $referBies);
+        }
 
         return response()->json([
             'status' => true,
@@ -28,6 +37,8 @@ class ReferByController extends Controller
     {
         $referBy = ReferBy::create($request->validated());
 
+        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_refer_bies");
+
         return response()->json([
             'message' => 'Refer By created successfully.',
             'data' => $referBy,
@@ -36,16 +47,30 @@ class ReferByController extends Controller
 
     public function show(ReferBy $referBy): JsonResponse
     {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_refer_by_show_{$referBy->id}";
+
+        $cached = app('cache')->store('database')->get($key);
+
+        if (!$cached) {
+            $cached = $referBy;
+            app('cache')->store('database')->forever($key, $cached);
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'Refer By details fetched successfully.',
-            'data' => $referBy,
+            'data' => $cached,
         ]);
     }
 
     public function update(UpdateReferByRequest $request, ReferBy $referBy): JsonResponse
     {
         $referBy->update($request->validated());
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_refer_bies");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_refer_by_show_{$referBy->id}");
 
         return response()->json([
             'status' => true,
@@ -57,6 +82,10 @@ class ReferByController extends Controller
     public function destroy(ReferBy $referBy): JsonResponse
     {
         $referBy->delete();
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_refer_bies");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_refer_by_show_{$referBy->id}");
 
         return response()->json([
             'status' => true,
@@ -73,14 +102,18 @@ class ReferByController extends Controller
 
         $skipped = [];
         $deleted = 0;
+        $tenantId = tenant('id');
 
         foreach ($request->ids as $id) {
             try {
                 $deleted += ReferBy::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_refer_by_show_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
+        app('cache')->store('database')->forget("tenant_{$tenantId}_refer_bies");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -104,10 +137,7 @@ class ReferByController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $referBies = ReferBy::select(
-            'id',
-            'name'
-        )->get();
+        $referBies = ReferBy::select('id', 'name')->get();
 
         if ($referBies->isEmpty()) {
             return response()->json(['message' => 'No refer bies found.'], 404);
@@ -172,6 +202,8 @@ class ReferByController extends Controller
 
         Excel::import($import, $request->file('file'));
 
+        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_refer_bies");
+
         return response()->json([
             'success' => true,
             'rows_imported' => $import->getImportedCount(),
@@ -179,6 +211,4 @@ class ReferByController extends Controller
             'skipped_rows' => $import->getSkippedRows(),
         ]);
     }
-
-
 }
