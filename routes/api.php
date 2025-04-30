@@ -64,6 +64,7 @@ foreach (config('tenancy.central_domains') as $domain) {
         Route::post('/login', [AuthController::class, 'login']);
 
 
+        // User Management
 
         Route::middleware(['auth:sanctum', 'verified'])->group(function () {
             Route::post('/register', [UserManagementController::class, 'registerUser']);
@@ -75,9 +76,7 @@ foreach (config('tenancy.central_domains') as $domain) {
         });
 
 
-
         // Verify email address
-
 
         Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
             $user = User::find($id);
@@ -102,13 +101,14 @@ foreach (config('tenancy.central_domains') as $domain) {
 
         // Resend email verification link
 
-
         Route::post('/email/resend', function (Request $request) {
             $request->user()->sendEmailVerificationNotification();
             return response()->json(['message' => 'Verification link sent!']);
         })->middleware(['auth:sanctum'])->name('verification.resend');
 
+        
         //reset password
+
         Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
         Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
 

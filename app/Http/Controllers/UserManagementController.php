@@ -5,18 +5,33 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Http;
 use App\Helpers\CacheHelper;
 
 class UserManagementController extends Controller
 {
-    public function registerUser(Request $request)
+    protected function authorizeRoles(array $roles)
     {
         $authUser = auth()->user();
-        if ($authUser->role !== 'admin') {
-            return response()->json(['message' => 'Only admins can create new users'], 403);
+
+        if (!in_array($authUser->role, $roles)) {
+            abort(response()->json(['message' => 'Only owner or admins can perform this operation'], 403));
         }
 
+        return $authUser;
+    }
+
+    protected function getCacheKey($suffix, $id = null)
+    {
+        $prefix = tenancy()->initialized
+            ? 'tenant_' . tenant('id')
+            : 'central';
+
+        return $id ? "{$prefix}_{$suffix}_{$id}" : "{$prefix}_{$suffix}";
+    }
+
+    public function registerUser(Request $request)
+    {
+        $authUser = $this->authorizeRoles(['admin', 'owner']);
         // $email = $request->email;
         // $url = "https://apilayer.net/api/check?access_key=774df7c6873b3b081fb76f9e71580f93&email={$email}&smtp=1&format=1";
         // $response = Http::get($url);
@@ -39,12 +54,13 @@ class UserManagementController extends Controller
         //         'message' => 'Could not validate email address. Try again later.',
         //     ], 500);
         // }
-
+        $allowedRoles = $authUser->role === 'owner' ? 'user,admin' : 'user';
+    
         $validated = $request->validate([
             'name' => 'required',
             'email' => 'required|email|unique:users',
             'password' => 'required|confirmed',
-            'role' => 'nullable|in:user,admin',
+            'role' => "nullable|in:{$allowedRoles}",
         ]);
 
         $user = User::create([
@@ -53,29 +69,17 @@ class UserManagementController extends Controller
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
         ]);
-        // $user->sendEmailVerificationNotification();
 
-        $cacheKey = tenancy()->initialized
-            ? 'tenant_' . tenant('id') . '_users'
-            : 'central_users';
-
-        CacheHelper::cacheInContext($cacheKey, null);
+        CacheHelper::cacheInContext($this->getCacheKey('users'), null);
 
         return response()->json(['message' => 'User created successfully.', 'user' => $user], 201);
     }
 
     public function getAllUsers()
     {
-        $authUser = auth()->user();
+        $this->authorizeRoles(['admin', 'owner']);
 
-        if ($authUser->role !== 'admin') {
-            return response()->json(['message' => 'Only admins can view users.'], 403);
-        }
-
-        $cacheKey = tenancy()->initialized
-            ? 'tenant_' . tenant('id') . '_users'
-            : 'central_users';
-
+        $cacheKey = $this->getCacheKey('users');
         $users = CacheHelper::cacheInContext($cacheKey);
 
         if (!$users) {
@@ -83,10 +87,8 @@ class UserManagementController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            CacheHelper::cacheInContext($cacheKey, $users); // Store forever
+            CacheHelper::cacheInContext($cacheKey, $users);
         }
-
-        \Log::info('Returned users from cache or DB:', ['users' => $users]);
 
         return response()->json([
             'message' => 'Users retrieved successfully.',
@@ -96,16 +98,9 @@ class UserManagementController extends Controller
 
     public function getUser($id)
     {
-        $authUser = auth()->user();
+        $this->authorizeRoles(['admin', 'owner']);
 
-        if ($authUser->role !== 'admin') {
-            return response()->json(['message' => 'Only admins can view user details.'], 403);
-        }
-
-        $cacheKey = tenancy()->initialized
-            ? "tenant_" . tenant('id') . "_user_{$id}"
-            : "central_user_{$id}";
-
+        $cacheKey = $this->getCacheKey('user', $id);
         $user = CacheHelper::cacheInContext($cacheKey);
 
         if (!$user) {
@@ -126,11 +121,7 @@ class UserManagementController extends Controller
 
     public function deleteUser($id)
     {
-        $authUser = auth()->user();
-
-        if ($authUser->role !== 'admin') {
-            return response()->json(['message' => 'Only admins can delete users.'], 403);
-        }
+        $authUser = $this->authorizeRoles(['admin', 'owner']);
 
         if ($authUser->id == $id) {
             return response()->json(['message' => 'You cannot delete your own account.'], 403);
@@ -142,19 +133,15 @@ class UserManagementController extends Controller
             return response()->json(['message' => 'User not found.'], 404);
         }
 
+        if ($authUser->role === 'admin' && $user->role !== 'user') {
+            return response()->json(['message' => 'Admins can only delete users.'], 403);
+        }
+
         try {
             $user->delete();
 
-            $listKey = tenancy()->initialized
-                ? 'tenant_' . tenant('id') . '_users'
-                : 'central_users';
-
-            $userKey = tenancy()->initialized
-                ? "tenant_" . tenant('id') . "_user_{$id}"
-                : "central_user_{$id}";
-
-            CacheHelper::cacheInContext($listKey, null);
-            CacheHelper::cacheInContext($userKey, null);
+            CacheHelper::cacheInContext($this->getCacheKey('users'), null);
+            CacheHelper::cacheInContext($this->getCacheKey('user', $id), null);
 
             return response()->json(['message' => 'User deleted successfully.']);
         } catch (\Illuminate\Database\QueryException $e) {
@@ -164,11 +151,7 @@ class UserManagementController extends Controller
 
     public function bulkDeleteUsers(Request $request)
     {
-        $authUser = auth()->user();
-
-        if ($authUser->role !== 'admin') {
-            return response()->json(['message' => 'Only admins can delete users.'], 403);
-        }
+        $authUser = $this->authorizeRoles(['admin', 'owner']);
 
         $request->validate([
             'ids' => 'required|array',
@@ -179,35 +162,20 @@ class UserManagementController extends Controller
         $deleted = 0;
 
         foreach ($request->ids as $id) {
+            if ($authUser->id == $id) {
+                $skipped[] = ['id' => $id, 'reason' => 'Cannot delete the currently authenticated user.'];
+                continue;
+            }
+
             try {
-                if ($authUser->id == $id) {
-                    $skipped[] = [
-                        'id' => $id,
-                        'reason' => 'Cannot delete the currently authenticated admin.',
-                    ];
-                    continue;
-                }
-
                 $deleted += User::where('id', $id)->delete();
-
-                $userKey = tenancy()->initialized
-                    ? "tenant_" . tenant('id') . "_user_{$id}"
-                    : "central_user_{$id}";
-
-                CacheHelper::cacheInContext($userKey, null);
+                CacheHelper::cacheInContext($this->getCacheKey('user', $id), null);
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = [
-                    'id' => $id,
-                    'reason' => 'Deletion failed due to constraints or DB error.',
-                ];
+                $skipped[] = ['id' => $id, 'reason' => 'Deletion failed due to constraints or DB error.'];
             }
         }
 
-        $listKey = tenancy()->initialized
-            ? 'tenant_' . tenant('id') . '_users'
-            : 'central_users';
-
-        CacheHelper::cacheInContext($listKey, null);
+        CacheHelper::cacheInContext($this->getCacheKey('users'), null);
 
         return response()->json([
             'message' => 'Bulk user deletion completed.',
