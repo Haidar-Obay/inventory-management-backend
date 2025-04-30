@@ -7,7 +7,7 @@ return [
     /*
     |--------------------------------------------------------------------------
     | Audit Implementation
-    |--------------------------------------------------------------------------
+    |---------------------------    -----------------------------------------------
     |
     | Define which Audit model implementation should be used.
     |
@@ -29,6 +29,7 @@ return [
         'guards' => [
             'web',
             'api',
+            'sanctum'
         ],
        'resolver' => OwenIt\Auditing\Resolvers\UserResolver::class,
     ],
