@@ -76,31 +76,27 @@ foreach (config('tenancy.central_domains') as $domain) {
         });
 
 
-        // Verify email address
-
-        Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
-            $user = User::find($id);
-
-            if (!$user) {
-                return response()->json(['message' => 'User not found'], 404);
-            }
-
-            if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
-                return response()->json(['message' => 'Invalid verification link'], 403);
-            }
-            if ($user->hasVerifiedEmail()) {
-                return response()->json(['message' => 'Email already verified']);
-            }
-            $user->markEmailAsVerified();
-            event(new Verified($user));
-            return response()->json(['message' => 'Email verified successfully']);
-        })->middleware(['signed'])->name('verification.verify');
-
+        // Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
+        //     $user = User::find($id);
+    
+        //     if (!$user) {
+        //         return response()->json(['message' => 'User not found'], 404);
+        //     }
+    
+        //     if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+        //         return response()->json(['message' => 'Invalid verification link'], 403);
+        //     }
+        //     if ($user->hasVerifiedEmail()) {
+        //         return response()->json(['message' => 'Email already verified']);
+        //     }
+        //     $user->markEmailAsVerified();
+        //     event(new Verified($user));
+        //     return response()->json(['message' => 'Email verified successfully']);
+        // })->middleware(['signed'])->name('verification.verify');
 
 
 
         // Resend email verification link
-
         Route::post('/email/resend', function (Request $request) {
             $request->user()->sendEmailVerificationNotification();
             return response()->json(['message' => 'Verification link sent!']);

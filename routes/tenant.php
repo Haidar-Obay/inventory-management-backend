@@ -150,6 +150,7 @@ Route::middleware([
             Route::delete('/refer-bies', [ReferByController::class, 'bulkDelete']);
         });
     });
+    
     //  Email Verification Routes
      Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
         $user = User::find($id);
