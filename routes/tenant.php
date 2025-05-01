@@ -44,47 +44,6 @@ Route::middleware([
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
-    
-
-            //  Email Verification Routes
-            Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
-                $user = User::find($id);
-                if (!$user) {
-                    return response()->json(['message' => 'User not found.'], 404);
-                }
-                Auth::login($user); // Log the user in manually in tenant context
-                if (!hash_equals((string) $id, (string) $user->getKey())) {
-                    return response()->json(['message' => 'Invalid user ID.'], 403);
-                }
-                if (!hash_equals(sha1($user->getEmailForVerification()), $hash)) {
-                    return response()->json(['message' => 'Invalid email hash.'], 403);
-                }
-                if ($user->hasVerifiedEmail()) {
-                    return response()->json(['message' => 'Email already verified.']);
-                }
-                $user->markEmailAsVerified();
-                event(new Verified($user));
-    
-                return response()->json(['message' => 'Email verified successfully!']);
-            })->middleware(['signed'])->name('verification.verify');
-    
-            Route::post('/email/verification-notification', function (Request $request) {
-                $request->user()->sendEmailVerificationNotification();
-                return response()->json(['message' => 'Verification email resent']);
-            })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
-    
-            // Password Reset Routes
-            Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
-            Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
-        });
-
-
-
-
-    Route::prefix('api')->group(function () {
-
-
-
 
         // Public Routes
         Route::post('/login', [AuthController::class, 'login']);
@@ -171,6 +130,41 @@ Route::middleware([
             });
         });
 
+          //  Email Verification Routes
+          Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
+            $user = User::find($id);
+            if (!$user) {
+                return response()->json(['message' => 'User not found.'], 404);
+            }
+            Auth::login($user); // Log the user in manually in tenant context
+            if (!hash_equals((string) $id, (string) $user->getKey())) {
+                return response()->json(['message' => 'Invalid user ID.'], 403);
+            }
+            if (!hash_equals(sha1($user->getEmailForVerification()), $hash)) {
+                return response()->json(['message' => 'Invalid email hash.'], 403);
+            }
+            if ($user->hasVerifiedEmail()) {
+                return response()->json(['message' => 'Email already verified.']);
+            }
+            $user->markEmailAsVerified();
+            event(new Verified($user));
+
+            return response()->json(['message' => 'Email verified successfully!']);
+        })->middleware(['signed'])->name('verification.verify');
+
+        Route::post('/email/verification-notification', function (Request $request) {
+            $request->user()->sendEmailVerificationNotification();
+            return response()->json(['message' => 'Verification email resent']);
+        })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
+
+
+
+        // Password Reset Routes
+        Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
+        Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
+    });
+
+
     // Test cache route
     Route::get('/test-cache', function () {
         $key = 'tenant_' . tenant('id') . '_test_message';
@@ -180,5 +174,4 @@ Route::middleware([
         return response()->json([
             'cached' => app('cache')->store('database')->get($key),
         ]);
-    });
 });
