@@ -9,7 +9,7 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
-          // Validate input
+        // Validate input
         //   $credentials = $request->validate([
         //     'email'    => 'required|email',
         //     'password' => 'required',
@@ -23,7 +23,7 @@ class AuthController extends Controller
 
         $user = Auth::user();
 
-        if (! $user->hasVerifiedEmail()) {
+        if (!$user->hasVerifiedEmail()) {
             $user->sendEmailVerificationNotification();
             return response()->json(['message' => 'email verification sent ! please check you email and relogin'], 401);
         }
