@@ -27,7 +27,7 @@ use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Auth\Events\Verified;
-
+use App\Http\Controllers\AuditController;
 use Illuminate\Support\Facades\Cache;
 
 /*
@@ -52,6 +52,9 @@ Route::middleware([
 
         // Protected Routes
         Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+
+         //log audit
+          Route::get('audits', [AuditController::class, 'index']);
 
             // Auth & User Management
             Route::post('/register', [UserManagementController::class, 'registerUser']);
