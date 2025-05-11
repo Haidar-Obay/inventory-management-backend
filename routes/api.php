@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 // use App\Http\Controllers\TenantAuthController;
 use App\Http\Controllers\TenantController;
@@ -38,17 +39,14 @@ foreach (config('tenancy.central_domains') as $domain) {
             'message' => 'This is your central application.',
         ]));
 
-
+        //log audit
+        Route::get('audits', [AuditController::class, 'index']);
 
             
         // Tenant CRUD
         Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
             Route::post('', [TenantController::class, 'store']);
-
-
             Route::delete('bulk-delete-tenants', [TenantController::class, 'bulkDeleteTenants']);
-
-
             Route::delete('{id}', [TenantController::class, 'deleteTenant']);
             Route::get('all', [TenantController::class, 'getAllTenants']);
             Route::get('{id}', [TenantController::class, 'getTenant']);
@@ -58,7 +56,7 @@ foreach (config('tenancy.central_domains') as $domain) {
         });
 
 
-
+       
 
         // Auth & User Management
         Route::post('/login', [AuthController::class, 'login']);
