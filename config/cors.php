@@ -3,7 +3,8 @@
 return [
     'paths' => ['api/*', 'salesmen', '*'],
     'allowed_methods' => ['*'],
-    'allowed_origins' => ['http://tenant_2.app.localhost:3000'],
+    'allowed_origins' => ['*'],
+    // 'allowed_origins' => ['http://tenant_2.app.localhost:3000'],
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
