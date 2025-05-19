@@ -290,4 +290,22 @@ class TenantController extends Controller
 
         return $pdf->download('Tenant_Report.pdf');
     }
+
+    //getting tenant by name
+    public function getTenantByName($name)
+    {
+
+        $tenant = Tenant::with('domains')->where('id', $name)->first();
+
+        if (!$tenant) {
+            return response()->json([
+                'message' => "{$name} not found. Check the name and try again."
+            ], 404);
+        }
+        return response()->json([
+            'message' => 'Tenant found',
+            'tenant' => $name
+        ]);
+    }
+
 }

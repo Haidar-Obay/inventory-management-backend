@@ -39,10 +39,13 @@ foreach (config('tenancy.central_domains') as $domain) {
             'message' => 'This is your central application.',
         ]));
 
+
+        //getting tenant by name
+        Route::get('tenant/get-tenant-by-name/{name}', [TenantController::class, 'getTenantByName']);
         //log audit
         Route::get('audits', [AuditController::class, 'index']);
 
-            
+
         // Tenant CRUD
         Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
             Route::post('', [TenantController::class, 'store']);
@@ -56,7 +59,7 @@ foreach (config('tenancy.central_domains') as $domain) {
         });
 
 
-       
+
 
         // Auth & User Management
         Route::post('/login', [AuthController::class, 'login']);
@@ -76,11 +79,11 @@ foreach (config('tenancy.central_domains') as $domain) {
 
         // Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
         //     $user = User::find($id);
-    
+
         //     if (!$user) {
         //         return response()->json(['message' => 'User not found'], 404);
         //     }
-    
+
         //     if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
         //         return response()->json(['message' => 'Invalid verification link'], 403);
         //     }
@@ -100,7 +103,7 @@ foreach (config('tenancy.central_domains') as $domain) {
             return response()->json(['message' => 'Verification link sent!']);
         })->middleware(['auth:sanctum'])->name('verification.resend');
 
-        
+
         //reset password
 
         Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
