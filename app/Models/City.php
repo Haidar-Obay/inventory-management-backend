@@ -11,7 +11,7 @@ class City extends Model implements Auditable
     protected $guarded = ['id'];
     protected $table = 'cities';
     protected $primaryKey = 'id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     public function addresses()
     {

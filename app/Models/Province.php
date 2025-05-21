@@ -10,7 +10,7 @@ class Province extends Model implements Auditable
     protected $guarded = ['id'];
     protected $table = 'provinces';
     protected $primaryKey = 'id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     public function addresses()
     {
