@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->foreignId('country_id')->constrained();
             $table->foreignId('city_id')->constrained();
             $table->foreignId('province_id')->constrained();
+            $table->foreignId('district_id')->nullable()->constrained();
 
             $table->string('postal_code')->nullable();
             $table->string('complex')->nullable();

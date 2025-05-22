@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Auth\Events\Verified;
 use App\Http\Controllers\AuditController;
 use Illuminate\Support\Facades\Cache;
+use App\Http\Controllers\DistrictController;
 
 /*
 |--------------------------------------------------------------------------
@@ -68,6 +69,16 @@ Route::middleware([
             Route::apiResource('cities', CityController::class);
             Route::apiResource('countries', CountryController::class);
             Route::apiResource('provinces', ProvinceController::class);
+            Route::apiResource('districts', DistrictController::class);
+
+            // Location Hierarchy Routes
+            Route::get('countries/{country}/provinces', [ProvinceController::class, 'getByCountry']);
+            Route::get('countries/{country}/cities', [CityController::class, 'getByCountry']);
+            Route::get('countries/{country}/districts', [DistrictController::class, 'getByCountry']);
+            Route::get('provinces/{province}/cities', [CityController::class, 'getByProvince']);
+            Route::get('provinces/{province}/districts', [DistrictController::class, 'getByProvince']);
+            Route::get('cities/{city}/districts', [DistrictController::class, 'getByCity']);
+
             Route::apiResource('currencies', CurrencyController::class);
             Route::apiResource('salesmen', SalesmanController::class);
             Route::apiResource('customers', CustomerController::class);
@@ -83,6 +94,7 @@ Route::middleware([
                 Route::get('cities', [CityController::class, 'exportExcell']);
                 Route::get('countries', [CountryController::class, 'exportExcell']);
                 Route::get('provinces', [ProvinceController::class, 'exportExcell']);
+                Route::get('districts', [DistrictController::class, 'exportExcell']);
                 Route::get('currencies', [CurrencyController::class, 'exportExcell']);
                 Route::get('customer-groups', [CustomerGroupController::class, 'exportExcell']);
                 Route::get('payment-methods', [PaymentMethodController::class, 'exportExcell']);
@@ -111,6 +123,7 @@ Route::middleware([
                 Route::post('/cities', [CityController::class, 'importFromExcel']);
                 Route::post('/countries', [CountryController::class, 'importFromExcel']);
                 Route::post('/provinces', [ProvinceController::class, 'importFromExcel']);
+                Route::post('/districts', [DistrictController::class, 'importFromExcel']);
                 Route::post('/currencies', [CurrencyController::class, 'importFromExcel']);
                 Route::post('/customer-groups', [CustomerGroupController::class, 'importFromExcel']);
                 Route::post('/payment-methods', [PaymentMethodController::class, 'importFromExcel']);

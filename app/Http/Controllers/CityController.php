@@ -22,6 +22,7 @@ class CityController extends Controller
 
         if (!$cities) {
             $cities = City::withCount('addresses')
+                ->with(['country', 'province', 'districts'])
                 ->orderBy('name')
                 ->get();
 
@@ -37,9 +38,11 @@ class CityController extends Controller
 
     public function store(Request $request)
     {
-        $user = Auth::user();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:cities,name',
+            'country_id' => 'required|exists:countries,id',
+            'province_id' => 'required|exists:provinces,id',
         ]);
 
         $city = City::create($validated);
@@ -51,7 +54,6 @@ class CityController extends Controller
             'status' => true,
             'message' => 'City created successfully.',
             'data' => $city,
-            'user' => $user,
         ], 201);
     }
 
@@ -85,6 +87,8 @@ class CityController extends Controller
                 'max:255',
                 Rule::unique('cities', 'name')->ignore($city->id),
             ],
+            'country_id' => 'sometimes|exists:countries,id',
+            'province_id' => 'sometimes|exists:provinces,id',
         ]);
 
         $city->update($validated);
@@ -215,6 +219,54 @@ class CityController extends Controller
             'rows_imported' => $import->getImportedCount(),
             'rows_skipped_count' => $import->getSkippedCount(),
             'skipped_rows' => $import->getSkippedRows(),
+        ]);
+    }
+
+    public function getByCountry($countryId)
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_cities_country_{$countryId}";
+
+        $cities = app('cache')->store('database')->get($key);
+
+        if (!$cities) {
+            $cities = City::where('country_id', $countryId)
+                ->withCount('addresses')
+                // ->with(['province', 'districts'])
+                ->orderBy('name')
+                ->get();
+
+            app('cache')->store('database')->forever($key, $cities);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Cities fetched successfully.',
+            'data' => $cities,
+        ]);
+    }
+
+    public function getByProvince($provinceId)
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_cities_province_{$provinceId}";
+
+        $cities = app('cache')->store('database')->get($key);
+
+        if (!$cities) {
+            $cities = City::where('province_id', $provinceId)
+                ->withCount('addresses')
+                ->with(['country', 'districts'])
+                ->orderBy('name')
+                ->get();
+
+            app('cache')->store('database')->forever($key, $cities);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Cities fetched successfully.',
+            'data' => $cities,
         ]);
     }
 }

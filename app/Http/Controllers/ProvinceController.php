@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use App\Models\Country;
 
 class ProvinceController extends Controller
 {
@@ -21,6 +22,7 @@ class ProvinceController extends Controller
 
         if (!$provinces) {
             $provinces = Province::withCount('addresses')
+                ->with(['country', 'cities'])
                 ->orderBy('name')
                 ->get();
 
@@ -37,16 +39,28 @@ class ProvinceController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'unique:provinces,name|required|string|max:255',
+            'name' => 'required|string|max:255|unique:provinces,name',
+            'country_id' => 'required|exists:countries,id',
         ]);
+
+        // Verify country exists
+        $country = Country::find($validated['country_id']);
+        if (!$country) {
+            return response()->json([
+                'message' => 'Country not found',
+                'country_id' => $validated['country_id']
+            ], 404);
+        }
 
         $province = Province::create($validated);
 
+        // Clear cache
         app('cache')->store('database')->forget('tenant_' . tenant('id') . '_provinces');
+
 
         return response()->json([
             'message' => 'Province created successfully',
-            'province' => $province,
+            'province' => $province->fresh()->load('country'),
         ], 201);
     }
 
@@ -79,7 +93,8 @@ class ProvinceController extends Controller
                 'string',
                 'max:255',
                 Rule::unique('provinces', 'name')->ignore($province->id)
-            ]
+            ],
+            'country_id' => 'sometimes|exists:countries,id',
         ]);
 
         $province->update($validated);
@@ -203,6 +218,30 @@ class ProvinceController extends Controller
             'rows_imported' => $import->getImportedCount(),
             'rows_skipped_count' => $import->getSkippedCount(),
             'skipped_rows' => $import->getSkippedRows(),
+        ]);
+    }
+
+    public function getByCountry($countryId)
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_provinces_country_{$countryId}";
+
+        $provinces = app('cache')->store('database')->get($key);
+
+        if (!$provinces) {
+            $provinces = Province::where('country_id', $countryId)
+                ->withCount('addresses')
+                // ->with(['cities'])
+                ->orderBy('name')
+                ->get();
+
+            app('cache')->store('database')->forever($key, $provinces);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Provinces fetched successfully.',
+            'data' => $provinces,
         ]);
     }
 }

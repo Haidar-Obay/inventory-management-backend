@@ -28,6 +28,11 @@ class Address extends Model implements Auditable
         return $this->belongsTo(Province::class);
     }
 
+    public function district()
+    {
+        return $this->belongsTo(District::class);
+    }
+
     public function billingCustomers()
     {
         return $this->hasMany(Customer::class, 'billing_address_id');
