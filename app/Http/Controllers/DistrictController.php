@@ -20,78 +20,7 @@ class DistrictController extends Controller
         $districts = app('cache')->store('database')->get($key);
 
         if (!$districts) {
-            $districts = District::with(['country', 'province', 'city'])
-                ->orderBy('name')
-                ->get();
-
-            app('cache')->store('database')->forever($key, $districts);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Districts fetched successfully.',
-            'data' => $districts,
-        ]);
-    }
-
-    public function getByCountry($countryId)
-    {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_districts_country_{$countryId}";
-
-        $districts = app('cache')->store('database')->get($key);
-
-        if (!$districts) {
-            $districts = District::where('country_id', $countryId)
-                // ->with(['province', 'city'])
-                ->orderBy('name')
-                ->get();
-
-            app('cache')->store('database')->forever($key, $districts);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Districts fetched successfully.',
-            'data' => $districts,
-        ]);
-    }
-
-    public function getByProvince($provinceId)
-    {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_districts_province_{$provinceId}";
-
-        $districts = app('cache')->store('database')->get($key);
-
-        if (!$districts) {
-            $districts = District::where('province_id', $provinceId)
-                ->withCount('addresses')
-                ->with(['country', 'city'])
-                ->orderBy('name')
-                ->get();
-
-            app('cache')->store('database')->forever($key, $districts);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Districts fetched successfully.',
-            'data' => $districts,
-        ]);
-    }
-
-    public function getByCity($cityId)
-    {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_districts_city_{$cityId}";
-
-        $districts = app('cache')->store('database')->get($key);
-
-        if (!$districts) {
-            $districts = District::where('city_id', $cityId)
-                ->withCount('addresses')
-                ->with(['country', 'province'])
+            $districts = District::withCount('addresses')
                 ->orderBy('name')
                 ->get();
 
@@ -109,9 +38,6 @@ class DistrictController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:districts,name',
-            'country_id' => 'required|exists:countries,id',
-            'province_id' => 'required|exists:provinces,id',
-            'city_id' => 'required|exists:cities,id',
         ]);
 
         $district = District::create($validated);
@@ -135,7 +61,6 @@ class DistrictController extends Controller
 
         if (!$cachedDistrict) {
             $district->loadCount('addresses');
-            $district->load(['country', 'province', 'city']);
             $cachedDistrict = $district;
 
             app('cache')->store('database')->forever($key, $cachedDistrict);
@@ -157,9 +82,6 @@ class DistrictController extends Controller
                 'max:255',
                 Rule::unique('districts', 'name')->ignore($district->id),
             ],
-            'country_id' => 'sometimes|exists:countries,id',
-            'province_id' => 'sometimes|exists:provinces,id',
-            'city_id' => 'sometimes|exists:cities,id',
         ]);
 
         $district->update($validated);
@@ -218,46 +140,6 @@ class DistrictController extends Controller
         ]);
     }
 
-    public function exportExcell()
-    {
-        $districts = District::withCount('addresses')
-            ->with(['country', 'province', 'city'])
-            ->orderBy('name');
-        $collection = $districts->get();
-
-        if ($collection->isEmpty()) {
-            return response()->json(['message' => 'No districts found.'], 404);
-        }
-
-        $columns = ['id', 'name', 'country.name', 'province.name', 'city.name'];
-        $headings = ['ID', 'Name', 'Country', 'Province', 'City'];
-
-        return Excel::download(new Export($districts, $columns, $headings), 'districts.xlsx');
-    }
-
-    public function exportPdf(ExportPDF $pdfService)
-    {
-        $districts = District::with(['country', 'province', 'city'])
-            ->get();
-
-        if ($districts->isEmpty()) {
-            return response()->json(['message' => 'No districts found.'], 404);
-        }
-
-        $title = 'District Report';
-        $headers = [
-            'id' => 'District ID',
-            'name' => 'District Name',
-            'country.name' => 'Country',
-            'province.name' => 'Province',
-            'city.name' => 'City'
-        ];
-        $data = $districts->toArray();
-
-        $pdf = $pdfService->generatePdf($title, $headers, $data);
-        return $pdf->download('Districts.pdf');
-    }
-
     public function importFromExcel(Request $request)
     {
         $request->validate([
@@ -266,7 +148,7 @@ class DistrictController extends Controller
 
         $import = new DynamicExcelImport(
             District::class,
-            ['name', 'country_id', 'province_id', 'city_id'],
+            ['name'],
             function ($row) {
                 $errors = [];
 
@@ -276,26 +158,11 @@ class DistrictController extends Controller
                     $errors[] = 'District name must not contain numbers';
                 }
 
-                if (empty($row['country_id'])) {
-                    $errors[] = 'Missing country';
-                }
-
-                if (empty($row['province_id'])) {
-                    $errors[] = 'Missing province';
-                }
-
-                if (empty($row['city_id'])) {
-                    $errors[] = 'Missing city';
-                }
-
                 return $errors;
             },
             function ($row) {
                 return [
                     'name' => $row['name'],
-                    'country_id' => $row['country_id'],
-                    'province_id' => $row['province_id'],
-                    'city_id' => $row['city_id'],
                 ];
             }
         );

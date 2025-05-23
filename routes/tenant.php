@@ -71,14 +71,6 @@ Route::middleware([
             Route::apiResource('provinces', ProvinceController::class);
             Route::apiResource('districts', DistrictController::class);
 
-            // Location Hierarchy Routes
-            Route::get('countries/{country}/provinces', [ProvinceController::class, 'getByCountry']);
-            Route::get('countries/{country}/cities', [CityController::class, 'getByCountry']);
-            Route::get('countries/{country}/districts', [DistrictController::class, 'getByCountry']);
-            Route::get('provinces/{province}/cities', [CityController::class, 'getByProvince']);
-            Route::get('provinces/{province}/districts', [DistrictController::class, 'getByProvince']);
-            Route::get('cities/{city}/districts', [DistrictController::class, 'getByCity']);
-
             Route::apiResource('currencies', CurrencyController::class);
             Route::apiResource('salesmen', SalesmanController::class);
             Route::apiResource('customers', CustomerController::class);

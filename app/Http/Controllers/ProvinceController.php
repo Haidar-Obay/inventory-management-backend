@@ -9,7 +9,6 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
-use App\Models\Country;
 
 class ProvinceController extends Controller
 {
@@ -22,7 +21,6 @@ class ProvinceController extends Controller
 
         if (!$provinces) {
             $provinces = Province::withCount('addresses')
-                ->with(['country'])
                 ->orderBy('name')
                 ->get();
 
@@ -40,27 +38,17 @@ class ProvinceController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:provinces,name',
-            'country_id' => 'required|exists:countries,id',
         ]);
-
-        // Verify country exists
-        $country = Country::find($validated['country_id']);
-        if (!$country) {
-            return response()->json([
-                'message' => 'Country not found',
-                'country_id' => $validated['country_id']
-            ], 404);
-        }
 
         $province = Province::create($validated);
 
-        // Clear cache
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_provinces');
-
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_provinces");
 
         return response()->json([
-            'message' => 'Province created successfully',
-            'province' => $province->fresh()->load('country'),
+            'status' => true,
+            'message' => 'Province created successfully.',
+            'data' => $province,
         ], 201);
     }
 
@@ -94,7 +82,6 @@ class ProvinceController extends Controller
                 'max:255',
                 Rule::unique('provinces', 'name')->ignore($province->id)
             ],
-            'country_id' => 'sometimes|exists:countries,id',
         ]);
 
         $province->update($validated);
@@ -131,14 +118,14 @@ class ProvinceController extends Controller
             'ids.*' => 'exists:provinces,id',
         ]);
 
+        $tenantId = tenant('id');
         $skipped = [];
         $deleted = 0;
-        $tenantId = tenant('id');
 
         foreach ($request->ids as $id) {
             try {
                 $deleted += Province::where('id', $id)->delete();
-                app('cache')->store('database')->forget("tenant_{$tenantId}_province_show_{$id}");
+                app('cache')->store('database')->forget("tenant_{$tenantId}_province_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
@@ -218,30 +205,6 @@ class ProvinceController extends Controller
             'rows_imported' => $import->getImportedCount(),
             'rows_skipped_count' => $import->getSkippedCount(),
             'skipped_rows' => $import->getSkippedRows(),
-        ]);
-    }
-
-    public function getByCountry($countryId)
-    {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_provinces_country_{$countryId}";
-
-        $provinces = app('cache')->store('database')->get($key);
-
-        if (!$provinces) {
-            $provinces = Province::where('country_id', $countryId)
-                ->withCount('addresses')
-                // ->with(['cities'])
-                ->orderBy('name')
-                ->get();
-
-            app('cache')->store('database')->forever($key, $provinces);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Provinces fetched successfully.',
-            'data' => $provinces,
         ]);
     }
 }

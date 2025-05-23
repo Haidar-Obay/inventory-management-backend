@@ -22,7 +22,6 @@ class CityController extends Controller
 
         if (!$cities) {
             $cities = City::withCount('addresses')
-                ->with(['country', 'province'])
                 ->orderBy('name')
                 ->get();
 
@@ -38,11 +37,8 @@ class CityController extends Controller
 
     public function store(Request $request)
     {
-
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:cities,name',
-            'country_id' => 'required|exists:countries,id',
-            'province_id' => 'required|exists:provinces,id',
         ]);
 
         $city = City::create($validated);
@@ -87,8 +83,6 @@ class CityController extends Controller
                 'max:255',
                 Rule::unique('cities', 'name')->ignore($city->id),
             ],
-            'country_id' => 'sometimes|exists:countries,id',
-            'province_id' => 'sometimes|exists:provinces,id',
         ]);
 
         $city->update($validated);
@@ -232,7 +226,6 @@ class CityController extends Controller
         if (!$cities) {
             $cities = City::where('country_id', $countryId)
                 ->withCount('addresses')
-                // ->with(['province', 'districts'])
                 ->orderBy('name')
                 ->get();
 

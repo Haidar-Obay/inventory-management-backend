@@ -11,7 +11,7 @@ return new class extends Migration {
         Schema::create('provinces', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->foreignId('country_id')->constrained()->onDelete('cascade');
+            $table->unsignedBigInteger('country_id');
             $table->timestamps();
         });
     }

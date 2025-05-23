@@ -13,10 +13,10 @@ return new class extends Migration {
             $table->string('address_line1');
             $table->string('address_line2')->nullable();
 
-            $table->foreignId('country_id')->constrained();
-            $table->foreignId('city_id')->constrained();
-            $table->foreignId('province_id')->constrained();
-            $table->foreignId('district_id')->nullable()->constrained();
+            $table->unsignedBigInteger('country_id');
+            $table->unsignedBigInteger('city_id');
+            $table->unsignedBigInteger('province_id');
+            $table->unsignedBigInteger('district_id')->nullable();
 
             $table->string('postal_code')->nullable();
             $table->string('complex')->nullable();

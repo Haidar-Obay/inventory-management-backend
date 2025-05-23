@@ -16,19 +16,4 @@ class Country extends Model implements Auditable
     {
         return $this->hasMany(Address::class, 'country_id');
     }
-
-    public function provinces()
-    {
-        return $this->hasMany(Province::class);
-    }
-
-    public function cities()
-    {
-        return $this->hasMany(City::class);
-    }
-
-    public function districts()
-    {
-        return $this->hasMany(District::class);
-    }
 }

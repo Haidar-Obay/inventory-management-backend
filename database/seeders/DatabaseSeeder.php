@@ -19,5 +19,18 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        $this->call([
+            CentralUserSeeder::class,
+            TenantSeeder::class,
+        ]);
+
+        // Run location seeder in tenant context
+        $tenant = \App\Models\Tenant::first();
+        if ($tenant) {
+            $tenant->run(function () {
+                $this->call(LocationSeeder::class);
+            });
+        }
     }
 }
