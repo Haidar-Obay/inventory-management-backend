@@ -22,7 +22,7 @@ class ProvinceController extends Controller
 
         if (!$provinces) {
             $provinces = Province::withCount('addresses')
-                ->with(['country', 'cities'])
+                ->with(['country'])
                 ->orderBy('name')
                 ->get();
 

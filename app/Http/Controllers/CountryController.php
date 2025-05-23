@@ -21,17 +21,17 @@ class CountryController extends Controller
 
         if (!$countries) {
             $countries = Country::withCount('addresses')
-                ->with([
-                    'provinces' => function($query) {
-                        $query->orderBy('name');
-                    },
-                    'cities' => function($query) {
-                        $query->orderBy('name');
-                    },
-                    'districts' => function($query) {
-                        $query->orderBy('name');
-                    }
-                ])
+                // ->with([
+                //     'provinces' => function($query) {
+                //         $query->orderBy('name');
+                //     },
+                //     'cities' => function($query) {
+                //         $query->orderBy('name');
+                //     },
+                //     'districts' => function($query) {
+                //         $query->orderBy('name');
+                //     }
+                // ])
                 ->orderBy('name')
                 ->get();
 

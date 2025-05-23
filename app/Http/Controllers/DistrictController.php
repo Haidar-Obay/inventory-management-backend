@@ -20,8 +20,7 @@ class DistrictController extends Controller
         $districts = app('cache')->store('database')->get($key);
 
         if (!$districts) {
-            $districts = District::withCount('addresses')
-                ->with(['country', 'province', 'city'])
+            $districts = District::with(['country', 'province', 'city'])
                 ->orderBy('name')
                 ->get();
 

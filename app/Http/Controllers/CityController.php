@@ -22,7 +22,7 @@ class CityController extends Controller
 
         if (!$cities) {
             $cities = City::withCount('addresses')
-                ->with(['country', 'province', 'districts'])
+                ->with(['country', 'province'])
                 ->orderBy('name')
                 ->get();
 
