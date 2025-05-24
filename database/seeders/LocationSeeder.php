@@ -31,37 +31,31 @@ class LocationSeeder extends Seeder
         ];
 
         foreach ($countries as $countryData) {
-            $country = Country::create($countryData);
+            Country::create($countryData);
+        }
 
-            // Create 3-5 provinces for each country
-            $provinceCount = rand(3, 5);
-            for ($i = 0; $i < $provinceCount; $i++) {
-                $province = Province::create([
-                    'name' => $faker->unique()->city() . ' Province',
-                    'country_id' => $country->id,
-                ]);
+        // Create provinces
+        $provinceCount = 20;
+        for ($i = 0; $i < $provinceCount; $i++) {
+            Province::create([
+                'name' => $faker->unique()->city() . ' Province',
+            ]);
+        }
 
-                // Create 4-6 cities for each province
-                $cityCount = rand(4, 6);
-                for ($j = 0; $j < $cityCount; $j++) {
-                    $city = City::create([
-                        'name' => $faker->unique()->city(),
-                        'country_id' => $country->id,
-                        'province_id' => $province->id,
-                    ]);
+        // Create cities
+        $cityCount = 30;
+        for ($i = 0; $i < $cityCount; $i++) {
+            City::create([
+                'name' => $faker->unique()->city(),
+            ]);
+        }
 
-                    // Create 5-8 districts for each city
-                    $districtCount = rand(5, 8);
-                    for ($k = 0; $k < $districtCount; $k++) {
-                        District::create([
-                            'name' => $faker->unique()->streetName(),
-                            'country_id' => $country->id,
-                            'province_id' => $province->id,
-                            'city_id' => $city->id,
-                        ]);
-                    }
-                }
-            }
+        // Create districts
+        $districtCount = 40;
+        for ($i = 0; $i < $districtCount; $i++) {
+            District::create([
+                'name' => $faker->unique()->streetName(),
+            ]);
         }
     }
 }
