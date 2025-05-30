@@ -140,6 +140,7 @@ class DistrictController extends Controller
         ]);
     }
 
+    // Import from Excel
     public function importFromExcel(Request $request)
     {
         $request->validate([
@@ -177,5 +178,39 @@ class DistrictController extends Controller
             'rows_skipped_count' => $import->getSkippedCount(),
             'skipped_rows' => $import->getSkippedRows(),
         ]);
+    }
+
+    public function exportExcell()
+    {
+        $districts = District::withCount('addresses')->orderBy('name');
+        $collection = $districts->get();
+
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No districts found.'], 404);
+        }
+
+        $columns = ['id', 'name'];
+        $headings = ['ID', 'Name'];
+
+        return Excel::download(new Export($districts, $columns, $headings), 'districts.xlsx');
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $districts = District::select('id', 'name')->get();
+
+        if ($districts->isEmpty()) {
+            return response()->json(['message' => 'No districts found.'], 404);
+        }
+
+        $title = 'District Report';
+        $headers = [
+            'id' => 'District ID',
+            'name' => 'District Name',
+        ];
+        $data = $districts->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('Districts.pdf');
     }
 }

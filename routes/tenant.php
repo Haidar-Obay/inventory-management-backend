@@ -100,6 +100,7 @@ Route::middleware([
                 Route::get('/customers', [CustomerController::class, 'exportPdf']);
                 Route::get('/cities', [CityController::class, 'exportPdf']);
                 Route::get('/countries', [CountryController::class, 'exportPdf']);
+                Route::get('/districts', [DistrictController::class, 'exportPdf']);
                 Route::get('/provinces', [ProvinceController::class, 'exportPdf']);
                 Route::get('/currencies', [CurrencyController::class, 'exportPdf']);
                 Route::get('/customer-groups', [CustomerGroupController::class, 'exportPdf']);
