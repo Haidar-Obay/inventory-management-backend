@@ -19,6 +19,12 @@ class Customer extends Model implements Auditable
         'attachment_ids' => 'array', // auto-casts to array on get/set
     ];
 
+
+    // public function projects()
+    // {
+    //     return $this->hasMany(Project::class);
+    // }
+
     public function customerGroup()
     {
         return $this->belongsTo(CustomerGroup::class, 'customer_group_id');

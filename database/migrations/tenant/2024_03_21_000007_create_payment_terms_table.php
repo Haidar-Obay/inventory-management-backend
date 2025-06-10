@@ -8,10 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('company_codes', function (Blueprint $table) {
+        Schema::create('payment_terms', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->unique();
             $table->string('name');
+            $table->integer('nb_days');
+            $table->boolean('is_inactive')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });
@@ -19,6 +20,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('company_codes');
+        Schema::dropIfExists('payment_terms');
     }
 };

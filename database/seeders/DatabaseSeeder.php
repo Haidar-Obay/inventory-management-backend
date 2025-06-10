@@ -29,7 +29,11 @@ class DatabaseSeeder extends Seeder
         $tenant = \App\Models\Tenant::first();
         if ($tenant) {
             $tenant->run(function () {
-                $this->call(LocationSeeder::class);
+                $this->call([
+                    LocationSeeder::class,
+                    CustomerSeeder::class,
+                    ProjectSeeder::class,
+                ]);
             });
         }
     }
