@@ -7,22 +7,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class PaymentTerm extends Model implements Auditable
+class ProductLine extends Model implements Auditable
 {
     use AuditableTrait, SoftDeletes;
 
     protected $guarded = ['id'];
-    protected $table = 'payment_terms';
+    protected $table = 'product_lines';
     protected $primaryKey = 'id';
     public $timestamps = true;
 
     protected $casts = [
-        'nb_days' => 'integer',
         'is_inactive' => 'boolean',
     ];
-
-    public function customers()
-    {
-        return $this->hasMany(Customer::class, 'payment_term_id');
-    }
 }

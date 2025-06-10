@@ -10,199 +10,137 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use Illuminate\Support\Facades\Cache;
 
 class CustomerGroupController extends Controller
 {
     public function index()
     {
         $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_customer_groups";
+        $cacheKey = "customer_groups_{$tenantId}";
 
-        $groups = app('cache')->store('database')->get($key);
-
-        if (!$groups) {
-            $groups = CustomerGroup::withCount('customers')->orderBy('name')->get();
-            app('cache')->store('database')->forever($key, $groups);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer groups fetched successfully.',
-            'data' => $groups,
-        ]);
+        return Cache::remember($cacheKey, 3600, function () {
+            return CustomerGroup::all();
+        });
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:customer_groups,name',
+        $request->validate([
+            'code' => 'required|string|unique:customer_groups,code',
+            'name' => 'required|string',
+            'is_inactive' => 'boolean',
         ]);
 
-        $group = CustomerGroup::create($validated);
+        $customerGroup = CustomerGroup::create($request->all());
+        Cache::forget("customer_groups_" . tenant('id'));
 
-        $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer group created successfully.',
-            'data' => $group,
-        ], 201);
+        return response()->json($customerGroup, 201);
     }
 
     public function show(CustomerGroup $customerGroup)
     {
         $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_customer_group_{$customerGroup->id}";
+        $cacheKey = "customer_group_{$customerGroup->id}_{$tenantId}";
 
-        $cached = app('cache')->store('database')->get($key);
-
-        if (!$cached) {
-            $customerGroup->loadCount('customers');
-            app('cache')->store('database')->forever($key, $customerGroup);
-        } else {
-            $customerGroup = $cached;
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer group details fetched successfully.',
-            'data' => $customerGroup,
-        ]);
+        return Cache::remember($cacheKey, 3600, function () use ($customerGroup) {
+            return $customerGroup->load('customers');
+        });
     }
 
     public function update(Request $request, CustomerGroup $customerGroup)
     {
-        $validated = $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('customer_groups')->ignore($customerGroup->id),
-            ],
+        $request->validate([
+            'code' => 'required|string|unique:customer_groups,code,' . $customerGroup->id,
+            'name' => 'required|string',
+            'is_inactive' => 'boolean',
         ]);
 
-        $customerGroup->update($validated);
+        $customerGroup->update($request->all());
+        Cache::forget("customer_groups_" . tenant('id'));
+        Cache::forget("customer_group_{$customerGroup->id}_" . tenant('id'));
 
-        $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_group_{$customerGroup->id}");
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer group updated successfully.',
-            'data' => $customerGroup,
-        ]);
+        return response()->json($customerGroup);
     }
 
     public function destroy(CustomerGroup $customerGroup)
     {
+        // Check if customer group has customers
+        if ($customerGroup->customers()->exists()) {
+            return response()->json(['message' => 'Cannot delete customer group with associated customers'], 422);
+        }
+
         $customerGroup->delete();
+        Cache::forget("customer_groups_" . tenant('id'));
+        Cache::forget("customer_group_{$customerGroup->id}_" . tenant('id'));
 
-        $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_group_{$customerGroup->id}");
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer group deleted successfully.',
-        ]);
+        return response()->json(null, 204);
     }
 
     public function bulkDelete(Request $request)
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:customer_groups,id',
+            'ids.*' => 'exists:customer_groups,id'
         ]);
 
-        $skipped = [];
-        $deleted = 0;
-        $tenantId = tenant('id');
+        // Check for customer groups with customers
+        $groupsWithCustomers = CustomerGroup::whereIn('id', $request->ids)
+            ->whereHas('customers')
+            ->pluck('id');
 
-        foreach ($request->ids as $id) {
-            try {
-                $deleted += CustomerGroup::where('id', $id)->delete();
-                app('cache')->store('database')->forget("tenant_{$tenantId}_customer_group_{$id}");
-            } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
-            }
+        if ($groupsWithCustomers->isNotEmpty()) {
+            return response()->json([
+                'message' => 'Some customer groups have associated customers and cannot be deleted',
+                'groups_with_customers' => $groupsWithCustomers
+            ], 422);
         }
 
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
+        CustomerGroup::whereIn('id', $request->ids)->delete();
+        Cache::forget("customer_groups_" . tenant('id'));
 
-        return response()->json([
-            'message' => 'Bulk delete completed.',
-            'deleted_count' => $deleted,
-            'skipped' => $skipped,
-        ]);
+        return response()->json(['message' => 'Customer groups deleted successfully']);
     }
 
     public function exportExcell()
     {
-        $CustomerGroup = CustomerGroup::query();
-        $collection = $CustomerGroup->get();
-        if ($collection->isEmpty()) {
-            return response()->json(['message' => 'No Customer_Groups found.'], 404);
-        }
-        $columns = ['id', 'name'];
-        $headings = ['ID', 'Name'];
-        return Excel::download(new Export($CustomerGroup, $columns, $headings), 'CustomerGroups.xlsx');
-    }
-
-    public function exportPdf(ExportPDF $pdfService)
-    {
-        $customerGroups = CustomerGroup::select('id', 'name')->get();
+        $customerGroups = CustomerGroup::all();
 
         if ($customerGroups->isEmpty()) {
-            return response()->json(['message' => 'No customer groups found.'], 404);
+            return response()->json(['message' => 'No customer groups to export'], 404);
         }
 
-        $title = 'Customer Group Report';
-        $headers = [
-            'id' => 'Customer Group ID',
-            'name' => 'Customer Group Name'
-        ];
-        $data = $customerGroups->toArray();
+        $fileName = 'customer_groups_' . date('Y-m-d_H-i-s') . '.xlsx';
+        return Excel::download(new Export($customerGroups), $fileName);
+    }
 
-        $pdf = $pdfService->generatePdf($title, $headers, $data);
-        return $pdf->download('CustomerGroups.pdf');
+    public function exportPdf()
+    {
+        $customerGroups = CustomerGroup::all();
+
+        if ($customerGroups->isEmpty()) {
+            return response()->json(['message' => 'No customer groups to export'], 404);
+        }
+
+        $fileName = 'customer_groups_' . date('Y-m-d_H-i-s') . '.pdf';
+        return Excel::download(new ExportPDF($customerGroups), $fileName);
     }
 
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
+            'file' => 'required|mimes:xlsx,xls',
         ]);
 
-        $import = new DynamicExcelImport(
-            CustomerGroup::class,
-            ['name'],
-            function ($row) {
-                $errors = [];
+        try {
+            $import = new DynamicExcelImport(CustomerGroup::class);
+            Excel::import($import, $request->file('file'));
 
-                if (empty($row['name'])) {
-                    $errors[] = 'Missing name';
-                }
+            Cache::forget("customer_groups_" . tenant('id'));
 
-                return $errors;
-            },
-            function ($row) {
-                return [
-                    'name' => $row['name'],
-                ];
-            }
-        );
-
-        Excel::import($import, $request->file('file'));
-
-        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_customer_groups");
-
-        return response()->json([
-            'success' => true,
-            'rows_imported' => $import->getImportedCount(),
-            'rows_skipped_count' => $import->getSkippedCount(),
-            'skipped_rows' => $import->getSkippedRows(),
-        ]);
+            return response()->json(['message' => 'Customer groups imported successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error importing customer groups: ' . $e->getMessage()], 500);
+        }
     }
 }

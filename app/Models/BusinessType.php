@@ -8,22 +8,18 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class PaymentMethod extends Model implements Auditable
+class BusinessType extends Model implements Auditable
 {
     use HasFactory, SoftDeletes, AuditableTrait;
 
     protected $guarded = ['id'];
-    protected $table = 'payment_methods';
+    protected $table = 'business_types';
     protected $primaryKey = 'id';
     public $timestamps = true;
 
-    protected $casts = [
-        'is_credit_card' => 'boolean',
-        'is_inactive' => 'boolean',
+    // Validation rules for the model
+    public static $rules = [
+        'code' => 'required|string|max:50|unique:business_types,code',
+        'name' => 'required|string|max:255',
     ];
-
-    public function customers()
-    {
-        return $this->hasMany(Customer::class);
-    }
 }

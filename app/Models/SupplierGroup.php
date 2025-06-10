@@ -7,22 +7,24 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class PaymentTerm extends Model implements Auditable
+class SupplierGroup extends Model implements Auditable
 {
     use AuditableTrait, SoftDeletes;
 
     protected $guarded = ['id'];
-    protected $table = 'payment_terms';
+    protected $table = 'supplier_groups';
     protected $primaryKey = 'id';
     public $timestamps = true;
 
     protected $casts = [
-        'nb_days' => 'integer',
         'is_inactive' => 'boolean',
     ];
 
-    public function customers()
+    /**
+     * Get the suppliers in this group.
+     */
+    public function suppliers()
     {
-        return $this->hasMany(Customer::class, 'payment_term_id');
+        return $this->hasMany(Supplier::class, 'supplier_group_id');
     }
 }

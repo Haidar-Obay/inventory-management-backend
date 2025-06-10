@@ -7,12 +7,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class CustomerGroup extends Model implements Auditable
+class Category extends Model implements Auditable
 {
     use AuditableTrait, SoftDeletes;
 
     protected $guarded = ['id'];
-    protected $table = 'customer_groups';
+    protected $table = 'categories';
     protected $primaryKey = 'id';
     public $timestamps = true;
 
@@ -21,10 +21,18 @@ class CustomerGroup extends Model implements Auditable
     ];
 
     /**
-     * Get the customers in this group.
+     * Get the parent category of this category.
      */
-    public function customers()
+    public function parentCategory()
     {
-        return $this->hasMany(Customer::class, 'customer_group_id');
+        return $this->belongsTo(Category::class, 'subcategory_of');
+    }
+
+    /**
+     * Get the subcategories of this category.
+     */
+    public function subcategories()
+    {
+        return $this->hasMany(Category::class, 'subcategory_of');
     }
 }
