@@ -23,7 +23,7 @@ class UpdateDepartmentRequest extends FormRequest
             ],
             'name' => 'required|string|max:255',
             'sub_department_of' => 'nullable|exists:departments,id',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ];
     }
 

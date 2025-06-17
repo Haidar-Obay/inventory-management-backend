@@ -4,13 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
 class Department extends Model implements Auditable
 {
-    use HasFactory, SoftDeletes, AuditableTrait;
+    use HasFactory, AuditableTrait;
 
     protected $guarded = ['id'];
     protected $table = 'departments';
@@ -18,7 +17,7 @@ class Department extends Model implements Auditable
     public $timestamps = true;
 
     protected $casts = [
-        'is_inactive' => 'boolean',
+        'active' => 'boolean',
     ];
 
     public function parent()

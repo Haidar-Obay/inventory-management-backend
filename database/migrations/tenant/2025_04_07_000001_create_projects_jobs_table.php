@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('jobs', function (Blueprint $table) {
+        Schema::create('projects_jobs', function (Blueprint $table) {
             $table->id();
             $table->string('description');
             $table->foreignId('project_id')->constrained('projects')->onDelete('cascade');
@@ -16,12 +16,11 @@ return new class extends Migration
             $table->date('expected_date');
             $table->date('end_date')->nullable();
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 
     public function down()
     {
-        Schema::dropIfExists('jobs');
+        Schema::dropIfExists('projects_jobs');
     }
 };

@@ -11,108 +11,188 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use Illuminate\Support\Facades\Log;
 
 class DepartmentController extends Controller
 {
     public function index()
     {
-        $departments = Cache::remember('departments', 60, function () {
-            return Department::with('parent')->get();
-        });
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_departments";
 
-        return response()->json($departments);
+        $departments = app('cache')->store('database')->get($key);
+
+        if (!$departments) {
+            $departments = Department::with('parent')->get();
+            app('cache')->store('database')->forever($key, $departments);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Departments fetched successfully.',
+            'data' => $departments,
+        ]);
     }
 
     public function store(StoreDepartmentRequest $request)
     {
+        $tenantId = tenant('id');
         $department = Department::create($request->validated());
-        Cache::forget('departments');
-        return response()->json($department, 201);
+        app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
+        return response()->json([
+            'status' => true,
+            'message' => 'Department created successfully.',
+            'data' => $department,
+        ], 201);
     }
 
-    public function show(Department $department)
+    public function show($id)
     {
-        return response()->json($department->load('parent', 'children'));
+        try {
+            $department = Department::findOrFail($id);
+            return response()->json([
+                'status' => true,
+                'message' => 'Department fetched successfully.',
+                'data' => $department,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching department: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Department not found',
+            ], 404);
+        }
     }
 
     public function update(UpdateDepartmentRequest $request, Department $department)
     {
+        $tenantId = tenant('id');
         $department->update($request->validated());
-        Cache::forget('departments');
-        return response()->json($department);
+        app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
+        return response()->json([
+            'status' => true,
+            'message' => 'Department updated successfully.',
+            'data' => $department,
+        ]);
     }
 
     public function destroy(Department $department)
     {
+        $tenantId = tenant('id');
         if ($department->hasSubDepartments()) {
-            return response()->json(['message' => 'Cannot delete department with sub-departments'], 422);
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete department with associated sub-departments',
+            ], 422);
         }
-
         $department->delete();
-        Cache::forget('departments');
-        return response()->json(null, 204);
+        app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
+        return response()->json([
+            'status' => true,
+            'message' => 'Department deleted successfully.',
+        ]);
     }
 
     public function bulkDelete(Request $request)
     {
+        $tenantId = tenant('id');
         $ids = $request->input('ids');
 
-        $departmentsWithChildren = Department::whereIn('id', $ids)
-            ->whereHas('children')
-            ->pluck('id');
-
-        if ($departmentsWithChildren->isNotEmpty()) {
+        if (!$ids || !is_array($ids)) {
             return response()->json([
-                'message' => 'Some departments have sub-departments and cannot be deleted',
-                'departments' => $departmentsWithChildren
-            ], 422);
+                'status' => false,
+                'message' => 'No departments selected for deletion',
+            ], 400);
         }
 
-        Department::whereIn('id', $ids)->delete();
-        Cache::forget('departments');
-        return response()->json(null, 204);
+        try {
+            foreach ($ids as $id) {
+                $department = Department::findOrFail($id);
+                if ($department->hasSubDepartments()) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Cannot delete department with sub-departments',
+                    ], 422);
+                }
+                $department->delete();
+                Cache::forget("departments_" . tenant('id'));
+                Cache::forget("department_{$department->id}_" . tenant('id'));
+            }
+
+            return response()->json(null, 204);
+        } catch (\Exception $e) {
+            Log::error('Error in bulk delete: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to delete departments',
+            ], 500);
+        }
     }
 
-    public function exportExcel()
+    public function exportExcell()
     {
-        $departments = Department::with('parent')->get();
+        $departments = Department::query()
+            ->leftJoin('departments as parent', 'departments.sub_department_of', '=', 'parent.id')
+            ->select([
+                'departments.id',
+                'departments.code',
+                'departments.name',
+                'parent.code as parent_code',
+                'departments.active'
+            ]);
 
-        if ($departments->isEmpty()) {
-            return response()->json(['message' => 'No data to export'], 404);
+        $collection = $departments->get();
+
+        if ($collection->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No data to export',
+            ]);
         }
 
-        $export = new Export($departments, [
+        $columns = ['id', 'code', 'name', 'parent_code', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Parent Department', 'Status'];
+
+        return Excel::download(new Export($departments, $columns, $headings), 'departments.xlsx');
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $departments = Department::query()
+            ->leftJoin('departments as parent', 'departments.sub_department_of', '=', 'parent.id')
+            ->select([
+                'departments.id',
+                'departments.code',
+                'departments.name',
+                'parent.code as parent_code',
+                'departments.active'
+            ])
+            ->get();
+
+        if ($departments->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No data to export',
+            ]);
+        }
+
+        $title = 'Departments Report';
+        $headers = [
             'id' => 'ID',
             'code' => 'Code',
             'name' => 'Name',
-            'parent.code' => 'Parent Department',
-            'is_inactive' => 'Status'
-        ]);
+            'parent_code' => 'Parent Department',
+            'active' => 'Status'
+        ];
+        $data = $departments->toArray();
 
-        return Excel::download($export, 'departments.xlsx');
-    }
-
-    public function exportPdf()
-    {
-        $departments = Department::with('parent')->get();
-
-        if ($departments->isEmpty()) {
-            return response()->json(['message' => 'No data to export'], 404);
-        }
-
-        $export = new ExportPDF($departments, [
-            'id' => 'ID',
-            'code' => 'Code',
-            'name' => 'Name',
-            'parent.code' => 'Parent Department',
-            'is_inactive' => 'Status'
-        ]);
-
-        return $export->download('departments.pdf');
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('Departments.pdf');
     }
 
     public function import(Request $request)
     {
+        $tenantId = tenant('id');
         $request->validate([
             'file' => 'required|mimes:xlsx,xls,csv|max:2048'
         ]);
@@ -120,10 +200,16 @@ class DepartmentController extends Controller
         try {
             $import = new DynamicExcelImport(Department::class);
             Excel::import($import, $request->file('file'));
-            Cache::forget('departments');
-            return response()->json(['message' => 'Import successful']);
+            app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
+            return response()->json([
+                'status' => true,
+                'message' => 'Import successful',
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Import failed: ' . $e->getMessage()], 422);
+            return response()->json([
+                'status' => false,
+                'message' => 'Import failed: ' . $e->getMessage(),
+            ], 422);
         }
     }
 
@@ -134,7 +220,7 @@ class DepartmentController extends Controller
 
         return Cache::remember($cacheKey, 3600, function () use ($departmentId) {
             return Department::where('sub_department_of', $departmentId)
-                ->with('parentDepartment')
+                ->with('parent')
                 ->get();
         });
     }
@@ -147,24 +233,60 @@ class DepartmentController extends Controller
             ]);
         }
 
-        $parent = Department::find($parentId);
-        if ($parent && $parent->isSubDepartment()) {
-            $ancestors = $this->getAncestors($parent);
-            if (in_array($currentId, $ancestors)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'sub_department_of' => ['Circular reference detected in department hierarchy']
-                ]);
+        try {
+            $parent = Department::find($parentId);
+            if ($parent && $parent->isSubDepartment()) {
+                $ancestors = $this->getAncestors($parent);
+                if (in_array($currentId, $ancestors)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'sub_department_of' => ['Circular reference detected in department hierarchy']
+                    ]);
+                }
             }
+        } catch (\Exception $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'sub_department_of' => ['An error occurred while validating the department hierarchy']
+            ]);
         }
     }
 
     protected function getAncestors($department)
     {
         $ancestors = [];
-        while ($department->parentDepartment) {
-            $ancestors[] = $department->parentDepartment->id;
-            $department = $department->parentDepartment;
+        while ($department->parent) {
+            $ancestors[] = $department->parent->id;
+            $department = $department->parent;
         }
         return $ancestors;
     }
+
+    public function getNames()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_department_names";
+
+        // Get departments directly first to ensure we have data
+        $departments = Department::select('id', 'name')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($department) {
+                return [
+                    'id' => $department->id,
+                    'name' => $department->name
+                ];
+            });
+
+        // Store in cache
+        app('cache')->store('database')->forever($key, $departments);
+
+        // Retrieve from cache to verify
+        $cachedDepartments = app('cache')->store('database')->get($key);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Department names fetched successfully.',
+            'data' => $cachedDepartments ?? $departments, // Fallback to direct data if cache fails
+        ]);
+    }
 }
+

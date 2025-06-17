@@ -21,9 +21,15 @@ class UpdateCostCenterRequest extends FormRequest
                 'max:50',
                 Rule::unique('cost_centers')->ignore($this->cost_center),
             ],
-            'name' => 'required|string|max:255',
-            'sub_cost_center_of' => 'nullable|exists:cost_centers,id',
-            'is_inactive' => 'boolean',
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('cost_centers')->ignore($this->cost_center),
+            ],
+            'description' => 'nullable|string',
+            'active' => 'boolean',
+            'sub_cost_center_of' => 'nullable|exists:cost_centers,id'
         ];
     }
 
@@ -33,6 +39,7 @@ class UpdateCostCenterRequest extends FormRequest
             'code.required' => 'The cost center code is required.',
             'code.unique' => 'This cost center code is already in use.',
             'name.required' => 'The cost center name is required.',
+            'name.unique' => 'This cost center name is already in use.',
             'sub_cost_center_of.exists' => 'The selected parent cost center does not exist.',
         ];
     }

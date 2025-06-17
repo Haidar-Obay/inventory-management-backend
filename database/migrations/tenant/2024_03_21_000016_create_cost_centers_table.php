@@ -12,10 +12,9 @@ return new class extends Migration
             $table->id();
             $table->string('code')->unique();
             $table->string('name');
+            $table->boolean('active')->default(true);
             $table->foreignId('sub_cost_center_of')->nullable()->constrained('cost_centers')->onDelete('set null');
-            $table->boolean('is_inactive')->default(false);
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 

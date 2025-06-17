@@ -455,5 +455,33 @@ class CustomerController extends Controller
         ]);
     }
 
+    public function getNames()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_customer_names";
+
+        $customers = app('cache')->store('database')->get($key);
+
+        if (!$customers) {
+            $customers = Customer::select('id', 'first_name', 'last_name')
+                ->orderBy('first_name')
+                ->get()
+                ->map(function ($customer) {
+                    return [
+                        'id' => $customer->id,
+                        'name' => trim($customer->first_name . ' ' . $customer->last_name)
+                    ];
+                });
+
+            app('cache')->store('database')->forever($key, $customers);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Customer names fetched successfully.',
+            'data' => $customers,
+        ]);
+    }
+
 }
 

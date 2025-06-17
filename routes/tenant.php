@@ -105,6 +105,11 @@ Route::middleware([
             Route::apiResource('adjustment-types', AdjustmentTypeController::class);
             Route::apiResource('warehouses', WarehouseController::class);
             Route::apiResource('business-types', BusinessTypeController::class);
+            Route::apiResource('projects', ProjectController::class);
+            Route::apiResource('jobs', JobController::class);
+            Route::apiResource('transaction-series', TransactionSeriesController::class);
+            Route::apiResource('cost-centers', CostCenterController::class);
+            Route::apiResource('departments', DepartmentController::class);
 
             Route::get('adjustment-types/transaction-types', [AdjustmentTypeController::class, 'getTransactionTypes']);
 
@@ -132,6 +137,11 @@ Route::middleware([
                 Route::get('adjustment-types', [AdjustmentTypeController::class, 'exportExcell']);
                 Route::get('warehouses', [WarehouseController::class, 'exportExcell']);
                 Route::get('business-types', [BusinessTypeController::class, 'exportExcell']);
+                Route::get('projects', [ProjectController::class, 'exportExcel']);
+                Route::get('jobs', [JobController::class, 'exportExcell']);
+                Route::get('transaction-series', [TransactionSeriesController::class, 'exportExcell']);
+                Route::get('cost-centers', [CostCenterController::class, 'exportExcell']);
+                Route::get('departments', [DepartmentController::class, 'exportExcell']);
             });
 
             // Export to PDF Routes
@@ -158,6 +168,11 @@ Route::middleware([
                 Route::get('/adjustment-types', [AdjustmentTypeController::class, 'exportPdf']);
                 Route::get('/warehouses', [WarehouseController::class, 'exportPdf']);
                 Route::get('/business-types', [BusinessTypeController::class, 'exportPdf']);
+                Route::get('/projects', [ProjectController::class, 'exportPdf']);
+                Route::get('/jobs', [JobController::class, 'exportPdf']);
+                Route::get('/transaction-series', [TransactionSeriesController::class, 'exportPdf']);
+                Route::get('/cost-centers', [CostCenterController::class, 'exportPdf']);
+                Route::get('/departments', [DepartmentController::class, 'exportPdf']);
             });
 
             // Import from Excel Routes
@@ -184,6 +199,11 @@ Route::middleware([
                 Route::post('/adjustment-types', [AdjustmentTypeController::class, 'importFromExcel']);
                 Route::post('/warehouses', [WarehouseController::class, 'importFromExcel']);
                 Route::post('/business-types', [BusinessTypeController::class, 'importFromExcel']);
+                Route::post('/projects', [ProjectController::class, 'importFromExcel']);
+                Route::post('/jobs', [JobController::class, 'importFromExcel']);
+                Route::post('/transaction-series', [TransactionSeriesController::class, 'importFromExcel']);
+                Route::post('/cost-centers', [CostCenterController::class, 'importFromExcel']);
+                Route::post('/departments', [DepartmentController::class, 'importFromExcel']);
             });
 
             // Bulk Delete Routes
@@ -209,33 +229,19 @@ Route::middleware([
                 Route::delete('/adjustment-types', [AdjustmentTypeController::class, 'bulkDelete']);
                 Route::delete('/warehouses', [WarehouseController::class, 'bulkDelete']);
                 Route::delete('/business-types', [BusinessTypeController::class, 'bulkDelete']);
+                Route::delete('/projects', [ProjectController::class, 'bulkDelete']);
+                Route::delete('/jobs', [JobController::class, 'bulkDelete']);
+                Route::delete('/transaction-series', [TransactionSeriesController::class, 'bulkDelete']);
+                Route::delete('/cost-centers', [CostCenterController::class, 'bulkDelete']);
+                Route::delete('/departments', [DepartmentController::class, 'bulkDelete']);
             });
 
-            Route::apiResource('projects', ProjectController::class);
-            Route::post('projects/export-excel', [ProjectController::class, 'exportExcell']);
-            Route::post('projects/export-pdf', [ProjectController::class, 'exportPdf']);
-            Route::post('projects/import-excel', [ProjectController::class, 'importFromExcel']);
+            // Get Customer Projects & Jobs
             Route::get('customers/{customerId}/projects', [ProjectController::class, 'getCustomerProjects']);
-            Route::apiResource('jobs', JobController::class);
-            Route::post('jobs/export-excel', [JobController::class, 'exportExcell']);
-            Route::post('jobs/export-pdf', [JobController::class, 'exportPdf']);
-            Route::post('jobs/import-excel', [JobController::class, 'importFromExcel']);
             Route::get('projects/{projectId}/jobs', [JobController::class, 'getProjectJobs']);
-            Route::apiResource('transaction-series', TransactionSeriesController::class);
-            Route::post('transaction-series/export-excel', [TransactionSeriesController::class, 'exportExcell']);
-            Route::post('transaction-series/export-pdf', [TransactionSeriesController::class, 'exportPdf']);
-            Route::post('transaction-series/import-excel', [TransactionSeriesController::class, 'importFromExcel']);
             Route::get('company-codes/{companyCodeId}/transaction-series', [TransactionSeriesController::class, 'getByCompanyCode']);
             Route::get('trades/{tradeId}/transaction-series', [TransactionSeriesController::class, 'getByTrade']);
-            Route::apiResource('cost-centers', CostCenterController::class);
-            Route::post('cost-centers/export-excel', [CostCenterController::class, 'exportExcell']);
-            Route::post('cost-centers/export-pdf', [CostCenterController::class, 'exportPdf']);
-            Route::post('cost-centers/import-excel', [CostCenterController::class, 'importFromExcel']);
             Route::get('cost-centers/{costCenterId}/sub-cost-centers', [CostCenterController::class, 'getSubCostCenters']);
-            Route::apiResource('departments', DepartmentController::class);
-            Route::post('departments/export-excel', [DepartmentController::class, 'exportExcell']);
-            Route::post('departments/export-pdf', [DepartmentController::class, 'exportPdf']);
-            Route::post('departments/import-excel', [DepartmentController::class, 'importFromExcel']);
             Route::get('departments/{departmentId}/sub-departments', [DepartmentController::class, 'getSubDepartments']);
         });
 
@@ -273,14 +279,21 @@ Route::middleware([
         Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
     });
 
+    Route::middleware([
+        'web',
+        InitializeTenancyByDomain::class,
+        PreventAccessFromCentralDomains::class,
+    ])->group(function () {
+        Route::get('/names/customers', [CustomerController::class, 'getNames']);
+        Route::get('/names/cost-centers', [CostCenterController::class, 'getNames']);
+        Route::get('/names/departments', [DepartmentController::class, 'getNames']);
+        Route::get('/names/projects', [ProjectController::class, 'getNames']);
+        Route::get('/customers', [CustomerController::class, 'index']);
+        Route::post('/customers', [CustomerController::class, 'store']);
+        Route::get('/customers/{customer}', [CustomerController::class, 'show']);
+        Route::put('/customers/{customer}', [CustomerController::class, 'update']);
+        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
+    });
 
-    // Test cache route
-    Route::get('/test-cache', function () {
-        $key = 'tenant_' . tenant('id') . '_test_message';
 
-        app('cache')->store('database')->put($key, 'Hello Tenant!', 600);
 
-        return response()->json([
-            'cached' => app('cache')->store('database')->get($key),
-        ]);
-});

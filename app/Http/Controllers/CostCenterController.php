@@ -11,77 +11,87 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 
 class CostCenterController extends Controller
 {
     public function index()
     {
         $tenantId = tenant('id');
-        $cacheKey = "cost_centers_{$tenantId}";
+        $key = "tenant_{$tenantId}_cost_centers";
 
-        return Cache::remember($cacheKey, 3600, function () {
-            return CostCenter::with('parentCostCenter')->get();
-        });
+        $costCenters = app('cache')->store('database')->get($key);
+
+        if (!$costCenters) {
+            $costCenters = CostCenter::with('parent')->get();
+            app('cache')->store('database')->forever($key, $costCenters);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Cost centers fetched successfully.',
+            'data' => $costCenters,
+        ]);
     }
 
     public function store(StoreCostCenterRequest $request)
     {
-        $validated = $request->validated();
-
-        // Prevent circular reference
-        if (isset($validated['sub_cost_center_of'])) {
-            $this->validateNoCircularReference($validated['sub_cost_center_of']);
-        }
-
-        $costCenter = CostCenter::create($validated);
-        Cache::forget("cost_centers_" . tenant('id'));
-
-        return response()->json($costCenter->load('parentCostCenter'), 201);
+        $tenantId = tenant('id');
+        $costCenter = CostCenter::create($request->validated());
+        app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
+        return response()->json([
+            'status' => true,
+            'message' => 'Cost center created successfully.',
+            'data' => $costCenter,
+        ], 201);
     }
 
-    public function show(CostCenter $costCenter)
+    public function show($id)
     {
-        $tenantId = tenant('id');
-        $cacheKey = "cost_center_{$costCenter->id}_{$tenantId}";
-
-        return Cache::remember($cacheKey, 3600, function () use ($costCenter) {
-            return $costCenter->load(['parentCostCenter', 'subCostCenters']);
-        });
+        try {
+            $costCenter = CostCenter::findOrFail($id);
+            return response()->json([
+                'status' => true,
+                'message' => 'Cost center fetched successfully.',
+                'data' => $costCenter,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching cost center: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Cost center not found',
+            ], 404);
+        }
     }
 
     public function update(UpdateCostCenterRequest $request, CostCenter $costCenter)
     {
-        $rules = CostCenter::$rules;
-        $rules['code'] = 'required|string|max:50|unique:cost_centers,code,' . $costCenter->id;
-
-        $validated = $request->validated();
-
-        // Prevent circular reference
-        if (isset($validated['sub_cost_center_of'])) {
-            $this->validateNoCircularReference($validated['sub_cost_center_of'], $costCenter->id);
-        }
-
-        $costCenter->update($validated);
-
-        Cache::forget("cost_centers_" . tenant('id'));
-        Cache::forget("cost_center_{$costCenter->id}_" . tenant('id'));
-
-        return response()->json($costCenter->load(['parentCostCenter', 'subCostCenters']));
+        $tenantId = tenant('id');
+        $costCenter->update($request->validated());
+        app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
+        return response()->json([
+            'status' => true,
+            'message' => 'Cost center updated successfully.',
+            'data' => $costCenter,
+        ]);
     }
 
     public function destroy(CostCenter $costCenter)
     {
+        $tenantId = tenant('id');
         if ($costCenter->hasSubCostCenters()) {
             return response()->json([
-                'message' => 'Cannot delete cost center with sub-cost centers'
+                'status' => false,
+                'message' => 'Cannot delete cost center with associated sub-cost centers',
             ], 422);
         }
-
         $costCenter->delete();
-        Cache::forget("cost_centers_" . tenant('id'));
-        Cache::forget("cost_center_{$costCenter->id}_" . tenant('id'));
-
-        return response()->json(null, 204);
+        app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
+        return response()->json([
+            'status' => true,
+            'message' => 'Cost center deleted successfully.',
+        ]);
     }
 
     public function bulkDelete(Request $request)
@@ -89,63 +99,95 @@ class CostCenterController extends Controller
         $ids = $request->input('ids');
 
         if (!$ids || !is_array($ids)) {
-            return response()->json(['message' => 'No cost centers selected'], 400);
-        }
-
-        // Check if any cost center has sub-cost centers
-        $costCentersWithSubs = CostCenter::whereIn('id', $ids)
-            ->whereHas('subCostCenters')
-            ->pluck('id');
-
-        if ($costCentersWithSubs->isNotEmpty()) {
             return response()->json([
-                'message' => 'Cannot delete cost centers with sub-cost centers',
-                'cost_centers' => $costCentersWithSubs
-            ], 422);
+                'status' => false,
+                'message' => 'No cost centers selected for deletion',
+            ], 400);
         }
 
-        CostCenter::whereIn('id', $ids)->delete();
-        Cache::forget("cost_centers_" . tenant('id'));
+        try {
+            foreach ($ids as $id) {
+                $costCenter = CostCenter::findOrFail($id);
+                if ($costCenter->hasSubCostCenters()) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'Cannot delete cost center with sub-cost centers',
+                    ], 422);
+                }
+                $costCenter->delete();
+                Cache::forget("cost_centers_" . tenant('id'));
+                Cache::forget("cost_center_{$costCenter->id}_" . tenant('id'));
+            }
 
-        return response()->json(['message' => 'Cost centers deleted successfully']);
+            return response()->json(null, 204);
+        } catch (\Exception $e) {
+            Log::error('Error in bulk delete: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to delete cost centers',
+            ], 500);
+        }
     }
 
-    public function exportExcel()
+    public function exportExcell()
     {
-        $costCenters = CostCenter::with('parentCostCenter')->get();
+        $costCenters = CostCenter::query()
+            ->leftJoin('cost_centers as parent', 'cost_centers.sub_cost_center_of', '=', 'parent.id')
+            ->select([
+                'cost_centers.id',
+                'cost_centers.code',
+                'cost_centers.name',
+                'parent.code as parent_code',
+                'cost_centers.active'
+            ]);
 
-        if ($costCenters->isEmpty()) {
-            return response()->json(['message' => 'No cost centers to export'], 404);
+        $collection = $costCenters->get();
+
+        if ($collection->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No data to export',
+            ]);
         }
 
-        $export = new Export($costCenters, [
+        $columns = ['id', 'code', 'name', 'parent_code', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Parent Cost Center', 'Status'];
+
+        return Excel::download(new Export($costCenters, $columns, $headings), 'cost_centers.xlsx');
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $costCenters = CostCenter::query()
+            ->leftJoin('cost_centers as parent', 'cost_centers.sub_cost_center_of', '=', 'parent.id')
+            ->select([
+                'cost_centers.id',
+                'cost_centers.code',
+                'cost_centers.name',
+                'parent.code as parent_code',
+                'cost_centers.active'
+            ])
+            ->get();
+
+        if ($costCenters->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No data to export',
+            ]);
+        }
+
+        $title = 'Cost Centers Report';
+        $headers = [
             'id' => 'ID',
             'code' => 'Code',
             'name' => 'Name',
-            'parentCostCenter.code' => 'Parent Cost Center',
-            'is_inactive' => 'Status'
-        ]);
+            'parent_code' => 'Parent Cost Center',
+            'active' => 'Status'
+        ];
+        $data = $costCenters->toArray();
 
-        return Excel::download($export, 'cost_centers.xlsx');
-    }
-
-    public function exportPdf()
-    {
-        $costCenters = CostCenter::with('parentCostCenter')->get();
-
-        if ($costCenters->isEmpty()) {
-            return response()->json(['message' => 'No cost centers to export'], 404);
-        }
-
-        $export = new ExportPDF($costCenters, [
-            'id' => 'ID',
-            'code' => 'Code',
-            'name' => 'Name',
-            'parentCostCenter.code' => 'Parent Cost Center',
-            'is_inactive' => 'Status'
-        ]);
-
-        return $export->download('cost_centers.pdf');
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('Cost_Centers.pdf');
     }
 
     public function import(Request $request)
@@ -158,9 +200,15 @@ class CostCenterController extends Controller
             $import = new DynamicExcelImport(CostCenter::class);
             Excel::import($import, $request->file('file'));
             Cache::forget("cost_centers_" . tenant('id'));
-            return response()->json(['message' => 'Import successful']);
+            return response()->json([
+                'status' => true,
+                'message' => 'Import successful',
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Import failed: ' . $e->getMessage()], 422);
+            return response()->json([
+                'status' => false,
+                'message' => 'Import failed: ' . $e->getMessage(),
+            ], 422);
         }
     }
 
@@ -184,14 +232,20 @@ class CostCenterController extends Controller
             ]);
         }
 
-        $parent = CostCenter::find($parentId);
-        if ($parent && $parent->isSubCostCenter()) {
-            $ancestors = $this->getAncestors($parent);
-            if (in_array($currentId, $ancestors)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'sub_cost_center_of' => ['Circular reference detected in cost center hierarchy']
-                ]);
+        try {
+            $parent = CostCenter::find($parentId);
+            if ($parent && $parent->isSubCostCenter()) {
+                $ancestors = $this->getAncestors($parent);
+                if (in_array($currentId, $ancestors)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'sub_cost_center_of' => ['Circular reference detected in cost center hierarchy']
+                    ]);
+                }
             }
+        } catch (\Exception $e) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'sub_cost_center_of' => ['An error occurred while validating the cost center hierarchy']
+            ]);
         }
     }
 
@@ -202,6 +256,35 @@ class CostCenterController extends Controller
             $ancestors[] = $costCenter->parentCostCenter->id;
             $costCenter = $costCenter->parentCostCenter;
         }
+
         return $ancestors;
+    }
+
+    public function getNames()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_cost_center_names";
+
+        $costCenters = app('cache')->store('database')->get($key);
+
+        if (!$costCenters) {
+            $costCenters = CostCenter::select('id', 'name')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($costCenter) {
+                    return [
+                        'id' => $costCenter->id,
+                        'name' => $costCenter->name
+                    ];
+                });
+
+            app('cache')->store('database')->forever($key, $costCenters);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Cost center names fetched successfully.',
+            'data' => $costCenters,
+        ]);
     }
 }

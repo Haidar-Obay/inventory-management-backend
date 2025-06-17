@@ -13,9 +13,8 @@ return new class extends Migration
             $table->string('code')->unique();
             $table->string('name');
             $table->foreignId('sub_department_of')->nullable()->constrained('departments')->onDelete('set null');
-            $table->boolean('is_inactive')->default(false);
+            $table->boolean('active')->default(true);
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 

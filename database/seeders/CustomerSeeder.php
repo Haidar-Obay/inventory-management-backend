@@ -23,7 +23,7 @@ class CustomerSeeder extends Seeder
         // Create a default customer group if none exists
         $customerGroup = CustomerGroup::firstOrCreate(
             ['name' => 'Default Group'],
-            ['is_inactive' => false]
+            ['code' => 'DEFAULT', 'is_inactive' => false]
         );
 
         // Create a default salesman if none exists
@@ -55,21 +55,25 @@ class CustomerSeeder extends Seeder
             // Create billing address
             $billingAddress = Address::create([
                 'address_line1' => $faker->streetAddress(),
-                'city' => $faker->city(),
+                'city_id' => 1, // Assuming city_id 1 exists
+                'province_id' => 1, // Assuming province_id 1 exists
                 'postal_code' => $faker->postcode(),
-                'country' => $faker->country(),
+                'country_id' => 1, // Assuming country_id 1 exists
             ]);
 
             // Create shipping address
             $shippingAddress = Address::create([
                 'address_line1' => $faker->streetAddress(),
-                'city' => $faker->city(),
+                'city_id' => 1, // Assuming city_id 1 exists
+                'province_id' => 1, // Assuming province_id 1 exists
                 'postal_code' => $faker->postcode(),
-                'country' => $faker->country(),
+                'country_id' => 1, // Assuming country_id 1 exists
             ]);
 
             Customer::create([
-                'name' => $faker->company(),
+                'first_name' => $faker->firstName(),
+                'middle_name' => $faker->optional()->firstName(),
+                'last_name' => $faker->lastName(),
                 'customer_group_id' => $customerGroup->id,
                 'salesman_id' => $salesman->id,
                 'payment_term_id' => $paymentTerm->id,
@@ -77,9 +81,10 @@ class CustomerSeeder extends Seeder
                 'billing_address_id' => $billingAddress->id,
                 'shipping_address_id' => $shippingAddress->id,
                 'email' => $faker->companyEmail(),
-                'phone' => $faker->phoneNumber(),
-                'tax_number' => $faker->numerify('TAX-####'),
+                'phone1' => $faker->phoneNumber(),
                 'credit_limit' => $faker->numberBetween(1000, 10000),
+                'tax_registration' => $faker->numerify('TAX-####'),
+                'taxable' => $faker->boolean(),
                 'is_inactive' => false,
             ]);
         }

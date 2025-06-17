@@ -36,7 +36,7 @@ class TradeController extends Controller
         $validated = $request->validate([
             'code' => 'required|string|max:255|unique:trades,code',
             'name' => 'required|string|max:255',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
 
         $trade = Trade::create($validated);
@@ -80,7 +80,7 @@ class TradeController extends Controller
                 Rule::unique('trades', 'code')->ignore($trade->id),
             ],
             'name' => 'sometimes|string|max:255',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
 
         $trade->update($validated);
@@ -148,15 +148,15 @@ class TradeController extends Controller
             return response()->json(['message' => 'No trades found.'], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'is_inactive'];
-        $headings = ['ID', 'Code', 'Name', 'Is Inactive'];
+        $columns = ['id', 'code', 'name', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Status'];
 
         return Excel::download(new Export($trades, $columns, $headings), 'trades.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $trades = Trade::select('id', 'code', 'name', 'is_inactive')->get();
+        $trades = Trade::select('id', 'code', 'name', 'active')->get();
 
         if ($trades->isEmpty()) {
             return response()->json(['message' => 'No trades found.'], 404);
@@ -167,7 +167,7 @@ class TradeController extends Controller
             'id' => 'Trade ID',
             'code' => 'Code',
             'name' => 'Name',
-            'is_inactive' => 'Status'
+            'active' => 'Status'
         ];
         $data = $trades->toArray();
 
@@ -200,7 +200,7 @@ class TradeController extends Controller
                 return [
                     'code' => $row['code'],
                     'name' => $row['name'],
-                    'is_inactive' => boolval($row['is_inactive'] ?? false),
+                    'active' => boolval($row['active'] ?? true),
                 ];
             }
         );

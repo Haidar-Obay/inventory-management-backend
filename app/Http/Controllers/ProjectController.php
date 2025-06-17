@@ -6,28 +6,44 @@ use App\Models\Project;
 use App\Http\Requests\Project\StoreProjectRequest;
 use App\Http\Requests\Project\UpdateProjectRequest;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use Illuminate\Support\Facades\DB;
 
 class ProjectController extends Controller
 {
     public function index()
     {
-        $projects = Cache::remember('projects', 60, function () {
-            return Project::with('customer')->get();
-        });
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_projects";
 
-        return response()->json($projects);
+        $projects = app('cache')->store('database')->get($key);
+
+        if (!$projects) {
+            $projects = Project::with('customer')->get();
+
+            app('cache')->store('database')->forever($key, $projects);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Projects fetched successfully.',
+            'data' => $projects,
+        ]);
     }
 
     public function store(StoreProjectRequest $request)
     {
+        $tenantId = tenant('id');
         $project = Project::create($request->validated());
-        Cache::forget('projects');
-        return response()->json($project, 201);
+        app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+        return response()->json([
+            'status' => true,
+            'message' => 'Project created successfully.',
+            'data' => $project,
+        ], 201);
     }
 
     public function show(Project $project)
@@ -37,24 +53,37 @@ class ProjectController extends Controller
 
     public function update(UpdateProjectRequest $request, Project $project)
     {
+        $tenantId = tenant('id');
         $project->update($request->validated());
-        Cache::forget('projects');
-        return response()->json($project);
+        app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+        return response()->json([
+            'status' => true,
+            'message' => 'Project updated successfully.',
+            'data' => $project,
+        ]);
     }
 
     public function destroy(Project $project)
     {
+        $tenantId = tenant('id');
         if ($project->jobs()->exists()) {
-            return response()->json(['message' => 'Cannot delete project with associated jobs'], 422);
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete project with associated jobs',
+            ], 422);
         }
 
         $project->delete();
-        Cache::forget('projects');
-        return response()->json(null, 204);
+        app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+        return response()->json([
+            'status' => true,
+            'message' => 'Project deleted successfully.'
+        ]);
     }
 
     public function bulkDelete(Request $request)
     {
+        $tenantId = tenant('id');
         $ids = $request->input('ids');
 
         $projectsWithJobs = Project::whereIn('id', $ids)
@@ -63,58 +92,87 @@ class ProjectController extends Controller
 
         if ($projectsWithJobs->isNotEmpty()) {
             return response()->json([
+                'status' => false,
                 'message' => 'Some projects have associated jobs and cannot be deleted',
                 'projects' => $projectsWithJobs
-            ], 422);
+            ]);
         }
 
         Project::whereIn('id', $ids)->delete();
-        Cache::forget('projects');
-        return response()->json(null, 204);
+        app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+        return response()->json([
+            'status' => true,
+            'message' => 'Projects deleted successfully.',
+        ]);
     }
 
     public function exportExcel()
     {
-        $projects = Project::with('customer')->get();
+        $projects = Project::query()
+            ->leftJoin('customers', 'projects.customer_id', '=', 'customers.id')
+            ->select([
+                'projects.id',
+                'projects.name',
+                DB::raw("CONCAT(customers.first_name, ' ', customers.last_name) as customer_name"),
+                'projects.start_date',
+                'projects.end_date',
+                'projects.expected_date'
+            ]);
 
-        if ($projects->isEmpty()) {
-            return response()->json(['message' => 'No data to export'], 404);
+        $collection = $projects->get();
+
+        if ($collection->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No data to export',
+            ]);
         }
 
-        $export = new Export($projects, [
-            'id' => 'ID',
-            'name' => 'Name',
-            'customer.name' => 'Customer',
-            'start_date' => 'Start Date',
-            'end_date' => 'End Date',
-            'expected_date' => 'Expected Date'
-        ]);
+        $columns = ['id', 'name', 'customer_name', 'start_date', 'end_date', 'expected_date'];
+        $headings = ['ID', 'Name', 'Customer', 'Start Date', 'End Date', 'Expected Date'];
 
-        return Excel::download($export, 'projects.xlsx');
+        return Excel::download(new Export($projects, $columns, $headings), 'projects.xlsx');
     }
 
-    public function exportPdf()
+    public function exportPdf(ExportPDF $pdfService)
     {
-        $projects = Project::with('customer')->get();
+        $projects = Project::query()
+            ->leftJoin('customers', 'projects.customer_id', '=', 'customers.id')
+            ->select([
+                'projects.id',
+                'projects.name',
+                \DB::raw("CONCAT(customers.first_name, ' ', customers.last_name) as customer_name"),
+                'projects.start_date',
+                'projects.end_date',
+                'projects.expected_date'
+            ])
+            ->get();
 
         if ($projects->isEmpty()) {
-            return response()->json(['message' => 'No data to export'], 404);
+            return response()->json([
+                'status' => false,
+                'message' => 'No data to export',
+            ]);
         }
 
-        $export = new ExportPDF($projects, [
+        $title = 'Project Report';
+        $headers = [
             'id' => 'ID',
             'name' => 'Name',
-            'customer.name' => 'Customer',
+            'customer_name' => 'Customer',
             'start_date' => 'Start Date',
             'end_date' => 'End Date',
             'expected_date' => 'Expected Date'
-        ]);
+        ];
+        $data = $projects->toArray();
 
-        return $export->download('projects.pdf');
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('Projects.pdf');
     }
 
     public function import(Request $request)
     {
+        $tenantId = tenant('id');
         $request->validate([
             'file' => 'required|mimes:xlsx,xls,csv|max:2048'
         ]);
@@ -122,20 +180,64 @@ class ProjectController extends Controller
         try {
             $import = new DynamicExcelImport(Project::class);
             Excel::import($import, $request->file('file'));
-            Cache::forget('projects');
-            return response()->json(['message' => 'Import successful']);
+            app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+                return response()->json([
+                'status' => true,
+                'message' => 'Import successful',
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Import failed: ' . $e->getMessage()], 422);
+            return response()->json([
+                'status' => false,
+                'message' => 'Import failed: ' . $e->getMessage(),
+            ]);
         }
     }
 
     public function getCustomerProjects($customerId)
     {
         $tenantId = tenant('id');
-        $cacheKey = "customer_projects_{$customerId}_{$tenantId}";
+        $cacheKey = "tenant_{$tenantId}_customer_projects_{$customerId}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($customerId) {
-            return Project::where('customer_id', $customerId)->get();
-        });
+        $projects = app('cache')->store('database')->get($cacheKey);
+
+        if (!$projects) {
+            $projects = Project::where('customer_id', $customerId)->get();
+            app('cache')->store('database')->forever($cacheKey, $projects);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Projects fetched successfully.',
+            'data' => $projects,
+        ]);
+    }
+
+    public function getNames()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_project_names";
+
+        // Get projects directly first to ensure we have data
+        $projects = Project::select('id', 'name')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($project) {
+                return [
+                    'id' => $project->id,
+                    'name' => $project->name
+                ];
+            });
+
+        // Store in cache
+        app('cache')->store('database')->forever($key, $projects);
+
+        // Retrieve from cache to verify
+        $cachedProjects = app('cache')->store('database')->get($key);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Project names fetched successfully.',
+            'data' => $cachedProjects ?? $projects, // Fallback to direct data if cache fails
+        ]);
     }
 }

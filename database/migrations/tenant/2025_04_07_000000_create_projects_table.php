@@ -17,10 +17,17 @@ return new class extends Migration
             $table->date('start_date');
             $table->date('end_date')->nullable();
             $table->date('expected_date')->nullable();
-            $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
+            $table->unsignedBigInteger('customer_id');
             $table->timestamps();
             $table->softDeletes();
         });
+
+        // Add foreign key constraint if customers table exists
+        if (Schema::hasTable('customers')) {
+            Schema::table('projects', function (Blueprint $table) {
+                $table->foreign('customer_id')->references('id')->on('customers')->cascadeOnDelete();
+            });
+        }
     }
 
     /**

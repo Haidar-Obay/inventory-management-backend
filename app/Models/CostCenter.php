@@ -4,21 +4,27 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
 class CostCenter extends Model implements Auditable
 {
-    use HasFactory, SoftDeletes, AuditableTrait;
+    use HasFactory, AuditableTrait;
 
     protected $guarded = ['id'];
     protected $table = 'cost_centers';
     protected $primaryKey = 'id';
     public $timestamps = true;
 
+    protected $fillable = [
+        'code',
+        'name',
+        'active',
+        'sub_cost_center_of'
+    ];
+
     protected $casts = [
-        'is_inactive' => 'boolean',
+        'active' => 'boolean',
     ];
 
     public function parent()

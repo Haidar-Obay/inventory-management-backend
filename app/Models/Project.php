@@ -4,13 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
 class Project extends Model implements Auditable
 {
-    use HasFactory, SoftDeletes, AuditableTrait;
+    use HasFactory, AuditableTrait;
 
     protected $guarded = ['id'];
     protected $table = 'projects';
@@ -22,16 +21,6 @@ class Project extends Model implements Auditable
         'end_date' => 'date',
         'expected_date' => 'date',
     ];
-
-    // Validation rules for the model
-    public static $rules = [
-        'name' => 'required|string|max:255',
-        'start_date' => 'required|date',
-        'end_date' => 'nullable|date|after_or_equal:start_date',
-        'expected_date' => 'nullable|date|after_or_equal:start_date',
-        'customer_id' => 'required|exists:customers,id',
-    ];
-
     // Relationship with Customer
     public function customer()
     {

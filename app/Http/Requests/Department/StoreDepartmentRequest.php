@@ -17,7 +17,7 @@ class StoreDepartmentRequest extends FormRequest
             'code' => 'required|string|max:50|unique:departments,code',
             'name' => 'required|string|max:255',
             'sub_department_of' => 'nullable|exists:departments,id',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ];
     }
 
