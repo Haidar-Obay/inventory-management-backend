@@ -22,7 +22,7 @@ class SalesmanController extends Controller
         $salesmen = app('cache')->store('database')->get($key);
 
         if (!$salesmen) {
-            $salesmen = Salesman::withCount('customers')->get();
+            $salesmen = Salesman::withCount('customers')->orderBy('name')->get();
             app('cache')->store('database')->forever($key, $salesmen);
         }
 
@@ -38,19 +38,17 @@ class SalesmanController extends Controller
         $tenantId = tenant('id');
         $key = "tenant_{$tenantId}_salesman_{$salesman->id}";
 
-        $cached = app('cache')->store('database')->get($key);
+        $cachedSalesman = app('cache')->store('database')->get($key);
 
-        if (!$cached) {
-            $salesman->loadCount('customers');
-            app('cache')->store('database')->forever($key, $salesman);
-        } else {
-            $salesman = $cached;
+        if (!$cachedSalesman) {
+            $cachedSalesman = $salesman->loadCount('customers');
+            app('cache')->store('database')->forever($key, $cachedSalesman);
         }
 
         return response()->json([
             'status' => true,
             'message' => 'Salesman details fetched successfully.',
-            'data' => $salesman,
+            'data' => $cachedSalesman,
         ]);
     }
 
@@ -85,9 +83,16 @@ class SalesmanController extends Controller
 
     public function destroy(Salesman $salesman)
     {
-        $salesman->delete();
+        // Check if salesman has associated customers
+        if ($salesman->customers()->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete salesman. There are customers associated with this salesman. Please reassign or delete the customers first.',
+            ], 422);
+        }
 
         $tenantId = tenant('id');
+        $salesman->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_salesmen");
         app('cache')->store('database')->forget("tenant_{$tenantId}_salesman_{$salesman->id}");
 
@@ -104,13 +109,18 @@ class SalesmanController extends Controller
             'ids.*' => 'exists:salesmen,id',
         ]);
 
+        $tenantId = tenant('id');
         $skipped = [];
         $deleted = 0;
-        $tenantId = tenant('id');
 
         foreach ($request->ids as $id) {
             try {
-                $deleted += Salesman::where('id', $id)->delete();
+                $salesman = Salesman::find($id);
+                if ($salesman->customers()->exists()) {
+                    $skipped[] = ['id' => $id, 'reason' => 'Salesman has associated customers'];
+                    continue;
+                }
+                $deleted += $salesman->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_salesman_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
@@ -128,39 +138,51 @@ class SalesmanController extends Controller
 
     public function exportExcell()
     {
-        $salesmenQuery = Salesman::query();
+        $salesmen = Salesman::orderBy('name');
+        $collection = $salesmen->get();
 
-        if (!$salesmenQuery->exists()) {
-            return response()->json(['message' => 'No Salesman found.'], 404);
+        if ($collection->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No salesmen to export',
+            ], 404);
         }
 
-        $transformedQuery = Salesman::query()
-            ->selectRaw("id, name, email, phone1, phone2, address, fix_commission, CASE WHEN is_inactive THEN 'Yes' ELSE 'No' END as is_inactive");
+        $columns = ['id', 'code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_percent', 'commission_by_item', 'commission_by_turnover', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Email', 'Phone 1', 'Phone 2', 'Address', 'Is Manager', 'Is Supervisor', 'Is Collector', 'Fix Commission', 'Commission %', 'Commission by Item', 'Commission by Turnover', 'Active'];
 
-        $columns = ['id', 'name', 'email', 'phone1', 'phone2', 'address', 'fix_commission', 'is_inactive'];
-        $headings = ['ID', 'Name', 'Email', 'Phone 1', 'Phone 2', 'Address', 'Fix Commission', 'Is Inactive'];
-
-        return Excel::download(new Export($transformedQuery, $columns, $headings), 'Salesman.xlsx');
+        $fileName = 'salesmen_' . date('Y-m-d_H-i-s') . '.xlsx';
+        return Excel::download(new Export($salesmen, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $salesmen = Salesman::select('id', 'name', 'email', 'phone1', 'phone2', 'address', 'fix_commission', 'is_inactive')->get();
+        $salesmen = Salesman::select('id', 'code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_percent', 'commission_by_item', 'commission_by_turnover', 'active')->get();
 
         if ($salesmen->isEmpty()) {
-            return response()->json(['message' => 'No salesmen found.'], 404);
+            return response()->json([
+                'status' => false,
+                'message' => 'No salesmen to export',
+            ], 404);
         }
 
-        $title = 'Salesmen Group Report';
+        $title = 'Salesmen Report';
         $headers = [
             'id' => 'ID',
+            'code' => 'Code',
             'name' => 'Name',
             'email' => 'Email',
             'phone1' => 'Phone 1',
             'phone2' => 'Phone 2',
             'address' => 'Address',
+            'is_manager' => 'Is Manager',
+            'is_supervisor' => 'Is Supervisor',
+            'is_collector' => 'Is Collector',
             'fix_commission' => 'Fix Commission',
-            'is_inactive' => 'Is Inactive',
+            'commission_percent' => 'Commission %',
+            'commission_by_item' => 'Commission by Item',
+            'commission_by_turnover' => 'Commission by Turnover',
+            'active' => 'Active'
         ];
         $data = $salesmen->toArray();
 
@@ -176,62 +198,82 @@ class SalesmanController extends Controller
 
         $import = new DynamicExcelImport(
             Salesman::class,
-            ['name', 'email', 'phone1', 'phone2', 'address', 'fix_commission', 'is_inactive'],
+            ['code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_percent', 'commission_by_item', 'commission_by_turnover', 'active'],
             function ($row) {
                 $errors = [];
 
+                if (empty($row['code'])) {
+                    $errors[] = 'Missing code';
+                }
                 if (empty($row['name'])) {
                     $errors[] = 'Missing name';
-                } elseif (preg_match('/\d/', $row['name'])) {
-                    $errors[] = 'Name cannot contain numbers';
                 }
-
-                if (empty($row['email']) || !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
-                    $errors[] = 'Invalid or missing email';
-                }
-
-                foreach (['phone1', 'phone2'] as $phoneField) {
-                    if (empty($row[$phoneField]) || !ctype_digit(strval($row[$phoneField]))) {
-                        $errors[] = "Invalid or missing $phoneField";
-                    }
-                }
-
-                if (empty($row['address'])) {
-                    $errors[] = 'Missing address';
-                }
-
-                if (!isset($row['fix_commission']) || !is_numeric($row['fix_commission'])) {
-                    $errors[] = 'Missing or invalid fix_commission';
-                }
-
-                if (!isset($row['is_inactive'])) {
-                    $errors[] = 'Missing is_inactive';
+                if (!empty($row['email']) && !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
+                    $errors[] = 'Invalid email format';
                 }
 
                 return $errors;
             },
             function ($row) {
                 return [
+                    'code' => $row['code'],
                     'name' => $row['name'],
-                    'email' => $row['email'],
-                    'phone1' => $row['phone1'],
-                    'phone2' => $row['phone2'],
-                    'address' => $row['address'],
-                    'fix_commission' => floatval($row['fix_commission']),
-                    'is_inactive' => boolval($row['is_inactive']),
+                    'email' => $row['email'] ?? null,
+                    'phone1' => $row['phone1'] ?? null,
+                    'phone2' => $row['phone2'] ?? null,
+                    'address' => $row['address'] ?? null,
+                    'is_manager' => boolval($row['is_manager'] ?? false),
+                    'is_supervisor' => boolval($row['is_supervisor'] ?? false),
+                    'is_collector' => boolval($row['is_collector'] ?? false),
+                    'fix_commission' => floatval($row['fix_commission'] ?? 0),
+                    'commission_percent' => floatval($row['commission_percent'] ?? 0),
+                    'commission_by_item' => floatval($row['commission_by_item'] ?? 0),
+                    'commission_by_turnover' => floatval($row['commission_by_turnover'] ?? 0),
+                    'active' => boolval($row['active'] ?? true),
                 ];
             }
         );
 
         Excel::import($import, $request->file('file'));
 
-        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_salesmen");
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_salesmen");
 
         return response()->json([
             'success' => true,
             'rows_imported' => $import->getImportedCount(),
             'rows_skipped_count' => $import->getSkippedCount(),
             'skipped_rows' => $import->getSkippedRows(),
+        ]);
+    }
+
+    public function getNames()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_salesman_names";
+
+        $salesmen = app('cache')->store('database')->get($key);
+
+        if (!$salesmen) {
+            $salesmen = Salesman::where('active', true)
+                ->select('id', 'code', 'name')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($salesman) {
+                    return [
+                        'id' => $salesman->id,
+                        'code' => $salesman->code,
+                        'name' => $salesman->name
+                    ];
+                });
+
+            app('cache')->store('database')->forever($key, $salesmen);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Salesman names fetched successfully.',
+            'data' => $salesmen,
         ]);
     }
 }

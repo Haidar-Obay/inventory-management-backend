@@ -37,8 +37,21 @@ class CostCenterController extends Controller
 
     public function store(StoreCostCenterRequest $request)
     {
+        $validated = $request->validated();
+
+        // Check if the parent cost center is not itself a sub-cost center
+        if (isset($validated['sub_cost_center_of']) && $validated['sub_cost_center_of']) {
+            $parentCostCenter = CostCenter::find($validated['sub_cost_center_of']);
+            if ($parentCostCenter && $parentCostCenter->sub_cost_center_of) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Cannot create sub-cost center under another sub-cost center. Only top-level cost centers can have sub-cost centers.',
+                ], 422);
+            }
+        }
+
         $tenantId = tenant('id');
-        $costCenter = CostCenter::create($request->validated());
+        $costCenter = CostCenter::create($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
         return response()->json([
             'status' => true,
@@ -67,8 +80,21 @@ class CostCenterController extends Controller
 
     public function update(UpdateCostCenterRequest $request, CostCenter $costCenter)
     {
+        $validated = $request->validated();
+
+        // Check if the parent cost center is not itself a sub-cost center
+        if (isset($validated['sub_cost_center_of']) && $validated['sub_cost_center_of']) {
+            $parentCostCenter = CostCenter::find($validated['sub_cost_center_of']);
+            if ($parentCostCenter && $parentCostCenter->sub_cost_center_of) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Cannot assign sub-cost center under another sub-cost center. Only top-level cost centers can have sub-cost centers.',
+                ], 422);
+            }
+        }
+
         $tenantId = tenant('id');
-        $costCenter->update($request->validated());
+        $costCenter->update($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
         return response()->json([
             'status' => true,
@@ -262,13 +288,8 @@ class CostCenterController extends Controller
 
     public function getNames()
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_cost_center_names";
-
-        $costCenters = app('cache')->store('database')->get($key);
-
-        if (!$costCenters) {
-            $costCenters = CostCenter::select('id', 'name')
+            $costCenters = CostCenter::whereNull('sub_cost_center_of')
+                ->select('id', 'name')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($costCenter) {
@@ -277,9 +298,6 @@ class CostCenterController extends Controller
                         'name' => $costCenter->name
                     ];
                 });
-
-            app('cache')->store('database')->forever($key, $costCenters);
-        }
 
         return response()->json([
             'status' => true,

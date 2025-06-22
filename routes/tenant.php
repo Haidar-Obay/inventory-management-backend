@@ -293,6 +293,8 @@ Route::middleware([
         Route::get('/customers/{customer}', [CustomerController::class, 'show']);
         Route::put('/customers/{customer}', [CustomerController::class, 'update']);
         Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
+        Route::get('/names/categories', [CategoryController::class, 'getNames']);
+        Route::get('/names/brands', [BrandController::class, 'getNames']);
     });
 
 

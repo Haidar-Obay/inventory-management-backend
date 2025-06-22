@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\ProductLine;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
@@ -15,11 +14,20 @@ class ProductLineController extends Controller
     public function index()
     {
         $tenantId = tenant('id');
-        $cacheKey = "product_lines_{$tenantId}";
+        $key = "tenant_{$tenantId}_product_lines";
 
-        return Cache::remember($cacheKey, 3600, function () {
-            return ProductLine::all();
-        });
+        $productLines = app('cache')->store('database')->get($key);
+
+        if (!$productLines) {
+            $productLines = ProductLine::get();
+            app('cache')->store('database')->forever($key, $productLines);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Product lines fetched successfully.',
+            'data' => $productLines,
+        ]);
     }
 
     public function store(Request $request)
@@ -31,19 +39,25 @@ class ProductLineController extends Controller
         ]);
 
         $productLine = ProductLine::create($request->all());
-        Cache::forget("product_lines_" . tenant('id'));
 
-        return response()->json($productLine, 201);
+        // Invalidate cache after creating new product line
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_product_lines");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Product line created successfully.',
+            'data' => $productLine,
+        ]);
     }
 
     public function show(ProductLine $productLine)
     {
-        $tenantId = tenant('id');
-        $cacheKey = "product_line_{$productLine->id}_{$tenantId}";
-
-        return Cache::remember($cacheKey, 3600, function () use ($productLine) {
-            return $productLine;
-        });
+        return response()->json([
+            'status' => true,
+            'message' => 'Product line fetched successfully.',
+            'data' => $productLine,
+        ]);
     }
 
     public function update(Request $request, ProductLine $productLine)
@@ -55,19 +69,30 @@ class ProductLineController extends Controller
         ]);
 
         $productLine->update($request->all());
-        Cache::forget("product_lines_" . tenant('id'));
-        Cache::forget("product_line_{$productLine->id}_" . tenant('id'));
 
-        return response()->json($productLine);
+        // Invalidate cache after updating product line
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_product_lines");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Product line updated successfully.',
+            'data' => $productLine,
+        ]);
     }
 
     public function destroy(ProductLine $productLine)
     {
         $productLine->delete();
-        Cache::forget("product_lines_" . tenant('id'));
-        Cache::forget("product_line_{$productLine->id}_" . tenant('id'));
 
-        return response()->json(null, 204);
+        // Invalidate cache after deleting product line
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_product_lines");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Product line deleted successfully.',
+        ]);
     }
 
     public function bulkDelete(Request $request)
@@ -78,29 +103,45 @@ class ProductLineController extends Controller
         ]);
 
         ProductLine::whereIn('id', $request->ids)->delete();
-        Cache::forget("product_lines_" . tenant('id'));
 
-        return response()->json(['message' => 'Product lines deleted successfully']);
+        // Invalidate cache after bulk delete
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_product_lines");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Product lines deleted successfully.',
+        ]);
     }
 
     public function exportExcell()
     {
-        $productLines = ProductLine::all();
+        $productLines = ProductLine::orderBy('name');
+        $collection = $productLines->get();
 
-        if ($productLines->isEmpty()) {
-            return response()->json(['message' => 'No product lines to export'], 404);
+        if ($collection->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No product lines to export',
+            ], 404);
         }
 
+        $columns = ['id', 'code', 'name', 'is_inactive'];
+        $headings = ['ID', 'Code', 'Name', 'Is Inactive'];
+
         $fileName = 'product_lines_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($productLines), $fileName);
+        return Excel::download(new Export($productLines, $columns, $headings), $fileName);
     }
 
     public function exportPdf()
     {
-        $productLines = ProductLine::all();
+        $productLines = ProductLine::select('id', 'code', 'name', 'is_inactive')->get();
 
         if ($productLines->isEmpty()) {
-            return response()->json(['message' => 'No product lines to export'], 404);
+            return response()->json([
+                'status' => false,
+                'message' => 'No product lines to export',
+            ], 404);
         }
 
         $fileName = 'product_lines_' . date('Y-m-d_H-i-s') . '.pdf';
@@ -117,11 +158,19 @@ class ProductLineController extends Controller
             $import = new DynamicExcelImport(ProductLine::class);
             Excel::import($import, $request->file('file'));
 
-            Cache::forget("product_lines_" . tenant('id'));
+            // Invalidate cache after import
+            $tenantId = tenant('id');
+            app('cache')->store('database')->forget("tenant_{$tenantId}_product_lines");
 
-            return response()->json(['message' => 'Product lines imported successfully']);
+            return response()->json([
+                'status' => true,
+                'message' => 'Product lines imported successfully',
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error importing product lines: ' . $e->getMessage()], 500);
+            return response()->json([
+                'status' => false,
+                'message' => 'Error importing product lines: ' . $e->getMessage(),
+            ], 500);
         }
     }
 }

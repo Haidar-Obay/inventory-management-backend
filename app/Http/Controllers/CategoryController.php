@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
@@ -15,11 +14,20 @@ class CategoryController extends Controller
     public function index()
     {
         $tenantId = tenant('id');
-        $cacheKey = "categories_{$tenantId}";
+        $key = "tenant_{$tenantId}_categories";
 
-        return Cache::remember($cacheKey, 3600, function () {
-            return Category::with('parentCategory')->get();
-        });
+        $categories = app('cache')->store('database')->get($key);
+
+        if (!$categories) {
+            $categories = Category::with('parentCategory')->get();
+            app('cache')->store('database')->forever($key, $categories);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Categories fetched successfully.',
+            'data' => $categories,
+        ]);
     }
 
     public function store(Request $request)
@@ -28,8 +36,19 @@ class CategoryController extends Controller
             'code' => 'required|string|unique:categories,code',
             'name' => 'required|string',
             'subcategory_of' => 'nullable|exists:categories,id',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
+
+        // Check if the parent category is not itself a subcategory
+        if ($request->subcategory_of) {
+            $parentCategory = Category::find($request->subcategory_of);
+            if ($parentCategory->subcategory_of) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Cannot create subcategory under another subcategory. Only top-level categories can have subcategories.',
+                ], 422);
+            }
+        }
 
         // Prevent circular references
         if ($request->subcategory_of) {
@@ -40,19 +59,27 @@ class CategoryController extends Controller
         }
 
         $category = Category::create($request->all());
-        Cache::forget("categories_" . tenant('id'));
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_categories";
 
-        return response()->json($category, 201);
+        app('cache')->store('database')->forget($key);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Category created successfully.',
+            'data' => $category,
+        ]);
     }
 
     public function show(Category $category)
     {
-        $tenantId = tenant('id');
-        $cacheKey = "category_{$category->id}_{$tenantId}";
+        $category = Category::with('parentCategory', 'subcategories')->find($category->id);
 
-        return Cache::remember($cacheKey, 3600, function () use ($category) {
-            return $category->load('parentCategory', 'subcategories');
-        });
+        return response()->json([
+            'status' => true,
+            'message' => 'Category fetched successfully.',
+            'data' => $category,
+        ]);
     }
 
     public function update(Request $request, Category $category)
@@ -61,8 +88,19 @@ class CategoryController extends Controller
             'code' => 'required|string|unique:categories,code,' . $category->id,
             'name' => 'required|string',
             'subcategory_of' => 'nullable|exists:categories,id',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
+
+        // Check if the parent category is not itself a subcategory
+        if ($request->subcategory_of) {
+            $parentCategory = Category::find($request->subcategory_of);
+            if ($parentCategory->subcategory_of) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Cannot assign subcategory under another subcategory. Only top-level categories can have subcategories.',
+                ], 422);
+            }
+        }
 
         // Prevent circular references
         if ($request->subcategory_of) {
@@ -77,10 +115,16 @@ class CategoryController extends Controller
         }
 
         $category->update($request->all());
-        Cache::forget("categories_" . tenant('id'));
-        Cache::forget("category_{$category->id}_" . tenant('id'));
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_categories";
 
-        return response()->json($category);
+        app('cache')->store('database')->forget($key);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Category updated successfully.',
+            'data' => $category,
+        ]);
     }
 
     public function destroy(Category $category)
@@ -91,10 +135,15 @@ class CategoryController extends Controller
         }
 
         $category->delete();
-        Cache::forget("categories_" . tenant('id'));
-        Cache::forget("category_{$category->id}_" . tenant('id'));
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_categories";
 
-        return response()->json(null, 204);
+        app('cache')->store('database')->forget($key);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Category deleted successfully.',
+        ]);
     }
 
     public function bulkDelete(Request $request)
@@ -117,29 +166,47 @@ class CategoryController extends Controller
         }
 
         Category::whereIn('id', $request->ids)->delete();
-        Cache::forget("categories_" . tenant('id'));
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_categories";
 
-        return response()->json(['message' => 'Categories deleted successfully']);
+        app('cache')->store('database')->forget($key);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Categories deleted successfully.',
+        ]);
     }
 
     public function exportExcell()
     {
-        $categories = Category::with('parentCategory')->get();
+        $categories = Category::with('parentCategory')->orderBy('name');
+        $collection = $categories->get();
 
-        if ($categories->isEmpty()) {
-            return response()->json(['message' => 'No categories to export'], 404);
+        if ($collection->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No categories to export',
+            ], 404);
         }
 
+        $columns = ['id', 'code', 'name', 'subcategory_of', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Subcategory Of', 'Active'];
+
         $fileName = 'categories_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($categories), $fileName);
+        return Excel::download(new Export($categories, $columns, $headings), $fileName);
     }
 
     public function exportPdf()
     {
-        $categories = Category::with('parentCategory')->get();
+        $categories = Category::with('parentCategory')
+            ->select('id', 'code', 'name', 'subcategory_of', 'active')
+            ->get();
 
         if ($categories->isEmpty()) {
-            return response()->json(['message' => 'No categories to export'], 404);
+            return response()->json([
+                'status' => false,
+                'message' => 'No categories to export',
+            ], 404);
         }
 
         $fileName = 'categories_' . date('Y-m-d_H-i-s') . '.pdf';
@@ -156,11 +223,41 @@ class CategoryController extends Controller
             $import = new DynamicExcelImport(Category::class);
             Excel::import($import, $request->file('file'));
 
-            Cache::forget("categories_" . tenant('id'));
+            $tenantId = tenant('id');
+            $key = "tenant_{$tenantId}_categories";
 
-            return response()->json(['message' => 'Categories imported successfully']);
+            app('cache')->store('database')->forget($key);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Categories imported successfully',
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error importing categories: ' . $e->getMessage()], 500);
+            return response()->json([
+                'status' => false,
+                'message' => 'Error importing categories: ' . $e->getMessage(),
+            ], 500);
         }
+    }
+
+    public function getNames()
+    {
+        // Only get top-level categories (not subcategories)
+        $categories = Category::whereNull('subcategory_of')
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($category) {
+                    return [
+                        'id' => $category->id,
+                        'name' => $category->name
+                    ];
+                });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Category names fetched successfully.',
+            'data' => $categories,
+        ]);
     }
 }

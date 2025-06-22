@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('code')->unique();
             $table->string('name');
             $table->foreignId('subcategory_of')->nullable()->constrained('categories')->onDelete('restrict');
-            $table->boolean('is_inactive')->default(false);
+            $table->boolean('active')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });

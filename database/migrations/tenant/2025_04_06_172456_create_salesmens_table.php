@@ -10,15 +10,22 @@ return new class extends Migration
     {
         Schema::create('salesmen', function (Blueprint $table) {
             $table->id();
+            $table->string('code')->unique();
             $table->string('name');
             $table->text('address')->nullable();
             $table->string('phone1')->nullable();
             $table->string('phone2')->nullable();
             $table->string('email')->nullable();
+            $table->boolean('is_manager')->default(false);
+            $table->boolean('is_supervisor')->default(false);
+            $table->boolean('is_collector')->default(false);
             $table->decimal('fix_commission', 8, 2)->nullable();
-            $table->boolean('is_inactive')->default(false);
+            $table->decimal('commission_percent', 8, 2)->nullable();
+            $table->decimal('commission_by_item', 8, 2)->nullable();
+            $table->decimal('commission_by_turnover', 8, 2)->nullable();
+            $table->boolean('active')->default(false);
             $table->timestamps();
-        });;
+        });
     }
 
     public function down(): void

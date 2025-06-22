@@ -36,8 +36,21 @@ class DepartmentController extends Controller
 
     public function store(StoreDepartmentRequest $request)
     {
+        $validated = $request->validated();
+
+        // Check if the parent department is not itself a sub-department
+        if (isset($validated['sub_department_of']) && $validated['sub_department_of']) {
+            $parentDepartment = Department::find($validated['sub_department_of']);
+            if ($parentDepartment && $parentDepartment->sub_department_of) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Cannot create sub-department under another sub-department. Only top-level departments can have sub-departments.',
+                ], 422);
+            }
+        }
+
         $tenantId = tenant('id');
-        $department = Department::create($request->validated());
+        $department = Department::create($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
         return response()->json([
             'status' => true,
@@ -66,8 +79,21 @@ class DepartmentController extends Controller
 
     public function update(UpdateDepartmentRequest $request, Department $department)
     {
+        $validated = $request->validated();
+
+        // Check if the parent department is not itself a sub-department
+        if (isset($validated['sub_department_of']) && $validated['sub_department_of']) {
+            $parentDepartment = Department::find($validated['sub_department_of']);
+            if ($parentDepartment && $parentDepartment->sub_department_of) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Cannot assign sub-department under another sub-department. Only top-level departments can have sub-departments.',
+                ], 422);
+            }
+        }
+
         $tenantId = tenant('id');
-        $department->update($request->validated());
+        $department->update($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
         return response()->json([
             'status' => true,
@@ -262,30 +288,21 @@ class DepartmentController extends Controller
 
     public function getNames()
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_department_names";
-
-        // Get departments directly first to ensure we have data
-        $departments = Department::select('id', 'name')
-            ->orderBy('name')
-            ->get()
-            ->map(function ($department) {
-                return [
-                    'id' => $department->id,
-                    'name' => $department->name
-                ];
-            });
-
-        // Store in cache
-        app('cache')->store('database')->forever($key, $departments);
-
-        // Retrieve from cache to verify
-        $cachedDepartments = app('cache')->store('database')->get($key);
+            $departments = Department::whereNull('sub_department_of')
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($department) {
+                    return [
+                        'id' => $department->id,
+                        'name' => $department->name
+                    ];
+                });
 
         return response()->json([
             'status' => true,
             'message' => 'Department names fetched successfully.',
-            'data' => $cachedDepartments ?? $departments, // Fallback to direct data if cache fails
+            'data' => $departments,
         ]);
     }
 }

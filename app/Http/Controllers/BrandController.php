@@ -39,8 +39,19 @@ class BrandController extends Controller
             'code' => 'required|string|max:255|unique:brands,code',
             'name' => 'required|string|max:255',
             'subbrand_of' => 'nullable|exists:brands,id',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
+
+        // Check if the parent brand is not itself a subbrand
+        if ($validated['subbrand_of']) {
+            $parentBrand = Brand::find($validated['subbrand_of']);
+            if ($parentBrand->subbrand_of) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Cannot create subbrand under another subbrand. Only top-level brands can have subbrands.',
+                ], 422);
+            }
+        }
 
         $brand = Brand::create($validated);
 
@@ -93,8 +104,19 @@ class BrandController extends Controller
                     }
                 },
             ],
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
+
+        // Check if the parent brand is not itself a subbrand
+        if ($validated['subbrand_of']) {
+            $parentBrand = Brand::find($validated['subbrand_of']);
+            if ($parentBrand->subbrand_of) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Cannot assign subbrand under another subbrand. Only top-level brands can have subbrands.',
+                ], 422);
+            }
+        }
 
         $brand->update($validated);
 
@@ -174,8 +196,8 @@ class BrandController extends Controller
             return response()->json(['message' => 'No brands found.'], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'subbrand_of', 'is_inactive'];
-        $headings = ['ID', 'Code', 'Name', 'Subbrand Of', 'Is Inactive'];
+        $columns = ['id', 'code', 'name', 'subbrand_of', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Subbrand Of', 'Active'];
 
         return Excel::download(new Export($brands, $columns, $headings), 'brands.xlsx');
     }
@@ -183,7 +205,7 @@ class BrandController extends Controller
     public function exportPdf(ExportPDF $pdfService)
     {
         $brands = Brand::with(['parentBrand'])
-            ->select('id', 'code', 'name', 'subbrand_of', 'is_inactive')
+            ->select('id', 'code', 'name', 'subbrand_of', 'active')
             ->get();
 
         if ($brands->isEmpty()) {
@@ -196,7 +218,7 @@ class BrandController extends Controller
             'code' => 'Code',
             'name' => 'Name',
             'subbrand_of' => 'Subbrand Of',
-            'is_inactive' => 'Status'
+            'active' => 'Status'
         ];
         $data = $brands->toArray();
 
@@ -236,7 +258,7 @@ class BrandController extends Controller
                 $data = [
                     'code' => $row['code'],
                     'name' => $row['name'],
-                    'is_inactive' => boolval($row['is_inactive'] ?? false),
+                    'active' => boolval($row['active'] ?? false),
                 ];
 
                 if (!empty($row['subbrand_of'])) {
@@ -259,6 +281,21 @@ class BrandController extends Controller
             'rows_imported' => $import->getImportedCount(),
             'rows_skipped_count' => $import->getSkippedCount(),
             'skipped_rows' => $import->getSkippedRows(),
+        ]);
+    }
+
+    public function getNames()
+    {
+        // Only get top-level brands (not subbrands)
+        $brands = Brand::whereNull('subbrand_of')
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Brand names fetched successfully.',
+            'data' => $brands,
         ]);
     }
 }

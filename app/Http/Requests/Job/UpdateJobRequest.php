@@ -14,6 +14,7 @@ class UpdateJobRequest extends FormRequest
     public function rules()
     {
         return [
+            'code' => 'required|string|max:255|unique:projects_jobs,code,' . $this->route('job')->id,
             'description' => 'required|string|max:255',
             'project_id' => 'required|exists:projects,id',
             'start_date' => 'required|date',
@@ -25,6 +26,8 @@ class UpdateJobRequest extends FormRequest
     public function messages()
     {
         return [
+            'code.required' => 'The job code is required.',
+            'code.unique' => 'The job code has already been taken.',
             'description.required' => 'The job description is required.',
             'project_id.required' => 'The project is required.',
             'project_id.exists' => 'The selected project does not exist.',

@@ -23,13 +23,27 @@ class CustomerSeeder extends Seeder
         // Create a default customer group if none exists
         $customerGroup = CustomerGroup::firstOrCreate(
             ['name' => 'Default Group'],
-            ['code' => 'DEFAULT', 'is_inactive' => false]
+            ['code' => 'DEFAULT', 'active' => true]
         );
 
         // Create a default salesman if none exists
         $salesman = Salesman::firstOrCreate(
-            ['name' => 'Default Salesman'],
-            ['is_inactive' => false]
+            ['code' => 'DEFAULT'],
+            [
+                'name' => 'Default Salesman',
+                'address' => $faker->address(),
+                'phone1' => $faker->phoneNumber(),
+                'phone2' => $faker->optional()->phoneNumber(),
+                'email' => $faker->email(),
+                'is_manager' => false,
+                'is_supervisor' => false,
+                'is_collector' => true,
+                'fix_commission' => 0.00,
+                'commission_percent' => 5.00,
+                'commission_by_item' => 0.00,
+                'commission_by_turnover' => 0.00,
+                'active' => true
+            ]
         );
 
         // Create a default payment term if none exists

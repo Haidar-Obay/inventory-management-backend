@@ -127,6 +127,7 @@ class JobController extends Controller
     {
         $jobs = Job::select([
             'projects_jobs.id',
+            'projects_jobs.code',
             'projects_jobs.description',
             'projects.name as project_name',
             'projects_jobs.start_date',
@@ -156,6 +157,7 @@ class JobController extends Controller
         $title = 'Jobs Report';
         $headers = [
             'id' => 'Job ID',
+            'code' => 'Job Code',
             'description' => 'Description',
             'project.name' => 'Project',
             'start_date' => 'Start Date',
@@ -176,7 +178,7 @@ class JobController extends Controller
 
         $import = new DynamicExcelImport(
             Job::class,
-            ['description', 'project_id', 'start_date', 'expected_date', 'end_date'],
+            ['code', 'description', 'project_id', 'start_date', 'expected_date', 'end_date'],
             function ($row) {
                 $errors = [];
 
@@ -197,6 +199,7 @@ class JobController extends Controller
             },
             function ($row) {
                 return [
+                    'code' => $row['code'],
                     'description' => $row['description'],
                     'project_id' => $row['project_id'],
                     'start_date' => $row['start_date'],
