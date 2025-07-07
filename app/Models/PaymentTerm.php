@@ -17,7 +17,7 @@ class PaymentTerm extends Model implements Auditable
 
     protected $casts = [
         'nb_days' => 'integer',
-        'is_inactive' => 'boolean',
+        'active' => 'boolean',
     ];
 
     public function customers()

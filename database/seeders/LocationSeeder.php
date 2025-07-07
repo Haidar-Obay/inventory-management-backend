@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\Country;
-use App\Models\Province;
+use App\Models\Zone;
 use App\Models\City;
 use App\Models\District;
 use Faker\Factory as Faker;
@@ -35,10 +35,10 @@ class LocationSeeder extends Seeder
         }
 
         // Create provinces
-        $provinceCount = 20;
-        for ($i = 0; $i < $provinceCount; $i++) {
-            Province::create([
-                'name' => $faker->unique()->city() . ' Province',
+        $zoneCount = 20;
+        for ($i = 0; $i < $zoneCount; $i++) {
+            Zone::create([
+                'name' => $faker->unique()->city() . ' Zone',
             ]);
         }
 

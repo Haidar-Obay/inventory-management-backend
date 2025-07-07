@@ -14,10 +14,13 @@ use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\CountryController;
-use App\Http\Controllers\ProvinceController;
+use App\Http\Controllers\ZoneController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\SalesmanController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerCreditLimitController;
+use App\Http\Controllers\CustomerChequeLimitController;
+use App\Http\Controllers\CustomerTaxController;
 use App\Http\Controllers\CustomerGroupController;
 use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\PaymentTermController;
@@ -46,6 +49,13 @@ use App\Http\Controllers\JobController;
 use App\Http\Controllers\TransactionSeriesController;
 use App\Http\Controllers\CostCenterController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\SalesChannelController;
+use App\Http\Controllers\DistributionChannelController;
+use App\Http\Controllers\TransportationChannelController;
+use App\Http\Controllers\MediaChannelController;
+use App\Http\Controllers\CustomerOpeningBalanceController;
+use App\Http\Controllers\CustomerContactController;
+use App\Http\Controllers\CustomerRouteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -74,7 +84,7 @@ Route::middleware([
           Route::get('audits', [AuditController::class, 'index']);
 
             // Auth & User Management
-            Route::post('/register', [UserManagementController::class, 'registerUser']);
+            Route::post('/register', [UserManagementController::class, 'registerUser'])->middleware('subscription.limits:user');
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsers']);
             Route::get('/get-user/{id}', action: [UserManagementController::class, 'getUser']);
@@ -84,7 +94,7 @@ Route::middleware([
             // Resource APIs
             Route::apiResource('cities', CityController::class);
             Route::apiResource('countries', CountryController::class);
-            Route::apiResource('provinces', ProvinceController::class);
+            Route::apiResource('zones', ZoneController::class);
             Route::apiResource('districts', DistrictController::class);
             Route::apiResource('trades', TradeController::class);
             Route::apiResource('company-codes', CompanyCodeController::class);
@@ -94,9 +104,9 @@ Route::middleware([
             Route::apiResource('supplier-groups', SupplierGroupController::class);
             Route::apiResource('payment-terms', PaymentTermController::class);
 
-            Route::apiResource('currencies', CurrencyController::class);
+            Route::apiResource('currencies', CurrencyController::class)->middleware('subscription.limits:currency');
             Route::apiResource('salesmen', SalesmanController::class);
-            Route::apiResource('customers', CustomerController::class);
+            Route::apiResource('customers', CustomerController::class)->middleware('subscription.limits:customer');
             Route::apiResource('customer-groups', CustomerGroupController::class);
             // Route::apiResource('customer-attachments', CustomerAttachmentController::class);
             Route::apiResource('payment-methods', PaymentMethodController::class);
@@ -110,6 +120,10 @@ Route::middleware([
             Route::apiResource('transaction-series', TransactionSeriesController::class);
             Route::apiResource('cost-centers', CostCenterController::class);
             Route::apiResource('departments', DepartmentController::class);
+            Route::apiResource('sales-channels', SalesChannelController::class);
+            Route::apiResource('distribution-channels', DistributionChannelController::class);
+            Route::apiResource('transportation-channels', TransportationChannelController::class);
+            Route::apiResource('media-channels', MediaChannelController::class);
 
             Route::get('adjustment-types/transaction-types', [AdjustmentTypeController::class, 'getTransactionTypes']);
 
@@ -119,7 +133,7 @@ Route::middleware([
                 Route::get('customers', [CustomerController::class, 'exportExcell']);
                 Route::get('cities', [CityController::class, 'exportExcell']);
                 Route::get('countries', [CountryController::class, 'exportExcell']);
-                Route::get('provinces', [ProvinceController::class, 'exportExcell']);
+                Route::get('zones', [ZoneController::class, 'exportExcell']);
                 Route::get('districts', [DistrictController::class, 'exportExcell']);
                 Route::get('currencies', [CurrencyController::class, 'exportExcell']);
                 Route::get('customer-groups', [CustomerGroupController::class, 'exportExcell']);
@@ -142,6 +156,10 @@ Route::middleware([
                 Route::get('transaction-series', [TransactionSeriesController::class, 'exportExcell']);
                 Route::get('cost-centers', [CostCenterController::class, 'exportExcell']);
                 Route::get('departments', [DepartmentController::class, 'exportExcell']);
+                Route::get('sales-channels', [SalesChannelController::class, 'exportExcell']);
+                Route::get('distribution-channels', [DistributionChannelController::class, 'exportExcell']);
+                Route::get('transportation-channels', [TransportationChannelController::class, 'exportExcell']);
+                Route::get('media-channels', [MediaChannelController::class, 'exportExcell']);
             });
 
             // Export to PDF Routes
@@ -151,7 +169,7 @@ Route::middleware([
                 Route::get('/cities', [CityController::class, 'exportPdf']);
                 Route::get('/countries', [CountryController::class, 'exportPdf']);
                 Route::get('/districts', [DistrictController::class, 'exportPdf']);
-                Route::get('/provinces', [ProvinceController::class, 'exportPdf']);
+                Route::get('/zones', [ZoneController::class, 'exportPdf']);
                 Route::get('/currencies', [CurrencyController::class, 'exportPdf']);
                 Route::get('/customer-groups', [CustomerGroupController::class, 'exportPdf']);
                 Route::get('/payment-methods', [PaymentMethodController::class, 'exportPdf']);
@@ -173,6 +191,10 @@ Route::middleware([
                 Route::get('/transaction-series', [TransactionSeriesController::class, 'exportPdf']);
                 Route::get('/cost-centers', [CostCenterController::class, 'exportPdf']);
                 Route::get('/departments', [DepartmentController::class, 'exportPdf']);
+                Route::get('/sales-channels', [SalesChannelController::class, 'exportPdf']);
+                Route::get('/distribution-channels', [DistributionChannelController::class, 'exportPdf']);
+                Route::get('/transportation-channels', [TransportationChannelController::class, 'exportPdf']);
+                Route::get('/media-channels', [MediaChannelController::class, 'exportPdf']);
             });
 
             // Import from Excel Routes
@@ -181,7 +203,7 @@ Route::middleware([
                 Route::post('/customers', [CustomerController::class, 'importFromExcel']);
                 Route::post('/cities', [CityController::class, 'importFromExcel']);
                 Route::post('/countries', [CountryController::class, 'importFromExcel']);
-                Route::post('/provinces', [ProvinceController::class, 'importFromExcel']);
+                Route::post('/zones', [ZoneController::class, 'importFromExcel']);
                 Route::post('/districts', [DistrictController::class, 'importFromExcel']);
                 Route::post('/currencies', [CurrencyController::class, 'importFromExcel']);
                 Route::post('/customer-groups', [CustomerGroupController::class, 'importFromExcel']);
@@ -204,6 +226,10 @@ Route::middleware([
                 Route::post('/transaction-series', [TransactionSeriesController::class, 'importFromExcel']);
                 Route::post('/cost-centers', [CostCenterController::class, 'importFromExcel']);
                 Route::post('/departments', [DepartmentController::class, 'importFromExcel']);
+                Route::post('/sales-channels', [SalesChannelController::class, 'import']);
+                Route::post('/distribution-channels', [DistributionChannelController::class, 'import']);
+                Route::post('/transportation-channels', [TransportationChannelController::class, 'import']);
+                Route::post('/media-channels', [MediaChannelController::class, 'import']);
             });
 
             // Bulk Delete Routes
@@ -212,7 +238,7 @@ Route::middleware([
                 Route::delete('/customers', [CustomerController::class, 'bulkDelete']);
                 Route::delete('/cities', [CityController::class, 'bulkDelete']);
                 Route::delete('/countries', [CountryController::class, 'bulkDelete']);
-                Route::delete('/provinces', [ProvinceController::class, 'bulkDelete']);
+                Route::delete('/zones', [ZoneController::class, 'bulkDelete']);
                 Route::delete('/currencies', [CurrencyController::class, 'bulkDelete']);
                 Route::delete('/customer-groups', [CustomerGroupController::class, 'bulkDelete']);
                 Route::delete('/payment-methods', [PaymentMethodController::class, 'bulkDelete']);
@@ -234,6 +260,10 @@ Route::middleware([
                 Route::delete('/transaction-series', [TransactionSeriesController::class, 'bulkDelete']);
                 Route::delete('/cost-centers', [CostCenterController::class, 'bulkDelete']);
                 Route::delete('/departments', [DepartmentController::class, 'bulkDelete']);
+                Route::delete('/sales-channels', [SalesChannelController::class, 'bulkDelete']);
+                Route::delete('/distribution-channels', [DistributionChannelController::class, 'bulkDelete']);
+                Route::delete('/transportation-channels', [TransportationChannelController::class, 'bulkDelete']);
+                Route::delete('/media-channels', [MediaChannelController::class, 'bulkDelete']);
             });
 
             // Get Customer Projects & Jobs
@@ -243,7 +273,131 @@ Route::middleware([
             Route::get('trades/{tradeId}/transaction-series', [TransactionSeriesController::class, 'getByTrade']);
             Route::get('cost-centers/{costCenterId}/sub-cost-centers', [CostCenterController::class, 'getSubCostCenters']);
             Route::get('departments/{departmentId}/sub-departments', [DepartmentController::class, 'getSubDepartments']);
+            Route::get('sales-channels/{salesChannelId}/sub-sales-channels', [SalesChannelController::class, 'getSubSalesChannels']);
+            Route::get('distribution-channels/{distributionChannelId}/sub-distribution-channels', [DistributionChannelController::class, 'getSubDistributionChannels']);
+            Route::get('transportation-channels/{transportationChannelId}/sub-transportation-channels', [TransportationChannelController::class, 'getSubTransportationChannels']);
+            Route::get('media-channels/{mediaChannelId}/sub-media-channels', [MediaChannelController::class, 'getSubMediaChannels']);
+
+
+
+            // Customer Routes
+            Route::post('/customers', [CustomerController::class, 'store']);
+            Route::get('/customers', [CustomerController::class, 'index']);
+            Route::get('/customers/{customer}', [CustomerController::class, 'show']);
+            Route::put('/customers/{customer}', [CustomerController::class, 'update']);
+            Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
+
+
+            // Customer Credit Limits Routes
+            Route::prefix('customers/{customer}/credit-limits')->group(function () {
+                Route::get('/', [CustomerCreditLimitController::class, 'index']);
+                Route::post('/', [CustomerCreditLimitController::class, 'store']);
+                Route::post('/bulk', [CustomerCreditLimitController::class, 'bulkStore']);
+                Route::get('/available-currencies', [CustomerCreditLimitController::class, 'getAvailableCurrencies']);
+                Route::get('/summary', [CustomerCreditLimitController::class, 'getCreditSummary']);
+                Route::get('/{creditLimit}', [CustomerCreditLimitController::class, 'show']);
+                Route::put('/{creditLimit}', [CustomerCreditLimitController::class, 'update']);
+                Route::delete('/{creditLimit}', [CustomerCreditLimitController::class, 'destroy']);
+            });
+
+            // Customer Cheque Limits Routes
+            Route::prefix('customers/{customer}/cheque-limits')->group(function () {
+                Route::get('/', [CustomerChequeLimitController::class, 'index']);
+                Route::post('/', [CustomerChequeLimitController::class, 'store']);
+                Route::post('/bulk', [CustomerChequeLimitController::class, 'bulkStore']);
+                Route::get('/available-currencies', [CustomerChequeLimitController::class, 'getAvailableCurrencies']);
+                Route::get('/summary', [CustomerChequeLimitController::class, 'getChequeSummary']);
+                Route::post('/check-availability', [CustomerChequeLimitController::class, 'checkChequeAvailability']);
+                Route::get('/{chequeLimit}', [CustomerChequeLimitController::class, 'show']);
+                Route::put('/{chequeLimit}', [CustomerChequeLimitController::class, 'update']);
+                Route::delete('/{chequeLimit}', [CustomerChequeLimitController::class, 'destroy']);
+            });
+
+            // Customer Tax Routes
+            Route::prefix('customers/{customer}/tax')->group(function () {
+                Route::get('/', [CustomerTaxController::class, 'show']);
+                Route::put('/', [CustomerTaxController::class, 'update']);
+                Route::get('/exemption-status', [CustomerTaxController::class, 'exemptionStatus']);
+                Route::get('/tax-info', [CustomerTaxController::class, 'taxInfo']);
+                Route::post('/set-exemption', [CustomerTaxController::class, 'setExemption']);
+                Route::delete('/remove-exemption', [CustomerTaxController::class, 'removeExemption']);
+                Route::get('/report', [CustomerTaxController::class, 'report']);
+            });
+
+            // Customer Opening Balance Management Routes
+            Route::prefix('customers/{customer}/opening-balances')->group(function () {
+                Route::get('/', [CustomerOpeningBalanceController::class, 'index']);
+                Route::post('/', [CustomerOpeningBalanceController::class, 'store']);
+                Route::get('/summary', [CustomerOpeningBalanceController::class, 'summary']);
+                Route::get('/available-currencies', [CustomerOpeningBalanceController::class, 'availableCurrencies']);
+                Route::post('/bulk-update', [CustomerOpeningBalanceController::class, 'bulkUpdate']);
+                Route::get('/statistics', [CustomerOpeningBalanceController::class, 'statistics']);
+                Route::get('/{openingBalance}', [CustomerOpeningBalanceController::class, 'show']);
+                Route::put('/{openingBalance}', [CustomerOpeningBalanceController::class, 'update']);
+                Route::delete('/{openingBalance}', [CustomerOpeningBalanceController::class, 'destroy']);
+            });
+
+            // Customer Contact Management Routes
+            Route::prefix('customers/{customer}/contacts')->group(function () {
+                Route::get('/', [CustomerContactController::class, 'getCustomerContacts']);
+                Route::post('/', [CustomerContactController::class, 'store']);
+                Route::get('/{contact}', [CustomerContactController::class, 'show']);
+                Route::put('/{contact}', [CustomerContactController::class, 'update']);
+                Route::delete('/{contact}', [CustomerContactController::class, 'destroy']);
+            });
+
+            // Global Customer Contact Routes
+            Route::prefix('customer-contacts')->group(function () {
+                Route::get('/', [CustomerContactController::class, 'index']);
+                Route::post('/', [CustomerContactController::class, 'store']);
+                Route::get('/statistics', [CustomerContactController::class, 'statistics']);
+                Route::get('/{contact}', [CustomerContactController::class, 'show']);
+                Route::put('/{contact}', [CustomerContactController::class, 'update']);
+                Route::delete('/{contact}', [CustomerContactController::class, 'destroy']);
+            });
+
+            // Customer Route Management Routes
+            Route::prefix('customers/{customer}/routes')->group(function () {
+                Route::get('/', [CustomerRouteController::class, 'getCustomerRoutes']);
+                Route::post('/', [CustomerRouteController::class, 'store']);
+                Route::get('/{route}', [CustomerRouteController::class, 'show']);
+                Route::put('/{route}', [CustomerRouteController::class, 'update']);
+                Route::delete('/{route}', [CustomerRouteController::class, 'destroy']);
+                Route::get('/{route}/activate', [CustomerRouteController::class, 'activate']);
+                Route::get('/{route}/deactivate', [CustomerRouteController::class, 'deactivate']);
+            });
+
+            // Salesman Route Management Routes
+            Route::prefix('salesmen/{salesman}/routes')->group(function () {
+                Route::get('/', [CustomerRouteController::class, 'getSalesmanRoutes']);
+                Route::get('/today', [CustomerRouteController::class, 'getTodayRoutes']);
+                Route::get('/upcoming', [CustomerRouteController::class, 'getUpcomingRoutes']);
+            });
+
+            // Global Customer Route Routes
+            Route::prefix('customer-routes')->group(function () {
+                Route::get('/', [CustomerRouteController::class, 'index']);
+                Route::post('/', [CustomerRouteController::class, 'store']);
+                Route::get('/statistics', [CustomerRouteController::class, 'statistics']);
+                Route::get('/date-routes', [CustomerRouteController::class, 'getDateRoutes']);
+                Route::get('/{route}', [CustomerRouteController::class, 'show']);
+                Route::put('/{route}', [CustomerRouteController::class, 'update']);
+                Route::delete('/{route}', [CustomerRouteController::class, 'destroy']);
+                Route::get('/{route}/activate', [CustomerRouteController::class, 'activate']);
+                Route::get('/{route}/deactivate', [CustomerRouteController::class, 'deactivate']);
+            });
+
+            // Global Tax Routes
+            Route::prefix('tax')->group(function () {
+                Route::get('/expiring-exemptions', [CustomerTaxController::class, 'getExpiringExemptions']);
+                Route::get('/expired-exemptions', [CustomerTaxController::class, 'getExpiredExemptions']);
+                Route::get('/currently-exempted', [CustomerTaxController::class, 'getCurrentlyExemptedCustomers']);
+                Route::get('/customers-with-tax-numbers', [CustomerTaxController::class, 'getCustomersWithTaxNumbers']);
+                Route::get('/summary', [CustomerTaxController::class, 'getTaxSummary']);
+                Route::post('/bulk-exemptions', [CustomerTaxController::class, 'bulkUpdateTaxExemptions']);
+            });
         });
+
 
           //  Email Verification Routes
           Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
@@ -288,13 +442,12 @@ Route::middleware([
         Route::get('/names/cost-centers', [CostCenterController::class, 'getNames']);
         Route::get('/names/departments', [DepartmentController::class, 'getNames']);
         Route::get('/names/projects', [ProjectController::class, 'getNames']);
-        Route::get('/customers', [CustomerController::class, 'index']);
-        Route::post('/customers', [CustomerController::class, 'store']);
-        Route::get('/customers/{customer}', [CustomerController::class, 'show']);
-        Route::put('/customers/{customer}', [CustomerController::class, 'update']);
-        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
         Route::get('/names/categories', [CategoryController::class, 'getNames']);
         Route::get('/names/brands', [BrandController::class, 'getNames']);
+        Route::get('/names/sales-channels', [SalesChannelController::class, 'getNames']);
+        Route::get('/names/distribution-channels', [DistributionChannelController::class, 'getNames']);
+        Route::get('/names/transportation-channels', [TransportationChannelController::class, 'getNames']);
+        Route::get('/names/media-channels', [MediaChannelController::class, 'getNames']);
     });
 
 

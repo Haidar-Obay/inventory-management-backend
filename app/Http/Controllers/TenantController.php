@@ -62,10 +62,26 @@ class TenantController extends Controller
         }
 
         try {
+            // Get default subscription plan
+            $defaultPlan = \App\Models\SubscriptionPlan::where('is_default', true)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$defaultPlan) {
+                return response()->json([
+                    'error' => 'No default subscription plan found. Please create a default plan first.'
+                ], 500);
+            }
+
             $tenant = Tenant::create([
                 'id' => $request->domain,
                 'name' => $request->name,
                 'email' => $request->email,
+                'subscription_plan_id' => $defaultPlan->id,
+                'subscription_start_date' => now(),
+                'subscription_end_date' => now()->addDays(30), // 30-day trial
+                'subscription_status' => 'trial',
+                'auto_renew' => false,
             ]);
 
             $tenant->domains()->create([
@@ -95,6 +111,9 @@ class TenantController extends Controller
                 'name' => $tenant->name,
                 'owner' => $user->name,
                 'password' => $request->password,
+                'subscription_plan' => $defaultPlan->name,
+                'subscription_status' => 'trial',
+                'trial_ends_at' => $tenant->subscription_end_date->format('Y-m-d'),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([

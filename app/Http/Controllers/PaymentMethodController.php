@@ -28,7 +28,7 @@ class PaymentMethodController extends Controller
             'code' => 'required|string|max:50|unique:payment_methods,code',
             'name' => 'required|string|max:255',
             'is_credit_card' => 'required|boolean',
-            'is_inactive' => 'required|boolean',
+            'active' => 'required|boolean',
         ]);
 
         $paymentMethod = PaymentMethod::create($validated);
@@ -53,7 +53,7 @@ class PaymentMethodController extends Controller
             'code' => 'required|string|max:50|unique:payment_methods,code,' . $paymentMethod->id,
             'name' => 'required|string|max:255',
             'is_credit_card' => 'required|boolean',
-            'is_inactive' => 'required|boolean',
+            'active' => 'required|boolean',
         ]);
 
         $paymentMethod->update($validated);

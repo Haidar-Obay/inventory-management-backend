@@ -18,7 +18,7 @@ class PaymentMethod extends Model implements Auditable
 
     protected $casts = [
         'is_credit_card' => 'boolean',
-        'is_inactive' => 'boolean',
+        'active' => 'boolean',
     ];
 
     public function customers()

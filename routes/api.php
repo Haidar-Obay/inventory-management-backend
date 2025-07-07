@@ -16,11 +16,13 @@ use Illuminate\Auth\Events\Verified;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\SubscriptionPlanController;
+use App\Http\Controllers\TenantSubscriptionController;
 
 
 /*
 |--------------------------------------------------------------------------
-| Sanctum‐protected “current user” endpoint
+| Sanctum‐protected "current user" endpoint
 |--------------------------------------------------------------------------
 */
 
@@ -58,8 +60,25 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::get('/exportPdf', [TenantController::class, 'exportPdf']);
         });
 
+        // Subscription Plans Management
+        Route::middleware(['auth:sanctum'])->prefix('subscription-plans')->group(function () {
+            Route::get('/', [SubscriptionPlanController::class, 'index']);
+            Route::get('/default', [SubscriptionPlanController::class, 'getDefaultPlan']);
+            Route::get('/{id}', [SubscriptionPlanController::class, 'show']);
+            Route::post('/', [SubscriptionPlanController::class, 'store']);
+            Route::put('/{id}', [SubscriptionPlanController::class, 'update']);
+            Route::delete('/{id}', [SubscriptionPlanController::class, 'destroy']);
+        });
 
-
+        // Tenant Subscription Management
+        Route::middleware(['auth:sanctum'])->prefix('tenant-subscriptions')->group(function () {
+            Route::get('/', [TenantSubscriptionController::class, 'getAllTenantsSubscriptions']);
+            Route::get('/check-expired', [TenantSubscriptionController::class, 'checkExpiredSubscriptions']);
+            Route::get('/{tenantId}', [TenantSubscriptionController::class, 'getTenantSubscription']);
+            Route::post('/{tenantId}/upgrade', [TenantSubscriptionController::class, 'upgradeTenantPlan']);
+            Route::post('/{tenantId}/cancel', [TenantSubscriptionController::class, 'cancelTenantSubscription']);
+            Route::post('/{tenantId}/reactivate', [TenantSubscriptionController::class, 'reactivateTenantSubscription']);
+        });
 
         // Auth & User Management
         Route::post('/login', [AuthController::class, 'login']);

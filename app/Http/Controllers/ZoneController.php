@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Province;
+use App\Models\Zone;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
@@ -10,104 +10,103 @@ use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 
-class ProvinceController extends Controller
+class ZoneController extends Controller
 {
     public function index()
     {
         $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_provinces";
+        $key = "tenant_{$tenantId}_zones";
 
-        $provinces = app('cache')->store('database')->get($key);
+        $zones = app('cache')->store('database')->get($key);
 
-        if (!$provinces) {
-            $provinces = Province::withCount('addresses')
+        if (!$zones) {
+            $zones = Zone::withCount('addresses')
                 ->orderBy('name')
                 ->get();
 
-            app('cache')->store('database')->forever($key, $provinces);
+            app('cache')->store('database')->forever($key, $zones);
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'Provinces fetched successfully.',
-            'data' => $provinces,
+            'message' => 'Zones fetched successfully.',
+            'data' => $zones,
         ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:provinces,name',
+            'name' => 'required|string|max:255|unique:zones,name',
         ]);
 
-        $province = Province::create($validated);
+        $zone = Zone::create($validated);
 
         $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_provinces");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_zones");
 
         return response()->json([
             'status' => true,
-            'message' => 'Province created successfully.',
-            'data' => $province,
+            'message' => 'Zone created successfully.',
+            'data' => $zone,
         ], 201);
     }
 
-    public function show(Province $province)
+    public function show(Zone $zone)
     {
         $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_province_show_{$province->id}";
+        $key = "tenant_{$tenantId}_zone_show_{$zone->id}";
 
         $cached = app('cache')->store('database')->get($key);
 
         if (!$cached) {
-            $province->loadCount('addresses');
-            app('cache')->store('database')->forever($key, $province);
+            $zone->loadCount('addresses');
+            app('cache')->store('database')->forever($key, $zone);
         } else {
-            $province = $cached;
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'Province details fetched successfully.',
-            'data' => $province,
+            'message' => 'Zone details fetched successfully.',
+            'data' => $zone,
         ]);
     }
 
-    public function update(Request $request, Province $province)
+    public function update(Request $request, Zone $zone)
     {
         $validated = $request->validate([
             'name' => [
                 'sometimes',
                 'string',
                 'max:255',
-                Rule::unique('provinces', 'name')->ignore($province->id)
+                Rule::unique('zones', 'name')->ignore($zone->id)
             ],
         ]);
 
-        $province->update($validated);
+        $zone->update($validated);
 
         $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_provinces");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_province_show_{$province->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_zones");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_zone_show_{$zone->id}");
 
         return response()->json([
             'status' => true,
-            'message' => 'Province updated successfully.',
-            'data' => $province,
+            'message' => 'Zone updated successfully.',
+            'data' => $zone,
         ]);
     }
 
-    public function destroy(Province $province)
+    public function destroy(Zone $zone)
     {
-        $province->delete();
+        $zone->delete();
 
         $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_provinces");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_province_show_{$province->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_zones");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_zone_show_{$zone->id}");
 
         return response()->json([
             'status' => true,
-            'message' => 'Province deleted successfully.',
+            'message' => 'Zone deleted successfully.',
         ]);
     }
 
@@ -115,7 +114,7 @@ class ProvinceController extends Controller
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:provinces,id',
+            'ids.*' => 'exists:zones,id',
         ]);
 
         $tenantId = tenant('id');
@@ -124,14 +123,14 @@ class ProvinceController extends Controller
 
         foreach ($request->ids as $id) {
             try {
-                $deleted += Province::where('id', $id)->delete();
-                app('cache')->store('database')->forget("tenant_{$tenantId}_province_{$id}");
+                $deleted += Zone::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_zone_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
 
-        app('cache')->store('database')->forget("tenant_{$tenantId}_provinces");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_zones");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -142,33 +141,33 @@ class ProvinceController extends Controller
 
     public function exportExcell()
     {
-        $Province = Province::query();
-        $collection = $Province->get();
+        $Zone = Zone::query();
+        $collection = $Zone->get();
         if ($collection->isEmpty()) {
-            return response()->json(['message' => 'No Province found.'], 404);
+            return response()->json(['message' => 'No Zone found.'], 404);
         }
         $columns = ['id', 'name'];
         $headings = ['ID', 'Name'];
-        return Excel::download(new Export($Province, $columns, $headings), 'provinces.xlsx');
+        return Excel::download(new Export($Zone, $columns, $headings), 'zones.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $provinces = Province::select('id', 'name')->get();
+        $zones = Zone::select('id', 'name')->get();
 
-        if ($provinces->isEmpty()) {
-            return response()->json(['message' => 'No provinces found.'], 404);
+        if ($zones->isEmpty()) {
+            return response()->json(['message' => 'No zones found.'], 404);
         }
 
-        $title = 'Province Report';
+        $title = 'Zone Report';
         $headers = [
-            'id' => 'Province ID',
-            'name' => 'Province Name'
+            'id' => 'Zone ID',
+            'name' => 'Zone Name'
         ];
-        $data = $provinces->toArray();
+        $data = $zones->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
-        return $pdf->download('Provinces.pdf');
+        return $pdf->download('Zones.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -178,7 +177,7 @@ class ProvinceController extends Controller
         ]);
 
         $import = new DynamicExcelImport(
-            Province::class,
+            Zone::class,
             ['name'],
             function ($row) {
                 $errors = [];
@@ -186,7 +185,7 @@ class ProvinceController extends Controller
                 if (empty($row['name'])) {
                     $errors[] = 'Missing name';
                 } elseif (preg_match('/[0-9]/', $row['name'])) {
-                    $errors[] = 'Province name must not contain numbers';
+                    $errors[] = 'Zone name must not contain numbers';
                 }
 
                 return $errors;
@@ -198,7 +197,7 @@ class ProvinceController extends Controller
 
         Excel::import($import, $request->file('file'));
 
-        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_provinces");
+        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_zones");
 
         return response()->json([
             'success' => true,

@@ -8,37 +8,92 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('customers', function (Blueprint $table) {
+            // Personal Information
             $table->id();
-            $table->string('title')->nullable();
+            $table->enum('title', ['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.'])->nullable();
             $table->string('first_name');
             $table->string('middle_name')->nullable();
             $table->string('last_name');
-            $table->string('suffix')->nullable();
             $table->string('display_name')->nullable();
             $table->string('company_name')->nullable();
-            $table->string('phone1')->nullable();
+            $table->string('phone1');
             $table->string('phone2')->nullable();
             $table->string('phone3')->nullable();
-            $table->string('email')->nullable();
-            $table->string('website')->nullable();
+            // $table->string('email')->nullable();
+            // $table->string('website')->nullable();
+
+            // Business Information
             $table->string('file_number')->nullable();
-            $table->foreignId('billing_address_id')->constrained('addresses')->cascadeOnDelete();
-            $table->foreignId('shipping_address_id')->constrained('addresses')->cascadeOnDelete();
-            $table->boolean('is_sub_customer')->default(false);
-            $table->foreignId('parent_customer_id')->nullable()->constrained('customers');
-            $table->foreignId('customer_group_id')->nullable()->constrained();
+            $table->string('bar_code')->nullable();
+            $table->text('search_terms')->nullable()->comment('Comma-separated search keywords for customer lookup');
+
+            //Category
+            $table->foreignId('trade_id')->nullable()->constrained('trades');
+            $table->foreignId('company_code_id')->nullable()->constrained('company_codes');
+            $table->foreignId('customer_group_id')->nullable()->constrained('customer_groups');
+            $table->foreignId('business_type_id')->nullable()->constrained('business_types');
+            $table->foreignId('sales_channel_id')->nullable()->constrained('sales_channels');
+            $table->foreignId('distribution_channel_id')->nullable()->constrained('distribution_channels');
+            $table->foreignId('media_channel_id')->nullable()->constrained('media_channels');
+            $table->enum('indicator', ['A', 'B', 'C', 'D'])->nullable();
+            $table->enum('risk_category', ['A', 'B', 'C', 'D'])->nullable();
+
+
+            //salesmen
             $table->foreignId('salesman_id')->nullable()->constrained('salesmen');
-            $table->foreignId('refer_by_id')->nullable()->constrained('refer_bies');
-            $table->foreignId('primary_payment_method_id')->nullable()->constrained('payment_methods');
+            $table->foreignId('collector_id')->nullable()->constrained('salesmen');
+            $table->foreignId('supervisor_id')->nullable()->constrained('salesmen');
+            $table->foreignId('manager_id')->nullable()->constrained('salesmen');
+
+
+            //payment terms
             $table->foreignId('payment_term_id')->nullable()->constrained('payment_terms');
-            $table->decimal('credit_limit', 15, 2)->nullable();
-            $table->boolean('taxable')->nullable();
-            $table->string('tax_registration')->nullable();
-            $table->foreignId('opening_currency_id')->nullable()->constrained('currencies');
-            $table->decimal('opening_balance', 15, 2)->nullable();
-            $table->text('notes')->nullable();
-            $table->json('attachment_ids')->nullable();
-            $table->boolean('is_inactive')->default(false);
+            $table->foreignId('payment_method_id')->nullable()->constrained('payment_methods');
+            $table->boolean('allow_credit')->default(false);
+            $table->boolean('accept_cheque')->default(false);
+            $table->enum('payment_day', ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30'])->nullable();
+            $table->enum('track_payment', ['yes', 'no'])->default('no');
+            $table->enum('settlement_method', ['FIFO', 'Manual'])->default('FIFO');
+
+
+            //pricing
+            $table->enum('pricing_choice', ['price1', 'price2', 'price3', 'price4', 'price5', 'price6','last_invoice_price'])->default('price1');
+            $table->decimal('discount_by_item', 8, 2)->nullable()->comment('Discount percentage applied per item');
+            $table->decimal('global_discount', 8, 2)->nullable()->comment('Global discount percentage applied to entire order');
+            $table->enum('discount_class', ['Silver', 'Gold', 'Platinum'])->nullable();
+            $table->decimal('markup_percentage', 8, 2)->nullable()->comment('Markup percentage applied to cost price');
+            $table->decimal('markdown_percentage', 8, 2)->nullable()->comment('Markdown percentage applied to selling price');
+
+
+            //tax
+            $table->boolean('taxable')->nullable()->default(false);
+            $table->decimal('tax_rate', 5, 2)->nullable()->default(0.00)->comment('Tax rate percentage for this customer');
+            $table->string('tax_number')->nullable()->after('taxable')->comment('Tax registration number');
+            $table->boolean('is_exempted')->default(false)->after('tax_number')->comment('Whether customer is tax exempted');
+            $table->string('exemption_from')->nullable()->after('is_exempted')->comment('Reason for tax exemption');
+            $table->string('exemption_reference')->nullable()->after('exemption_from')->comment('Reference number for tax exemption');
+            $table->date('exempted_from_date')->nullable()->after('exemption_reference')->comment('Tax exemption start date');
+            $table->date('exempted_till_date')->nullable()->after('exempted_from_date')->comment('Tax exemption end date');
+
+
+            //more details
+            $table->boolean('active')->default(true);
+            $table->boolean('black_listed')->default(false);
+            $table->boolean('one_time_account')->default(true);
+            $table->boolean('special_account')->default(false);
+            $table->boolean('pos_customer')->default(false);
+            $table->boolean('free_delivery_charge')->default(false);
+            $table->enum('print_invoice_language', ['English', 'Arabic'])->default('English');
+            $table->enum('send_invoice',['email', 'sms', 'whatsapp' ,'all'])->default('email');
+
+            // Message functionality
+            $table->boolean('add_message')->default(false)->comment('Whether to include custom message on invoice');
+            $table->text('invoice_message')->nullable()->comment('Custom message to be printed on invoice and sent with invoice');
+
+            // Primary contact reference
+            $table->unsignedBigInteger('contacts_id')->nullable()->comment('Primary contact for this customer');
+
+            $table->string('notes')->nullable();
             $table->timestamps();
         });
     }

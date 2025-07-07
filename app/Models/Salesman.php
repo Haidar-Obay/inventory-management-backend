@@ -49,6 +49,11 @@ class Salesman extends Model implements Auditable
         return $this->hasMany(Customer::class, 'salesman_id');
     }
 
+    public function customerRoutes()
+    {
+        return $this->hasMany(CustomerRoute::class, 'salesman_id');
+    }
+
     public function getFullNameAttribute()
     {
         return "{$this->code} - {$this->name}";

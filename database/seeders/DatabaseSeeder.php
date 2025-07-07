@@ -21,8 +21,9 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->call([
-            CentralUserSeeder::class,
+            SubscriptionPlanSeeder::class,
             TenantSeeder::class,
+            CentralUserSeeder::class,
         ]);
 
         // Run location seeder in tenant context

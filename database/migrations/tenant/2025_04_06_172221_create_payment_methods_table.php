@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('name');
             $table->boolean('is_credit_card')->default(false);
             $table->boolean('is_online_payment')->default(false);
-            $table->boolean('is_inactive')->default(false);
+            $table->boolean('active')->default(false);
             $table->timestamps();
         });
     }

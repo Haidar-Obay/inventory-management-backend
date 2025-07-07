@@ -30,26 +30,143 @@ class CustomerController extends Controller
 
         if (!$customers) {
             $customers = Customer::with([
-                'customerGroup',
-                'salesman',
-                'referBy',
-                'paymentTerm',
-                'primaryPaymentMethod',
-                'openingCurrency',
-                'billingAddress',
-                'shippingAddress',
-                'parentCustomer',
-                'subCustomers',
-                'attachments'
+                'customerGroup:id,name',
+                'salesman:id,name',
+                'collector:id,name',
+                'supervisor:id,name',
+                'manager:id,name',
+                'paymentTerm:id,name',
+                'paymentMethod:id,name',
+                'trade:id,name',
+                'companyCode:id,code',
+                'businessType:id,name',
+                'salesChannel:id,name',
+                'distributionChannel:id,name',
+                'mediaChannel:id,name',
+                'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+                'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+                'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+                'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+                'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+                'primaryContact:id,name,phone,email',
+                'contacts:id,name,phone,email',
+                'attachments:id,file_name,file_path'
             ])->paginate(10);
 
             app('cache')->store('database')->forever($key, $customers);
         }
 
+        // Transform the response to be lighter
+        $transformedData = $customers->getCollection()->map(function ($customer) {
+            return [
+                'id' => $customer->id,
+                'title' => $customer->title,
+                'first_name' => $customer->first_name,
+                'middle_name' => $customer->middle_name,
+                'last_name' => $customer->last_name,
+                'display_name' => $customer->display_name,
+                'company_name' => $customer->company_name,
+                'phone1' => $customer->phone1,
+                'phone2' => $customer->phone2,
+                'phone3' => $customer->phone3,
+                'file_number' => $customer->file_number,
+                'bar_code' => $customer->bar_code,
+                'search_terms' => $customer->search_terms,
+                'indicator' => $customer->indicator,
+                'risk_category' => $customer->risk_category,
+                'active' => $customer->active,
+                'black_listed' => $customer->black_listed,
+                'one_time_account' => $customer->one_time_account,
+                'special_account' => $customer->special_account,
+                'pos_customer' => $customer->pos_customer,
+                'free_delivery_charge' => $customer->free_delivery_charge,
+                'print_invoice_language' => $customer->print_invoice_language,
+                'send_invoice' => $customer->send_invoice,
+                'add_message' => $customer->add_message,
+                'invoice_message' => $customer->invoice_message,
+                'notes' => $customer->notes,
+                'created_at' => $customer->created_at,
+                'updated_at' => $customer->updated_at,
+                // Related data with only essential info
+                'customer_group' => $customer->customerGroup ? [
+                    'id' => $customer->customerGroup->id,
+                    'name' => $customer->customerGroup->name
+                ] : null,
+                'salesman' => $customer->salesman ? [
+                    'id' => $customer->salesman->id,
+                    'name' => $customer->salesman->name
+                ] : null,
+                'collector' => $customer->collector ? [
+                    'id' => $customer->collector->id,
+                    'name' => $customer->collector->name
+                ] : null,
+                'supervisor' => $customer->supervisor ? [
+                    'id' => $customer->supervisor->id,
+                    'name' => $customer->supervisor->name
+                ] : null,
+                'manager' => $customer->manager ? [
+                    'id' => $customer->manager->id,
+                    'name' => $customer->manager->name
+                ] : null,
+                'payment_term' => $customer->paymentTerm ? [
+                    'id' => $customer->paymentTerm->id,
+                    'name' => $customer->paymentTerm->name
+                ] : null,
+                'payment_method' => $customer->paymentMethod ? [
+                    'id' => $customer->paymentMethod->id,
+                    'name' => $customer->paymentMethod->name
+                ] : null,
+                'trade' => $customer->trade ? [
+                    'id' => $customer->trade->id,
+                    'name' => $customer->trade->name
+                ] : null,
+                'company_code' => $customer->companyCode ? [
+                    'id' => $customer->companyCode->id,
+                    'code' => $customer->companyCode->code
+                ] : null,
+                'business_type' => $customer->businessType ? [
+                    'id' => $customer->businessType->id,
+                    'name' => $customer->businessType->name
+                ] : null,
+                'sales_channel' => $customer->salesChannel ? [
+                    'id' => $customer->salesChannel->id,
+                    'name' => $customer->salesChannel->name
+                ] : null,
+                'distribution_channel' => $customer->distributionChannel ? [
+                    'id' => $customer->distributionChannel->id,
+                    'name' => $customer->distributionChannel->name
+                ] : null,
+                'media_channel' => $customer->mediaChannel ? [
+                    'id' => $customer->mediaChannel->id,
+                    'name' => $customer->mediaChannel->name
+                ] : null,
+                // Addresses with only essential info - use first() to get single model from collection
+                'primary_billing_address_id' => $customer->primaryBillingAddress->first() ? $customer->primaryBillingAddress->first()->id : null,
+                'primary_shipping_address_id' => $customer->primaryShippingAddress->first() ? $customer->primaryShippingAddress->first()->id : null,
+                'primary_contact_id' => $customer->primaryContact ? $customer->primaryContact->id : null,
+                // Count of related items
+                'addresses_count' => $customer->addresses->count(),
+                'contacts_count' => $customer->contacts->count(),
+                'attachments_count' => $customer->attachments->count(),
+            ];
+        });
+
+        // Create new paginator with transformed data
+        $transformedPaginator = new \Illuminate\Pagination\LengthAwarePaginator(
+            $transformedData,
+            $customers->total(),
+            $customers->perPage(),
+            $customers->currentPage(),
+            [
+                'path' => $customers->path(),
+                'pageName' => $customers->getPageName(),
+            ]
+        );
+
         return response()->json([
             'status' => true,
             'message' => 'Customers fetched successfully.',
-            'data' => $customers,
+            'data' => $transformedPaginator,
         ]);
     }
 
@@ -57,11 +174,60 @@ class CustomerController extends Controller
     {
         $validated = $request->validated();
 
-        $billingAddress = Address::create($request->input('billing_address'));
-        $shippingAddress = Address::create($request->input('shipping_address'));
+        // Handle addresses - new structure
+        $addresses = [];
 
-        $validated['billing_address_id'] = $billingAddress->id;
-        $validated['shipping_address_id'] = $shippingAddress->id;
+        if ($request->has('addresses')) {
+            // New structure: array of addresses with types
+            foreach ($request->input('addresses') as $addressData) {
+                $address = Address::create([
+                    'address_line1' => $addressData['address_line1'],
+                    'address_line2' => $addressData['address_line2'] ?? null,
+                    'country_id' => $addressData['country_id'],
+                    'city_id' => $addressData['city_id'],
+                    'district_id' => $addressData['district_id'] ?? null,
+                    'zone_id' => $addressData['zone_id'] ?? null,
+                    'building' => $addressData['building'] ?? null,
+                    'block' => $addressData['block'] ?? null,
+                    'floor' => $addressData['floor'] ?? null,
+                    'side' => $addressData['side'] ?? null,
+                    'appartment' => $addressData['appartment'] ?? null,
+                    'zip_code' => $addressData['zip_code'] ?? null,
+                ]);
+
+                $addresses[] = [
+                    'address_id' => $address->id,
+                    'address_type' => $addressData['address_type'],
+                    'is_primary' => $addressData['is_primary'] ?? false,
+                    'address_name' => $addressData['address_name'] ?? null,
+                    'notes' => $addressData['notes'] ?? null,
+                ];
+            }
+        } else {
+            // Legacy structure: separate billing and shipping addresses
+            if ($request->filled('billing_address')) {
+                $billingAddress = Address::create($request->input('billing_address'));
+                $addresses[] = [
+                    'address_id' => $billingAddress->id,
+                    'address_type' => 'billing',
+                    'is_primary' => true,
+                    'address_name' => 'Primary Billing Address',
+                ];
+            }
+
+            if ($request->filled('shipping_address')) {
+                $shippingAddress = Address::create($request->input('shipping_address'));
+                $addresses[] = [
+                    'address_id' => $shippingAddress->id,
+                    'address_type' => 'shipping',
+                    'is_primary' => true,
+                    'address_name' => 'Primary Shipping Address',
+                ];
+            }
+        }
+
+        // Remove address fields from validated data since we handle them separately
+        unset($validated['addresses'], $validated['billing_address'], $validated['shipping_address']);
 
         if ($request->filled('primary_payment_method_id')) {
             $validated['primary_payment_method_id'] = $request->input('primary_payment_method_id');
@@ -74,8 +240,17 @@ class CustomerController extends Controller
 
         $customer = Customer::create($validated);
 
-        $attachmentIds = [];
+        // Attach addresses to customer through pivot table
+        foreach ($addresses as $addressData) {
+            $customer->addresses()->attach($addressData['address_id'], [
+                'address_type' => $addressData['address_type'],
+                'is_primary' => $addressData['is_primary'],
+                'address_name' => $addressData['address_name'],
+                'notes' => $addressData['notes'] ?? null,
+            ]);
+        }
 
+        // Handle attachments
         if ($request->hasFile('attachments')) {
             $tenantId = tenant('id');
             $files = is_array($request->file('attachments'))
@@ -88,17 +263,15 @@ class CustomerController extends Controller
                     $file
                 );
 
-                $attachment = CustomerAttachment::create([
+                CustomerAttachment::create([
                     'customer_id' => $customer->id,
+                    'file_name' => $file->getClientOriginalName(),
                     'file_path' => url(Storage::url($path)),
+                    'file_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                    'category' => 'document',
                 ]);
-
-                $attachmentIds[] = $attachment->id;
             }
-
-            $customer->update([
-                'attachment_ids' => $attachmentIds
-            ]);
         }
 
         app('cache')->store('database')->forget("tenant_" . tenant('id') . "_customers");
@@ -106,10 +279,15 @@ class CustomerController extends Controller
         return response()->json([
             'message' => 'Customer created successfully',
             'data' => $customer->load([
-                'billingAddress',
-                'shippingAddress',
-                'primaryPaymentMethod',
+                'addresses',
+                'billingAddresses',
+                'shippingAddresses',
+                'primaryBillingAddress',
+                'primaryShippingAddress',
+                'paymentMethod',
                 'paymentTerm',
+                'primaryContact',
+                'contacts',
             ])->toArray() + [
                 'attachments' => $customer->attachments()->pluck('file_path'),
             ],
@@ -125,26 +303,129 @@ class CustomerController extends Controller
 
         if (!$cached) {
             $customer->load([
-                'customerGroup',
-                'salesman',
-                'referBy',
-                'paymentTerm',
-                'primaryPaymentMethod',
-                'openingCurrency',
-                'billingAddress',
-                'shippingAddress',
-                'parentCustomer',
-                'subCustomers',
-                'attachments'
+                'customerGroup:id,name',
+                'salesman:id,name',
+                'collector:id,name',
+                'supervisor:id,name',
+                'manager:id,name',
+                'paymentTerm:id,name',
+                'paymentMethod:id,name',
+                'trade:id,name',
+                'companyCode:id,code',
+                'businessType:id,name',
+                'salesChannel:id,name',
+                'distributionChannel:id,name',
+                'mediaChannel:id,name',
+                'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+                'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+                'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+                'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+                'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+                'primaryContact:id,name,phone,email',
+                'contacts:id,name,phone,email',
+                'attachments:id,file_name,file_path'
             ]);
             $cached = $customer;
             app('cache')->store('database')->forever($key, $cached);
         }
 
+        // Transform the response to be lighter
+        $transformedData = [
+            'id' => $cached->id,
+            'title' => $cached->title,
+            'first_name' => $cached->first_name,
+            'middle_name' => $cached->middle_name,
+            'last_name' => $cached->last_name,
+            'display_name' => $cached->display_name,
+            'company_name' => $cached->company_name,
+            'phone1' => $cached->phone1,
+            'phone2' => $cached->phone2,
+            'phone3' => $cached->phone3,
+            'file_number' => $cached->file_number,
+            'bar_code' => $cached->bar_code,
+            'search_terms' => $cached->search_terms,
+            'indicator' => $cached->indicator,
+            'risk_category' => $cached->risk_category,
+            'active' => $cached->active,
+            'black_listed' => $cached->black_listed,
+            'one_time_account' => $cached->one_time_account,
+            'special_account' => $cached->special_account,
+            'pos_customer' => $cached->pos_customer,
+            'free_delivery_charge' => $cached->free_delivery_charge,
+            'print_invoice_language' => $cached->print_invoice_language,
+            'send_invoice' => $cached->send_invoice,
+            'add_message' => $cached->add_message,
+            'invoice_message' => $cached->invoice_message,
+            'notes' => $cached->notes,
+            'created_at' => $cached->created_at,
+            'updated_at' => $cached->updated_at,
+            // Related data with only essential info
+            'customer_group' => $cached->customerGroup ? [
+                'id' => $cached->customerGroup->id,
+                'name' => $cached->customerGroup->name
+            ] : null,
+            'salesman' => $cached->salesman ? [
+                'id' => $cached->salesman->id,
+                'name' => $cached->salesman->name
+            ] : null,
+            'collector' => $cached->collector ? [
+                'id' => $cached->collector->id,
+                'name' => $cached->collector->name
+            ] : null,
+            'supervisor' => $cached->supervisor ? [
+                'id' => $cached->supervisor->id,
+                'name' => $cached->supervisor->name
+            ] : null,
+            'manager' => $cached->manager ? [
+                'id' => $cached->manager->id,
+                'name' => $cached->manager->name
+            ] : null,
+            'payment_term' => $cached->paymentTerm ? [
+                'id' => $cached->paymentTerm->id,
+                'name' => $cached->paymentTerm->name
+            ] : null,
+            'payment_method' => $cached->paymentMethod ? [
+                'id' => $cached->paymentMethod->id,
+                'name' => $cached->paymentMethod->name
+            ] : null,
+            'trade' => $cached->trade ? [
+                'id' => $cached->trade->id,
+                'name' => $cached->trade->name
+            ] : null,
+            'company_code' => $cached->companyCode ? [
+                'id' => $cached->companyCode->id,
+                'code' => $cached->companyCode->code
+            ] : null,
+            'business_type' => $cached->businessType ? [
+                'id' => $cached->businessType->id,
+                'name' => $cached->businessType->name
+            ] : null,
+            'sales_channel' => $cached->salesChannel ? [
+                'id' => $cached->salesChannel->id,
+                'name' => $cached->salesChannel->name
+            ] : null,
+            'distribution_channel' => $cached->distributionChannel ? [
+                'id' => $cached->distributionChannel->id,
+                'name' => $cached->distributionChannel->name
+            ] : null,
+            'media_channel' => $cached->mediaChannel ? [
+                'id' => $cached->mediaChannel->id,
+                'name' => $cached->mediaChannel->name
+            ] : null,
+            // Addresses with only essential info - use first() to get single model from collection
+            'primary_billing_address_id' => $cached->primaryBillingAddress->first() ? $cached->primaryBillingAddress->first()->id : null,
+            'primary_shipping_address_id' => $cached->primaryShippingAddress->first() ? $cached->primaryShippingAddress->first()->id : null,
+            'primary_contact_id' => $cached->primaryContact ? $cached->primaryContact->id : null,
+            // Count of related items
+            'addresses_count' => $cached->addresses->count(),
+            'contacts_count' => $cached->contacts->count(),
+            'attachments_count' => $cached->attachments->count(),
+        ];
+
         return response()->json([
             'status' => true,
             'message' => 'Customer details fetched successfully.',
-            'data' => $cached,
+            'data' => $transformedData,
         ]);
     }
 
@@ -152,13 +433,70 @@ class CustomerController extends Controller
     {
         $validated = $request->validated();
         logger()->info('Validated data', $validated);
-        if ($request->filled('billing_address')) {
-            $customer->billingAddress()->update($request->input('billing_address'));
+
+        // Handle addresses - new structure
+        if ($request->has('addresses')) {
+            // Remove all existing addresses and create new ones
+            $customer->addresses()->detach();
+
+            foreach ($request->input('addresses') as $addressData) {
+                $address = Address::create([
+                    'address_line1' => $addressData['address_line1'],
+                    'address_line2' => $addressData['address_line2'] ?? null,
+                    'country_id' => $addressData['country_id'],
+                    'city_id' => $addressData['city_id'],
+                    'district_id' => $addressData['district_id'] ?? null,
+                    'zone_id' => $addressData['zone_id'] ?? null,
+                    'building' => $addressData['building'] ?? null,
+                    'block' => $addressData['block'] ?? null,
+                    'floor' => $addressData['floor'] ?? null,
+                    'side' => $addressData['side'] ?? null,
+                    'appartment' => $addressData['appartment'] ?? null,
+                    'zip_code' => $addressData['zip_code'] ?? null,
+                ]);
+
+                $customer->addresses()->attach($address->id, [
+                    'address_type' => $addressData['address_type'],
+                    'is_primary' => $addressData['is_primary'] ?? false,
+                    'address_name' => $addressData['address_name'] ?? null,
+                    'notes' => $addressData['notes'] ?? null,
+                ]);
+            }
+        } else {
+            // Legacy structure: update existing addresses
+            if ($request->filled('billing_address')) {
+                $primaryBillingAddress = $customer->primaryBillingAddress()->first();
+                if ($primaryBillingAddress) {
+                    $primaryBillingAddress->update($request->input('billing_address'));
+                } else {
+                    // Create new billing address if none exists
+                    $billingAddress = Address::create($request->input('billing_address'));
+                    $customer->addresses()->attach($billingAddress->id, [
+                        'address_type' => 'billing',
+                        'is_primary' => true,
+                        'address_name' => 'Primary Billing Address',
+                    ]);
+                }
+            }
+
+            if ($request->filled('shipping_address')) {
+                $primaryShippingAddress = $customer->primaryShippingAddress()->first();
+                if ($primaryShippingAddress) {
+                    $primaryShippingAddress->update($request->input('shipping_address'));
+                } else {
+                    // Create new shipping address if none exists
+                    $shippingAddress = Address::create($request->input('shipping_address'));
+                    $customer->addresses()->attach($shippingAddress->id, [
+                        'address_type' => 'shipping',
+                        'is_primary' => true,
+                        'address_name' => 'Primary Shipping Address',
+                    ]);
+                }
+            }
         }
 
-        if ($request->filled('shipping_address')) {
-            $customer->shippingAddress()->update($request->input('shipping_address'));
-        }
+        // Remove address fields from validated data since we handle them separately
+        unset($validated['addresses'], $validated['billing_address'], $validated['shipping_address']);
 
         if ($request->filled('primary_payment_method_id')) {
             $validated['primary_payment_method_id'] = $request->input('primary_payment_method_id');
@@ -175,16 +513,18 @@ class CustomerController extends Controller
 
         $customer->update($validated);
 
+        // Handle attachments
         if ($request->hasFile('attachments')) {
             $tenantId = tenant('id');
 
+            // Delete existing attachments
             foreach ($customer->attachments as $attachment) {
                 $relativePath = str_replace(url('/storage'), '', $attachment->file_path);
                 Storage::disk('public')->delete($relativePath);
                 $attachment->delete();
             }
 
-            $newAttachmentIds = [];
+            // Create new attachments
             $files = is_array($request->file('attachments'))
                 ? $request->file('attachments')
                 : [$request->file('attachments')];
@@ -195,17 +535,15 @@ class CustomerController extends Controller
                     $file
                 );
 
-                $attachment = CustomerAttachment::create([
+                CustomerAttachment::create([
                     'customer_id' => $customer->id,
+                    'file_name' => $file->getClientOriginalName(),
                     'file_path' => url(Storage::url($path)),
+                    'file_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                    'category' => 'document',
                 ]);
-
-                $newAttachmentIds[] = $attachment->id;
             }
-
-            $customer->update([
-                'attachment_ids' => $newAttachmentIds,
-            ]);
         }
 
         $tenantId = tenant('id');
@@ -216,10 +554,15 @@ class CustomerController extends Controller
             'status' => true,
             'message' => 'Customer updated successfully.',
             'data' => $customer->load([
-                'billingAddress',
-                'shippingAddress',
-                'primaryPaymentMethod',
+                'addresses',
+                'billingAddresses',
+                'shippingAddresses',
+                'primaryBillingAddress',
+                'primaryShippingAddress',
+                'paymentMethod',
                 'paymentTerm',
+                'primaryContact',
+                'contacts',
                 'attachments',
             ]),
         ]);
@@ -273,14 +616,17 @@ class CustomerController extends Controller
         $customers = Customer::with([
             'customerGroup',
             'salesman',
-            'referBy',
+            'collector',
+            'supervisor',
+            'manager',
             'paymentTerm',
-            'primaryPaymentMethod',
-            'openingCurrency',
-            'billingAddress',
-            'shippingAddress',
-            'parentCustomer',
-            'subCustomers',
+            'paymentMethod',
+            'trade',
+            'companyCode',
+            'businessType',
+            'salesChannel',
+            'distributionChannel',
+            'mediaChannel',
         ])->select('id', 'first_name', 'last_name');
         $collection = $customers->get();
         if ($collection->isEmpty()) {
@@ -290,29 +636,121 @@ class CustomerController extends Controller
             'id',
             'first_name',
             'last_name',
+            'title',
+            'middle_name',
+            'company_name',
+            'phone1',
+            'phone2',
+            'phone3',
+            'file_number',
+            'bar_code',
+            'search_terms',
+            'trade_id',
+            'company_code_id',
             'customer_group_id',
+            'business_type_id',
+            'sales_channel_id',
+            'distribution_channel_id',
+            'media_channel_id',
+            'indicator',
+            'risk_category',
             'salesman_id',
-            'refer_by_id',
+            'collector_id',
+            'supervisor_id',
+            'manager_id',
             'payment_term_id',
-            'primary_payment_method_id',
-            'opening_currency_id',
-            'billing_address_id',
-            'shipping_address_id',
-            'parent_customer_id'
+            'payment_method_id',
+            'allow_credit',
+            'accept_cheque',
+            'payment_day',
+            'track_payment',
+            'settlement_method',
+            'pricing_choice',
+            'discount_by_item',
+            'global_discount',
+            'discount_class',
+            'markup_percentage',
+            'markdown_percentage',
+            'taxable',
+            'tax_rate',
+            'tax_number',
+            'is_exempted',
+            'exemption_from',
+            'exemption_reference',
+            'exempted_from_date',
+            'exempted_till_date',
+            'active',
+            'black_listed',
+            'one_time_account',
+            'special_account',
+            'pos_customer',
+            'free_delivery_charge',
+            'print_invoice_language',
+            'send_invoice',
+            'add_message',
+            'invoice_message',
+            'contacts_id',
+            'notes'
         ];
         $headings = [
             'ID',
-            'First_name',
-            'Last_name',
+            'First Name',
+            'Last Name',
+            'Title',
+            'Middle Name',
+            'Company Name',
+            'Phone 1',
+            'Phone 2',
+            'Phone 3',
+            'File Number',
+            'Bar Code',
+            'Search Terms',
+            'Trade ID',
+            'Company Code ID',
             'Customer Group ID',
+            'Business Type ID',
+            'Sales Channel ID',
+            'Distribution Channel ID',
+            'Media Channel ID',
+            'Indicator',
+            'Risk Category',
             'Salesman ID',
-            'Refer By ID',
+            'Collector ID',
+            'Supervisor ID',
+            'Manager ID',
             'Payment Term ID',
-            'Primary Payment Method ID',
-            'Opening Currency ID',
-            'Billing Address ID',
-            'Shipping Address ID',
-            'Parent Customer ID'
+            'Payment Method ID',
+            'Allow Credit',
+            'Accept Cheque',
+            'Payment Day',
+            'Track Payment',
+            'Settlement Method',
+            'Pricing Choice',
+            'Discount By Item',
+            'Global Discount',
+            'Discount Class',
+            'Markup Percentage',
+            'Markdown Percentage',
+            'Taxable',
+            'Tax Rate',
+            'Tax Number',
+            'Is Exempted',
+            'Exemption From',
+            'Exemption Reference',
+            'Exempted From Date',
+            'Exempted Till Date',
+            'Active',
+            'Black Listed',
+            'One Time Account',
+            'Special Account',
+            'POS Customer',
+            'Free Delivery Charge',
+            'Print Invoice Language',
+            'Send Invoice',
+            'Add Message',
+            'Invoice Message',
+            'Contacts ID',
+            'Notes'
         ];
         return Excel::download(new Export($customers, $columns, $headings), 'customers.xlsx');
     }
@@ -324,15 +762,61 @@ class CustomerController extends Controller
             'id',
             'first_name',
             'last_name',
+            'title',
+            'middle_name',
+            'company_name',
+            'phone1',
+            'phone2',
+            'phone3',
+            'file_number',
+            'bar_code',
+            'search_terms',
+            'trade_id',
+            'company_code_id',
             'customer_group_id',
+            'business_type_id',
+            'sales_channel_id',
+            'distribution_channel_id',
+            'media_channel_id',
+            'indicator',
+            'risk_category',
             'salesman_id',
-            'refer_by_id',
+            'collector_id',
+            'supervisor_id',
+            'manager_id',
             'payment_term_id',
-            'primary_payment_method_id',
-            'opening_currency_id',
-            'billing_address_id',
-            'shipping_address_id',
-            'parent_customer_id'
+            'payment_method_id',
+            'allow_credit',
+            'accept_cheque',
+            'payment_day',
+            'track_payment',
+            'settlement_method',
+            'pricing_choice',
+            'discount_by_item',
+            'global_discount',
+            'discount_class',
+            'markup_percentage',
+            'markdown_percentage',
+            'taxable',
+            'tax_rate',
+            'tax_number',
+            'is_exempted',
+            'exemption_from',
+            'exemption_reference',
+            'exempted_from_date',
+            'exempted_till_date',
+            'active',
+            'black_listed',
+            'one_time_account',
+            'special_account',
+            'pos_customer',
+            'free_delivery_charge',
+            'print_invoice_language',
+            'send_invoice',
+            'add_message',
+            'invoice_message',
+            'contacts_id',
+            'notes'
         )->get();
 
         if ($customers->isEmpty()) {
@@ -344,15 +828,61 @@ class CustomerController extends Controller
             'id' => 'Customer ID',
             'first_name' => 'First Name',
             'last_name' => 'Last Name',
-            'customer_group_id' => 'Customer Group',
-            'salesman_id' => 'Salesman',
-            'refer_by_id' => 'Referred By',
-            'payment_term_id' => 'Payment Term',
-            'primary_payment_method_id' => 'Payment Method',
-            'opening_currency_id' => 'Currency',
-            'billing_address_id' => 'Billing Address',
-            'shipping_address_id' => 'Shipping Address',
-            'parent_customer_id' => 'Parent Customer'
+            'title' => 'Title',
+            'middle_name' => 'Middle Name',
+            'company_name' => 'Company Name',
+            'phone1' => 'Phone 1',
+            'phone2' => 'Phone 2',
+            'phone3' => 'Phone 3',
+            'file_number' => 'File Number',
+            'bar_code' => 'Bar Code',
+            'search_terms' => 'Search Terms',
+            'trade_id' => 'Trade ID',
+            'company_code_id' => 'Company Code ID',
+            'customer_group_id' => 'Customer Group ID',
+            'business_type_id' => 'Business Type ID',
+            'sales_channel_id' => 'Sales Channel ID',
+            'distribution_channel_id' => 'Distribution Channel ID',
+            'media_channel_id' => 'Media Channel ID',
+            'indicator' => 'Indicator',
+            'risk_category' => 'Risk Category',
+            'salesman_id' => 'Salesman ID',
+            'collector_id' => 'Collector ID',
+            'supervisor_id' => 'Supervisor ID',
+            'manager_id' => 'Manager ID',
+            'payment_term_id' => 'Payment Term ID',
+            'payment_method_id' => 'Payment Method ID',
+            'allow_credit' => 'Allow Credit',
+            'accept_cheque' => 'Accept Cheque',
+            'payment_day' => 'Payment Day',
+            'track_payment' => 'Track Payment',
+            'settlement_method' => 'Settlement Method',
+            'pricing_choice' => 'Pricing Choice',
+            'discount_by_item' => 'Discount By Item',
+            'global_discount' => 'Global Discount',
+            'discount_class' => 'Discount Class',
+            'markup_percentage' => 'Markup Percentage',
+            'markdown_percentage' => 'Markdown Percentage',
+            'taxable' => 'Taxable',
+            'tax_rate' => 'Tax Rate',
+            'tax_number' => 'Tax Number',
+            'is_exempted' => 'Is Exempted',
+            'exemption_from' => 'Exemption From',
+            'exemption_reference' => 'Exemption Reference',
+            'exempted_from_date' => 'Exempted From Date',
+            'exempted_till_date' => 'Exempted Till Date',
+            'active' => 'Active',
+            'black_listed' => 'Black Listed',
+            'one_time_account' => 'One Time Account',
+            'special_account' => 'Special Account',
+            'pos_customer' => 'POS Customer',
+            'free_delivery_charge' => 'Free Delivery Charge',
+            'print_invoice_language' => 'Print Invoice Language',
+            'send_invoice' => 'Send Invoice',
+            'add_message' => 'Add Message',
+            'invoice_message' => 'Invoice Message',
+            'contacts_id' => 'Contacts ID',
+            'notes' => 'Notes'
         ];
 
         $data = $customers->toArray();
@@ -372,8 +902,61 @@ class CustomerController extends Controller
             [
                 'first_name',
                 'last_name',
-                'billing_address_id',
-                'shipping_address_id',
+                'title',
+                'middle_name',
+                'company_name',
+                'phone1',
+                'phone2',
+                'phone3',
+                'file_number',
+                'bar_code',
+                'search_terms',
+                'trade_id',
+                'company_code_id',
+                'customer_group_id',
+                'business_type_id',
+                'sales_channel_id',
+                'distribution_channel_id',
+                'media_channel_id',
+                'indicator',
+                'risk_category',
+                'salesman_id',
+                'collector_id',
+                'supervisor_id',
+                'manager_id',
+                'payment_term_id',
+                'payment_method_id',
+                'allow_credit',
+                'accept_cheque',
+                'payment_day',
+                'track_payment',
+                'settlement_method',
+                'pricing_choice',
+                'discount_by_item',
+                'global_discount',
+                'discount_class',
+                'markup_percentage',
+                'markdown_percentage',
+                'taxable',
+                'tax_rate',
+                'tax_number',
+                'is_exempted',
+                'exemption_from',
+                'exemption_reference',
+                'exempted_from_date',
+                'exempted_till_date',
+                'active',
+                'black_listed',
+                'one_time_account',
+                'special_account',
+                'pos_customer',
+                'free_delivery_charge',
+                'print_invoice_language',
+                'send_invoice',
+                'add_message',
+                'invoice_message',
+                'contacts_id',
+                'notes'
             ],
             function ($row) {
                 $errors = [];
@@ -383,28 +966,28 @@ class CustomerController extends Controller
                     $errors[] = 'Missing first_name';
                 if (empty($row['last_name']))
                     $errors[] = 'Missing last_name';
-                if (empty($row['billing_address_id']))
-                    $errors[] = 'Missing billing_address_id';
-                if (empty($row['shipping_address_id']))
-                    $errors[] = 'Missing shipping_address_id';
 
                 // Optional validations
-                if (!empty($row['email']) && !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
-                    $errors[] = 'Invalid email format';
-                }
-
                 foreach (['phone1', 'phone2', 'phone3'] as $phoneField) {
-                    if (!empty($row[$phoneField]) && !ctype_digit(strval($row[$phoneField]))) {
-                        $errors[] = "$phoneField must be numeric";
+                    if (!empty($row[$phoneField]) && !is_string($row[$phoneField])) {
+                        $errors[] = "$phoneField must be a string";
                     }
                 }
 
-                if (isset($row['credit_limit']) && !is_numeric($row['credit_limit'])) {
-                    $errors[] = 'credit_limit must be numeric';
+                if (isset($row['discount_by_item']) && !is_numeric($row['discount_by_item'])) {
+                    $errors[] = 'discount_by_item must be numeric';
                 }
 
-                if (isset($row['opening_balance']) && !is_numeric($row['opening_balance'])) {
-                    $errors[] = 'opening_balance must be numeric';
+                if (isset($row['global_discount']) && !is_numeric($row['global_discount'])) {
+                    $errors[] = 'global_discount must be numeric';
+                }
+
+                if (isset($row['markup_percentage']) && !is_numeric($row['markup_percentage'])) {
+                    $errors[] = 'markup_percentage must be numeric';
+                }
+
+                if (isset($row['markdown_percentage']) && !is_numeric($row['markdown_percentage'])) {
+                    $errors[] = 'markdown_percentage must be numeric';
                 }
 
                 return $errors;
@@ -415,32 +998,60 @@ class CustomerController extends Controller
                     'first_name' => $row['first_name'],
                     'middle_name' => $row['middle_name'] ?? null,
                     'last_name' => $row['last_name'],
-                    'suffix' => $row['suffix'] ?? null,
                     'display_name' => $row['display_name'] ?? null,
                     'company_name' => $row['company_name'] ?? null,
                     'phone1' => $row['phone1'] ?? null,
                     'phone2' => $row['phone2'] ?? null,
                     'phone3' => $row['phone3'] ?? null,
-                    'email' => $row['email'] ?? null,
-                    'website' => $row['website'] ?? null,
                     'file_number' => $row['file_number'] ?? null,
-                    'billing_address_id' => $row['billing_address_id'],
-                    'shipping_address_id' => $row['shipping_address_id'],
-                    'is_sub_customer' => boolval($row['is_sub_customer'] ?? false),
-                    'parent_customer_id' => $row['parent_customer_id'] ?? null,
+                    'bar_code' => $row['bar_code'] ?? null,
+                    'search_terms' => $row['search_terms'] ?? null,
+                    'trade_id' => $row['trade_id'] ?? null,
+                    'company_code_id' => $row['company_code_id'] ?? null,
                     'customer_group_id' => $row['customer_group_id'] ?? null,
+                    'business_type_id' => $row['business_type_id'] ?? null,
+                    'sales_channel_id' => $row['sales_channel_id'] ?? null,
+                    'distribution_channel_id' => $row['distribution_channel_id'] ?? null,
+                    'media_channel_id' => $row['media_channel_id'] ?? null,
+                    'indicator' => $row['indicator'] ?? null,
+                    'risk_category' => $row['risk_category'] ?? null,
                     'salesman_id' => $row['salesman_id'] ?? null,
-                    'refer_by_id' => $row['refer_by_id'] ?? null,
-                    'primary_payment_method_id' => $row['primary_payment_method_id'] ?? null,
+                    'collector_id' => $row['collector_id'] ?? null,
+                    'supervisor_id' => $row['supervisor_id'] ?? null,
+                    'manager_id' => $row['manager_id'] ?? null,
                     'payment_term_id' => $row['payment_term_id'] ?? null,
-                    'credit_limit' => $row['credit_limit'] ?? null,
-                    'taxable' => $row['taxable'] ?? null,
-                    'tax_registration' => $row['tax_registration'] ?? null,
-                    'opening_currency_id' => $row['opening_currency_id'] ?? null,
-                    'opening_balance' => $row['opening_balance'] ?? null,
+                    'payment_method_id' => $row['payment_method_id'] ?? null,
+                    'allow_credit' => boolval($row['allow_credit'] ?? false),
+                    'accept_cheque' => boolval($row['accept_cheque'] ?? false),
+                    'payment_day' => $row['payment_day'] ?? null,
+                    'track_payment' => $row['track_payment'] ?? 'no',
+                    'settlement_method' => $row['settlement_method'] ?? 'FIFO',
+                    'pricing_choice' => $row['pricing_choice'] ?? 'price1',
+                    'discount_by_item' => $row['discount_by_item'] ?? null,
+                    'global_discount' => $row['global_discount'] ?? null,
+                    'discount_class' => $row['discount_class'] ?? null,
+                    'markup_percentage' => $row['markup_percentage'] ?? null,
+                    'markdown_percentage' => $row['markdown_percentage'] ?? null,
+                    'taxable' => boolval($row['taxable'] ?? false),
+                    'tax_rate' => $row['tax_rate'] ?? null,
+                    'tax_number' => $row['tax_number'] ?? null,
+                    'is_exempted' => boolval($row['is_exempted'] ?? false),
+                    'exemption_from' => $row['exemption_from'] ?? null,
+                    'exemption_reference' => $row['exemption_reference'] ?? null,
+                    'exempted_from_date' => $row['exempted_from_date'] ?? null,
+                    'exempted_till_date' => $row['exempted_till_date'] ?? null,
+                    'active' => boolval($row['active'] ?? true),
+                    'black_listed' => boolval($row['black_listed'] ?? false),
+                    'one_time_account' => boolval($row['one_time_account'] ?? true),
+                    'special_account' => boolval($row['special_account'] ?? false),
+                    'pos_customer' => boolval($row['pos_customer'] ?? false),
+                    'free_delivery_charge' => boolval($row['free_delivery_charge'] ?? false),
+                    'print_invoice_language' => $row['print_invoice_language'] ?? 'English',
+                    'send_invoice' => $row['send_invoice'] ?? 'email',
+                    'add_message' => boolval($row['add_message'] ?? false),
+                    'invoice_message' => $row['invoice_message'] ?? null,
+                    'contacts_id' => $row['contacts_id'] ?? null,
                     'notes' => $row['notes'] ?? null,
-                    'attachments' => $row['attachments'] ?? null,
-                    'is_inactive' => boolval($row['is_inactive'] ?? false),
                 ];
             }
         );

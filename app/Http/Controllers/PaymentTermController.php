@@ -28,7 +28,7 @@ class PaymentTermController extends Controller
             'code' => 'required|string|unique:payment_terms,code',
             'name' => 'required|string',
             'nb_days' => 'required|integer|min:0',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
 
         $paymentTerm = PaymentTerm::create($request->all());
@@ -53,7 +53,7 @@ class PaymentTermController extends Controller
             'code' => 'required|string|unique:payment_terms,code,' . $paymentTerm->id,
             'name' => 'required|string',
             'nb_days' => 'required|integer|min:0',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
 
         $paymentTerm->update($request->all());
