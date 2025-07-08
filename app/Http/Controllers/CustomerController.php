@@ -48,8 +48,8 @@ class CustomerController extends Controller
                 'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
                 'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
                 'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'primaryContact:id,name,phone,email',
-                'contacts:id,name,phone,email',
+                'primaryContact:id,name,email',
+                'contacts:id,name,email',
                 'attachments:id,file_name,file_path'
             ])->paginate(10);
 
@@ -321,8 +321,8 @@ class CustomerController extends Controller
                 'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
                 'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
                 'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'primaryContact:id,name,phone,email',
-                'contacts:id,name,phone,email',
+                'primaryContact:id,name,email',
+                'contacts:id,name,email',
                 'attachments:id,file_name,file_path'
             ]);
             $cached = $customer;
