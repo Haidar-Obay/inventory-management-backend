@@ -20,9 +20,7 @@ return new class extends Migration
             $table->boolean('is_supervisor')->default(false);
             $table->boolean('is_collector')->default(false);
             $table->decimal('fix_commission', 8, 2)->nullable();
-            $table->decimal('commission_percent', 8, 2)->nullable();
             $table->decimal('commission_by_item', 8, 2)->nullable();
-            $table->decimal('commission_by_turnover', 8, 2)->nullable();
             $table->boolean('active')->default(false);
             $table->timestamps();
         });

@@ -148,8 +148,8 @@ class SalesmanController extends Controller
             ], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_percent', 'commission_by_item', 'commission_by_turnover', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Email', 'Phone 1', 'Phone 2', 'Address', 'Is Manager', 'Is Supervisor', 'Is Collector', 'Fix Commission', 'Commission %', 'Commission by Item', 'Commission by Turnover', 'Active'];
+        $columns = ['id', 'code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_by_item', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Email', 'Phone 1', 'Phone 2', 'Address', 'Is Manager', 'Is Supervisor', 'Is Collector', 'Fix Commission', 'Commission by Item', 'Active'];
 
         $fileName = 'salesmen_' . date('Y-m-d_H-i-s') . '.xlsx';
         return Excel::download(new Export($salesmen, $columns, $headings), $fileName);
@@ -157,7 +157,7 @@ class SalesmanController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $salesmen = Salesman::select('id', 'code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_percent', 'commission_by_item', 'commission_by_turnover', 'active')->get();
+        $salesmen = Salesman::select('id', 'code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_by_item', 'active')->get();
 
         if ($salesmen->isEmpty()) {
             return response()->json([
@@ -179,9 +179,7 @@ class SalesmanController extends Controller
             'is_supervisor' => 'Is Supervisor',
             'is_collector' => 'Is Collector',
             'fix_commission' => 'Fix Commission',
-            'commission_percent' => 'Commission %',
             'commission_by_item' => 'Commission by Item',
-            'commission_by_turnover' => 'Commission by Turnover',
             'active' => 'Active'
         ];
         $data = $salesmen->toArray();
@@ -198,7 +196,7 @@ class SalesmanController extends Controller
 
         $import = new DynamicExcelImport(
             Salesman::class,
-            ['code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_percent', 'commission_by_item', 'commission_by_turnover', 'active'],
+            ['code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_by_item', 'active'],
             function ($row) {
                 $errors = [];
 
@@ -226,9 +224,7 @@ class SalesmanController extends Controller
                     'is_supervisor' => boolval($row['is_supervisor'] ?? false),
                     'is_collector' => boolval($row['is_collector'] ?? false),
                     'fix_commission' => floatval($row['fix_commission'] ?? 0),
-                    'commission_percent' => floatval($row['commission_percent'] ?? 0),
                     'commission_by_item' => floatval($row['commission_by_item'] ?? 0),
-                    'commission_by_turnover' => floatval($row['commission_by_turnover'] ?? 0),
                     'active' => boolval($row['active'] ?? true),
                 ];
             }

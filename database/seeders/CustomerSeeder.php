@@ -48,9 +48,7 @@ class CustomerSeeder extends Seeder
                 'is_supervisor' => false,
                 'is_collector' => true,
                 'fix_commission' => 0.00,
-                'commission_percent' => 5.00,
                 'commission_by_item' => 0.00,
-                'commission_by_turnover' => 0.00,
                 'active' => true
             ]
         );

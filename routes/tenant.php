@@ -56,6 +56,7 @@ use App\Http\Controllers\MediaChannelController;
 use App\Http\Controllers\CustomerOpeningBalanceController;
 use App\Http\Controllers\CustomerContactController;
 use App\Http\Controllers\CustomerRouteController;
+use App\Http\Controllers\TableTemplateController;
 
 /*
 |--------------------------------------------------------------------------
@@ -124,6 +125,15 @@ Route::middleware([
             Route::apiResource('distribution-channels', DistributionChannelController::class);
             Route::apiResource('transportation-channels', TransportationChannelController::class);
             Route::apiResource('media-channels', MediaChannelController::class);
+
+            // Table Templates Routes
+            Route::prefix('table-templates')->group(function () {
+                Route::get('{tableName}', [TableTemplateController::class, 'index']);
+                Route::post('{tableName}', [TableTemplateController::class, 'store']);
+                Route::get('{tableName}/{templateId}', [TableTemplateController::class, 'show']);
+                Route::put('{tableName}/{templateId}', [TableTemplateController::class, 'update']);
+                Route::delete('{tableName}/{templateId}', [TableTemplateController::class, 'destroy']);
+            });
 
             Route::get('adjustment-types/transaction-types', [AdjustmentTypeController::class, 'getTransactionTypes']);
 

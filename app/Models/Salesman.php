@@ -27,9 +27,7 @@ class Salesman extends Model implements Auditable
         'is_supervisor',
         'is_collector',
         'fix_commission',
-        'commission_percent',
         'commission_by_item',
-        'commission_by_turnover',
         'active'
     ];
 
@@ -38,9 +36,7 @@ class Salesman extends Model implements Auditable
         'is_supervisor' => 'boolean',
         'is_collector' => 'boolean',
         'fix_commission' => 'decimal:2',
-        'commission_percent' => 'decimal:2',
         'commission_by_item' => 'decimal:2',
-        'commission_by_turnover' => 'decimal:2',
         'active' => 'boolean',
     ];
 
@@ -72,16 +68,8 @@ class Salesman extends Model implements Auditable
             $total += $this->fix_commission;
         }
 
-        if ($this->commission_percent) {
-            $total += $this->commission_percent;
-        }
-
         if ($this->commission_by_item) {
             $total += $this->commission_by_item;
-        }
-
-        if ($this->commission_by_turnover) {
-            $total += $this->commission_by_turnover;
         }
 
         return $total;
