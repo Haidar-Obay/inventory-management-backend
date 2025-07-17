@@ -338,4 +338,5 @@ class CustomerOpeningBalanceController extends Controller
             ], 500);
         }
     }
+
 }

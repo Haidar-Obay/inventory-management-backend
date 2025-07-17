@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BusinessType;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
@@ -15,113 +15,209 @@ class BusinessTypeController extends Controller
     public function index()
     {
         $tenantId = tenant('id');
-        $cacheKey = "business_types_{$tenantId}";
+        $key = "tenant_{$tenantId}_business_types";
 
-        return Cache::remember($cacheKey, 3600, function () {
-            return BusinessType::all();
-        });
+        $businessTypes = app('cache')->store('database')->get($key);
+
+        if (!$businessTypes) {
+            $businessTypes = BusinessType::orderBy('name')->get();
+            app('cache')->store('database')->forever($key, $businessTypes);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Business types fetched successfully.',
+            'data' => $businessTypes,
+        ]);
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate(BusinessType::$rules);
-        $businessType = BusinessType::create($validated);
-        Cache::forget("business_types_" . tenant('id'));
+        $validated = $request->validate([
+            'code' => 'required|string|max:50|unique:business_types,code',
+            'name' => 'required|string|max:255',
+        ]);
 
-        return response()->json($businessType, 201);
+        $businessType = BusinessType::create($validated);
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_business_types");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Business type created successfully.',
+            'data' => $businessType,
+        ], 201);
     }
 
     public function show(BusinessType $businessType)
     {
         $tenantId = tenant('id');
-        $cacheKey = "business_type_{$businessType->id}_{$tenantId}";
+        $key = "tenant_{$tenantId}_business_type_{$businessType->id}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($businessType) {
-            return $businessType;
-        });
+        $cachedBusinessType = app('cache')->store('database')->get($key);
+
+        if (!$cachedBusinessType) {
+            $cachedBusinessType = $businessType;
+            app('cache')->store('database')->forever($key, $cachedBusinessType);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Business type details fetched successfully.',
+            'data' => $cachedBusinessType,
+        ]);
     }
 
     public function update(Request $request, BusinessType $businessType)
     {
-        $rules = BusinessType::$rules;
-        $rules['code'] = 'required|string|max:50|unique:business_types,code,' . $businessType->id;
+        $validated = $request->validate([
+            'code' => [
+                'sometimes',
+                'string',
+                'max:50',
+                Rule::unique('business_types', 'code')->ignore($businessType->id),
+            ],
+            'name' => 'sometimes|string|max:255',
+        ]);
 
-        $validated = $request->validate($rules);
         $businessType->update($validated);
 
-        Cache::forget("business_types_" . tenant('id'));
-        Cache::forget("business_type_{$businessType->id}_" . tenant('id'));
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_business_types");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_business_type_{$businessType->id}");
 
-        return response()->json($businessType);
+        return response()->json([
+            'status' => true,
+            'message' => 'Business type updated successfully.',
+            'data' => $businessType,
+        ]);
     }
 
     public function destroy(BusinessType $businessType)
     {
-        // Add any necessary checks before deletion
-        // For example, check if the business type is being used in any customers or suppliers
-
         $businessType->delete();
-        Cache::forget("business_types_" . tenant('id'));
-        Cache::forget("business_type_{$businessType->id}_" . tenant('id'));
 
-        return response()->json(null, 204);
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_business_types");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_business_type_{$businessType->id}");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Business type deleted successfully.',
+        ]);
     }
 
     public function bulkDelete(Request $request)
     {
-        $ids = $request->input('ids');
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:business_types,id',
+        ]);
 
-        if (!$ids || !is_array($ids)) {
-            return response()->json(['message' => 'No business types selected'], 400);
+        $tenantId = tenant('id');
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->ids as $id) {
+            try {
+                $deleted += BusinessType::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_business_type_{$id}");
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+            }
         }
 
-        // Add any necessary checks before bulk deletion
-        // For example, check if any of the business types are being used in customers or suppliers
+        app('cache')->store('database')->forget("tenant_{$tenantId}_business_types");
 
-        BusinessType::whereIn('id', $ids)->delete();
-        Cache::forget("business_types_" . tenant('id'));
-
-        return response()->json(['message' => 'Business types deleted successfully']);
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()
     {
-        $businessTypes = BusinessType::all();
+        $businessTypes = BusinessType::orderBy('name');
+        $collection = $businessTypes->get();
 
-        if ($businessTypes->isEmpty()) {
-            return response()->json(['message' => 'No business types to export'], 404);
+        if ($collection->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No business types to export',
+            ], 404);
         }
+
+        $columns = ['id', 'code', 'name'];
+        $headings = ['ID', 'Code', 'Name'];
 
         $fileName = 'business_types_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($businessTypes), $fileName);
+        return Excel::download(new Export($businessTypes, $columns, $headings), $fileName);
     }
 
-    public function exportPdf()
+    public function exportPdf(ExportPDF $pdfService)
     {
-        $businessTypes = BusinessType::all();
+        $businessTypes = BusinessType::select('id', 'code', 'name')->get();
 
         if ($businessTypes->isEmpty()) {
-            return response()->json(['message' => 'No business types to export'], 404);
+            return response()->json([
+                'status' => false,
+                'message' => 'No business types to export',
+            ], 404);
         }
 
-        $fileName = 'business_types_' . date('Y-m-d_H-i-s') . '.pdf';
-        return Excel::download(new ExportPDF($businessTypes), $fileName);
+        $title = 'Business Types Report';
+        $headers = [
+            'id' => 'ID',
+            'code' => 'Code',
+            'name' => 'Name'
+        ];
+        $data = $businessTypes->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('BusinessTypes.pdf');
     }
 
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls',
+            'file' => 'required|file|mimes:xlsx,xls,csv', 
         ]);
 
-        try {
-            $import = new DynamicExcelImport(new BusinessType());
-            Excel::import($import, $request->file('file'));
-            Cache::forget("business_types_" . tenant('id'));
+        $import = new DynamicExcelImport(
+            BusinessType::class,
+            ['code', 'name'],
+            function ($row) {
+                $errors = [];
 
-            return response()->json(['message' => 'Business types imported successfully']);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Error importing business types: ' . $e->getMessage()], 500);
-        }
+                if (empty($row['code'])) {
+                    $errors[] = 'Missing code';
+                }
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
+                }
+
+                return $errors;
+            },
+            function ($row) {
+                return [
+                    'code' => $row['code'],
+                    'name' => $row['name'],
+                ];
+            }
+        );
+
+        Excel::import($import, $request->file('file'));
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_business_types");
+
+        return response()->json([
+            'success' => true,
+            'rows_imported' => $import->getImportedCount(),
+            'rows_skipped_count' => $import->getSkippedCount(),
+            'skipped_rows' => $import->getSkippedRows(),
+        ]);
     }
 }

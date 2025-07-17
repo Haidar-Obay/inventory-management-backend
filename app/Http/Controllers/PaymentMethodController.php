@@ -15,11 +15,20 @@ class PaymentMethodController extends Controller
     public function index()
     {
         $tenantId = tenant('id');
-        $cacheKey = "payment_methods_{$tenantId}";
+        $key = "tenant_{$tenantId}_payment_methods";
 
-        return Cache::remember($cacheKey, 3600, function () {
-            return PaymentMethod::all();
-        });
+        $paymentMethods = app('cache')->store('database')->get($key);
+
+        if (!$paymentMethods) {
+            $paymentMethods = PaymentMethod::orderBy('name')->get();
+            app('cache')->store('database')->forever($key, $paymentMethods);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Payment methods fetched successfully.',
+            'data' => $paymentMethods,
+        ]);
     }
 
     public function store(Request $request)
@@ -32,19 +41,32 @@ class PaymentMethodController extends Controller
         ]);
 
         $paymentMethod = PaymentMethod::create($validated);
-        Cache::forget("payment_methods_" . tenant('id'));
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_methods");
 
-        return response()->json($paymentMethod, 201);
+        return response()->json([
+            'status' => true,
+            'message' => 'Payment method created successfully.',
+            'data' => $paymentMethod,
+        ], 201);
     }
 
     public function show(PaymentMethod $paymentMethod)
     {
         $tenantId = tenant('id');
-        $cacheKey = "payment_method_{$paymentMethod->id}_{$tenantId}";
+        $key = "tenant_{$tenantId}_payment_method_{$paymentMethod->id}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($paymentMethod) {
-            return $paymentMethod;
-        });
+        $cached = app('cache')->store('database')->get($key);
+        if (!$cached) {
+            $cached = $paymentMethod;
+            app('cache')->store('database')->forever($key, $cached);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Payment method details fetched successfully.',
+            'data' => $cached,
+        ]);
     }
 
     public function update(Request $request, PaymentMethod $paymentMethod)
@@ -57,90 +79,142 @@ class PaymentMethodController extends Controller
         ]);
 
         $paymentMethod->update($validated);
-        Cache::forget("payment_methods_" . tenant('id'));
-        Cache::forget("payment_method_{$paymentMethod->id}_" . tenant('id'));
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_methods");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_method_{$paymentMethod->id}");
 
-        return response()->json($paymentMethod);
+        return response()->json([
+            'status' => true,
+            'message' => 'Payment method updated successfully.',
+            'data' => $paymentMethod,
+        ]);
     }
 
     public function destroy(PaymentMethod $paymentMethod)
     {
         if ($paymentMethod->customers()->exists()) {
-            return response()->json(['message' => 'Cannot delete payment method with associated customers'], 422);
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete payment method with associated customers',
+            ], 422);
         }
 
         $paymentMethod->delete();
-        Cache::forget("payment_methods_" . tenant('id'));
-        Cache::forget("payment_method_{$paymentMethod->id}_" . tenant('id'));
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_methods");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_method_{$paymentMethod->id}");
 
-        return response()->json(null, 204);
+        return response()->json([
+            'status' => true,
+            'message' => 'Payment method deleted successfully.',
+        ]);
     }
 
     public function bulkDelete(Request $request)
     {
-        $ids = $request->input('ids');
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:payment_methods,id',
+        ]);
 
-        if (!$ids || !is_array($ids)) {
-            return response()->json(['message' => 'No payment methods selected'], 400);
-        }
+        $tenantId = tenant('id');
+        $skipped = [];
+        $deleted = 0;
 
-        $paymentMethods = PaymentMethod::whereIn('id', $ids)->get();
-        $errors = [];
-
-        foreach ($paymentMethods as $paymentMethod) {
-            if ($paymentMethod->customers()->exists()) {
-                $errors[] = "Payment method {$paymentMethod->name} has associated customers and cannot be deleted";
+        foreach ($request->ids as $id) {
+            $method = PaymentMethod::find($id);
+            if ($method && !$method->customers()->exists()) {
+                $method->delete();
+                $deleted++;
+                app('cache')->store('database')->forget("tenant_{$tenantId}_payment_method_{$id}");
+            } else {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => $method ? 'Has associated customers' : 'Not found',
+                ];
             }
         }
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_methods");
 
-        if (!empty($errors)) {
-            return response()->json(['message' => 'Some payment methods could not be deleted', 'errors' => $errors], 422);
-        }
-
-        PaymentMethod::whereIn('id', $ids)->delete();
-        Cache::forget("payment_methods_" . tenant('id'));
-
-        return response()->json(['message' => 'Payment methods deleted successfully']);
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()
     {
-        $paymentMethods = PaymentMethod::all();
-
-        if ($paymentMethods->isEmpty()) {
-            return response()->json(['message' => 'No payment methods to export'], 404);
+        $paymentMethods = PaymentMethod::orderBy('name');
+        $collection = $paymentMethods->get();
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No payment methods found.'], 404);
         }
-
-        $fileName = 'payment_methods_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($paymentMethods), $fileName);
+        $columns = ['id', 'code', 'name', 'is_credit_card', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Is Credit Card', 'Active'];
+        return Excel::download(new Export($paymentMethods, $columns, $headings), 'payment_methods.xlsx');
     }
 
-    public function exportPdf()
+    public function exportPdf(ExportPDF $pdfService)
     {
-        $paymentMethods = PaymentMethod::all();
-
+        $paymentMethods = PaymentMethod::select('id', 'code', 'name', 'is_credit_card', 'active')->get();
         if ($paymentMethods->isEmpty()) {
-            return response()->json(['message' => 'No payment methods to export'], 404);
+            return response()->json(['message' => 'No payment methods found.'], 404);
         }
-
-        $fileName = 'payment_methods_' . date('Y-m-d_H-i-s') . '.pdf';
-        return Excel::download(new ExportPDF($paymentMethods), $fileName);
+        $title = 'Payment Methods Report';
+        $headers = [
+            'id' => 'ID',
+            'code' => 'Code',
+            'name' => 'Name',
+            'is_credit_card' => 'Is Credit Card',
+            'active' => 'Active',
+        ];
+        $data = $paymentMethods->toArray();
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('PaymentMethods.pdf');
     }
 
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls',
+            'file' => 'required|file|mimes:xlsx,xls,csv',
         ]);
 
-        try {
-            $import = new DynamicExcelImport(new PaymentMethod());
-            Excel::import($import, $request->file('file'));
-            Cache::forget("payment_methods_" . tenant('id'));
+        $import = new DynamicExcelImport(
+            PaymentMethod::class,
+            ['code', 'name', 'is_credit_card', 'active'],
+            function ($row) {
+                $errors = [];
+                if (empty($row['code'])) {
+                    $errors[] = 'Missing code';
+                }
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
+                }
+                if (!isset($row['is_credit_card'])) {
+                    $errors[] = 'Missing is_credit_card';
+                }
+                return $errors;
+            },
+            function ($row) {
+                return [
+                    'code' => $row['code'],
+                    'name' => $row['name'],
+                    'is_credit_card' => isset($row['is_credit_card']) ? (bool)$row['is_credit_card'] : false,
+                    'active' => isset($row['active']) ? (bool)$row['active'] : true,
+                ];
+            }
+        );
 
-            return response()->json(['message' => 'Payment methods imported successfully']);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Error importing payment methods: ' . $e->getMessage()], 500);
-        }
+        Excel::import($import, $request->file('file'));
+        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_payment_methods');
+
+        return response()->json([
+            'success' => true,
+            'rows_imported' => $import->getImportedCount(),
+            'rows_skipped_count' => $import->getSkippedCount(),
+            'skipped_rows' => $import->getSkippedRows(),
+        ]);
     }
 }
+

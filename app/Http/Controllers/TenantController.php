@@ -191,7 +191,7 @@ class TenantController extends Controller
         $tenant = tenancy()->central(fn () => Cache::store('database')->get($cacheKey));
 
         if (!$tenant) {
-            $model = Tenant::with('domains')->find($id);
+            $model = Tenant::with(['domains', 'subscriptionPlan'])->find($id);
             if (!$model) {
                 return response()->json(['message' => 'Tenant not found'], 404);
             }
@@ -205,8 +205,18 @@ class TenantController extends Controller
                 'email' => $model->email,
                 'domain' => optional($model->domains->first())->domain,
                 'owner' => optional($owner)->name,
-                'created_at' => $model->created_at->toDateTimeString(),
-                'updated_at' => $model->updated_at->toDateTimeString(),
+                'created_at' => $model->created_at ? $model->created_at->toDateTimeString() : null,
+                'updated_at' => $model->updated_at ? $model->updated_at->toDateTimeString() : null,
+                // Subscription fields
+                'subscription_plan_id' => $model->subscription_plan_id,
+                'subscription_plan_name' => $model->subscriptionPlan?->name,
+                'subscription_plan_code' => $model->subscriptionPlan?->code,
+                'subscription_start_date' => $model->subscription_start_date,
+                'subscription_end_date' => $model->subscription_end_date,
+                'subscription_status' => $model->subscription_status,
+                'auto_renew' => $model->auto_renew,
+                'last_billing_date' => $model->last_billing_date,
+                'next_billing_date' => $model->next_billing_date,
             ];
 
             tenancy()->central(fn () => Cache::store('database')->forever($cacheKey, $tenant));

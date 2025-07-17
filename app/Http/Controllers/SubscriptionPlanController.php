@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SubscriptionPlan;
+use App\Models\Currency;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
@@ -76,7 +77,6 @@ class SubscriptionPlanController extends Controller
             'max_users' => 'nullable|integer|min:1',
             'max_customers' => 'nullable|integer|min:1',
             'features' => 'nullable|array',
-            'is_active' => 'boolean',
             'is_default' => 'boolean'
         ]);
 
@@ -100,8 +100,8 @@ class SubscriptionPlanController extends Controller
     {
         $plan = SubscriptionPlan::findOrFail($id);
 
-        // Check if any tenants are using this plan
-        if ($plan->tenants()->count() > 0) {
+        // Check if plan is being used by any tenants
+        if ($plan->tenants()->exists()) {
             return response()->json([
                 'message' => 'Cannot delete plan. It is currently being used by tenants.'
             ], 422);
@@ -116,20 +116,62 @@ class SubscriptionPlanController extends Controller
         ]);
     }
 
-    public function getDefaultPlan(): JsonResponse
+    /**
+     * Check current user's subscription status and currency limits
+     */
+    public function checkCurrentUserSubscription(): JsonResponse
     {
-        $plan = SubscriptionPlan::where('is_default', true)
-            ->where('is_active', true)
-            ->first();
+        try {
+            $tenant = tenant();
+            
+            if (!$tenant) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tenant not found'
+                ], 404);
+            }
 
-        if (!$plan) {
+            // Check if tenant has active subscription
+            if (!$tenant->hasActiveSubscription()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your subscription has expired. Please renew to continue using the service.',
+                    'subscription_status' => $tenant->subscription_status,
+                    'can_add_multiple_currencies' => false
+                ], 403);
+            }
+
+            $currentCurrencyCount = Currency::count();
+            $canAddCurrency = $tenant->canAddCurrency($currentCurrencyCount);
+            $plan = $tenant->subscriptionPlan;
+
             return response()->json([
-                'message' => 'No default plan found'
-            ], 404);
+                'success' => true,
+                'data' => [
+                    'can_add_multiple_currencies' => $canAddCurrency,
+                    'current_currency_count' => $currentCurrencyCount,
+                    'max_currencies_allowed' => $plan?->max_currencies ?? 1,
+                    'plan_name' => $plan?->name ?? 'No Plan',
+                    'plan_code' => $plan?->code ?? 'none',
+                    'subscription_status' => $tenant->subscription_status,
+                    'is_active_subscription' => $tenant->hasActiveSubscription(),
+                    'features' => $tenant->getSubscriptionFeatures(),
+                    'can_add_another_currency' => $currentCurrencyCount < ($plan?->max_currencies ?? 1),
+                    'remaining_currency_slots' => max(0, ($plan?->max_currencies ?? 1) - $currentCurrencyCount),
+                    'subscription_info' => [
+                        'start_date' => $tenant->subscription_start_date?->format('Y-m-d'),
+                        'end_date' => $tenant->subscription_end_date?->format('Y-m-d'),
+                        'auto_renew' => $tenant->auto_renew,
+                        'is_expired' => $tenant->isSubscriptionExpired()
+                    ]
+                ],
+                'message' => 'Subscription status checked successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to check subscription status: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'plan' => $plan
-        ]);
     }
 }

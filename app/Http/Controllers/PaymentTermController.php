@@ -15,132 +15,205 @@ class PaymentTermController extends Controller
     public function index()
     {
         $tenantId = tenant('id');
-        $cacheKey = "payment_terms_{$tenantId}";
+        $key = "tenant_{$tenantId}_payment_terms";
 
-        return Cache::remember($cacheKey, 3600, function () {
-            return PaymentTerm::all();
-        });
+        $paymentTerms = app('cache')->store('database')->get($key);
+
+        if (!$paymentTerms) {
+            $paymentTerms = PaymentTerm::orderBy('name')->get();
+            app('cache')->store('database')->forever($key, $paymentTerms);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Payment terms fetched successfully.',
+            'data' => $paymentTerms,
+        ]);
     }
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'code' => 'required|string|unique:payment_terms,code',
             'name' => 'required|string',
             'nb_days' => 'required|integer|min:0',
             'active' => 'boolean',
         ]);
 
-        $paymentTerm = PaymentTerm::create($request->all());
-        Cache::forget("payment_terms_" . tenant('id'));
+        $paymentTerm = PaymentTerm::create($validated);
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_terms");
 
-        return response()->json($paymentTerm, 201);
+        return response()->json([
+            'status' => true,
+            'message' => 'Payment term created successfully.',
+            'data' => $paymentTerm,
+        ], 201);
     }
 
     public function show(PaymentTerm $paymentTerm)
     {
         $tenantId = tenant('id');
-        $cacheKey = "payment_term_{$paymentTerm->id}_{$tenantId}";
+        $key = "tenant_{$tenantId}_payment_term_{$paymentTerm->id}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($paymentTerm) {
-            return $paymentTerm;
-        });
+        $cached = app('cache')->store('database')->get($key);
+        if (!$cached) {
+            $cached = $paymentTerm;
+            app('cache')->store('database')->forever($key, $cached);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Payment term details fetched successfully.',
+            'data' => $cached,
+        ]);
     }
 
     public function update(Request $request, PaymentTerm $paymentTerm)
     {
-        $request->validate([
+        $validated = $request->validate([
             'code' => 'required|string|unique:payment_terms,code,' . $paymentTerm->id,
             'name' => 'required|string',
             'nb_days' => 'required|integer|min:0',
             'active' => 'boolean',
         ]);
 
-        $paymentTerm->update($request->all());
-        Cache::forget("payment_terms_" . tenant('id'));
-        Cache::forget("payment_term_{$paymentTerm->id}_" . tenant('id'));
+        $paymentTerm->update($validated);
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_terms");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_term_{$paymentTerm->id}");
 
-        return response()->json($paymentTerm);
+        return response()->json([
+            'status' => true,
+            'message' => 'Payment term updated successfully.',
+            'data' => $paymentTerm,
+        ]);
     }
 
     public function destroy(PaymentTerm $paymentTerm)
     {
-        // Check if payment term has associated customers
         if ($paymentTerm->customers()->exists()) {
-            return response()->json(['message' => 'Cannot delete payment term with associated customers'], 422);
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete payment term with associated customers',
+            ], 422);
         }
 
         $paymentTerm->delete();
-        Cache::forget("payment_terms_" . tenant('id'));
-        Cache::forget("payment_term_{$paymentTerm->id}_" . tenant('id'));
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_terms");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_term_{$paymentTerm->id}");
 
-        return response()->json(null, 204);
+        return response()->json([
+            'status' => true,
+            'message' => 'Payment term deleted successfully.',
+        ]);
     }
 
     public function bulkDelete(Request $request)
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:payment_terms,id'
+            'ids.*' => 'exists:payment_terms,id',
         ]);
 
-        // Check for payment terms with customers
-        $termsWithCustomers = PaymentTerm::whereIn('id', $request->ids)
-            ->whereHas('customers')
-            ->pluck('id');
+        $tenantId = tenant('id');
+        $skipped = [];
+        $deleted = 0;
 
-        if ($termsWithCustomers->isNotEmpty()) {
-            return response()->json([
-                'message' => 'Some payment terms have associated customers and cannot be deleted',
-                'terms_with_customers' => $termsWithCustomers
-            ], 422);
+        foreach ($request->ids as $id) {
+            $term = PaymentTerm::find($id);
+            if ($term && !$term->customers()->exists()) {
+                $term->delete();
+                $deleted++;
+                app('cache')->store('database')->forget("tenant_{$tenantId}_payment_term_{$id}");
+            } else {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => $term ? 'Has associated customers' : 'Not found',
+                ];
+            }
         }
+        app('cache')->store('database')->forget("tenant_{$tenantId}_payment_terms");
 
-        PaymentTerm::whereIn('id', $request->ids)->delete();
-        Cache::forget("payment_terms_" . tenant('id'));
-
-        return response()->json(['message' => 'Payment terms deleted successfully']);
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()
     {
-        $paymentTerms = PaymentTerm::all();
-
-        if ($paymentTerms->isEmpty()) {
-            return response()->json(['message' => 'No payment terms to export'], 404);
+        $paymentTerms = PaymentTerm::orderBy('name');
+        $collection = $paymentTerms->get();
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No payment terms found.'], 404);
         }
-
-        $fileName = 'payment_terms_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($paymentTerms), $fileName);
+        $columns = ['id', 'code', 'name', 'nb_days', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Number of Days', 'Active'];
+        return Excel::download(new Export($paymentTerms, $columns, $headings), 'payment_terms.xlsx');
     }
 
-    public function exportPdf()
+    public function exportPdf(ExportPDF $pdfService)
     {
-        $paymentTerms = PaymentTerm::all();
-
+        $paymentTerms = PaymentTerm::select('id', 'code', 'name', 'nb_days', 'active')->get();
         if ($paymentTerms->isEmpty()) {
-            return response()->json(['message' => 'No payment terms to export'], 404);
+            return response()->json(['message' => 'No payment terms found.'], 404);
         }
-
-        $fileName = 'payment_terms_' . date('Y-m-d_H-i-s') . '.pdf';
-        return Excel::download(new ExportPDF($paymentTerms), $fileName);
+        $title = 'Payment Terms Report';
+        $headers = [
+            'id' => 'ID',
+            'code' => 'Code',
+            'name' => 'Name',
+            'nb_days' => 'Number of Days',
+            'active' => 'Active',
+        ];
+        $data = $paymentTerms->toArray();
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('PaymentTerms.pdf');
     }
 
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls',
+            'file' => 'required|file|mimes:xlsx,xls,csv',
         ]);
 
-        try {
-            $import = new DynamicExcelImport(PaymentTerm::class);
-            Excel::import($import, $request->file('file'));
+        $import = new DynamicExcelImport(
+            PaymentTerm::class,
+            ['code', 'name', 'nb_days', 'active'],
+            function ($row) {
+                $errors = [];
+                if (empty($row['code'])) {
+                    $errors[] = 'Missing code';
+                }
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
+                }
+                if (!isset($row['nb_days']) || !is_numeric($row['nb_days'])) {
+                    $errors[] = 'Invalid or missing nb_days';
+                }
+                return $errors;
+            },
+            function ($row) {
+                return [
+                    'code' => $row['code'],
+                    'name' => $row['name'],
+                    'nb_days' => $row['nb_days'],
+                    'active' => isset($row['active']) ? (bool)$row['active'] : true,
+                ];
+            }
+        );
 
-            Cache::forget("payment_terms_" . tenant('id'));
+        Excel::import($import, $request->file('file'));
+        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_payment_terms');
 
-            return response()->json(['message' => 'Payment terms imported successfully']);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Error importing payment terms: ' . $e->getMessage()], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'rows_imported' => $import->getImportedCount(),
+            'rows_skipped_count' => $import->getSkippedCount(),
+            'skipped_rows' => $import->getSkippedRows(),
+        ]);
     }
 }
