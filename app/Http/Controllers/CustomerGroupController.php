@@ -166,4 +166,34 @@ class CustomerGroupController extends Controller
             ], 500);
         }
     }
+
+    public function getNames()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_customer_group_names";
+
+        $customerGroups = app('cache')->store('database')->get($key);
+
+        if (!$customerGroups) {
+            $customerGroups = CustomerGroup::where('active', true)
+                ->select('id', 'code', 'name')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($customerGroup) {
+                    return [
+                        'id' => $customerGroup->id,
+                        'code' => $customerGroup->code,
+                        'name' => $customerGroup->name
+                    ];
+                });
+
+            app('cache')->store('database')->forever($key, $customerGroups);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Customer group names fetched successfully.',
+            'data' => $customerGroups,
+        ]);
+    }
 }

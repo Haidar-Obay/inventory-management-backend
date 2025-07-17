@@ -28,6 +28,7 @@ use App\Http\Controllers\ReferByController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\TradeController;
+use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\CompanyCodeController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ProductLineController;
@@ -91,6 +92,9 @@ Route::middleware([
             Route::get('/get-user/{id}', action: [UserManagementController::class, 'getUser']);
             Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser']);
             Route::delete('/bulk-delete-users', [UserManagementController::class, 'bulkDeleteUsers']);
+
+            // Subscription Status Check
+            Route::get('/subscription/status', [SubscriptionPlanController::class, 'checkCurrentUserSubscription']);
 
             // Resource APIs
             Route::apiResource('cities', CityController::class);
@@ -458,6 +462,9 @@ Route::middleware([
         Route::get('/names/distribution-channels', [DistributionChannelController::class, 'getNames']);
         Route::get('/names/transportation-channels', [TransportationChannelController::class, 'getNames']);
         Route::get('/names/media-channels', [MediaChannelController::class, 'getNames']);
+        Route::get('/names/customer-groups', [CustomerGroupController::class, 'getNames']);
+        Route::get('/names/salesmen', [SalesmanController::class, 'getNames']);
+        Route::get('/names/trades', [TradeController::class, 'getNames']);
     });
 
 

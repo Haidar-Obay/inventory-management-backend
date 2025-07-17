@@ -216,4 +216,34 @@ class TradeController extends Controller
             'skipped_rows' => $import->getSkippedRows(),
         ]);
     }
+
+    public function getNames()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_trade_names";
+
+        $trades = app('cache')->store('database')->get($key);
+
+        if (!$trades) {
+            $trades = Trade::where('active', true)
+                ->select('id', 'code', 'name')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($trade) {
+                    return [
+                        'id' => $trade->id,
+                        'code' => $trade->code,
+                        'name' => $trade->name
+                    ];
+                });
+
+            app('cache')->store('database')->forever($key, $trades);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Trade names fetched successfully.',
+            'data' => $trades,
+        ]);
+    }
 }
