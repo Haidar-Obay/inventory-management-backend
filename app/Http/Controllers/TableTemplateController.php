@@ -60,7 +60,25 @@ class TableTemplateController extends Controller
         }
 
         // Validate table name exists in the system
-        $validTables = ['customers', 'items', 'orders', 'products']; // Add your valid tables here
+        $validTables = [
+            'customers',
+            'customerGroups',
+            'salesmen',
+            'items',
+            'categories',
+            'brands',
+            'productLines',
+            'projects',
+            'costCenters',
+            'departments',
+            'trades',
+            'companyCodes',
+            'jobs',
+            'countries',
+            'cities',
+            'districts',
+            'zones',
+        ]; // Add your valid tables here
         if (!in_array($tableName, $validTables)) {
             return response()->json(['message' => 'Invalid table name'], 400);
         }
