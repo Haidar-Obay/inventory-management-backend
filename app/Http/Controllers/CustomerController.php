@@ -35,8 +35,8 @@ class CustomerController extends Controller
                 'collector:id,name',
                 'supervisor:id,name',
                 'manager:id,name',
-                'paymentTerm:id,name',
-                'paymentMethod:id,name',
+                'paymentTerm:id,code', // changed from name to code
+                'paymentMethod:id,code', // changed from name to code
                 'trade:id,name',
                 'companyCode:id,code',
                 'businessType:id,name',
@@ -110,11 +110,11 @@ class CustomerController extends Controller
                 ] : null,
                 'payment_term' => $customer->paymentTerm ? [
                     'id' => $customer->paymentTerm->id,
-                    'name' => $customer->paymentTerm->name
+                    'code' => $customer->paymentTerm->code // changed from name to code
                 ] : null,
                 'payment_method' => $customer->paymentMethod ? [
                     'id' => $customer->paymentMethod->id,
-                    'name' => $customer->paymentMethod->name
+                    'code' => $customer->paymentMethod->code // changed from name to code
                 ] : null,
                 'trade' => $customer->trade ? [
                     'id' => $customer->trade->id,
@@ -308,8 +308,8 @@ class CustomerController extends Controller
                 'collector:id,name',
                 'supervisor:id,name',
                 'manager:id,name',
-                'paymentTerm:id,name',
-                'paymentMethod:id,name',
+                'paymentTerm:id,code', // changed from name to code
+                'paymentMethod:id,code', // changed from name to code
                 'trade:id,name',
                 'companyCode:id,code',
                 'businessType:id,name',
@@ -382,11 +382,11 @@ class CustomerController extends Controller
             ] : null,
             'payment_term' => $cached->paymentTerm ? [
                 'id' => $cached->paymentTerm->id,
-                'name' => $cached->paymentTerm->name
+                'code' => $cached->paymentTerm->code // changed from name to code
             ] : null,
             'payment_method' => $cached->paymentMethod ? [
                 'id' => $cached->paymentMethod->id,
-                'name' => $cached->paymentMethod->name
+                'code' => $cached->paymentMethod->code // changed from name to code
             ] : null,
             'trade' => $cached->trade ? [
                 'id' => $cached->trade->id,

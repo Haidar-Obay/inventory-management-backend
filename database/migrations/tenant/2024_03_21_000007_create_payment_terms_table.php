@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('payment_terms', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('code');
             $table->integer('nb_days');
             $table->boolean('active')->default(false);
             $table->timestamps();

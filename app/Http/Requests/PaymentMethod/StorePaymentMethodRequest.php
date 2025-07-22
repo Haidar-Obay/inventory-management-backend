@@ -14,10 +14,10 @@ class StorePaymentMethodRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255|unique:payment_methods,name',
+            'code' => 'required|string|max:255|unique:payment_methods,code',
             'is_credit_card' => 'nullable|boolean',
             'is_online_payment' => 'nullable|boolean',
-            'is_inactive' => 'nullable|boolean',
+            'active' => 'nullable|boolean',
         ];
     }
 }

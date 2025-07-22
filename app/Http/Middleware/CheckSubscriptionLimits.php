@@ -37,6 +37,10 @@ class CheckSubscriptionLimits
 
         switch ($resource) {
             case 'currency':
+                // Only enforce currency limit on POST (create) requests
+                if (!$request->isMethod('post')) {
+                    return $next($request);
+                }
                 $currentCount = Currency::count();
                 $canAdd = $tenant->canAddCurrency($currentCount);
                 break;

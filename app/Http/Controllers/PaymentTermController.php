@@ -20,7 +20,7 @@ class PaymentTermController extends Controller
         $paymentTerms = app('cache')->store('database')->get($key);
 
         if (!$paymentTerms) {
-            $paymentTerms = PaymentTerm::orderBy('name')->get();
+            $paymentTerms = PaymentTerm::orderBy('id')->get();
             app('cache')->store('database')->forever($key, $paymentTerms);
         }
 
@@ -35,7 +35,6 @@ class PaymentTermController extends Controller
     {
         $validated = $request->validate([
             'code' => 'required|string|unique:payment_terms,code',
-            'name' => 'required|string',
             'nb_days' => 'required|integer|min:0',
             'active' => 'boolean',
         ]);
@@ -73,7 +72,6 @@ class PaymentTermController extends Controller
     {
         $validated = $request->validate([
             'code' => 'required|string|unique:payment_terms,code,' . $paymentTerm->id,
-            'name' => 'required|string',
             'nb_days' => 'required|integer|min:0',
             'active' => 'boolean',
         ]);
@@ -132,7 +130,7 @@ class PaymentTermController extends Controller
                     'id' => $id,
                     'reason' => $term ? 'Has associated customers' : 'Not found',
                 ];
-            }
+        }
         }
         app('cache')->store('database')->forget("tenant_{$tenantId}_payment_terms");
 
@@ -145,19 +143,19 @@ class PaymentTermController extends Controller
 
     public function exportExcell()
     {
-        $paymentTerms = PaymentTerm::orderBy('name');
+        $paymentTerms = PaymentTerm::orderBy('id');
         $collection = $paymentTerms->get();
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No payment terms found.'], 404);
         }
-        $columns = ['id', 'code', 'name', 'nb_days', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Number of Days', 'Active'];
+        $columns = ['id', 'code', 'nb_days', 'active'];
+        $headings = ['ID', 'Code', 'Number of Days', 'Active'];
         return Excel::download(new Export($paymentTerms, $columns, $headings), 'payment_terms.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $paymentTerms = PaymentTerm::select('id', 'code', 'name', 'nb_days', 'active')->get();
+        $paymentTerms = PaymentTerm::select('id', 'code', 'nb_days', 'active')->get();
         if ($paymentTerms->isEmpty()) {
             return response()->json(['message' => 'No payment terms found.'], 404);
         }
@@ -165,7 +163,6 @@ class PaymentTermController extends Controller
         $headers = [
             'id' => 'ID',
             'code' => 'Code',
-            'name' => 'Name',
             'nb_days' => 'Number of Days',
             'active' => 'Active',
         ];
@@ -182,14 +179,14 @@ class PaymentTermController extends Controller
 
         $import = new DynamicExcelImport(
             PaymentTerm::class,
-            ['code', 'name', 'nb_days', 'active'],
+            ['code', 'nb_days', 'active'],
             function ($row) {
                 $errors = [];
                 if (empty($row['code'])) {
                     $errors[] = 'Missing code';
                 }
-                if (empty($row['name'])) {
-                    $errors[] = 'Missing name';
+                if (empty($row['code'])) {
+                    $errors[] = 'Missing code';
                 }
                 if (!isset($row['nb_days']) || !is_numeric($row['nb_days'])) {
                     $errors[] = 'Invalid or missing nb_days';
@@ -197,16 +194,15 @@ class PaymentTermController extends Controller
                 return $errors;
             },
             function ($row) {
-                return [
+                return [    
                     'code' => $row['code'],
-                    'name' => $row['name'],
                     'nb_days' => $row['nb_days'],
                     'active' => isset($row['active']) ? (bool)$row['active'] : true,
                 ];
             }
         );
 
-        Excel::import($import, $request->file('file'));
+            Excel::import($import, $request->file('file'));
         app('cache')->store('database')->forget('tenant_' . tenant('id') . '_payment_terms');
 
         return response()->json([

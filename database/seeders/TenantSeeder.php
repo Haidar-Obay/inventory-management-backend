@@ -16,16 +16,16 @@ class TenantSeeder extends Seeder
      */
     public function run(): void
     {
-        $primePlan = SubscriptionPlan::where('code', 'prime')->first();
+        $defaultPlan = SubscriptionPlan::where('code', 'default')->first();
         $startDate = now();
         $endDate = $startDate->copy()->addMonth();
 
-        // Only seed the hadishokor tenant with the prime plan
+        // Only seed the hadishokor tenant with the default plan
         $tenant = Tenant::create([
             'id' => 'hadishokor',
             'name' => 'hadishokor',
             'email' => 'hadishokor@gmail.com',
-            'subscription_plan_id' => $primePlan->id,
+            'subscription_plan_id' => $defaultPlan->id,
             'subscription_start_date' => $startDate,
             'subscription_end_date' => $endDate,
             'subscription_status' => 'active',

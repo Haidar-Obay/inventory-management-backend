@@ -3,8 +3,7 @@
 namespace App\Http\Requests\PaymentMethod;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
-
+use Illuminate\Validation\Rule;ame
 class UpdatePaymentMethodRequest extends FormRequest
 {
     public function authorize(): bool
@@ -17,15 +16,15 @@ class UpdatePaymentMethodRequest extends FormRequest
         $paymentMethodId = $this->route('payment_method'); // Adjust if your route param is named differently
 
         return [
-            'name' => [
+            'code' => [
                 'nullable',
                 'string',
                 'max:255',
-                Rule::unique('payment_methods', 'name')->ignore($paymentMethodId),
+                Rule::unique('payment_methods', 'code')->ignore($paymentMethodId),
             ],
             'is_credit_card' => 'nullable|boolean',
             'is_online_payment' => 'nullable|boolean',
-            'is_inactive' => 'nullable|boolean',
+            'active' => 'nullable|boolean',
         ];
     }
 }

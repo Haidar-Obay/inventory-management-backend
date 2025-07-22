@@ -55,16 +55,24 @@ class CustomerSeeder extends Seeder
 
         // Create a default payment term if none exists
         $paymentTerm = PaymentTerm::firstOrCreate(
-            ['name' => 'Net 30'],
+            ['code' => 'Net 30'],
             [
                 'nb_days' => 30,
+                'active' => true
+            ]
+        );
+        // Create a 0-day payment term for testing
+        $paymentTermZero = PaymentTerm::firstOrCreate(
+            ['code' => 'Net 0'],
+            [
+                'nb_days' => 0,
                 'active' => true
             ]
         );
 
         // Create a default payment method if none exists
         $paymentMethod = PaymentMethod::firstOrCreate(
-            ['name' => 'Bank Transfer'],
+            ['code' => 'Bank Transfer'],
             [
                 'is_credit_card' => false,
                 'active' => true
