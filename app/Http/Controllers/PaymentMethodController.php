@@ -35,6 +35,7 @@ class PaymentMethodController extends Controller
     {
         $validated = $request->validate([
             'code' => 'required|string|max:50|unique:payment_methods,code',
+            'name' => 'required|string|max:255|unique:payment_methods,name',
             'is_credit_card' => 'required|boolean',
             'is_online_payment' => 'required|boolean',
             'active' => 'required|boolean',
@@ -73,6 +74,7 @@ class PaymentMethodController extends Controller
     {
         $validated = $request->validate([
             'code' => 'required|string|max:50|unique:payment_methods,code,' . $paymentMethod->id,
+            'name' => 'required|string|max:255|unique:payment_methods,name,' . $paymentMethod->id,
             'is_credit_card' => 'required|boolean',
             'is_online_payment' => 'required|boolean',
             'active' => 'required|boolean',
@@ -150,14 +152,14 @@ class PaymentMethodController extends Controller
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No payment methods found.'], 404);
         }
-        $columns = ['id', 'code', 'is_credit_card', 'is_online_payment', 'active'];
-        $headings = ['ID', 'Code', 'Is Credit Card', 'Is Online Payment', 'Active'];
+        $columns = ['id', 'code', 'name', 'is_credit_card', 'is_online_payment', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Is Credit Card', 'Is Online Payment', 'Active'];
         return Excel::download(new Export($paymentMethods, $columns, $headings), 'payment_methods.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $paymentMethods = PaymentMethod::select('id', 'code', 'is_credit_card', 'is_online_payment', 'active')->get();
+        $paymentMethods = PaymentMethod::select('id', 'code', 'name', 'is_credit_card', 'is_online_payment', 'active')->get();
         if ($paymentMethods->isEmpty()) {
             return response()->json(['message' => 'No payment methods found.'], 404);
         }
@@ -165,6 +167,7 @@ class PaymentMethodController extends Controller
         $headers = [
             'id' => 'ID',
             'code' => 'Code',
+            'name' => 'Name',
             'is_credit_card' => 'Is Credit Card',
             'is_online_payment' => 'Is Online Payment',
             'active' => 'Active',
@@ -182,11 +185,14 @@ class PaymentMethodController extends Controller
 
         $import = new DynamicExcelImport(
             PaymentMethod::class,
-            ['code', 'is_credit_card', 'is_online_payment', 'active'],
+            ['code', 'name', 'is_credit_card', 'is_online_payment', 'active'],
             function ($row) {
                 $errors = [];
                 if (empty($row['code'])) {
                     $errors[] = 'Missing code';
+                }
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
                 }
                 if (!isset($row['is_credit_card'])) {
                     $errors[] = 'Missing is_credit_card';
@@ -195,7 +201,8 @@ class PaymentMethodController extends Controller
             },
             function ($row) {
                 return [
-                    'code' => $row['code'],                                 
+                    'code' => $row['code'],
+                    'name' => $row['name'],
                     'is_credit_card' => isset($row['is_credit_card']) ? (bool)$row['is_credit_card'] : false,
                     'is_online_payment' => isset($row['is_online_payment']) ? (bool)$row['is_online_payment'] : false,
                     'active' => isset($row['active']) ? (bool)$row['active'] : true,

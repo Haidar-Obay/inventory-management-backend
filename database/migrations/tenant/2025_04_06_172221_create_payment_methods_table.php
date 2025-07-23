@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('payment_methods', function (Blueprint $table) {
             $table->id();
             $table->string('code');
+            $table->string('name');
             $table->boolean('is_credit_card')->default(false);
             $table->boolean('is_online_payment')->default(false);
             $table->boolean('active')->default(false);

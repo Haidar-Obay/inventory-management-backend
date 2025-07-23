@@ -35,6 +35,7 @@ class PaymentTermController extends Controller
     {
         $validated = $request->validate([
             'code' => 'required|string|unique:payment_terms,code',
+            'name' => 'required|string|unique:payment_terms,name',
             'nb_days' => 'required|integer|min:0',
             'active' => 'boolean',
         ]);
@@ -72,6 +73,7 @@ class PaymentTermController extends Controller
     {
         $validated = $request->validate([
             'code' => 'required|string|unique:payment_terms,code,' . $paymentTerm->id,
+            'name' => 'required|string|unique:payment_terms,name,' . $paymentTerm->id,
             'nb_days' => 'required|integer|min:0',
             'active' => 'boolean',
         ]);
@@ -148,14 +150,14 @@ class PaymentTermController extends Controller
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No payment terms found.'], 404);
         }
-        $columns = ['id', 'code', 'nb_days', 'active'];
-        $headings = ['ID', 'Code', 'Number of Days', 'Active'];
+        $columns = ['id', 'code', 'name', 'nb_days', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Number of Days', 'Active'];
         return Excel::download(new Export($paymentTerms, $columns, $headings), 'payment_terms.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $paymentTerms = PaymentTerm::select('id', 'code', 'nb_days', 'active')->get();
+        $paymentTerms = PaymentTerm::select('id', 'code', 'name', 'nb_days', 'active')->get();
         if ($paymentTerms->isEmpty()) {
             return response()->json(['message' => 'No payment terms found.'], 404);
         }
@@ -163,6 +165,7 @@ class PaymentTermController extends Controller
         $headers = [
             'id' => 'ID',
             'code' => 'Code',
+            'name' => 'Name',
             'nb_days' => 'Number of Days',
             'active' => 'Active',
         ];
@@ -179,14 +182,14 @@ class PaymentTermController extends Controller
 
         $import = new DynamicExcelImport(
             PaymentTerm::class,
-            ['code', 'nb_days', 'active'],
+            ['code', 'name', 'nb_days', 'active'],
             function ($row) {
                 $errors = [];
                 if (empty($row['code'])) {
                     $errors[] = 'Missing code';
                 }
-                if (empty($row['code'])) {
-                    $errors[] = 'Missing code';
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
                 }
                 if (!isset($row['nb_days']) || !is_numeric($row['nb_days'])) {
                     $errors[] = 'Invalid or missing nb_days';
@@ -196,6 +199,7 @@ class PaymentTermController extends Controller
             function ($row) {
                 return [    
                     'code' => $row['code'],
+                    'name' => $row['name'],
                     'nb_days' => $row['nb_days'],
                     'active' => isset($row['active']) ? (bool)$row['active'] : true,
                 ];
