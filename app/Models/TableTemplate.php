@@ -20,12 +20,19 @@ class TableTemplate extends Model
         'visible_columns',
         'column_widths',
         'column_order',
+        'headerColor',
+        'showHeaderSeparator',
+        'showHeaderColSeparator',
+        'showBodyColSeparator',
     ];
 
     protected $casts = [
         'visible_columns' => 'array',
         'column_widths' => 'array',
         'column_order' => 'array',
+        'showHeaderSeparator' => 'boolean',
+        'showHeaderColSeparator' => 'boolean',
+        'showBodyColSeparator' => 'boolean',
     ];
 
     protected static function boot()
