@@ -50,6 +50,10 @@ class TableTemplateController extends Controller
             'column_widths.*' => 'string|nullable',
             'column_order' => 'required|array',
             'column_order.*' => 'string',
+            'headerColor' => 'nullable|string|max:255',
+            'showHeaderSeparator' => 'boolean',
+            'showHeaderColSeparator' => 'boolean',
+            'showBodyColSeparator' => 'boolean',
         ]);
 
         if ($validator->fails()) {
@@ -78,7 +82,9 @@ class TableTemplateController extends Controller
             'cities',
             'districts',
             'zones',
-        ]; // Add your valid tables here
+            'paymentMethods',
+            'paymentTerms',
+        ]; // Add your valid tables heree 
         if (!in_array($tableName, $validTables)) {
             return response()->json(['message' => 'Invalid table name'], 400);
         }
@@ -101,6 +107,10 @@ class TableTemplateController extends Controller
             'visible_columns' => $request->input('visible_columns'),
             'column_widths' => $request->input('column_widths'),
             'column_order' => $request->input('column_order'),
+            'headerColor' => $request->input('headerColor'),
+            'showHeaderSeparator' => $request->boolean('showHeaderSeparator', false),
+            'showHeaderColSeparator' => $request->boolean('showHeaderColSeparator', false),
+            'showBodyColSeparator' => $request->boolean('showBodyColSeparator', false),
         ]);
 
         return response()->json($template, 201);
@@ -127,6 +137,10 @@ class TableTemplateController extends Controller
             'column_widths.*' => 'string|nullable',
             'column_order' => 'required|array',
             'column_order.*' => 'string',
+            'headerColor' => 'nullable|string|max:255',
+            'showHeaderSeparator' => 'boolean',
+            'showHeaderColSeparator' => 'boolean',
+            'showBodyColSeparator' => 'boolean',
         ]);
 
         if ($validator->fails()) {
@@ -154,6 +168,10 @@ class TableTemplateController extends Controller
             'visible_columns' => $request->input('visible_columns'),
             'column_widths' => $request->input('column_widths'),
             'column_order' => $request->input('column_order'),
+            'headerColor' => $request->input('headerColor'),
+            'showHeaderSeparator' => $request->boolean('showHeaderSeparator', false),
+            'showHeaderColSeparator' => $request->boolean('showHeaderColSeparator', false),
+            'showBodyColSeparator' => $request->boolean('showBodyColSeparator', false),
         ]);
 
         return response()->json($template);
