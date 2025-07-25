@@ -14,20 +14,20 @@ class BusinessTypeController extends Controller
 {
     public function index()
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_business_types";
+        // $tenantId = tenant('id');
+        // $key = "tenant_{$tenantId}_business_types";
 
-        $businessTypes = app('cache')->store('database')->get($key);
+        // $businessTypes = app('cache')->store('database')->get($key);
 
-        if (!$businessTypes) {
-            $businessTypes = BusinessType::orderBy('name')->get();
-            app('cache')->store('database')->forever($key, $businessTypes);
-        }
+        // if (!$businessTypes) {
+        //     $businessTypes = BusinessType::orderBy('name')->get();
+        //     app('cache')->store('database')->forever($key, $businessTypes);
+        // }
 
         return response()->json([
             'status' => true,
             'message' => 'Business types fetched successfully.',
-            'data' => $businessTypes,
+            'data' => BusinessType::orderBy('name')->get(),
         ]);
     }
 
