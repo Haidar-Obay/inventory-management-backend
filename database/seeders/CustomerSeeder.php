@@ -57,6 +57,7 @@ class CustomerSeeder extends Seeder
         $paymentTerm = PaymentTerm::firstOrCreate(
             ['code' => 'Net 30'],
             [
+                'name' => 'Net 30 Days',
                 'nb_days' => 30,
                 'active' => true
             ]
@@ -65,6 +66,7 @@ class CustomerSeeder extends Seeder
         $paymentTermZero = PaymentTerm::firstOrCreate(
             ['code' => 'Net 0'],
             [
+                'name' => 'Immediate',
                 'nb_days' => 0,
                 'active' => true
             ]
@@ -74,7 +76,9 @@ class CustomerSeeder extends Seeder
         $paymentMethod = PaymentMethod::firstOrCreate(
             ['code' => 'Bank Transfer'],
             [
+                'name' => 'Bank Transfer',
                 'is_credit_card' => false,
+                'is_online_payment' => false,
                 'active' => true
             ]
         );
