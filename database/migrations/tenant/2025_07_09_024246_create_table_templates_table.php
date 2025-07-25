@@ -18,6 +18,7 @@ return new class extends Migration
             $table->json('visible_columns');
             $table->json('column_widths');
             $table->json('column_order');
+            $table->boolean('is_default')->default(false);
             $table->string('headerColor', 255)->nullable();
             $table->boolean('showHeaderSeparator')->default(false);
             $table->boolean('showHeaderColSeparator')->default(false);

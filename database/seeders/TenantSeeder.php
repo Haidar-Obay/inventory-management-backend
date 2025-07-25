@@ -37,6 +37,7 @@ class TenantSeeder extends Seeder
             'domain' => 'hadishokor.' . env('CENTRAL_DOMAIN'),
         ]);
         tenancy()->initialize($tenant);
+        \App\Jobs\CreateDefaultTableTemplates::dispatchSync();
         User::create([
             'name' => 'hadishokor_owner',
             'email' => 'hadishokor@gmail.com',

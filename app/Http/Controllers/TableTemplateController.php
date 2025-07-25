@@ -15,7 +15,8 @@ class TableTemplateController extends Controller
     public function index(string $tableName): JsonResponse
     {
         $templates = TableTemplate::where('table_name', $tableName)
-            ->orderBy('created_at', 'desc')
+            ->orderByDesc('is_default')
+            ->orderBy('name')
             ->get();
 
         return response()->json($templates);
@@ -129,6 +130,15 @@ class TableTemplateController extends Controller
             return response()->json(['message' => 'Template not found'], 404);
         }
 
+        // Prevent renaming the default template (only if is_default is true)
+        if ($template->is_default) {
+            if ($request->input('name') !== $template->name) {
+                return response()->json([
+                    'message' => 'Cannot rename the default template.'
+                ], 403);
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'visible_columns' => 'required|array',
@@ -188,6 +198,13 @@ class TableTemplateController extends Controller
 
         if (!$template) {
             return response()->json(['message' => 'Template not found'], 404);
+        }
+
+        // Prevent deleting the default template (only if is_default is true)
+        if ($template->is_default) {
+            return response()->json([
+                'message' => 'Cannot delete the default template.'
+            ], 403);
         }
 
         $template->delete();

@@ -24,6 +24,7 @@ class TableTemplate extends Model
         'showHeaderSeparator',
         'showHeaderColSeparator',
         'showBodyColSeparator',
+        'is_default',
     ];
 
     protected $casts = [
@@ -33,6 +34,12 @@ class TableTemplate extends Model
         'showHeaderSeparator' => 'boolean',
         'showHeaderColSeparator' => 'boolean',
         'showBodyColSeparator' => 'boolean',
+        'is_default' => 'boolean',
+    ];
+
+    protected $hidden = [
+        'created_at',
+        'updated_at',
     ];
 
     protected static function boot()
