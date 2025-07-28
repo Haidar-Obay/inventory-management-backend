@@ -55,6 +55,9 @@ class TableTemplateController extends Controller
             'showHeaderSeparator' => 'boolean',
             'showHeaderColSeparator' => 'boolean',
             'showBodyColSeparator' => 'boolean',
+            'headerFontSize' => 'nullable|string|max:50',
+            'headerFontStyle' => 'nullable|string|max:50',
+            'headerFontColor' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -112,6 +115,9 @@ class TableTemplateController extends Controller
             'showHeaderSeparator' => $request->boolean('showHeaderSeparator', false),
             'showHeaderColSeparator' => $request->boolean('showHeaderColSeparator', false),
             'showBodyColSeparator' => $request->boolean('showBodyColSeparator', false),
+            'headerFontSize' => $request->input('headerFontSize'),
+            'headerFontStyle' => $request->input('headerFontStyle'),
+            'headerFontColor' => $request->input('headerFontColor'),
         ]);
 
         return response()->json($template, 201);
@@ -151,6 +157,9 @@ class TableTemplateController extends Controller
             'showHeaderSeparator' => 'boolean',
             'showHeaderColSeparator' => 'boolean',
             'showBodyColSeparator' => 'boolean',
+            'headerFontSize' => 'nullable|string|max:50',
+            'headerFontStyle' => 'nullable|string|max:50',
+            'headerFontColor' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -182,6 +191,9 @@ class TableTemplateController extends Controller
             'showHeaderSeparator' => $request->boolean('showHeaderSeparator', false),
             'showHeaderColSeparator' => $request->boolean('showHeaderColSeparator', false),
             'showBodyColSeparator' => $request->boolean('showBodyColSeparator', false),
+            'headerFontSize' => $request->input('headerFontSize'),
+            'headerFontStyle' => $request->input('headerFontStyle'),
+            'headerFontColor' => $request->input('headerFontColor'),
         ]);
 
         return response()->json($template);

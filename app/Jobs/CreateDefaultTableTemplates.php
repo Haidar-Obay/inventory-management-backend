@@ -90,13 +90,16 @@ class CreateDefaultTableTemplates implements ShouldQueue
                 'name' => 'Default',
                 'table_name' => $tableName,
                 'visible_columns' => array_fill_keys($columns, true),
-                'column_widths' => array_fill_keys($columns, 100),
+                'column_widths' => array_fill_keys($columns, 110),
                 'column_order' => array_values($columns),
                 'headerColor' => null,
                 'showHeaderSeparator' => true,
                 'showHeaderColSeparator' => true,
                 'showBodyColSeparator' => true,
                 'is_default' => true,
+                'headerFontSize' => '14px',
+                'headerFontStyle' => 'normal',
+                'headerFontColor' => null,
             ];
             TableTemplate::updateOrCreate(
                 [

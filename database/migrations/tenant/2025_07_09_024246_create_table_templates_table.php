@@ -23,6 +23,9 @@ return new class extends Migration
             $table->boolean('showHeaderSeparator')->default(false);
             $table->boolean('showHeaderColSeparator')->default(false);
             $table->boolean('showBodyColSeparator')->default(false);
+            $table->string('headerFontSize', 50)->nullable();
+            $table->string('headerFontStyle', 50)->nullable();
+            $table->string('headerFontColor', 50)->nullable();
             $table->timestamps();
             
             $table->unique(['table_name', 'name'], 'unique_template_name');

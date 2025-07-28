@@ -25,6 +25,9 @@ class TableTemplate extends Model
         'showHeaderColSeparator',
         'showBodyColSeparator',
         'is_default',
+        'headerFontSize',
+        'headerFontStyle',
+        'headerFontColor',
     ];
 
     protected $casts = [
@@ -35,6 +38,9 @@ class TableTemplate extends Model
         'showHeaderColSeparator' => 'boolean',
         'showBodyColSeparator' => 'boolean',
         'is_default' => 'boolean',
+        'headerFontSize' => 'string',
+        'headerFontStyle' => 'string',
+        'headerFontColor' => 'string',
     ];
 
     protected $hidden = [
