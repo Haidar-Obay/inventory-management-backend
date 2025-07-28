@@ -3,7 +3,7 @@
 namespace App\Http\Requests\PaymentMethod;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;ame
+use Illuminate\Validation\Rule;
 class UpdatePaymentMethodRequest extends FormRequest
 {
     public function authorize(): bool
@@ -13,7 +13,7 @@ class UpdatePaymentMethodRequest extends FormRequest
 
     public function rules(): array
     {
-        $paymentMethodId = $this->route('payment_method'); // Adjust if your route param is named differently
+        $paymentMethodId = $this->route('payment_method');
 
         return [
             'code' => [
