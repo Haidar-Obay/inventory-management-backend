@@ -80,6 +80,18 @@ class CreateDefaultTableTemplates implements ShouldQueue
             'paymentTerms' => [
                 'id', 'code', 'nb_days', 'active', 'created_at', 'updated_at'
             ],
+            'salesChannels' => [
+                'id', 'code', 'name', 'sub_sales_of', 'created_at', 'updated_at'
+            ],
+            'distributionChannels' => [
+                'id', 'code', 'name', 'sub_distribution_of', 'created_at', 'updated_at'
+            ],
+            'mediaChannels' => [
+                'id', 'code', 'name', 'sub_media_of', 'created_at', 'updated_at'
+            ],
+            'businessTypes' => [
+                'id', 'code', 'name', 'created_at', 'updated_at'
+            ]
         ];
 
         $timestampFields = ['created_at', 'updated_at', 'deleted_at'];

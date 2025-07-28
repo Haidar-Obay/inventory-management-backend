@@ -88,6 +88,10 @@ class TableTemplateController extends Controller
             'zones',
             'paymentMethods',
             'paymentTerms',
+            'salesChannels',
+            'distributionChannels',
+            'mediaChannels',
+            'businessTypes',
         ]; // Add your valid tables heree 
         if (!in_array($tableName, $validTables)) {
             return response()->json(['message' => 'Invalid table name'], 400);
