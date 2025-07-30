@@ -35,7 +35,7 @@ class ProductLineController extends Controller
         $request->validate([
             'code' => 'required|string|unique:product_lines,code',
             'name' => 'required|string',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
 
         $productLine = ProductLine::create($request->all());
@@ -65,7 +65,7 @@ class ProductLineController extends Controller
         $request->validate([
             'code' => 'required|string|unique:product_lines,code,' . $productLine->id,
             'name' => 'required|string',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
 
         $productLine->update($request->all());
@@ -114,7 +114,7 @@ class ProductLineController extends Controller
         ]);
     }
 
-    public function exportExcell()
+    public function exportExcel()
     {
         $productLines = ProductLine::orderBy('name');
         $collection = $productLines->get();
@@ -126,16 +126,16 @@ class ProductLineController extends Controller
             ], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'is_inactive'];
-        $headings = ['ID', 'Code', 'Name', 'Is Inactive'];
+        $columns = ['id', 'code', 'name', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Active'];
 
         $fileName = 'product_lines_' . date('Y-m-d_H-i-s') . '.xlsx';
         return Excel::download(new Export($productLines, $columns, $headings), $fileName);
     }
 
-    public function exportPdf()
+    public function exportPdf(ExportPDF $pdfService)
     {
-        $productLines = ProductLine::select('id', 'code', 'name', 'is_inactive')->get();
+        $productLines = ProductLine::select('id', 'code', 'name', 'active')->get();
 
         if ($productLines->isEmpty()) {
             return response()->json([
@@ -144,8 +144,18 @@ class ProductLineController extends Controller
             ], 404);
         }
 
-        $fileName = 'product_lines_' . date('Y-m-d_H-i-s') . '.pdf';
-        return Excel::download(new ExportPDF($productLines), $fileName);
+        $title = 'Product Lines Report';
+        $headers = [
+            'id' => 'ID',
+            'code' => 'Code', 
+            'name' => 'Name',
+            'active' => 'Active'
+        ];
+
+        $data = $productLines->toArray();
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        
+        return $pdf->download('product_lines_' . date('Y-m-d_H-i-s') . '.pdf');
     }
 
     public function importFromExcel(Request $request)

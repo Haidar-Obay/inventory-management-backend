@@ -108,7 +108,7 @@ class CustomerGroupController extends Controller
         ]);
     }
 
-    public function exportExcell()
+    public function exportExcel()
     {
         $customerGroups = CustomerGroup::orderBy('name');
         $collection = $customerGroups->get();
@@ -120,16 +120,16 @@ class CustomerGroupController extends Controller
             ], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'is_inactive'];
-        $headings = ['ID', 'Code', 'Name', 'Is Inactive'];
+        $columns = ['id', 'code', 'name', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Active'];
 
         $fileName = 'customer_groups_' . date('Y-m-d_H-i-s') . '.xlsx';
         return Excel::download(new Export($customerGroups, $columns, $headings), $fileName);
     }
 
-    public function exportPdf()
+    public function exportPdf(ExportPDF $pdfService)
     {
-        $customerGroups = CustomerGroup::select('id', 'code', 'name', 'is_inactive')->get();
+        $customerGroups = CustomerGroup::select('id', 'code', 'name', 'active')->get();
 
         if ($customerGroups->isEmpty()) {
             return response()->json([
@@ -138,8 +138,18 @@ class CustomerGroupController extends Controller
             ], 404);
         }
 
-        $fileName = 'customer_groups_' . date('Y-m-d_H-i-s') . '.pdf';
-        return Excel::download(new ExportPDF($customerGroups), $fileName);
+        $title = 'Customer Groups Report';
+        $headers = [
+            'id' => 'ID',
+            'code' => 'Code', 
+            'name' => 'Name',
+            'active' => 'Active'
+        ];
+
+        $data = $customerGroups->toArray();
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        
+        return $pdf->download('customer_groups_' . date('Y-m-d_H-i-s') . '.pdf');
     }
 
     public function importFromExcel(Request $request)
