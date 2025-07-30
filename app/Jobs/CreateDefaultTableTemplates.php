@@ -75,10 +75,10 @@ class CreateDefaultTableTemplates implements ShouldQueue
             'id', 'name', 'created_at', 'updated_at'
             ],
             'paymentMethods' => [
-                'id', 'code', 'is_credit_card', 'is_online_payment', 'active', 'created_at', 'updated_at'
+                'id', 'code', 'name', 'is_credit_card', 'is_online_payment', 'active', 'created_at', 'updated_at'
             ],
             'paymentTerms' => [
-                'id', 'code', 'nb_days', 'active', 'created_at', 'updated_at'
+                'id', 'code', 'name', 'nb_days', 'active', 'created_at', 'updated_at'
             ],
             'salesChannels' => [
                 'id', 'code', 'name', 'sub_sales_of', 'created_at', 'updated_at'
