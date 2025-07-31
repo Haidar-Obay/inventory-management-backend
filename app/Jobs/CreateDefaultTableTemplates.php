@@ -75,10 +75,10 @@ class CreateDefaultTableTemplates implements ShouldQueue
             'id', 'name', 'created_at', 'updated_at'
             ],
             'paymentMethods' => [
-                'id', 'code', 'is_credit_card', 'is_online_payment', 'active', 'created_at', 'updated_at'
+                'id', 'code', 'name', 'is_credit_card', 'is_online_payment', 'active', 'created_at', 'updated_at'
             ],
             'paymentTerms' => [
-                'id', 'code', 'nb_days', 'active', 'created_at', 'updated_at'
+                'id', 'code', 'name', 'nb_days', 'active', 'created_at', 'updated_at'
             ],
             'salesChannels' => [
                 'id', 'code', 'name', 'sub_sales_of', 'created_at', 'updated_at'
@@ -97,11 +97,17 @@ class CreateDefaultTableTemplates implements ShouldQueue
         $timestampFields = ['created_at', 'updated_at', 'deleted_at'];
 
         foreach ($tables as $tableName => $columns) {
-            // Do not remove timestamp fields; include all columns
+            // Create visible_columns array with all columns set to true
+            $visibleColumns = array_fill_keys($columns, true);
+            
+            // Set timestamp fields to false
+            $visibleColumns['created_at'] = false;
+            $visibleColumns['updated_at'] = false;
+            
             $template = [
                 'name' => 'Default',
                 'table_name' => $tableName,
-                'visible_columns' => array_fill_keys($columns, true),
+                'visible_columns' => $visibleColumns,
                 'column_widths' => array_fill_keys($columns, 110),
                 'column_order' => array_values($columns),
                 'headerColor' => null,

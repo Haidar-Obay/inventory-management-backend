@@ -16,6 +16,6 @@ class ProductLine extends Model implements Auditable
     public $timestamps = true;
 
     protected $casts = [
-        'is_inactive' => 'boolean',
+        'active' => 'boolean',
     ];
 }

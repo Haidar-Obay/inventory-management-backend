@@ -150,7 +150,7 @@ Route::middleware([
                 Route::get('zones', [ZoneController::class, 'exportExcell']);
                 Route::get('districts', [DistrictController::class, 'exportExcell']);
                 Route::get('currencies', [CurrencyController::class, 'exportExcell']);
-                Route::get('customer-groups', [CustomerGroupController::class, 'exportExcell']);
+                Route::get('customer-groups', [CustomerGroupController::class, 'exportExcel']);
                 Route::get('payment-methods', [PaymentMethodController::class, 'exportExcell']);
                 Route::get('payment-terms', [PaymentTermController::class, 'exportExcell']);
                 Route::get('salesmen', [SalesmanController::class, 'exportExcell']);
@@ -158,7 +158,7 @@ Route::middleware([
                 Route::get('trades', [TradeController::class, 'exportExcell']);
                 Route::get('company-codes', [CompanyCodeController::class, 'exportExcell']);
                 Route::get('brands', [BrandController::class, 'exportExcell']);
-                Route::get('product-lines', [ProductLineController::class, 'exportExcell']);
+                Route::get('product-lines', [ProductLineController::class, 'exportExcel']);
                 Route::get('categories', [CategoryController::class, 'exportExcell']);
                 Route::get('supplier-groups', [SupplierGroupController::class, 'exportExcell']);
                 Route::get('branches', [BranchController::class, 'exportExcell']);
