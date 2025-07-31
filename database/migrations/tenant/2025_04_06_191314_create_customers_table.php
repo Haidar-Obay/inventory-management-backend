@@ -19,13 +19,14 @@ return new class extends Migration {
             $table->string('phone1');
             $table->string('phone2')->nullable();
             $table->string('phone3')->nullable();
+          
             // $table->string('email')->nullable();
             // $table->string('website')->nullable();
 
             // Business Information
             $table->string('file_number')->nullable();
             $table->string('bar_code')->nullable();
-            $table->text('search_terms')->nullable()->comment('Comma-separated search keywords for customer lookup');
+            $table->json('search_terms')->nullable()->comment('JSON array of search keywords for customer lookup');
 
             //Category
             $table->foreignId('trade_id')->nullable()->constrained('trades');
@@ -36,7 +37,7 @@ return new class extends Migration {
             $table->foreignId('distribution_channel_id')->nullable()->constrained('distribution_channels');
             $table->foreignId('media_channel_id')->nullable()->constrained('media_channels');
             $table->enum('indicator', ['A', 'B', 'C', 'D'])->nullable();
-            $table->enum('risk_category', ['A', 'B', 'C', 'D'])->nullable();
+            $table->enum('risk_category', ['Low', 'Medium', 'High'])->nullable();
 
 
             //salesmen
@@ -50,15 +51,16 @@ return new class extends Migration {
             $table->foreignId('payment_term_id')->nullable()->constrained('payment_terms');
             $table->foreignId('payment_method_id')->nullable()->constrained('payment_methods');
             $table->boolean('allow_credit')->default(false);
-            $table->boolean('accept_cheque')->default(false);
+            $table->boolean('accept_cheques')->default(false);
             $table->enum('payment_day', ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30'])->nullable();
             $table->enum('track_payment', ['yes', 'no'])->default('no');
             $table->enum('settlement_method', ['FIFO', 'Manual'])->default('FIFO');
 
 
             //pricing
-            $table->enum('pricing_choice', ['price1', 'price2', 'price3', 'price4', 'price5', 'price6','last_invoice_price'])->default('price1');
-            $table->decimal('discount_by_item', 8, 2)->nullable()->comment('Discount percentage applied per item');
+            $table->enum('price_choice', ['price1', 'price2', 'price3', 'price4', 'price5', 'price6','last_invoice_price'])->default('price1');
+            $table->string('price_list')->nullable();
+            // $table->decimal('discount_by_item', 8, 2)->nullable()->comment('Discount percentage applied per item');
             $table->decimal('global_discount', 8, 2)->nullable()->comment('Global discount percentage applied to entire order');
             $table->enum('discount_class', ['Silver', 'Gold', 'Platinum'])->nullable();
             $table->decimal('markup_percentage', 8, 2)->nullable()->comment('Markup percentage applied to cost price');
@@ -67,13 +69,15 @@ return new class extends Migration {
 
             //tax
             $table->boolean('taxable')->nullable()->default(false);
-            $table->decimal('tax_rate', 5, 2)->nullable()->default(0.00)->comment('Tax rate percentage for this customer');
-            $table->string('tax_number')->nullable()->after('taxable')->comment('Tax registration number');
-            $table->boolean('is_exempted')->default(false)->after('tax_number')->comment('Whether customer is tax exempted');
-            $table->string('exemption_from')->nullable()->after('is_exempted')->comment('Reason for tax exemption');
-            $table->string('exemption_reference')->nullable()->after('exemption_from')->comment('Reference number for tax exemption');
-            $table->date('exempted_from_date')->nullable()->after('exemption_reference')->comment('Tax exemption start date');
-            $table->date('exempted_till_date')->nullable()->after('exempted_from_date')->comment('Tax exemption end date');
+            $table->date('taxed_from_date')->nullable()->comment('Date from which customer is taxable');
+            $table->date('taxed_till_date')->nullable()->comment('Date until which customer is taxable');
+            $table->boolean('subjected_to_tax')->nullable()->default(false)->comment('Whether customer is subjected to added tax');
+            $table->decimal('added_tax', 5, 2)->nullable()->default(0.00)->comment('Added tax percentage for this customer');
+            $table->boolean('exempted')->default(false)->comment('Whether customer is tax exempted');
+            $table->string('exempted_from')->nullable()->comment('Reason for tax exemption');
+            $table->string('exemption_reference')->nullable()->comment('Reference number for tax exemption');
+            $table->date('exempted_from_date')->nullable()->comment('Tax exemption start date');
+            $table->date('exempted_till_date')->nullable()->comment('Tax exemption end date');
 
 
             //more details
@@ -87,8 +91,8 @@ return new class extends Migration {
             $table->enum('send_invoice',['email', 'sms', 'whatsapp' ,'all'])->default('email');
 
             // Message functionality
-            $table->boolean('add_message')->default(false)->comment('Whether to include custom message on invoice');
-            $table->text('invoice_message')->nullable()->comment('Custom message to be printed on invoice and sent with invoice');
+            $table->boolean('showMessageField')->default(false)->comment('Whether to include custom message on invoice');
+            $table->text('message')->nullable()->comment('Custom message to be printed on invoice and sent with invoice');
 
             // Primary contact reference
             $table->unsignedBigInteger('contacts_id')->nullable()->comment('Primary contact for this customer');

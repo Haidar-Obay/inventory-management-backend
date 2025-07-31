@@ -12,11 +12,19 @@ use App\Models\Address;
 use App\Models\CustomerContact;
 use App\Models\CustomerAttachment;
 use App\Models\CustomerCreditLimit;
+use App\Models\CustomerChequeLimit;
 use App\Models\CustomerOpeningBalance;
 use App\Models\Country;
 use App\Models\Zone;
 use App\Models\City;
+use App\Models\District;
 use App\Models\Currency;
+use App\Models\Trade;
+use App\Models\CompanyCode;
+use App\Models\BusinessType;
+use App\Models\SalesChannel;
+use App\Models\DistributionChannel;
+use App\Models\MediaChannel;
 use Faker\Factory as Faker;
 use Illuminate\Support\Arr;
 
@@ -62,15 +70,6 @@ class CustomerSeeder extends Seeder
                 'active' => true
             ]
         );
-        // Create a 0-day payment term for testing
-        $paymentTermZero = PaymentTerm::firstOrCreate(
-            ['code' => 'Net 0'],
-            [
-                'name' => 'Immediate',
-                'nb_days' => 0,
-                'active' => true
-            ]
-        );
 
         // Create a default payment method if none exists
         $paymentMethod = PaymentMethod::firstOrCreate(
@@ -87,9 +86,10 @@ class CustomerSeeder extends Seeder
         $countryId = Country::first()->id ?? 1;
         $zoneId = Zone::first()->id ?? 1;
         $cityId = City::first()->id ?? 1;
+        $districtId = District::first()->id ?? 1;
 
-        // Create a default currency if none exists
-        $currency = Currency::firstOrCreate(
+        // Create default currencies
+        $usdCurrency = Currency::firstOrCreate(
             ['code' => 'USD'],
             [
                 'name' => 'US Dollar',
@@ -98,25 +98,49 @@ class CustomerSeeder extends Seeder
             ]
         );
 
+        $eurCurrency = Currency::firstOrCreate(
+            ['code' => 'EUR'],
+            [
+                'name' => 'Euro',
+                'iso_code' => 'EUR',
+                'rate' => 0.8500
+            ]
+        );
+
+        // Create default related models if they don't exist
+        $trade = Trade::firstOrCreate(
+            ['code' => 'DEFAULT'],
+            ['name' => 'Default Trade', 'active' => true]
+        );
+
+        $companyCode = CompanyCode::firstOrCreate(
+            ['code' => 'DEFAULT'],
+            ['name' => 'Default Company Code']
+        );
+
+        $businessType = BusinessType::firstOrCreate(
+            ['code' => 'DEFAULT'],
+            ['name' => 'Default Business Type']
+        );
+
+        $salesChannel = SalesChannel::firstOrCreate(
+            ['code' => 'DEFAULT'],
+            ['name' => 'Default Sales Channel']
+        );
+
+        $distributionChannel = DistributionChannel::firstOrCreate(
+            ['code' => 'DEFAULT'],
+            ['name' => 'Default Distribution Channel']
+        );
+
+        $mediaChannel = MediaChannel::firstOrCreate(
+            ['code' => 'DEFAULT'],
+            ['name' => 'Default Media Channel']
+        );
+
         // Create 10 sample customers
         for ($i = 0; $i < 10; $i++) {
-            // Create addresses (billing and shipping)
-            $billingAddress = Address::create([
-                'address_line1' => $faker->streetAddress(),
-                'city_id' => $cityId,
-                'zone_id' => $zoneId,
-                'zip_code' => $faker->postcode(),
-                'country_id' => $countryId,
-            ]);
-            $shippingAddress = Address::create([
-                'address_line1' => $faker->streetAddress(),
-                'city_id' => $cityId,
-                'zone_id' => $zoneId,
-                'zip_code' => $faker->postcode(),
-                'country_id' => $countryId,
-            ]);
-
-            // Create the customer (all fields)
+            // Create the customer with all new fields
             $customer = Customer::create([
                 // Personal info
                 'title' => Arr::random(['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.']),
@@ -130,46 +154,54 @@ class CustomerSeeder extends Seeder
                 'phone3' => $faker->optional()->phoneNumber(),
                 'file_number' => $faker->unique()->numerify('FN####'),
                 'bar_code' => $faker->unique()->ean13(),
-                'search_terms' => $faker->words(3, true),
+                'search_terms' => json_encode($faker->words(3)),
+                
                 // Business info
-                'trade_id' => null,
-                'company_code_id' => null,
+                'trade_id' => $trade->id,
+                'company_code_id' => $companyCode->id,
                 'customer_group_id' => $customerGroup->id,
-                'business_type_id' => null,
-                'sales_channel_id' => null,
-                'distribution_channel_id' => null,
-                'media_channel_id' => null,
+                'business_type_id' => $businessType->id,
+                'sales_channel_id' => $salesChannel->id,
+                'distribution_channel_id' => $distributionChannel->id,
+                'media_channel_id' => $mediaChannel->id,
                 'indicator' => Arr::random(['A', 'B', 'C', 'D']),
-                'risk_category' => Arr::random(['A', 'B', 'C', 'D']),
+                'risk_category' => Arr::random(['Low', 'Medium', 'High']),
+                
                 // Salesmen
                 'salesman_id' => $salesman->id,
                 'collector_id' => $salesman->id,
                 'supervisor_id' => $salesman->id,
                 'manager_id' => $salesman->id,
+                
                 // Payment
                 'payment_term_id' => $paymentTerm->id,
                 'payment_method_id' => $paymentMethod->id,
                 'allow_credit' => $faker->boolean(),
-                'accept_cheque' => $faker->boolean(),
+                'accept_cheques' => $faker->boolean(),
                 'payment_day' => (string)rand(1, 30),
                 'track_payment' => Arr::random(['yes', 'no']),
                 'settlement_method' => Arr::random(['FIFO', 'Manual']),
+                
                 // Pricing
-                'pricing_choice' => Arr::random(['price1', 'price2', 'price3', 'price4', 'price5', 'price6', 'last_invoice_price']),
-                'discount_by_item' => $faker->randomFloat(2, 0, 10),
+                'price_choice' => Arr::random(['price1', 'price2', 'price3', 'price4', 'price5', 'price6', 'last_invoice_price']),
+                'price_list' => Arr::random(['standard', 'premium', 'wholesale']),
                 'global_discount' => $faker->randomFloat(2, 0, 10),
                 'discount_class' => Arr::random(['Silver', 'Gold', 'Platinum']),
                 'markup_percentage' => $faker->randomFloat(2, 0, 10),
                 'markdown_percentage' => $faker->randomFloat(2, 0, 10),
-                // Tax
+                
+                // Tax - Updated structure
                 'taxable' => $faker->boolean(),
-                'tax_rate' => $faker->randomFloat(2, 0, 15),
-                'tax_number' => $faker->optional()->numerify('TAX####'),
-                'is_exempted' => $faker->boolean(10),
-                'exemption_from' => $faker->optional()->word(),
+                'taxed_from_date' => $faker->optional()->date(),
+                'taxed_till_date' => $faker->optional()->date(),
+                'subjected_to_tax' => $faker->boolean(),
+                'added_tax' => $faker->optional()->randomFloat(2, 0, 15),
+                'exempted' => $faker->boolean(10),
+                'exempted_from' => $faker->optional()->word(),
                 'exemption_reference' => $faker->optional()->word(),
                 'exempted_from_date' => $faker->optional()->date(),
                 'exempted_till_date' => $faker->optional()->date(),
+                
                 // Status
                 'active' => true,
                 'black_listed' => $faker->boolean(5),
@@ -179,71 +211,178 @@ class CustomerSeeder extends Seeder
                 'free_delivery_charge' => $faker->boolean(10),
                 'print_invoice_language' => Arr::random(['English', 'Arabic']),
                 'send_invoice' => Arr::random(['email', 'sms', 'whatsapp', 'all']),
-                // Messaging
-                'add_message' => $faker->boolean(30),
-                'invoice_message' => $faker->optional()->sentence(),
+                
+                // Messaging - Updated field names
+                'showMessageField' => $faker->boolean(30),
+                'message' => $faker->optional()->sentence(),
+                
                 // Primary contact (set below)
                 'contacts_id' => null,
+                
                 // Notes
                 'notes' => $faker->optional()->sentence(),
             ]);
 
-            // Attach addresses via pivot
+            // Create billing address
+            $billingAddress = Address::create([
+                'address_line1' => $faker->streetAddress(),
+                'address_line2' => $faker->optional()->secondaryAddress(),
+                'building' => $faker->optional()->buildingNumber(),
+                'block' => $faker->optional()->randomLetter() . $faker->numberBetween(1, 10),
+                'floor' => $faker->optional()->numberBetween(1, 20) . 'th Floor',
+                'side' => Arr::random(['North', 'South', 'East', 'West']),
+                'appartment' => $faker->optional()->numberBetween(1, 999),
+                'zip_code' => $faker->postcode(),
+                'country_id' => $countryId,
+                'zone_id' => $zoneId,
+                'city_id' => $cityId,
+                'district_id' => $districtId,
+            ]);
+
+            // Attach billing address via pivot
             $customer->addresses()->attach($billingAddress->id, [
                 'address_type' => 'billing',
-                'is_primary' => false,
+                'is_primary' => true,
                 'address_name' => 'Main Billing',
                 'notes' => $faker->optional()->sentence(),
             ]);
-            $customer->addresses()->attach($shippingAddress->id, [
-                'address_type' => 'shipping',
-                'is_primary' => true,
-                'address_name' => 'Main Shipping',
-                'notes' => $faker->optional()->sentence(),
-            ]);
 
-            // Create and link a contact
-            $contact = CustomerContact::create([
+            // Create contacts for the customer
+            $primaryContact = CustomerContact::create([
                 'customer_id' => $customer->id,
                 'title' => Arr::random(['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.']),
                 'name' => $faker->name(),
                 'work_phone' => $faker->optional()->phoneNumber(),
                 'mobile' => $faker->optional()->phoneNumber(),
-                'email' => $faker->optional()->email(),
                 'position' => $faker->optional()->jobTitle(),
                 'extension' => $faker->optional()->numerify('###'),
+                'is_primary' => true,
             ]);
-            $customer->contacts_id = $contact->id;
+
+            // Create additional contacts
+            if ($faker->boolean(70)) {
+                CustomerContact::create([
+                    'customer_id' => $customer->id,
+                    'title' => Arr::random(['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.']),
+                    'name' => $faker->name(),
+                    'work_phone' => $faker->optional()->phoneNumber(),
+                    'mobile' => $faker->optional()->phoneNumber(),
+                    'position' => $faker->optional()->jobTitle(),
+                    'extension' => $faker->optional()->numerify('###'),
+                    'is_primary' => false,
+                ]);
+            }
+
+            // Set primary contact
+            $customer->contacts_id = $primaryContact->id;
             $customer->save();
 
-            // Optionally: create an attachment
-            CustomerAttachment::create([
-                'customer_id' => $customer->id,
-                'file_path' => 'attachments/sample.pdf',
-                'file_name' => 'sample.pdf',
-                'file_type' => 'pdf',
+            // Create shipping addresses
+            $shippingAddress = Address::create([
+                'address_line1' => $faker->streetAddress(),
+                'address_line2' => $faker->optional()->secondaryAddress(),
+                'building' => $faker->optional()->buildingNumber(),
+                'block' => $faker->optional()->randomLetter() . $faker->numberBetween(1, 10),
+                'floor' => $faker->optional()->numberBetween(1, 20) . 'th Floor',
+                'side' => Arr::random(['North', 'South', 'East', 'West']),
+                'appartment' => $faker->optional()->numberBetween(1, 999),
+                'zip_code' => $faker->postcode(),
+                'country_id' => $countryId,
+                'zone_id' => $zoneId,
+                'city_id' => $cityId,
+                'district_id' => $districtId,
             ]);
 
-            // Optionally: create a credit limit
-            CustomerCreditLimit::create([
-                'customer_id' => $customer->id,
-                'currency_id' => $currency->id,
-                'credit_limit' => $faker->numberBetween(1000, 10000),
-                'used_credit' => 0,
-                'available_credit' => $faker->numberBetween(1000, 10000),
-                'is_active' => true,
+            // Attach shipping address via pivot (non-primary)
+            $customer->addresses()->attach($shippingAddress->id, [
+                'address_type' => 'shipping',
+                'is_primary' => false,
+                'address_name' => 'Main Shipping',
                 'notes' => $faker->optional()->sentence(),
             ]);
 
-            // Optionally: create an opening balance
-            CustomerOpeningBalance::create([
-                'customer_id' => $customer->id,
-                'currency_id' => $currency->id,
-                'opening_amount' => $faker->numberBetween(1000, 10000),
-                'opening_date' => $faker->date(),
-                'notes' => $faker->optional()->sentence(),
-                'is_active' => true,
-            ]);
+            // Create attachments
+            if ($faker->boolean(50)) {
+                CustomerAttachment::create([
+                    'customer_id' => $customer->id,
+                    'file_path' => 'attachments/sample.pdf',
+                    'file_name' => 'sample.pdf',
+                    'file_type' => 'pdf',
+                ]);
+            }
+
+            // Create credit limits for multiple currencies
+            if ($customer->allow_credit) {
+                CustomerCreditLimit::create([
+                    'customer_id' => $customer->id,
+                    'currency_id' => $usdCurrency->id,
+                    'credit_limit' => $faker->numberBetween(1000, 10000),
+                    'used_credit' => 0,
+                    'available_credit' => $faker->numberBetween(1000, 10000),
+                    'is_active' => true,
+                    'notes' => $faker->optional()->sentence(),
+                ]);
+
+                if ($faker->boolean(50)) {
+                    CustomerCreditLimit::create([
+                        'customer_id' => $customer->id,
+                        'currency_id' => $eurCurrency->id,
+                        'credit_limit' => $faker->numberBetween(800, 8000),
+                        'used_credit' => 0,
+                        'available_credit' => $faker->numberBetween(800, 8000),
+                        'is_active' => true,
+                        'notes' => $faker->optional()->sentence(),
+                    ]);
+                }
+            }
+
+            // Create cheque limits for multiple currencies
+            if ($customer->accept_cheques) {
+                CustomerChequeLimit::create([
+                    'customer_id' => $customer->id,
+                    'currency_id' => $usdCurrency->id,
+                    'max_cheques' => $faker->numberBetween(1, 10),
+                    'used_cheques' => 0,
+                    'available_cheques' => $faker->numberBetween(1, 10),
+                    'is_active' => true,
+                    'notes' => $faker->optional()->sentence(),
+                ]);
+
+                if ($faker->boolean(50)) {
+                    CustomerChequeLimit::create([
+                        'customer_id' => $customer->id,
+                        'currency_id' => $eurCurrency->id,
+                        'max_cheques' => $faker->numberBetween(1, 8),
+                        'used_cheques' => 0,
+                        'available_cheques' => $faker->numberBetween(1, 8),
+                        'is_active' => true,
+                        'notes' => $faker->optional()->sentence(),
+                    ]);
+                }
+            }
+
+            // Create opening balances for multiple currencies
+            if ($faker->boolean(30)) {
+                CustomerOpeningBalance::create([
+                    'customer_id' => $customer->id,
+                    'currency_id' => $usdCurrency->id,
+                    'opening_amount' => $faker->numberBetween(1000, 10000),
+                    'opening_date' => $faker->date(),
+                    'notes' => $faker->optional()->sentence(),
+                    'is_active' => true,
+                ]);
+
+                if ($faker->boolean(50)) {
+                    CustomerOpeningBalance::create([
+                        'customer_id' => $customer->id,
+                        'currency_id' => $eurCurrency->id,
+                        'opening_amount' => $faker->numberBetween(800, 8000),
+                        'opening_date' => $faker->date(),
+                        'notes' => $faker->optional()->sentence(),
+                        'is_active' => true,
+                    ]);
+                }
+            }
         }
 
         $this->command->info('Customers seeded successfully!');

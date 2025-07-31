@@ -11,29 +11,32 @@ class Customer extends Model implements Auditable
 
     protected $table = 'customers';
     protected $primaryKey = 'id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $guarded = ['id'];
 
     protected $casts = [
         'taxable' => 'boolean',
-        'is_exempted' => 'boolean',
+        'taxed_from_date' => 'date',
+        'taxed_till_date' => 'date',
+        'subjected_to_tax' => 'boolean',
+        'added_tax' => 'decimal:2',
+        'exempted' => 'boolean',
         'exempted_from_date' => 'date',
         'exempted_till_date' => 'date',
-        'add_message' => 'boolean',
+        'showMessageField' => 'boolean',
         'allow_credit' => 'boolean',
-        'accept_cheque' => 'boolean',
+        'accept_cheques' => 'boolean',
         'active' => 'boolean',
         'black_listed' => 'boolean',
         'one_time_account' => 'boolean',
         'special_account' => 'boolean',
         'pos_customer' => 'boolean',
         'free_delivery_charge' => 'boolean',
-        'discount_by_item' => 'decimal:2',
         'global_discount' => 'decimal:2',
         'markup_percentage' => 'decimal:2',
         'markdown_percentage' => 'decimal:2',
-        'tax_rate' => 'decimal:2',
+        'search_terms' => 'array',
     ];
 
 
@@ -437,7 +440,7 @@ class Customer extends Model implements Auditable
 
     public function canAcceptCheque($currencyId, $count = 1)
     {
-        if (!$this->accept_cheque) {
+        if (!$this->accept_cheques) {
             return false;
         }
 
@@ -531,9 +534,29 @@ class Customer extends Model implements Auditable
     }
 
     // Tax-related helper methods
+    public function isCurrentlyTaxable()
+    {
+        if (!$this->taxable) {
+            return false;
+        }
+
+        $now = now()->toDateString();
+
+        // Check if current date is within taxable period
+        if ($this->taxed_from_date && $this->taxed_from_date > $now) {
+            return false; // Taxable period hasn't started yet
+        }
+
+        if ($this->taxed_till_date && $this->taxed_till_date < $now) {
+            return false; // Taxable period has expired
+        }
+
+        return true;
+    }
+
     public function isCurrentlyExempted()
     {
-        if (!$this->is_exempted) {
+        if (!$this->exempted) {
             return false;
         }
 
@@ -551,9 +574,22 @@ class Customer extends Model implements Auditable
         return true;
     }
 
+    public function getTaxStatus()
+    {
+        if ($this->isCurrentlyExempted()) {
+            return 'exempted';
+        }
+
+        if ($this->isCurrentlyTaxable()) {
+            return 'taxable';
+        }
+
+        return 'not_taxable';
+    }
+
     public function getExemptionStatus()
     {
-        if (!$this->is_exempted) {
+        if (!$this->exempted) {
             return 'not_exempted';
         }
 
@@ -584,8 +620,8 @@ class Customer extends Model implements Auditable
             return false;
         }
 
-        // Apply tax if customer is taxable
-        return $this->taxable;
+        // Apply tax if customer is currently taxable and subjected to tax
+        return $this->isCurrentlyTaxable() && $this->subjected_to_tax;
     }
 
     public function getTaxInfo()
@@ -593,20 +629,23 @@ class Customer extends Model implements Auditable
         if (!$this->shouldApplyTax()) {
             return [
                 'should_apply_tax' => false,
-                'tax_rate' => 0,
-                'reason' => $this->isCurrentlyExempted() ? 'Customer is tax exempted' : 'Customer is not taxable',
+                'added_tax' => 0,
+                'reason' => $this->isCurrentlyExempted() ? 'Customer is tax exempted' : 'Customer is not taxable or not subjected to tax',
             ];
         }
 
         return [
             'should_apply_tax' => true,
-            'tax_rate' => $this->tax_rate ?? 0,
+            'added_tax' => $this->added_tax ?? 0,
             'taxable' => $this->taxable,
-            'is_exempted' => $this->is_exempted,
-            'exemption_from' => $this->exemption_from,
+            'subjected_to_tax' => $this->subjected_to_tax,
+            'exempted' => $this->exempted,
+            'exempted_from' => $this->exempted_from,
             'exemption_reference' => $this->exemption_reference,
             'exempted_from_date' => $this->exempted_from_date,
             'exempted_till_date' => $this->exempted_till_date,
+            'taxed_from_date' => $this->taxed_from_date,
+            'taxed_till_date' => $this->taxed_till_date,
         ];
     }
 
@@ -619,7 +658,7 @@ class Customer extends Model implements Auditable
             return 0;
         }
 
-        return $amount * (($this->tax_rate ?? 0) / 100);
+        return $amount * (($this->added_tax ?? 0) / 100);
     }
 
     /**
@@ -631,11 +670,11 @@ class Customer extends Model implements Auditable
         return $amount + $taxAmount;
     }
 
-    public function setTaxExemption($exemptionFrom, $exemptionReference, $fromDate = null, $tillDate = null)
+    public function setTaxExemption($exemptedFrom, $exemptionReference, $fromDate = null, $tillDate = null)
     {
         $this->update([
-            'is_exempted' => true,
-            'exemption_from' => $exemptionFrom,
+            'exempted' => true,
+            'exempted_from' => $exemptedFrom,
             'exemption_reference' => $exemptionReference,
             'exempted_from_date' => $fromDate,
             'exempted_till_date' => $tillDate,
@@ -645,25 +684,28 @@ class Customer extends Model implements Auditable
     public function removeTaxExemption()
     {
         $this->update([
-            'is_exempted' => false,
-            'exemption_from' => null,
+            'exempted' => false,
+            'exempted_from' => null,
             'exemption_reference' => null,
             'exempted_from_date' => null,
             'exempted_till_date' => null,
         ]);
     }
 
-    public function updateTaxNumber($taxNumber)
-    {
-        $this->update([
-            'tax_number' => $taxNumber,
-        ]);
-    }
-
-    public function setTaxable($taxable)
+    public function setTaxable($taxable, $fromDate = null, $tillDate = null)
     {
         $this->update([
             'taxable' => $taxable,
+            'taxed_from_date' => $fromDate,
+            'taxed_till_date' => $tillDate,
+        ]);
+    }
+
+    public function setSubjectedToTax($subjectedToTax, $addedTax = null)
+    {
+        $this->update([
+            'subjected_to_tax' => $subjectedToTax,
+            'added_tax' => $addedTax,
         ]);
     }
 
@@ -791,27 +833,27 @@ class Customer extends Model implements Auditable
     // Message functionality helper methods
     public function hasInvoiceMessage()
     {
-        return $this->add_message && !empty($this->invoice_message);
+        return $this->showMessageField && !empty($this->message);
     }
 
     public function getInvoiceMessage()
     {
-        return $this->hasInvoiceMessage() ? $this->invoice_message : null;
+        return $this->hasInvoiceMessage() ? $this->message : null;
     }
 
     public function setInvoiceMessage($message, $enabled = true)
     {
         $this->update([
-            'add_message' => $enabled,
-            'invoice_message' => $enabled ? $message : null,
+            'showMessageField' => $enabled,
+            'message' => $enabled ? $message : null,
         ]);
     }
 
     public function disableInvoiceMessage()
     {
         $this->update([
-            'add_message' => false,
-            'invoice_message' => null,
+            'showMessageField' => false,
+            'message' => null,
         ]);
     }
 

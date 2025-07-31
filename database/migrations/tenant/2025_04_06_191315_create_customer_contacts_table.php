@@ -13,12 +13,13 @@ return new class extends Migration
     {
         Schema::create('customer_contacts', function (Blueprint $table) {
             $table->id();
+            $table->boolean('is_primary')->default(false);
             $table->foreignId('customer_id')->constrained()->onDelete('cascade');
             $table->string('title')->nullable(); // Mr., Mrs., Dr., etc.
             $table->string('name');
             $table->string('work_phone')->nullable();
             $table->string('mobile')->nullable();
-            $table->string('email')->nullable();
+            // $table->string('email')->nullable();
             $table->string('position')->nullable(); // or role
             $table->string('extension')->nullable();
             $table->timestamps();

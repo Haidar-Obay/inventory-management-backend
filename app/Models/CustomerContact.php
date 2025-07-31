@@ -16,9 +16,9 @@ class CustomerContact extends Model
         'name',
         'work_phone',
         'mobile',
-        'email',
         'position',
         'extension',
+        'is_primary',
     ];
 
     /**
@@ -66,6 +66,6 @@ class CustomerContact extends Model
      */
     public function hasEmail(): bool
     {
-        return !empty($this->email);
+        return false; // Email field doesn't exist in database
     }
 }
