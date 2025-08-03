@@ -147,7 +147,6 @@ class CustomerContactController extends Controller
     {
         $stats = [
             'total_contacts' => CustomerContact::count(),
-            'contacts_with_email' => CustomerContact::whereNotNull('email')->count(),
             'contacts_with_phone' => CustomerContact::where(function ($query) {
                 $query->whereNotNull('mobile')->orWhereNotNull('work_phone');
             })->count(),

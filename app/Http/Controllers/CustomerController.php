@@ -23,38 +23,29 @@ class CustomerController extends Controller
 {
     public function index()
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_customers";
-
-        $customers = app('cache')->store('database')->get($key);
-
-        if (!$customers) {
-            $customers = Customer::with([
-                'customerGroup:id,name',
-                'salesman:id,name',
-                'collector:id,name',
-                'supervisor:id,name',
-                'manager:id,name',
-                'paymentTerm:id,code', // changed from name to code
-                'paymentMethod:id,code', // changed from name to code
-                'trade:id,name',
-                'companyCode:id,code',
-                'businessType:id,name',
-                'salesChannel:id,name',
-                'distributionChannel:id,name',
-                'mediaChannel:id,name',
-                'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'primaryContact:id,name,email',
-                'contacts:id,name,email',
-                'attachments:id,file_name,file_path'
-            ])->paginate(10);
-
-            app('cache')->store('database')->forever($key, $customers);
-        }
+        $customers = Customer::with([
+            'customerGroup:id,name',
+            'salesman:id,name',
+            'collector:id,name',
+            'supervisor:id,name',
+            'manager:id,name',
+            'paymentTerm:id,code', // changed from name to code
+            'paymentMethod:id,code', // changed from name to code
+            'trade:id,name',
+            'companyCode:id,code',
+            'businessType:id,name',
+            'salesChannel:id,name',
+            'distributionChannel:id,name',
+            'mediaChannel:id,name',
+            'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+            'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+            'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+            'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+            'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+            'primaryContact:id,name',
+            'contacts:id,name',
+            'attachments:id,file_name,file_path'
+        ])->paginate(10);
 
         // Transform the response to be lighter
         $transformedData = $customers->getCollection()->map(function ($customer) {
@@ -82,8 +73,8 @@ class CustomerController extends Controller
                 'free_delivery_charge' => $customer->free_delivery_charge,
                 'print_invoice_language' => $customer->print_invoice_language,
                 'send_invoice' => $customer->send_invoice,
-                'add_message' => $customer->add_message,
-                'invoice_message' => $customer->invoice_message,
+                'showMessageField' => $customer->showMessageField,
+                'message' => $customer->message,
                 'notes' => $customer->notes,
                 'created_at' => $customer->created_at,
                 'updated_at' => $customer->updated_at,
@@ -174,110 +165,183 @@ class CustomerController extends Controller
     {
         $validated = $request->validated();
 
-        // Handle addresses - new structure
-        $addresses = [];
+        // Handle billing address - new structure with direct fields
+        $billingAddress = null;
+        if ($request->filled('billing_address_line1')) {
+            $billingAddress = Address::create([
+                'address_line1' => $request->input('billing_address_line1'),
+                'address_line2' => $request->input('billing_address_line2'),
+                'country_id' => $request->input('billing_country_id'),
+                'city_id' => $request->input('billing_city_id'),
+                'district_id' => $request->input('billing_district_id'),
+                'zone_id' => $request->input('billing_zone_id'),
+                'building' => $request->input('billing_building'),
+                'block' => $request->input('billing_block'),
+                'floor' => $request->input('billing_floor'),
+                'side' => $request->input('billing_side'),
+                'appartment' => $request->input('billing_apartment'),
+                'zip_code' => $request->input('billing_zip_code'),
+            ]);
+        }
 
-        if ($request->has('addresses')) {
-            // New structure: array of addresses with types
-            foreach ($request->input('addresses') as $addressData) {
+        // Handle shipping addresses - new structure as array
+        $shippingAddresses = [];
+        if ($request->has('shipping_addresses')) {
+            foreach ($request->input('shipping_addresses') as $shippingAddressData) {
                 $address = Address::create([
-                    'address_line1' => $addressData['address_line1'],
-                    'address_line2' => $addressData['address_line2'] ?? null,
-                    'country_id' => $addressData['country_id'],
-                    'city_id' => $addressData['city_id'],
-                    'district_id' => $addressData['district_id'] ?? null,
-                    'zone_id' => $addressData['zone_id'] ?? null,
-                    'building' => $addressData['building'] ?? null,
-                    'block' => $addressData['block'] ?? null,
-                    'floor' => $addressData['floor'] ?? null,
-                    'side' => $addressData['side'] ?? null,
-                    'appartment' => $addressData['appartment'] ?? null,
-                    'zip_code' => $addressData['zip_code'] ?? null,
+                    'address_line1' => $shippingAddressData['address_line1'],
+                    'address_line2' => $shippingAddressData['address_line2'] ?? null,
+                    'country_id' => $shippingAddressData['country_id'],
+                    'city_id' => $shippingAddressData['city_id'],
+                    'district_id' => $shippingAddressData['district_id'] ?? null,
+                    'zone_id' => $shippingAddressData['zone_id'] ?? null,
+                    'building' => $shippingAddressData['building'] ?? null,
+                    'block' => $shippingAddressData['block'] ?? null,
+                    'floor' => $shippingAddressData['floor'] ?? null,
+                    'side' => $shippingAddressData['side'] ?? null,
+                    'appartment' => $shippingAddressData['apartment'] ?? null,
+                    'zip_code' => $shippingAddressData['zip_code'] ?? null,
                 ]);
-
-                $addresses[] = [
-                    'address_id' => $address->id,
-                    'address_type' => $addressData['address_type'],
-                    'is_primary' => $addressData['is_primary'] ?? false,
-                    'address_name' => $addressData['address_name'] ?? null,
-                    'notes' => $addressData['notes'] ?? null,
-                ];
-            }
-        } else {
-            // Legacy structure: separate billing and shipping addresses
-            if ($request->filled('billing_address')) {
-                $billingAddress = Address::create($request->input('billing_address'));
-                $addresses[] = [
-                    'address_id' => $billingAddress->id,
-                    'address_type' => 'billing',
-                    'is_primary' => true,
-                    'address_name' => 'Primary Billing Address',
-                ];
-            }
-
-            if ($request->filled('shipping_address')) {
-                $shippingAddress = Address::create($request->input('shipping_address'));
-                $addresses[] = [
-                    'address_id' => $shippingAddress->id,
-                    'address_type' => 'shipping',
-                    'is_primary' => true,
-                    'address_name' => 'Primary Shipping Address',
-                ];
+                $shippingAddresses[] = $address;
             }
         }
 
         // Remove address fields from validated data since we handle them separately
-        unset($validated['addresses'], $validated['billing_address'], $validated['shipping_address']);
+        unset($validated['billing_address_line1'], $validated['billing_address_line2'], 
+              $validated['billing_country_id'], $validated['billing_city_id'], 
+              $validated['billing_district_id'], $validated['billing_zone_id'],
+              $validated['billing_building'], $validated['billing_block'],
+              $validated['billing_floor'], $validated['billing_side'],
+              $validated['billing_apartment'], $validated['billing_zip_code'],
+              $validated['shipping_addresses']);
 
-        if ($request->filled('primary_payment_method_id')) {
-            $validated['primary_payment_method_id'] = $request->input('primary_payment_method_id');
+        // Handle payment terms with new field names
+        if ($request->filled('selected_payment_term')) {
+            $validated['payment_term_id'] = $request->input('selected_payment_term');
         }
 
-        if ($request->filled('payment_term')) {
-            $paymentTerm = PaymentTerm::create($request->input('payment_term'));
-            $validated['payment_term_id'] = $paymentTerm->id;
+        if ($request->filled('selected_payment_method')) {
+            $validated['payment_method_id'] = $request->input('selected_payment_method');
+        }
+
+        // Handle pricing with new field names
+        if ($request->filled('price_choice')) {
+            $validated['price_choice'] = $request->input('price_choice');
+        }
+
+        if ($request->filled('price_list')) {
+            $validated['price_list'] = $request->input('price_list');
+        }
+
+        if ($request->filled('markup')) {
+            $validated['markup_percentage'] = $request->input('markup');
+        }
+
+        if ($request->filled('markdown')) {
+            $validated['markdown_percentage'] = $request->input('markdown');
+        }
+
+        // Handle message field
+        if ($request->filled('message')) {
+            $validated['message'] = $request->input('message');
+            $validated['showMessageField'] = true;
         }
 
         $customer = Customer::create($validated);
 
-        // Attach addresses to customer through pivot table
-        foreach ($addresses as $addressData) {
-            $customer->addresses()->attach($addressData['address_id'], [
-                'address_type' => $addressData['address_type'],
-                'is_primary' => $addressData['is_primary'],
-                'address_name' => $addressData['address_name'],
-                'notes' => $addressData['notes'] ?? null,
+        // Attach billing address to customer
+        if ($billingAddress) {
+            $customer->addresses()->attach($billingAddress->id, [
+                'address_type' => 'billing',
+                'is_primary' => true,
+                'address_name' => 'Primary Billing Address',
             ]);
         }
 
-        // Handle attachments
-        if ($request->hasFile('attachments')) {
-            $tenantId = tenant('id');
-            $files = is_array($request->file('attachments'))
-                ? $request->file('attachments')
-                : [$request->file('attachments')];
+        // Attach shipping addresses to customer
+        foreach ($shippingAddresses as $index => $address) {
+            $customer->addresses()->attach($address->id, [
+                'address_type' => 'shipping',
+                'is_primary' => $index === 0, // First shipping address is primary
+                'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address ' . ($index + 1),
+            ]);
+        }
 
-            foreach ($files as $file) {
-                $path = Storage::disk('public')->putFile(
-                    "tenants/{$tenantId}/{$customer->id}/attachments",
-                    $file
-                );
+        // Handle credit limits with new structure
+        if ($request->has('credit_limits')) {
+            $creditLimits = $request->input('credit_limits');
+            foreach ($creditLimits as $currencyCode => $amount) {
+                // Find currency by code
+                $currency = \App\Models\Currency::where('code', $currencyCode)->first();
+                if ($currency) {
+                    $customer->setCreditLimit($currency->id, $amount);
+                }
+            }
+        }
 
+        // Handle cheque limits with new structure
+        if ($request->has('max_cheques')) {
+            $chequeLimits = $request->input('max_cheques');
+            foreach ($chequeLimits as $currencyCode => $maxCheques) {
+                // Find currency by code
+                $currency = \App\Models\Currency::where('code', $currencyCode)->first();
+                if ($currency) {
+                    $customer->setChequeLimit($currency->id, $maxCheques);
+                }
+            }
+        }
+
+        // Handle opening balances with new structure
+        if ($request->has('opening_balances')) {
+            foreach ($request->input('opening_balances') as $openingBalanceData) {
+                // Find currency by code
+                $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
+                if ($currency) {
+                    $customer->setOpeningBalance(
+                        $currency->id,
+                        $openingBalanceData['amount'],
+                        $openingBalanceData['date'] ?? null
+                    );
+                }
+            }
+        }
+
+        // Handle contacts
+        if ($request->has('contacts')) {
+            foreach ($request->input('contacts') as $contactData) {
+                $contact = $customer->contacts()->create([
+                    'title' => $contactData['title'] ?? null,
+                    'name' => $contactData['name'],
+                    'work_phone' => $contactData['work_phone'] ?? null,
+                    'mobile' => $contactData['mobile'] ?? null,
+                    'email' => $contactData['email'] ?? null,
+                    'position' => $contactData['position'] ?? null,
+                    'extension' => $contactData['extension'] ?? null,
+                ]);
+
+                // Set as primary contact if specified
+                if (isset($contactData['is_primary']) && $contactData['is_primary']) {
+                    $customer->setPrimaryContact($contact->id);
+                }
+            }
+        }
+
+        // Handle attachments with new structure
+        if ($request->has('attachments')) {
+            foreach ($request->input('attachments') as $attachmentData) {
                 CustomerAttachment::create([
                     'customer_id' => $customer->id,
-                    'file_name' => $file->getClientOriginalName(),
-                    'file_path' => url(Storage::url($path)),
-                    'file_type' => $file->getMimeType(),
-                    'file_size' => $file->getSize(),
+                    'file_name' => $attachmentData['file_name'] ?? 'Unknown',
+                    'file_path' => $attachmentData['file_url'] ?? null,
+                    'file_type' => $attachmentData['file_type'] ?? null,
                     'category' => 'document',
                 ]);
             }
         }
 
-        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_customers");
-
         return response()->json([
-            'message' => 'Customer created successfully',
+            'status' => true,
+            'message' => 'Customer created successfully.',
             'data' => $customer->load([
                 'addresses',
                 'billingAddresses',
@@ -288,138 +352,154 @@ class CustomerController extends Controller
                 'paymentTerm',
                 'primaryContact',
                 'contacts',
-            ])->toArray() + [
-                'attachments' => $customer->attachments()->pluck('file_path'),
-            ],
-        ], 201);
+                'attachments',
+            ]),
+        ]);
     }
 
     public function show(Customer $customer)
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_customer_show_{$customer->id}";
-
-        $cached = app('cache')->store('database')->get($key);
-
-        if (!$cached) {
-            $customer->load([
-                'customerGroup:id,name',
-                'salesman:id,name',
-                'collector:id,name',
-                'supervisor:id,name',
-                'manager:id,name',
-                'paymentTerm:id,code', // changed from name to code
-                'paymentMethod:id,code', // changed from name to code
-                'trade:id,name',
-                'companyCode:id,code',
-                'businessType:id,name',
-                'salesChannel:id,name',
-                'distributionChannel:id,name',
-                'mediaChannel:id,name',
-                'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-                'primaryContact:id,name,email',
-                'contacts:id,name,email',
-                'attachments:id,file_name,file_path'
-            ]);
-            $cached = $customer;
-            app('cache')->store('database')->forever($key, $cached);
-        }
+        $customer->load([
+            'customerGroup:id,name',
+            'salesman:id,name',
+            'collector:id,name',
+            'supervisor:id,name',
+            'manager:id,name',
+            'paymentTerm:id,code', // changed from name to code
+            'paymentMethod:id,code', // changed from name to code
+            'trade:id,name',
+            'companyCode:id,code',
+            'businessType:id,name',
+            'salesChannel:id,name',
+            'distributionChannel:id,name',
+            'mediaChannel:id,name',
+            'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+            'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+            'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+            'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+            'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
+            'primaryContact:id,name',
+            'contacts:id,name',
+            'attachments:id,file_name,file_path'
+        ]);
 
         // Transform the response to be lighter
         $transformedData = [
-            'id' => $cached->id,
-            'title' => $cached->title,
-            'first_name' => $cached->first_name,
-            'middle_name' => $cached->middle_name,
-            'last_name' => $cached->last_name,
-            'display_name' => $cached->display_name,
-            'company_name' => $cached->company_name,
-            'phone1' => $cached->phone1,
-            'phone2' => $cached->phone2,
-            'phone3' => $cached->phone3,
-            'file_number' => $cached->file_number,
-            'bar_code' => $cached->bar_code,
-            'search_terms' => $cached->search_terms,
-            'indicator' => $cached->indicator,
-            'risk_category' => $cached->risk_category,
-            'active' => $cached->active,
-            'black_listed' => $cached->black_listed,
-            'one_time_account' => $cached->one_time_account,
-            'special_account' => $cached->special_account,
-            'pos_customer' => $cached->pos_customer,
-            'free_delivery_charge' => $cached->free_delivery_charge,
-            'print_invoice_language' => $cached->print_invoice_language,
-            'send_invoice' => $cached->send_invoice,
-            'add_message' => $cached->add_message,
-            'invoice_message' => $cached->invoice_message,
-            'notes' => $cached->notes,
-            'created_at' => $cached->created_at,
-            'updated_at' => $cached->updated_at,
+            'id' => $customer->id,
+            'title' => $customer->title,
+            'first_name' => $customer->first_name,
+            'middle_name' => $customer->middle_name,
+            'last_name' => $customer->last_name,
+            'display_name' => $customer->display_name,
+            'company_name' => $customer->company_name,
+            'phone1' => $customer->phone1,
+            'phone2' => $customer->phone2,
+            'phone3' => $customer->phone3,
+            'file_number' => $customer->file_number,
+            'bar_code' => $customer->bar_code,
+            'search_terms' => $customer->search_terms,
+            'indicator' => $customer->indicator,
+            'risk_category' => $customer->risk_category,
+            'active' => $customer->active,
+            'black_listed' => $customer->black_listed,
+            'one_time_account' => $customer->one_time_account,
+            'special_account' => $customer->special_account,
+            'pos_customer' => $customer->pos_customer,
+            'free_delivery_charge' => $customer->free_delivery_charge,
+            'print_invoice_language' => $customer->print_invoice_language,
+            'send_invoice' => $customer->send_invoice,
+            'showMessageField' => $customer->showMessageField,
+            'message' => $customer->message,
+            'notes' => $customer->notes,
+            'created_at' => $customer->created_at,
+            'updated_at' => $customer->updated_at,
             // Related data with only essential info
-            'customer_group' => $cached->customerGroup ? [
-                'id' => $cached->customerGroup->id,
-                'name' => $cached->customerGroup->name
+            'customer_group' => $customer->customerGroup ? [
+                'id' => $customer->customerGroup->id,
+                'name' => $customer->customerGroup->name
             ] : null,
-            'salesman' => $cached->salesman ? [
-                'id' => $cached->salesman->id,
-                'name' => $cached->salesman->name
+            'salesman' => $customer->salesman ? [
+                'id' => $customer->salesman->id,
+                'name' => $customer->salesman->name
             ] : null,
-            'collector' => $cached->collector ? [
-                'id' => $cached->collector->id,
-                'name' => $cached->collector->name
+            'collector' => $customer->collector ? [
+                'id' => $customer->collector->id,
+                'name' => $customer->collector->name
             ] : null,
-            'supervisor' => $cached->supervisor ? [
-                'id' => $cached->supervisor->id,
-                'name' => $cached->supervisor->name
+            'supervisor' => $customer->supervisor ? [
+                'id' => $customer->supervisor->id,
+                'name' => $customer->supervisor->name
             ] : null,
-            'manager' => $cached->manager ? [
-                'id' => $cached->manager->id,
-                'name' => $cached->manager->name
+            'manager' => $customer->manager ? [
+                'id' => $customer->manager->id,
+                'name' => $customer->manager->name
             ] : null,
-            'payment_term' => $cached->paymentTerm ? [
-                'id' => $cached->paymentTerm->id,
-                'code' => $cached->paymentTerm->code // changed from name to code
+            'payment_term' => $customer->paymentTerm ? [
+                'id' => $customer->paymentTerm->id,
+                'code' => $customer->paymentTerm->code // changed from name to code
             ] : null,
-            'payment_method' => $cached->paymentMethod ? [
-                'id' => $cached->paymentMethod->id,
-                'code' => $cached->paymentMethod->code // changed from name to code
+            'payment_method' => $customer->paymentMethod ? [
+                'id' => $customer->paymentMethod->id,
+                'code' => $customer->paymentMethod->code // changed from name to code
             ] : null,
-            'trade' => $cached->trade ? [
-                'id' => $cached->trade->id,
-                'name' => $cached->trade->name
+            'trade' => $customer->trade ? [
+                'id' => $customer->trade->id,
+                'name' => $customer->trade->name
             ] : null,
-            'company_code' => $cached->companyCode ? [
-                'id' => $cached->companyCode->id,
-                'code' => $cached->companyCode->code
+            'company_code' => $customer->companyCode ? [
+                'id' => $customer->companyCode->id,
+                'code' => $customer->companyCode->code
             ] : null,
-            'business_type' => $cached->businessType ? [
-                'id' => $cached->businessType->id,
-                'name' => $cached->businessType->name
+            'business_type' => $customer->businessType ? [
+                'id' => $customer->businessType->id,
+                'name' => $customer->businessType->name
             ] : null,
-            'sales_channel' => $cached->salesChannel ? [
-                'id' => $cached->salesChannel->id,
-                'name' => $cached->salesChannel->name
+            'sales_channel' => $customer->salesChannel ? [
+                'id' => $customer->salesChannel->id,
+                'name' => $customer->salesChannel->name
             ] : null,
-            'distribution_channel' => $cached->distributionChannel ? [
-                'id' => $cached->distributionChannel->id,
-                'name' => $cached->distributionChannel->name
+            'distribution_channel' => $customer->distributionChannel ? [
+                'id' => $customer->distributionChannel->id,
+                'name' => $customer->distributionChannel->name
             ] : null,
-            'media_channel' => $cached->mediaChannel ? [
-                'id' => $cached->mediaChannel->id,
-                'name' => $cached->mediaChannel->name
+            'media_channel' => $customer->mediaChannel ? [
+                'id' => $customer->mediaChannel->id,
+                'name' => $customer->mediaChannel->name
             ] : null,
             // Addresses with only essential info - use first() to get single model from collection
-            'primary_billing_address_id' => $cached->primaryBillingAddress->first() ? $cached->primaryBillingAddress->first()->id : null,
-            'primary_shipping_address_id' => $cached->primaryShippingAddress->first() ? $cached->primaryShippingAddress->first()->id : null,
-            'primary_contact_id' => $cached->primaryContact ? $cached->primaryContact->id : null,
-            // Count of related items
-            'addresses_count' => $cached->addresses->count(),
-            'contacts_count' => $cached->contacts->count(),
-            'attachments_count' => $cached->attachments->count(),
+            'primary_billing_address_id' => $customer->primaryBillingAddress->first() ? $customer->primaryBillingAddress->first()->id : null,
+            'primary_shipping_address_id' => $customer->primaryShippingAddress->first() ? $customer->primaryShippingAddress->first()->id : null,
+            'addresses' => $customer->addresses->map(function ($address) {
+                return [
+                    'id' => $address->id,
+                    'address_line1' => $address->address_line1,
+                    'address_line2' => $address->address_line2,
+                    'country_id' => $address->country_id,
+                    'city_id' => $address->city_id,
+                    'district_id' => $address->district_id,
+                    'zone_id' => $address->zone_id,
+                ];
+            }),
+            'contacts' => $customer->contacts->map(function ($contact) {
+                return [
+                    'id' => $contact->id,
+                    'title' => $contact->title,
+                    'name' => $contact->name,
+                    'work_phone' => $contact->work_phone,
+                    'mobile' => $contact->mobile,
+                    'position' => $contact->position,
+                    'extension' => $contact->extension,
+                    'is_primary' => $contact->is_primary,
+                ];
+            }),
+            'attachments' => $customer->attachments->map(function ($attachment) {
+                return [
+                    'id' => $attachment->id,
+                    'file_name' => $attachment->file_name,
+                    'file_path' => $attachment->file_path,
+                    'file_type' => $attachment->file_type,
+                ];
+            }),
         ];
 
         return response()->json([
@@ -513,6 +593,72 @@ class CustomerController extends Controller
 
         $customer->update($validated);
 
+        // Handle credit limits
+        if ($request->has('credit_limits')) {
+            // Remove existing credit limits and create new ones
+            $customer->creditLimits()->update(['is_active' => false]);
+            
+            foreach ($request->input('credit_limits') as $creditLimitData) {
+                $customer->setCreditLimit(
+                    $creditLimitData['currency_id'],
+                    $creditLimitData['credit_limit'],
+                    $creditLimitData['notes'] ?? null
+                );
+            }
+        }
+
+        // Handle cheque limits
+        if ($request->has('cheque_limits')) {
+            // Remove existing cheque limits and create new ones
+            $customer->chequeLimits()->update(['is_active' => false]);
+            
+            foreach ($request->input('cheque_limits') as $chequeLimitData) {
+                $customer->setChequeLimit(
+                    $chequeLimitData['currency_id'],
+                    $chequeLimitData['max_cheques'],
+                    $chequeLimitData['notes'] ?? null
+                );
+            }
+        }
+
+        // Handle opening balances
+        if ($request->has('opening_balances')) {
+            // Remove existing opening balances and create new ones
+            $customer->openingBalances()->update(['is_active' => false]);
+            
+            foreach ($request->input('opening_balances') as $openingBalanceData) {
+                $customer->setOpeningBalance(
+                    $openingBalanceData['currency_id'],
+                    $openingBalanceData['opening_amount'],
+                    $openingBalanceData['opening_date'] ?? null,
+                    $openingBalanceData['notes'] ?? null
+                );
+            }
+        }
+
+        // Handle contacts
+        if ($request->has('contacts')) {
+            // Remove existing contacts and create new ones
+            $customer->contacts()->delete();
+            
+            foreach ($request->input('contacts') as $contactData) {
+                $contact = $customer->contacts()->create([
+                    'title' => $contactData['title'] ?? null,
+                    'name' => $contactData['name'],
+                    'work_phone' => $contactData['work_phone'] ?? null,
+                    'mobile' => $contactData['mobile'] ?? null,
+                    'email' => $contactData['email'] ?? null,
+                    'position' => $contactData['position'] ?? null,
+                    'extension' => $contactData['extension'] ?? null,
+                ]);
+
+                // Set as primary contact if specified
+                if (isset($contactData['is_primary']) && $contactData['is_primary']) {
+                    $customer->setPrimaryContact($contact->id);
+                }
+            }
+        }
+
         // Handle attachments
         if ($request->hasFile('attachments')) {
             $tenantId = tenant('id');
@@ -546,9 +692,18 @@ class CustomerController extends Controller
             }
         }
 
-        $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customers");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_show_{$customer->id}");
+        // Handle attachments with new structure (JSON data)
+        if ($request->has('attachments')) {
+            foreach ($request->input('attachments') as $attachmentData) {
+                CustomerAttachment::create([
+                    'customer_id' => $customer->id,
+                    'file_name' => $attachmentData['file_name'] ?? 'Unknown',
+                    'file_path' => $attachmentData['file_url'] ?? null,
+                    'file_type' => $attachmentData['file_type'] ?? null,
+                    'category' => 'document',
+                ]);
+            }
+        }
 
         return response()->json([
             'status' => true,
@@ -572,10 +727,6 @@ class CustomerController extends Controller
     {
         $customer->delete();
 
-        $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customers");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_show_{$customer->id}");
-
         return response()->json([
             'status' => true,
             'message' => 'Customer deleted successfully.',
@@ -596,13 +747,10 @@ class CustomerController extends Controller
         foreach ($request->ids as $id) {
             try {
                 $deleted += Customer::where('id', $id)->delete();
-                app('cache')->store('database')->forget("tenant_{$tenantId}_customer_show_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
-
-        app('cache')->store('database')->forget("tenant_{$tenantId}_customers");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -666,7 +814,6 @@ class CustomerController extends Controller
             'track_payment',
             'settlement_method',
             'pricing_choice',
-            'discount_by_item',
             'global_discount',
             'discount_class',
             'markup_percentage',
@@ -726,7 +873,6 @@ class CustomerController extends Controller
             'Track Payment',
             'Settlement Method',
             'Pricing Choice',
-            'Discount By Item',
             'Global Discount',
             'Discount Class',
             'Markup Percentage',
@@ -792,7 +938,6 @@ class CustomerController extends Controller
             'track_payment',
             'settlement_method',
             'pricing_choice',
-            'discount_by_item',
             'global_discount',
             'discount_class',
             'markup_percentage',
@@ -858,7 +1003,6 @@ class CustomerController extends Controller
             'track_payment' => 'Track Payment',
             'settlement_method' => 'Settlement Method',
             'pricing_choice' => 'Pricing Choice',
-            'discount_by_item' => 'Discount By Item',
             'global_discount' => 'Global Discount',
             'discount_class' => 'Discount Class',
             'markup_percentage' => 'Markup Percentage',
@@ -932,7 +1076,6 @@ class CustomerController extends Controller
                 'track_payment',
                 'settlement_method',
                 'pricing_choice',
-                'discount_by_item',
                 'global_discount',
                 'discount_class',
                 'markup_percentage',
@@ -972,10 +1115,6 @@ class CustomerController extends Controller
                     if (!empty($row[$phoneField]) && !is_string($row[$phoneField])) {
                         $errors[] = "$phoneField must be a string";
                     }
-                }
-
-                if (isset($row['discount_by_item']) && !is_numeric($row['discount_by_item'])) {
-                    $errors[] = 'discount_by_item must be numeric';
                 }
 
                 if (isset($row['global_discount']) && !is_numeric($row['global_discount'])) {
@@ -1027,7 +1166,6 @@ class CustomerController extends Controller
                     'track_payment' => $row['track_payment'] ?? 'no',
                     'settlement_method' => $row['settlement_method'] ?? 'FIFO',
                     'pricing_choice' => $row['pricing_choice'] ?? 'price1',
-                    'discount_by_item' => $row['discount_by_item'] ?? null,
                     'global_discount' => $row['global_discount'] ?? null,
                     'discount_class' => $row['discount_class'] ?? null,
                     'markup_percentage' => $row['markup_percentage'] ?? null,

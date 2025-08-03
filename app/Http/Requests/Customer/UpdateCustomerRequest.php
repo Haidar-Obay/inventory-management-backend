@@ -56,7 +56,7 @@ class UpdateCustomerRequest extends FormRequest
                 Rule::unique('customers', 'file_number')->ignore($customerId),
             ],
             'bar_code' => 'sometimes|nullable|string|max:255',
-            'search_terms' => 'sometimes|nullable|string',
+            'search_terms' => 'sometimes|nullable|array',
 
             // Foreign key relationships
             'trade_id' => 'sometimes|nullable|exists:trades,id',
@@ -67,7 +67,7 @@ class UpdateCustomerRequest extends FormRequest
             'distribution_channel_id' => 'sometimes|nullable|exists:distribution_channels,id',
             'media_channel_id' => 'sometimes|nullable|exists:media_channels,id',
             'indicator' => 'sometimes|nullable|in:A,B,C,D',
-            'risk_category' => 'sometimes|nullable|in:A,B,C,D',
+            'risk_category' => 'sometimes|nullable|in:Low,Medium,High',
 
             // Salesmen relationships with active validation
             'salesman_id' => 'sometimes|nullable|exists:salesmen,id',
@@ -112,7 +112,7 @@ class UpdateCustomerRequest extends FormRequest
             ],
 
             // Payment relationships with active validation
-            'payment_term_id' => [
+            'selected_payment_term' => [
                 'sometimes',
                 'nullable',
                 'exists:payment_terms,id',
@@ -125,7 +125,7 @@ class UpdateCustomerRequest extends FormRequest
                     }
                 }
             ],
-            'payment_method_id' => [
+            'selected_payment_method' => [
                 'sometimes',
                 'nullable',
                 'exists:payment_methods,id',
@@ -139,22 +139,56 @@ class UpdateCustomerRequest extends FormRequest
                 }
             ],
             'allow_credit' => 'sometimes|nullable|boolean',
-            'accept_cheque' => 'sometimes|nullable|boolean',
+            'accept_cheques' => 'sometimes|nullable|boolean',
             'payment_day' => 'sometimes|nullable|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
             'track_payment' => 'sometimes|nullable|in:yes,no',
             'settlement_method' => 'sometimes|nullable|in:FIFO,Manual',
 
             // Pricing
-            'pricing_choice' => 'sometimes|nullable|in:price1,price2,price3,price4,price5,price6,last_invoice_price',
-            'discount_by_item' => 'sometimes|nullable|numeric|min:0|max:100',
+            'price_choice' => 'sometimes|nullable|in:price1,price2,price3,price4,price5,price6,last_invoice_price',
+            'price_list' => 'sometimes|nullable|string|max:255',
             'global_discount' => 'sometimes|nullable|numeric|min:0|max:100',
             'discount_class' => 'sometimes|nullable|in:Silver,Gold,Platinum',
-            'markup_percentage' => 'sometimes|nullable|numeric|min:0|max:100',
-            'markdown_percentage' => 'sometimes|nullable|numeric|min:0|max:100',
+            'markup' => 'sometimes|nullable|numeric|min:0|max:100',
+            'markdown' => 'sometimes|nullable|numeric|min:0|max:100',
 
             // Tax
             'taxable' => 'sometimes|nullable|boolean',
-            'tax_rate' => [
+            'taxed_from_date' => [
+                'sometimes',
+                'nullable',
+                'date',
+                function ($attribute, $value, $fail) {
+                    $taxable = $this->input('taxable');
+                    if ($value && $taxable === false) {
+                        $fail('Taxed from date cannot be set when customer is not taxable.');
+                    }
+                }
+            ],
+            'taxed_till_date' => [
+                'sometimes',
+                'nullable',
+                'date',
+                'after_or_equal:taxed_from_date',
+                function ($attribute, $value, $fail) {
+                    $taxable = $this->input('taxable');
+                    if ($value && $taxable === false) {
+                        $fail('Taxed till date cannot be set when customer is not taxable.');
+                    }
+                }
+            ],
+            'subjected_to_tax' => [
+                'sometimes',
+                'nullable',
+                'boolean',
+                function ($attribute, $value, $fail) {
+                    $taxable = $this->input('taxable');
+                    if ($value && $taxable === false) {
+                        $fail('Subjected to tax cannot be set when customer is not taxable.');
+                    }
+                }
+            ],
+            'added_tax' => [
                 'sometimes',
                 'nullable',
                 'numeric',
@@ -162,24 +196,16 @@ class UpdateCustomerRequest extends FormRequest
                 'max:100',
                 function ($attribute, $value, $fail) {
                     $taxable = $this->input('taxable');
+                    $subjectedToTax = $this->input('subjected_to_tax');
                     if ($value && $taxable === false) {
-                        $fail('Tax rate cannot be set when customer is not taxable.');
+                        $fail('Added tax cannot be set when customer is not taxable.');
+                    }
+                    if ($value && $subjectedToTax === false) {
+                        $fail('Added tax cannot be set when customer is not subjected to tax.');
                     }
                 }
             ],
-            'tax_number' => [
-                'sometimes',
-                'nullable',
-                'string',
-                'max:255',
-                function ($attribute, $value, $fail) {
-                    $taxable = $this->input('taxable');
-                    if ($value && $taxable === false) {
-                        $fail('Tax number cannot be set when customer is not taxable.');
-                    }
-                }
-            ],
-            'is_exempted' => [
+            'exempted' => [
                 'sometimes',
                 'nullable',
                 'boolean',
@@ -190,18 +216,18 @@ class UpdateCustomerRequest extends FormRequest
                     }
                 }
             ],
-            'exemption_from' => [
+            'exempted_from' => [
                 'sometimes',
                 'nullable',
                 'string',
                 'max:255',
                 function ($attribute, $value, $fail) {
                     $taxable = $this->input('taxable');
-                    $isExempted = $this->input('is_exempted');
+                    $exempted = $this->input('exempted');
                     if ($value && $taxable === false) {
                         $fail('Exemption reason cannot be set when customer is not taxable.');
                     }
-                    if ($value && $isExempted === false) {
+                    if ($value && $exempted === false) {
                         $fail('Exemption reason cannot be set when customer is not exempted.');
                     }
                 }
@@ -213,11 +239,11 @@ class UpdateCustomerRequest extends FormRequest
                 'max:255',
                 function ($attribute, $value, $fail) {
                     $taxable = $this->input('taxable');
-                    $isExempted = $this->input('is_exempted');
+                    $exempted = $this->input('exempted');
                     if ($value && $taxable === false) {
                         $fail('Exemption reference cannot be set when customer is not taxable.');
                     }
-                    if ($value && $isExempted === false) {
+                    if ($value && $exempted === false) {
                         $fail('Exemption reference cannot be set when customer is not exempted.');
                     }
                 }
@@ -228,11 +254,11 @@ class UpdateCustomerRequest extends FormRequest
                 'date',
                 function ($attribute, $value, $fail) {
                     $taxable = $this->input('taxable');
-                    $isExempted = $this->input('is_exempted');
+                    $exempted = $this->input('exempted');
                     if ($value && $taxable === false) {
                         $fail('Exemption start date cannot be set when customer is not taxable.');
                     }
-                    if ($value && $isExempted === false) {
+                    if ($value && $exempted === false) {
                         $fail('Exemption start date cannot be set when customer is not exempted.');
                     }
                 }
@@ -244,11 +270,11 @@ class UpdateCustomerRequest extends FormRequest
                 'after_or_equal:exempted_from_date',
                 function ($attribute, $value, $fail) {
                     $taxable = $this->input('taxable');
-                    $isExempted = $this->input('is_exempted');
+                    $exempted = $this->input('exempted');
                     if ($value && $taxable === false) {
                         $fail('Exemption end date cannot be set when customer is not taxable.');
                     }
-                    if ($value && $isExempted === false) {
+                    if ($value && $exempted === false) {
                         $fail('Exemption end date cannot be set when customer is not exempted.');
                     }
                 }
@@ -265,8 +291,8 @@ class UpdateCustomerRequest extends FormRequest
             'send_invoice' => 'sometimes|nullable|in:email,sms,whatsapp,all',
 
             // Message functionality
-            'add_message' => 'sometimes|nullable|boolean',
-            'invoice_message' => 'sometimes|nullable|string|max:1000',
+            'showMessageField' => 'sometimes|nullable|boolean',
+            'message' => 'sometimes|nullable|string|max:1000',
 
             // Primary contact
             'contacts_id' => 'sometimes|nullable|exists:customer_contacts,id',
@@ -278,8 +304,8 @@ class UpdateCustomerRequest extends FormRequest
             'addresses' => 'sometimes|array|min:1',
             'addresses.*.address_line1' => 'required|string|max:255',
             'addresses.*.address_line2' => 'nullable|string|max:255',
-            'addresses.*.country_id' => 'required|exists:countries,id',
-            'addresses.*.city_id' => 'required|exists:cities,id',
+            'addresses.*.country_id' => 'nullable|exists:countries,id',
+            'addresses.*.city_id' => 'nullable|exists:cities,id',
             'addresses.*.district_id' => 'nullable|exists:districts,id',
             'addresses.*.zone_id' => 'nullable|exists:zones,id',
             'addresses.*.building' => 'nullable|string|max:255',
@@ -292,6 +318,21 @@ class UpdateCustomerRequest extends FormRequest
             'addresses.*.is_primary' => 'boolean',
             'addresses.*.address_name' => 'nullable|string|max:255',
             'addresses.*.notes' => 'nullable|string',
+
+            // Shipping addresses array
+            'shipping_addresses' => 'sometimes|nullable|array',
+            'shipping_addresses.*.address_line1' => 'required|string|max:255',
+            'shipping_addresses.*.address_line2' => 'nullable|string|max:255',
+            'shipping_addresses.*.country_id' => 'nullable|exists:countries,id',
+            'shipping_addresses.*.city_id' => 'nullable|exists:cities,id',
+            'shipping_addresses.*.district_id' => 'nullable|exists:districts,id',
+            'shipping_addresses.*.zone_id' => 'nullable|exists:zones,id',
+            'shipping_addresses.*.building' => 'nullable|string|max:255',
+            'shipping_addresses.*.block' => 'nullable|string|max:255',
+            'shipping_addresses.*.floor' => 'nullable|string|max:255',
+            'shipping_addresses.*.side' => 'nullable|string|max:255',
+            'shipping_addresses.*.apartment' => 'nullable|string|max:255',
+            'shipping_addresses.*.zip_code' => 'nullable|string|max:20',
 
             // Legacy address fields for backward compatibility
             'billing_address.address_line1' => 'sometimes|nullable|string|max:255',
@@ -323,6 +364,35 @@ class UpdateCustomerRequest extends FormRequest
             // Attachments (handled separately in controller)
             'attachments' => 'sometimes|nullable|array',
             'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,docx,xlsx,txt|max:5120',
+
+            // Credit limits validation
+            'credit_limits' => 'sometimes|array',
+            'credit_limits.*.currency_id' => 'required|exists:currencies,id',
+            'credit_limits.*.credit_limit' => 'required|numeric|min:0',
+            'credit_limits.*.notes' => 'nullable|string',
+
+            // Cheque limits validation
+            'cheque_limits' => 'sometimes|array',
+            'cheque_limits.*.currency_id' => 'required|exists:currencies,id',
+            'cheque_limits.*.max_cheques' => 'required|integer|min:0',
+            'cheque_limits.*.notes' => 'nullable|string',
+
+            // Opening balances validation
+            'opening_balances' => 'sometimes|array',
+            'opening_balances.*.currency_id' => 'required|exists:currencies,id',
+            'opening_balances.*.opening_amount' => 'required|numeric',
+            'opening_balances.*.opening_date' => 'nullable|date',
+            'opening_balances.*.notes' => 'nullable|string',
+
+            // Contacts validation
+            'contacts' => 'sometimes|nullable|array',
+            'contacts.*.title' => 'sometimes|nullable|string|max:255',
+            'contacts.*.name' => 'sometimes|required|string|max:255',
+            'contacts.*.work_phone' => 'sometimes|nullable|string|max:20',
+            'contacts.*.mobile' => 'sometimes|nullable|string|max:20',
+            'contacts.*.position' => 'sometimes|nullable|string|max:255',
+            'contacts.*.extension' => 'sometimes|nullable|string|max:20',
+            'contacts.*.is_primary' => 'sometimes|boolean',
         ];
     }
 
@@ -332,8 +402,35 @@ class UpdateCustomerRequest extends FormRequest
             'addresses.min' => 'At least one address must be provided.',
             'addresses.*.address_type.in' => 'Address type must be billing, shipping, or both.',
             'addresses.*.address_line1.required' => 'Address line 1 is required for each address.',
-            'addresses.*.country_id.required' => 'Country is required for each address.',
-            'addresses.*.city_id.required' => 'City is required for each address.',
+            
+            // Credit limits messages
+            'credit_limits.*.currency_id.required' => 'Currency is required for each credit limit.',
+            'credit_limits.*.currency_id.exists' => 'Selected currency does not exist.',
+            'credit_limits.*.credit_limit.required' => 'Credit limit amount is required.',
+            'credit_limits.*.credit_limit.numeric' => 'Credit limit must be a number.',
+            'credit_limits.*.credit_limit.min' => 'Credit limit must be at least 0.',
+
+            // Cheque limits messages
+            'cheque_limits.*.currency_id.required' => 'Currency is required for each cheque limit.',
+            'cheque_limits.*.currency_id.exists' => 'Selected currency does not exist.',
+            'cheque_limits.*.max_cheques.required' => 'Maximum cheques is required.',
+            'cheque_limits.*.max_cheques.integer' => 'Maximum cheques must be a whole number.',
+            'cheque_limits.*.max_cheques.min' => 'Maximum cheques must be at least 0.',
+
+            // Opening balances messages
+            'opening_balances.*.currency_id.required' => 'Currency is required for each opening balance.',
+            'opening_balances.*.currency_id.exists' => 'Selected currency does not exist.',
+            'opening_balances.*.opening_amount.required' => 'Opening amount is required.',
+            'opening_balances.*.opening_amount.numeric' => 'Opening amount must be a number.',
+            'opening_balances.*.opening_date.date' => 'Opening date must be a valid date.',
+
+            // Contacts messages
+            'contacts.*.name.required' => 'Contact name is required.',
+            'contacts.*.name.max' => 'Contact name cannot exceed 255 characters.',
+            'contacts.*.work_phone.max' => 'Work phone cannot exceed 20 characters.',
+            'contacts.*.mobile.max' => 'Mobile phone cannot exceed 20 characters.',
+            'contacts.*.position.max' => 'Position cannot exceed 255 characters.',
+            'contacts.*.extension.max' => 'Extension cannot exceed 20 characters.',
         ];
     }
 }

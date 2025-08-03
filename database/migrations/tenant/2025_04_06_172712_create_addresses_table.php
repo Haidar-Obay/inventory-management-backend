@@ -12,8 +12,8 @@ return new class extends Migration {
             $table->id();
             $table->string('address_line1');
             $table->string('address_line2')->nullable();
-            $table->foreignId('country_id')->constrained('countries');
-            $table->foreignId('city_id')->constrained('cities');
+            $table->foreignId('country_id')->nullable()->constrained('countries');
+            $table->foreignId('city_id')->nullable()->constrained('cities');
             $table->foreignId('district_id')->nullable()->constrained('districts');
             $table->foreignId('zone_id')->nullable()->constrained('zones');
             $table->string('building')->nullable();

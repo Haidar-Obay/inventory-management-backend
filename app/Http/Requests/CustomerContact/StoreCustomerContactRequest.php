@@ -27,9 +27,9 @@ class StoreCustomerContactRequest extends FormRequest
             'name' => 'required|string|max:255',
             'work_phone' => 'nullable|string|max:20',
             'mobile' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
             'position' => 'nullable|string|max:255',
             'extension' => 'nullable|string|max:20',
+            'is_primary' => 'boolean',
         ];
     }
 
@@ -48,8 +48,6 @@ class StoreCustomerContactRequest extends FormRequest
             'title.max' => 'Title cannot exceed 50 characters.',
             'work_phone.max' => 'Work phone cannot exceed 20 characters.',
             'mobile.max' => 'Mobile phone cannot exceed 20 characters.',
-            'email.email' => 'Please provide a valid email address.',
-            'email.max' => 'Email cannot exceed 255 characters.',
             'position.max' => 'Position cannot exceed 255 characters.',
             'extension.max' => 'Extension cannot exceed 20 characters.',
         ];
