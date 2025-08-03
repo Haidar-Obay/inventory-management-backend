@@ -157,7 +157,7 @@ Route::middleware([
                 Route::get('refer-bies', [ReferByController::class, 'exportExcell']);
                 Route::get('trades', [TradeController::class, 'exportExcell']);
                 Route::get('company-codes', [CompanyCodeController::class, 'exportExcell']);
-                Route::get('brands', [BrandController::class, 'exportExcell']);
+                Route::get('brands', [BrandController::class, 'exportExcel']);
                 Route::get('product-lines', [ProductLineController::class, 'exportExcel']);
                 Route::get('categories', [CategoryController::class, 'exportExcell']);
                 Route::get('supplier-groups', [SupplierGroupController::class, 'exportExcell']);

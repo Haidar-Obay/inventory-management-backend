@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('code')->unique();
             $table->string('name');
-            $table->foreignId('subbrand_of')->nullable()->constrained('brands')->nullOnDelete();
+            $table->foreignId('sub_brand_of')->nullable()->constrained('brands')->nullOnDelete();
             $table->boolean('active')->default(false);
             $table->timestamps();
         });

@@ -39,7 +39,7 @@ class CreateDefaultTableTemplates implements ShouldQueue
                 'id', 'code', 'name', 'subcategory_of', 'active', 'created_at', 'updated_at'
             ],
             'brands' => [
-                'id', 'code', 'name', 'subbrand_of', 'active', 'created_at', 'updated_at'
+                'id', 'code', 'name', 'sub_brand_of', 'active', 'created_at', 'updated_at'
             ],
             'productLines' => [
                 'id', 'code', 'name', 'active', 'created_at', 'updated_at'

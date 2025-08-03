@@ -15,16 +15,16 @@ class Brand extends Model implements Auditable
     public $timestamps = true;
 
     protected $casts = [
-        'is_inactive' => 'boolean',
+        'active' => 'boolean',
     ];
 
     public function parentBrand()
     {
-        return $this->belongsTo(Brand::class, 'subbrand_of');
+        return $this->belongsTo(Brand::class, 'sub_brand_of');
     }
 
     public function subbrands()
     {
-        return $this->hasMany(Brand::class, 'subbrand_of');
+        return $this->hasMany(Brand::class, 'sub_brand_of');
     }
 }

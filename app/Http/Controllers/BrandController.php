@@ -38,14 +38,14 @@ class BrandController extends Controller
         $validated = $request->validate([
             'code' => 'required|string|max:255|unique:brands,code',
             'name' => 'required|string|max:255',
-            'subbrand_of' => 'nullable|exists:brands,id',
+            'sub_brand_of' => 'nullable|exists:brands,id',
             'active' => 'boolean',
         ]);
 
         // Check if the parent brand is not itself a subbrand
-        if ($validated['subbrand_of']) {
-            $parentBrand = Brand::find($validated['subbrand_of']);
-            if ($parentBrand->subbrand_of) {
+        if ($validated['sub_brand_of']) {
+            $parentBrand = Brand::find($validated['sub_brand_of']);
+            if ($parentBrand->sub_brand_of) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Cannot create subbrand under another subbrand. Only top-level brands can have subbrands.',
@@ -95,7 +95,7 @@ class BrandController extends Controller
                 Rule::unique('brands', 'code')->ignore($brand->id),
             ],
             'name' => 'sometimes|string|max:255',
-            'subbrand_of' => [
+            'sub_brand_of' => [
                 'nullable',
                 'exists:brands,id',
                 function ($attribute, $value, $fail) use ($brand) {
@@ -108,9 +108,9 @@ class BrandController extends Controller
         ]);
 
         // Check if the parent brand is not itself a subbrand
-        if ($validated['subbrand_of']) {
-            $parentBrand = Brand::find($validated['subbrand_of']);
-            if ($parentBrand->subbrand_of) {
+        if ($validated['sub_brand_of']) {
+            $parentBrand = Brand::find($validated['sub_brand_of']);
+            if ($parentBrand->sub_brand_of) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Cannot assign subbrand under another subbrand. Only top-level brands can have subbrands.',
@@ -187,7 +187,7 @@ class BrandController extends Controller
         ]);
     }
 
-    public function exportExcell()
+    public function exportExcel()
     {
         $brands = Brand::with(['parentBrand'])->orderBy('name');
         $collection = $brands->get();
@@ -196,8 +196,8 @@ class BrandController extends Controller
             return response()->json(['message' => 'No brands found.'], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'subbrand_of', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Subbrand Of', 'Active'];
+        $columns = ['id', 'code', 'name', 'sub_brand_of', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Sub Brand Of', 'Active'];
 
         return Excel::download(new Export($brands, $columns, $headings), 'brands.xlsx');
     }
@@ -205,7 +205,7 @@ class BrandController extends Controller
     public function exportPdf(ExportPDF $pdfService)
     {
         $brands = Brand::with(['parentBrand'])
-            ->select('id', 'code', 'name', 'subbrand_of', 'active')
+            ->select('id', 'code', 'name', 'sub_brand_of', 'active')
             ->get();
 
         if ($brands->isEmpty()) {
@@ -217,7 +217,7 @@ class BrandController extends Controller
             'id' => 'Brand ID',
             'code' => 'Code',
             'name' => 'Name',
-            'subbrand_of' => 'Subbrand Of',
+            'sub_brand_of' => 'Sub Brand Of',
             'active' => 'Status'
         ];
         $data = $brands->toArray();
@@ -245,8 +245,8 @@ class BrandController extends Controller
                     $errors[] = 'Missing name';
                 }
 
-                if (!empty($row['subbrand_of'])) {
-                    $parentBrand = Brand::where('code', $row['subbrand_of'])->first();
+                if (!empty($row['sub_brand_of'])) {
+                    $parentBrand = Brand::where('code', $row['sub_brand_of'])->first();
                     if (!$parentBrand) {
                         $errors[] = 'Parent brand not found';
                     }
@@ -261,10 +261,10 @@ class BrandController extends Controller
                     'active' => boolval($row['active'] ?? false),
                 ];
 
-                if (!empty($row['subbrand_of'])) {
-                    $parentBrand = Brand::where('code', $row['subbrand_of'])->first();
+                if (!empty($row['sub_brand_of'])) {
+                    $parentBrand = Brand::where('code', $row['sub_brand_of'])->first();
                     if ($parentBrand) {
-                        $data['subbrand_of'] = $parentBrand->id;
+                        $data['sub_brand_of'] = $parentBrand->id;
                     }
                 }
 
@@ -287,7 +287,7 @@ class BrandController extends Controller
     public function getNames()
     {
         // Only get top-level brands (not subbrands)
-        $brands = Brand::whereNull('subbrand_of')
+        $brands = Brand::whereNull('sub_brand_of')
                 ->select('id', 'name')
                 ->orderBy('name')
                 ->get();
