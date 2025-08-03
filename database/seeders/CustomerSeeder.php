@@ -63,7 +63,7 @@ class CustomerSeeder extends Seeder
 
         // Create a default payment term if none exists
         $paymentTerm = PaymentTerm::firstOrCreate(
-            ['code' => 'Net 30'],
+            ['code' => 'NET30'],
             [
                 'name' => 'Net 30 Days',
                 'nb_days' => 30,
@@ -73,9 +73,9 @@ class CustomerSeeder extends Seeder
 
         // Create a default payment method if none exists
         $paymentMethod = PaymentMethod::firstOrCreate(
-            ['code' => 'Bank Transfer'],
+            ['code' => 'CASH'],
             [
-                'name' => 'Bank Transfer',
+                'name' => 'Cash',
                 'is_credit_card' => false,
                 'is_online_payment' => false,
                 'active' => true
@@ -223,31 +223,7 @@ class CustomerSeeder extends Seeder
                 'notes' => $faker->optional()->sentence(),
             ]);
 
-            // Create billing address
-            $billingAddress = Address::create([
-                'address_line1' => $faker->streetAddress(),
-                'address_line2' => $faker->optional()->secondaryAddress(),
-                'building' => $faker->optional()->buildingNumber(),
-                'block' => $faker->optional()->randomLetter() . $faker->numberBetween(1, 10),
-                'floor' => $faker->optional()->numberBetween(1, 20) . 'th Floor',
-                'side' => Arr::random(['North', 'South', 'East', 'West']),
-                'appartment' => $faker->optional()->numberBetween(1, 999),
-                'zip_code' => $faker->postcode(),
-                'country_id' => $countryId,
-                'zone_id' => $zoneId,
-                'city_id' => $cityId,
-                'district_id' => $districtId,
-            ]);
-
-            // Attach billing address via pivot
-            $customer->addresses()->attach($billingAddress->id, [
-                'address_type' => 'billing',
-                'is_primary' => true,
-                'address_name' => 'Main Billing',
-                'notes' => $faker->optional()->sentence(),
-            ]);
-
-            // Create contacts for the customer
+            // Create contacts for the customer FIRST (before addresses)
             $primaryContact = CustomerContact::create([
                 'customer_id' => $customer->id,
                 'title' => Arr::random(['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.']),
@@ -259,7 +235,7 @@ class CustomerSeeder extends Seeder
                 'is_primary' => true,
             ]);
 
-            // Create additional contacts
+            // Create additional contacts (non-primary)
             if ($faker->boolean(70)) {
                 CustomerContact::create([
                     'customer_id' => $customer->id,
@@ -277,7 +253,7 @@ class CustomerSeeder extends Seeder
             $customer->contacts_id = $primaryContact->id;
             $customer->save();
 
-            // Create shipping addresses
+            // Create shipping address (PRIMARY - only one shipping address per customer)
             $shippingAddress = Address::create([
                 'address_line1' => $faker->streetAddress(),
                 'address_line2' => $faker->optional()->secondaryAddress(),
@@ -293,13 +269,63 @@ class CustomerSeeder extends Seeder
                 'district_id' => $districtId,
             ]);
 
-            // Attach shipping address via pivot (non-primary)
+            // Attach shipping address via pivot (PRIMARY - only one shipping address)
             $customer->addresses()->attach($shippingAddress->id, [
                 'address_type' => 'shipping',
-                'is_primary' => false,
-                'address_name' => 'Main Shipping',
+                'is_primary' => true,
+                'address_name' => 'Primary Shipping Address',
                 'notes' => $faker->optional()->sentence(),
             ]);
+
+            // Create billing address (PRIMARY - first billing address)
+            $billingAddress = Address::create([
+                'address_line1' => $faker->streetAddress(),
+                'address_line2' => $faker->optional()->secondaryAddress(),
+                'building' => $faker->optional()->buildingNumber(),
+                'block' => $faker->optional()->randomLetter() . $faker->numberBetween(1, 10),
+                'floor' => $faker->optional()->numberBetween(1, 20) . 'th Floor',
+                'side' => Arr::random(['North', 'South', 'East', 'West']),
+                'appartment' => $faker->optional()->numberBetween(1, 999),
+                'zip_code' => $faker->postcode(),
+                'country_id' => $countryId,
+                'zone_id' => $zoneId,
+                'city_id' => $cityId,
+                'district_id' => $districtId,
+            ]);
+
+            // Attach billing address via pivot (PRIMARY - first billing address)
+            $customer->addresses()->attach($billingAddress->id, [
+                'address_type' => 'billing',
+                'is_primary' => true,
+                'address_name' => 'Primary Billing Address',
+                'notes' => $faker->optional()->sentence(),
+            ]);
+
+            // Create additional billing addresses (NON-PRIMARY) - multiple billing addresses allowed
+            if ($faker->boolean(70)) {
+                $secondaryBillingAddress = Address::create([
+                    'address_line1' => $faker->streetAddress(),
+                    'address_line2' => $faker->optional()->secondaryAddress(),
+                    'building' => $faker->optional()->buildingNumber(),
+                    'block' => $faker->optional()->randomLetter() . $faker->numberBetween(1, 10),
+                    'floor' => $faker->optional()->numberBetween(1, 20) . 'th Floor',
+                    'side' => Arr::random(['North', 'South', 'East', 'West']),
+                    'appartment' => $faker->optional()->numberBetween(1, 999),
+                    'zip_code' => $faker->postcode(),
+                    'country_id' => $countryId,
+                    'zone_id' => $zoneId,
+                    'city_id' => $cityId,
+                    'district_id' => $districtId,
+                ]);
+
+                // Attach secondary billing address (NON-PRIMARY)
+                $customer->addresses()->attach($secondaryBillingAddress->id, [
+                    'address_type' => 'billing',
+                    'is_primary' => false,
+                    'address_name' => 'Secondary Billing Address',
+                    'notes' => $faker->optional()->sentence(),
+                ]);
+            }
 
             // Create attachments
             if ($faker->boolean(50)) {
@@ -307,80 +333,72 @@ class CustomerSeeder extends Seeder
                     'customer_id' => $customer->id,
                     'file_path' => 'attachments/sample.pdf',
                     'file_name' => 'sample.pdf',
-                    'file_type' => 'pdf',
+                    'file_type' => 'application/pdf',
+                    'file_size' => $faker->numberBetween(100000, 1000000),
+                    'category' => 'document',
                 ]);
             }
 
-            // Create credit limits for multiple currencies
-            if ($customer->allow_credit) {
-                CustomerCreditLimit::create([
-                    'customer_id' => $customer->id,
-                    'currency_id' => $usdCurrency->id,
-                    'credit_limit' => $faker->numberBetween(1000, 10000),
-                    'used_credit' => 0,
-                    'available_credit' => $faker->numberBetween(1000, 10000),
-                    'is_active' => true,
-                    'notes' => $faker->optional()->sentence(),
-                ]);
-
-                if ($faker->boolean(50)) {
-                    CustomerCreditLimit::create([
-                        'customer_id' => $customer->id,
-                        'currency_id' => $eurCurrency->id,
-                        'credit_limit' => $faker->numberBetween(800, 8000),
-                        'used_credit' => 0,
-                        'available_credit' => $faker->numberBetween(800, 8000),
-                        'is_active' => true,
-                        'notes' => $faker->optional()->sentence(),
-                    ]);
-                }
-            }
-
-            // Create cheque limits for multiple currencies
-            if ($customer->accept_cheques) {
-                CustomerChequeLimit::create([
-                    'customer_id' => $customer->id,
-                    'currency_id' => $usdCurrency->id,
-                    'max_cheques' => $faker->numberBetween(1, 10),
-                    'used_cheques' => 0,
-                    'available_cheques' => $faker->numberBetween(1, 10),
-                    'is_active' => true,
-                    'notes' => $faker->optional()->sentence(),
-                ]);
-
-                if ($faker->boolean(50)) {
-                    CustomerChequeLimit::create([
-                        'customer_id' => $customer->id,
-                        'currency_id' => $eurCurrency->id,
-                        'max_cheques' => $faker->numberBetween(1, 8),
-                        'used_cheques' => 0,
-                        'available_cheques' => $faker->numberBetween(1, 8),
-                        'is_active' => true,
-                        'notes' => $faker->optional()->sentence(),
-                    ]);
-                }
-            }
-
-            // Create opening balances for multiple currencies
+            // Create opening balances for multiple currencies FIRST (using the Customer model methods)
             if ($faker->boolean(30)) {
-                CustomerOpeningBalance::create([
-                    'customer_id' => $customer->id,
-                    'currency_id' => $usdCurrency->id,
-                    'opening_amount' => $faker->numberBetween(1000, 10000),
-                    'opening_date' => $faker->date(),
-                    'notes' => $faker->optional()->sentence(),
-                    'is_active' => true,
-                ]);
+                $customer->setOpeningBalance(
+                    $usdCurrency->id,
+                    $faker->numberBetween(1000, 10000),
+                    $faker->date(),
+                    $faker->optional()->sentence()
+                );
 
                 if ($faker->boolean(50)) {
-                    CustomerOpeningBalance::create([
-                        'customer_id' => $customer->id,
-                        'currency_id' => $eurCurrency->id,
-                        'opening_amount' => $faker->numberBetween(800, 8000),
-                        'opening_date' => $faker->date(),
-                        'notes' => $faker->optional()->sentence(),
-                        'is_active' => true,
-                    ]);
+                    $customer->setOpeningBalance(
+                        $eurCurrency->id,
+                        $faker->numberBetween(800, 8000),
+                        $faker->date(),
+                        $faker->optional()->sentence()
+                    );
+                }
+            }
+
+            // Create credit limits for multiple currencies (using the Customer model methods)
+            // Only if customer allows credit AND has opening balances for those currencies
+            if ($customer->allow_credit) {
+                // Only set credit limit for USD if opening balance exists
+                if ($customer->hasOpeningBalanceForCurrency($usdCurrency->id)) {
+                    $customer->setCreditLimit(
+                        $usdCurrency->id,
+                        $faker->numberBetween(1000, 10000),
+                        $faker->optional()->sentence()
+                    );
+                }
+
+                // Only set credit limit for EUR if opening balance exists
+                if ($customer->hasOpeningBalanceForCurrency($eurCurrency->id)) {
+                    $customer->setCreditLimit(
+                        $eurCurrency->id,
+                        $faker->numberBetween(800, 8000),
+                        $faker->optional()->sentence()
+                    );
+                }
+            }
+
+            // Create cheque limits for multiple currencies (using the Customer model methods)
+            // Only if customer accepts cheques AND has opening balances for those currencies
+            if ($customer->accept_cheques) {
+                // Only set cheque limit for USD if opening balance exists
+                if ($customer->hasOpeningBalanceForCurrency($usdCurrency->id)) {
+                    $customer->setChequeLimit(
+                        $usdCurrency->id,
+                        $faker->numberBetween(1, 10),
+                        $faker->optional()->sentence()
+                    );
+                }
+
+                // Only set cheque limit for EUR if opening balance exists
+                if ($customer->hasOpeningBalanceForCurrency($eurCurrency->id)) {
+                    $customer->setChequeLimit(
+                        $eurCurrency->id,
+                        $faker->numberBetween(1, 8),
+                        $faker->optional()->sentence()
+                    );
                 }
             }
         }

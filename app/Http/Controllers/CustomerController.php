@@ -365,25 +365,33 @@ class CustomerController extends Controller
             'collector:id,name',
             'supervisor:id,name',
             'manager:id,name',
-            'paymentTerm:id,code', // changed from name to code
-            'paymentMethod:id,code', // changed from name to code
+            'paymentTerm:id,code', 
+            'paymentMethod:id,code', 
             'trade:id,name',
             'companyCode:id,code',
             'businessType:id,name',
             'salesChannel:id,name',
             'distributionChannel:id,name',
             'mediaChannel:id,name',
-            'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-            'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-            'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-            'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-            'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-            'primaryContact:id,name',
-            'contacts:id,name',
-            'attachments:id,file_name,file_path'
+            'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
+            'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
+            'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
+            'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
+            'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
+            'primaryContact:id,name,title,work_phone,mobile,position,extension',
+            'contacts:id,name,title,work_phone,mobile,position,extension,is_primary',
+            'attachments:id,file_name,file_path,file_type,file_size,category',
+            'creditLimits:id,currency_id,credit_limit,notes,is_active',
+            'chequeLimits:id,currency_id,max_cheques,notes,is_active',
+            'openingBalances:id,currency_id,opening_amount,opening_date,notes,is_active'
         ]);
 
-        // Transform the response to be lighter
+        // Load related currencies for credit limits, cheque limits, and opening balances
+        $creditLimits = $customer->activeCreditLimits()->with('currency:id,code,name,iso_code')->get();
+        $chequeLimits = $customer->activeChequeLimits()->with('currency:id,code,name,iso_code')->get();
+        $openingBalances = $customer->activeOpeningBalances()->with('currency:id,code,name,iso_code')->get();
+
+        // Transform the response to include all customer data
         $transformedData = [
             'id' => $customer->id,
             'title' => $customer->title,
@@ -413,7 +421,35 @@ class CustomerController extends Controller
             'notes' => $customer->notes,
             'created_at' => $customer->created_at,
             'updated_at' => $customer->updated_at,
-            // Related data with only essential info
+            
+            // Payment and credit related fields
+            'allow_credit' => $customer->allow_credit,
+            'accept_cheques' => $customer->accept_cheques,
+            'payment_day' => $customer->payment_day,
+            'track_payment' => $customer->track_payment,
+            'settlement_method' => $customer->settlement_method,
+            
+            // Pricing related fields
+            'price_choice' => $customer->price_choice,
+            'price_list' => $customer->price_list,
+            'global_discount' => $customer->global_discount,
+            'discount_class' => $customer->discount_class,
+            'markup_percentage' => $customer->markup_percentage,
+            'markdown_percentage' => $customer->markdown_percentage,
+            
+            // Tax related fields
+            'taxable' => $customer->taxable,
+            'taxed_from_date' => $customer->taxed_from_date,
+            'taxed_till_date' => $customer->taxed_till_date,
+            'subjected_to_tax' => $customer->subjected_to_tax,
+            'added_tax' => $customer->added_tax,
+            'exempted' => $customer->exempted,
+            'exempted_from' => $customer->exempted_from,
+            'exemption_reference' => $customer->exemption_reference,
+            'exempted_from_date' => $customer->exempted_from_date,
+            'exempted_till_date' => $customer->exempted_till_date,
+            
+            // Related data with full info
             'customer_group' => $customer->customerGroup ? [
                 'id' => $customer->customerGroup->id,
                 'name' => $customer->customerGroup->name
@@ -436,11 +472,11 @@ class CustomerController extends Controller
             ] : null,
             'payment_term' => $customer->paymentTerm ? [
                 'id' => $customer->paymentTerm->id,
-                'code' => $customer->paymentTerm->code // changed from name to code
+                'code' => $customer->paymentTerm->code
             ] : null,
             'payment_method' => $customer->paymentMethod ? [
                 'id' => $customer->paymentMethod->id,
-                'code' => $customer->paymentMethod->code // changed from name to code
+                'code' => $customer->paymentMethod->code
             ] : null,
             'trade' => $customer->trade ? [
                 'id' => $customer->trade->id,
@@ -466,9 +502,8 @@ class CustomerController extends Controller
                 'id' => $customer->mediaChannel->id,
                 'name' => $customer->mediaChannel->name
             ] : null,
-            // Addresses with only essential info - use first() to get single model from collection
-            'primary_billing_address_id' => $customer->primaryBillingAddress->first() ? $customer->primaryBillingAddress->first()->id : null,
-            'primary_shipping_address_id' => $customer->primaryShippingAddress->first() ? $customer->primaryShippingAddress->first()->id : null,
+            
+            // Addresses with full details
             'addresses' => $customer->addresses->map(function ($address) {
                 return [
                     'id' => $address->id,
@@ -478,8 +513,87 @@ class CustomerController extends Controller
                     'city_id' => $address->city_id,
                     'district_id' => $address->district_id,
                     'zone_id' => $address->zone_id,
+                    'building' => $address->building,
+                    'block' => $address->block,
+                    'floor' => $address->floor,
+                    'side' => $address->side,
+                    'appartment' => $address->appartment,
+                    'zip_code' => $address->zip_code,
                 ];
             }),
+            
+            // Billing addresses
+            'billing_addresses' => $customer->billingAddresses->map(function ($address) {
+                return [
+                    'id' => $address->id,
+                    'address_line1' => $address->address_line1,
+                    'address_line2' => $address->address_line2,
+                    'country_id' => $address->country_id,
+                    'city_id' => $address->city_id,
+                    'district_id' => $address->district_id,
+                    'zone_id' => $address->zone_id,
+                    'building' => $address->building,
+                    'block' => $address->block,
+                    'floor' => $address->floor,
+                    'side' => $address->side,
+                    'appartment' => $address->appartment,
+                    'zip_code' => $address->zip_code,
+                ];
+            }),
+            
+            // Shipping addresses
+            'shipping_addresses' => $customer->shippingAddresses->map(function ($address) {
+                return [
+                    'id' => $address->id,
+                    'address_line1' => $address->address_line1,
+                    'address_line2' => $address->address_line2,
+                    'country_id' => $address->country_id,
+                    'city_id' => $address->city_id,
+                    'district_id' => $address->district_id,
+                    'zone_id' => $address->zone_id,
+                    'building' => $address->building,
+                    'block' => $address->block,
+                    'floor' => $address->floor,
+                    'side' => $address->side,
+                    'appartment' => $address->appartment,
+                    'zip_code' => $address->zip_code,
+                ];
+            }),
+            
+            // Primary addresses
+            'primary_billing_address' => $customer->primaryBillingAddress->first() ? [
+                'id' => $customer->primaryBillingAddress->first()->id,
+                'address_line1' => $customer->primaryBillingAddress->first()->address_line1,
+                'address_line2' => $customer->primaryBillingAddress->first()->address_line2,
+                'country_id' => $customer->primaryBillingAddress->first()->country_id,
+                'city_id' => $customer->primaryBillingAddress->first()->city_id,
+                'district_id' => $customer->primaryBillingAddress->first()->district_id,
+                'zone_id' => $customer->primaryBillingAddress->first()->zone_id,
+                'building' => $customer->primaryBillingAddress->first()->building,
+                'block' => $customer->primaryBillingAddress->first()->block,
+                'floor' => $customer->primaryBillingAddress->first()->floor,
+                'side' => $customer->primaryBillingAddress->first()->side,
+                'appartment' => $customer->primaryBillingAddress->first()->appartment,
+                'zip_code' => $customer->primaryBillingAddress->first()->zip_code,
+            ] : null,
+            
+            'primary_shipping_address' => $customer->primaryShippingAddress->first() ? [
+                'id' => $customer->primaryShippingAddress->first()->id,
+                'address_line1' => $customer->primaryShippingAddress->first()->address_line1,
+                'address_line2' => $customer->primaryShippingAddress->first()->address_line2,
+                'country_id' => $customer->primaryShippingAddress->first()->country_id,
+                'city_id' => $customer->primaryShippingAddress->first()->city_id,
+                'district_id' => $customer->primaryShippingAddress->first()->district_id,
+                'zone_id' => $customer->primaryShippingAddress->first()->zone_id,
+                'building' => $customer->primaryShippingAddress->first()->building,
+                'block' => $customer->primaryShippingAddress->first()->block,
+                'floor' => $customer->primaryShippingAddress->first()->floor,
+                'side' => $customer->primaryShippingAddress->first()->side,
+                'appartment' => $customer->primaryShippingAddress->first()->appartment,
+                'zip_code' => $customer->primaryShippingAddress->first()->zip_code,
+            ] : null,
+            
+            // Contacts with full details
             'contacts' => $customer->contacts->map(function ($contact) {
                 return [
                     'id' => $contact->id,
@@ -492,12 +606,70 @@ class CustomerController extends Controller
                     'is_primary' => $contact->is_primary,
                 ];
             }),
+            
+            // Primary contact
+            'primary_contact' => $customer->primaryContact ? [
+                'id' => $customer->primaryContact->id,
+                'title' => $customer->primaryContact->title,
+                'name' => $customer->primaryContact->name,
+                'work_phone' => $customer->primaryContact->work_phone,
+                'mobile' => $customer->primaryContact->mobile,
+                'position' => $customer->primaryContact->position,
+                'extension' => $customer->primaryContact->extension,
+            ] : null,
+            
+            // Attachments with full details
             'attachments' => $customer->attachments->map(function ($attachment) {
                 return [
                     'id' => $attachment->id,
                     'file_name' => $attachment->file_name,
                     'file_path' => $attachment->file_path,
                     'file_type' => $attachment->file_type,
+                    'file_size' => $attachment->file_size,
+                    'category' => $attachment->category,
+                ];
+            }),
+            
+            // Credit limits with currency info
+            'credit_limits' => $creditLimits->map(function ($creditLimit) {
+                return [
+                    'id' => $creditLimit->id,
+                    'currency_id' => $creditLimit->currency_id,
+                    'currency_code' => $creditLimit->currency->code,
+                    'currency_name' => $creditLimit->currency->name,
+                    'currency_iso_code' => $creditLimit->currency->iso_code,
+                    'credit_limit' => $creditLimit->credit_limit,
+                    'notes' => $creditLimit->notes,
+                    'is_active' => $creditLimit->is_active,
+                ];
+            }),
+            
+            // Cheque limits with currency info
+            'cheque_limits' => $chequeLimits->map(function ($chequeLimit) {
+                return [
+                    'id' => $chequeLimit->id,
+                    'currency_id' => $chequeLimit->currency_id,
+                    'currency_code' => $chequeLimit->currency->code,
+                    'currency_name' => $chequeLimit->currency->name,
+                    'currency_iso_code' => $chequeLimit->currency->iso_code,
+                    'max_cheques' => $chequeLimit->max_cheques,
+                    'notes' => $chequeLimit->notes,
+                    'is_active' => $chequeLimit->is_active,
+                ];
+            }),
+            
+            // Opening balances with currency info
+            'opening_balances' => $openingBalances->map(function ($openingBalance) {
+                return [
+                    'id' => $openingBalance->id,
+                    'currency_id' => $openingBalance->currency_id,
+                    'currency_code' => $openingBalance->currency->code,
+                    'currency_name' => $openingBalance->currency->name,
+                    'currency_iso_code' => $openingBalance->currency->iso_code,
+                    'opening_amount' => $openingBalance->opening_amount,
+                    'opening_date' => $openingBalance->opening_date,
+                    'notes' => $openingBalance->notes,
+                    'is_active' => $openingBalance->is_active,
                 ];
             }),
         ];

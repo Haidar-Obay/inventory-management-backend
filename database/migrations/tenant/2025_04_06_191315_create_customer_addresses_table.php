@@ -20,8 +20,8 @@ return new class extends Migration {
             // Ensure a customer can only have one primary address per type
             $table->unique(['customer_id', 'address_type', 'is_primary'], 'unique_primary_address_per_type');
 
-            // Ensure a customer can only have one primary address overall
-            $table->unique(['customer_id', 'is_primary'], 'unique_primary_address_per_customer');
+            // Remove the overall primary constraint to allow multiple primary addresses (one per type)
+            // $table->unique(['customer_id', 'is_primary'], 'unique_primary_address_per_customer');
         });
     }
 
