@@ -58,6 +58,7 @@ use App\Http\Controllers\CustomerOpeningBalanceController;
 use App\Http\Controllers\CustomerContactController;
 use App\Http\Controllers\CustomerRouteController;
 use App\Http\Controllers\TableTemplateController;
+use App\Http\Controllers\ItemController;
 
 /*
 |--------------------------------------------------------------------------
@@ -129,6 +130,7 @@ Route::middleware([
             Route::apiResource('distribution-channels', DistributionChannelController::class);
             Route::apiResource('transportation-channels', TransportationChannelController::class);
             Route::apiResource('media-channels', MediaChannelController::class);
+            Route::apiResource('items', ItemController::class);
 
             // Table Templates Routes
             Route::prefix('table-templates')->group(function () {
@@ -174,6 +176,7 @@ Route::middleware([
                 Route::get('distribution-channels', [DistributionChannelController::class, 'exportExcell']);
                 Route::get('transportation-channels', [TransportationChannelController::class, 'exportExcell']);
                 Route::get('media-channels', [MediaChannelController::class, 'exportExcell']);
+                Route::get('items', [ItemController::class, 'exportExcell']);
             });
 
             // Export to PDF Routes
@@ -209,6 +212,7 @@ Route::middleware([
                 Route::get('/distribution-channels', [DistributionChannelController::class, 'exportPdf']);
                 Route::get('/transportation-channels', [TransportationChannelController::class, 'exportPdf']);
                 Route::get('/media-channels', [MediaChannelController::class, 'exportPdf']);
+                Route::get('/items', [ItemController::class, 'exportPdf']);
             });
 
             // Import from Excel Routes
@@ -244,6 +248,7 @@ Route::middleware([
                 Route::post('/distribution-channels', [DistributionChannelController::class, 'import']);
                 Route::post('/transportation-channels', [TransportationChannelController::class, 'import']);
                 Route::post('/media-channels', [MediaChannelController::class, 'import']);
+                Route::post('/items', [ItemController::class, 'importFromExcel']);
             });
 
             // Bulk Delete Routes
@@ -278,6 +283,7 @@ Route::middleware([
                 Route::delete('/distribution-channels', [DistributionChannelController::class, 'bulkDelete']);
                 Route::delete('/transportation-channels', [TransportationChannelController::class, 'bulkDelete']);
                 Route::delete('/media-channels', [MediaChannelController::class, 'bulkDelete']);
+                Route::delete('/items', [ItemController::class, 'bulkDelete']);
             });
 
             // Get Customer Projects & Jobs
@@ -465,6 +471,7 @@ Route::middleware([
         Route::get('/names/customer-groups', [CustomerGroupController::class, 'getNames']);
         Route::get('/names/salesmen', [SalesmanController::class, 'getNames']);
         Route::get('/names/trades', [TradeController::class, 'getNames']);
+        Route::get('/names/items', [ItemController::class, 'getNames']);
     });
 
 
