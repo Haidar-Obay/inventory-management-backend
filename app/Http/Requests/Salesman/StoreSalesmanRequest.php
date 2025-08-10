@@ -33,7 +33,7 @@ class StoreSalesmanRequest extends FormRequest
     {
         return [
             'code.required' => 'The salesman code is required.',
-            'code.unique' => 'The salesman code must be unique.',
+            'code.unique' => 'The code has already been taken.',
             'name.required' => 'The salesman name is required.',
             'email.email' => 'Please provide a valid email address.',
             'fix_commission.numeric' => 'The fixed commission must be a number.',

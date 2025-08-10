@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\CustomerMasterList;
 use App\Models\TableTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -33,7 +34,7 @@ class CreateDefaultTableTemplates implements ShouldQueue
                 'id', 'code', 'name', 'address', 'phone1', 'phone2', 'email', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_by_item', 'active', 'created_at', 'updated_at'
             ],
             'items' => [
-                // TODO: Add columns for items table if migration is found
+                'id', 'code', 'name', 'price', 'created_at', 'updated_at'
             ],
             'categories' => [
                 'id', 'code', 'name', 'subcategory_of', 'active', 'created_at', 'updated_at'
@@ -91,6 +92,9 @@ class CreateDefaultTableTemplates implements ShouldQueue
             ],
             'businessTypes' => [
                 'id', 'code', 'name', 'created_at', 'updated_at'
+            ],
+            'customerMasterLists' => [
+                'id', 'date', 'name', 'valid_from', 'valid_till', 'created_at', 'updated_at'
             ]
         ];
 
