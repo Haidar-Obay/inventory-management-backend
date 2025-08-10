@@ -45,10 +45,13 @@ class CustomerController extends Controller
             'primaryContact:id,name',
             'contacts:id,name',
             'attachments:id,file_name,file_path'
-        ])->paginate(10);
+        ]);
+
+        // Get the customers data
+        $customersData = $customers->get();
 
         // Transform the response to be lighter
-        $transformedData = $customers->getCollection()->map(function ($customer) {
+        $transformedData = $customersData->map(function ($customer) {
             return [
                 'id' => $customer->id,
                 'title' => $customer->title,
@@ -142,22 +145,10 @@ class CustomerController extends Controller
             ];
         });
 
-        // Create new paginator with transformed data
-        $transformedPaginator = new \Illuminate\Pagination\LengthAwarePaginator(
-            $transformedData,
-            $customers->total(),
-            $customers->perPage(),
-            $customers->currentPage(),
-            [
-                'path' => $customers->path(),
-                'pageName' => $customers->getPageName(),
-            ]
-        );
-
         return response()->json([
             'status' => true,
             'message' => 'Customers fetched successfully.',
-            'data' => $transformedPaginator,
+            'data' => $transformedData,
         ]);
     }
 
@@ -165,7 +156,7 @@ class CustomerController extends Controller
     {
         $validated = $request->validated();
 
-        // Handle billing address - new structure with direct fields
+        // Handle billing address - unified structure
         $billingAddress = null;
         if ($request->filled('billing_address_line1')) {
             $billingAddress = Address::create([
@@ -184,7 +175,7 @@ class CustomerController extends Controller
             ]);
         }
 
-        // Handle shipping addresses - new structure as array
+        // Handle shipping addresses - unified structure as array
         $shippingAddresses = [];
         if ($request->has('shipping_addresses')) {
             foreach ($request->input('shipping_addresses') as $shippingAddressData) {
@@ -686,69 +677,81 @@ class CustomerController extends Controller
         $validated = $request->validated();
         logger()->info('Validated data', $validated);
 
-        // Handle addresses - new structure
-        if ($request->has('addresses')) {
+        // Handle addresses - unified structure
+        if ($request->filled('billing_address_line1') || $request->has('shipping_addresses')) {
             // Remove all existing addresses and create new ones
             $customer->addresses()->detach();
 
-            foreach ($request->input('addresses') as $addressData) {
-                $address = Address::create([
-                    'address_line1' => $addressData['address_line1'],
-                    'address_line2' => $addressData['address_line2'] ?? null,
-                    'country_id' => $addressData['country_id'],
-                    'city_id' => $addressData['city_id'],
-                    'district_id' => $addressData['district_id'] ?? null,
-                    'zone_id' => $addressData['zone_id'] ?? null,
-                    'building' => $addressData['building'] ?? null,
-                    'block' => $addressData['block'] ?? null,
-                    'floor' => $addressData['floor'] ?? null,
-                    'side' => $addressData['side'] ?? null,
-                    'appartment' => $addressData['appartment'] ?? null,
-                    'zip_code' => $addressData['zip_code'] ?? null,
+            // Handle billing address - unified structure
+            if ($request->filled('billing_address_line1')) {
+                $billingAddress = Address::create([
+                    'address_line1' => $request->input('billing_address_line1'),
+                    'address_line2' => $request->input('billing_address_line2'),
+                    'country_id' => $request->input('billing_country_id'),
+                    'city_id' => $request->input('billing_city_id'),
+                    'district_id' => $request->input('billing_district_id'),
+                    'zone_id' => $request->input('billing_zone_id'),
+                    'building' => $request->input('billing_building'),
+                    'block' => $request->input('billing_block'),
+                    'floor' => $request->input('billing_floor'),
+                    'side' => $request->input('billing_side'),
+                    'appartment' => $request->input('billing_apartment'),
+                    'zip_code' => $request->input('billing_zip_code'),
                 ]);
 
-                $customer->addresses()->attach($address->id, [
-                    'address_type' => $addressData['address_type'],
-                    'is_primary' => $addressData['is_primary'] ?? false,
-                    'address_name' => $addressData['address_name'] ?? null,
-                    'notes' => $addressData['notes'] ?? null,
+                $customer->addresses()->attach($billingAddress->id, [
+                    'address_type' => 'billing',
+                    'is_primary' => true,
+                    'address_name' => 'Primary Billing Address',
+                    'notes' => $request->input('billing_notes'),
                 ]);
             }
-        } else {
-            // Legacy structure: update existing addresses
-            if ($request->filled('billing_address')) {
-                $primaryBillingAddress = $customer->primaryBillingAddress()->first();
-                if ($primaryBillingAddress) {
-                    $primaryBillingAddress->update($request->input('billing_address'));
-                } else {
-                    // Create new billing address if none exists
-                    $billingAddress = Address::create($request->input('billing_address'));
-                    $customer->addresses()->attach($billingAddress->id, [
-                        'address_type' => 'billing',
-                        'is_primary' => true,
-                        'address_name' => 'Primary Billing Address',
+
+            // Handle shipping addresses - unified structure as array
+            if ($request->has('shipping_addresses')) {
+                foreach ($request->input('shipping_addresses') as $index => $shippingAddressData) {
+                    $address = Address::create([
+                        'address_line1' => $shippingAddressData['address_line1'],
+                        'address_line2' => $shippingAddressData['address_line2'] ?? null,
+                        'country_id' => $shippingAddressData['country_id'],
+                        'city_id' => $shippingAddressData['city_id'],
+                        'district_id' => $shippingAddressData['district_id'] ?? null,
+                        'zone_id' => $shippingAddressData['zone_id'] ?? null,
+                        'building' => $shippingAddressData['building'] ?? null,
+                        'block' => $shippingAddressData['block'] ?? null,
+                        'floor' => $shippingAddressData['floor'] ?? null,
+                        'side' => $shippingAddressData['side'] ?? null,
+                        'appartment' => $shippingAddressData['apartment'] ?? null,
+                        'zip_code' => $shippingAddressData['zip_code'] ?? null,
                     ]);
-                }
-            }
 
-            if ($request->filled('shipping_address')) {
-                $primaryShippingAddress = $customer->primaryShippingAddress()->first();
-                if ($primaryShippingAddress) {
-                    $primaryShippingAddress->update($request->input('shipping_address'));
-                } else {
-                    // Create new shipping address if none exists
-                    $shippingAddress = Address::create($request->input('shipping_address'));
-                    $customer->addresses()->attach($shippingAddress->id, [
+                    $customer->addresses()->attach($address->id, [
                         'address_type' => 'shipping',
-                        'is_primary' => true,
-                        'address_name' => 'Primary Shipping Address',
+                        'is_primary' => $index === 0, // First shipping address is primary
+                        'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address ' . ($index + 1),
+                        'notes' => $shippingAddressData['notes'] ?? null,
                     ]);
                 }
             }
         }
 
         // Remove address fields from validated data since we handle them separately
-        unset($validated['addresses'], $validated['billing_address'], $validated['shipping_address']);
+        unset($validated['billing_address_line1'], $validated['billing_address_line2'], 
+              $validated['billing_country_id'], $validated['billing_city_id'], 
+              $validated['billing_district_id'], $validated['billing_zone_id'],
+              $validated['billing_building'], $validated['billing_block'],
+              $validated['billing_floor'], $validated['billing_side'],
+              $validated['billing_apartment'], $validated['billing_zip_code'],
+              $validated['billing_notes'], $validated['shipping_addresses']);
+
+        // Handle pricing fields mapping (allow null to clear values)
+        if ($request->has('markup')) {
+            $validated['markup_percentage'] = $request->input('markup');
+        }
+
+        if ($request->has('markdown')) {
+            $validated['markdown_percentage'] = $request->input('markdown');
+        }
 
         if ($request->filled('primary_payment_method_id')) {
             $validated['primary_payment_method_id'] = $request->input('primary_payment_method_id');
@@ -767,44 +770,47 @@ class CustomerController extends Controller
 
         // Handle credit limits
         if ($request->has('credit_limits')) {
-            // Remove existing credit limits and create new ones
-            $customer->creditLimits()->update(['is_active' => false]);
+            // Delete existing credit limits completely instead of just marking as inactive
+            $customer->creditLimits()->delete();
             
-            foreach ($request->input('credit_limits') as $creditLimitData) {
-                $customer->setCreditLimit(
-                    $creditLimitData['currency_id'],
-                    $creditLimitData['credit_limit'],
-                    $creditLimitData['notes'] ?? null
-                );
+            foreach ($request->input('credit_limits') as $currencyCode => $amount) {
+                // Find currency by code
+                $currency = \App\Models\Currency::where('code', $currencyCode)->first();
+                if ($currency) {
+                    $customer->setCreditLimit($currency->id, $amount);
+                }
             }
         }
 
         // Handle cheque limits
-        if ($request->has('cheque_limits')) {
-            // Remove existing cheque limits and create new ones
-            $customer->chequeLimits()->update(['is_active' => false]);
+        if ($request->has('max_cheques')) {
+            // Delete existing cheque limits completely instead of just marking as inactive
+            $customer->chequeLimits()->delete();
             
-            foreach ($request->input('cheque_limits') as $chequeLimitData) {
-                $customer->setChequeLimit(
-                    $chequeLimitData['currency_id'],
-                    $chequeLimitData['max_cheques'],
-                    $chequeLimitData['notes'] ?? null
-                );
+            foreach ($request->input('max_cheques') as $currencyCode => $maxCheques) {
+                // Find currency by code
+                $currency = \App\Models\Currency::where('code', $currencyCode)->first();
+                if ($currency) {
+                    $customer->setChequeLimit($currency->id, $maxCheques);
+                }
             }
         }
 
         // Handle opening balances
         if ($request->has('opening_balances')) {
-            // Remove existing opening balances and create new ones
-            $customer->openingBalances()->update(['is_active' => false]);
+            // Delete existing opening balances completely instead of just marking as inactive
+            $customer->openingBalances()->delete();
             
             foreach ($request->input('opening_balances') as $openingBalanceData) {
-                $customer->setOpeningBalance(
-                    $openingBalanceData['currency_id'],
-                    $openingBalanceData['opening_amount'],
-                    $openingBalanceData['opening_date'] ?? null,
-                    $openingBalanceData['notes'] ?? null
-                );
+                // Find currency by code
+                $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
+                if ($currency) {
+                    $customer->setOpeningBalance(
+                        $currency->id,
+                        $openingBalanceData['amount'],
+                        $openingBalanceData['date'] ?? null
+                    );
+                }
             }
         }
 
@@ -1336,8 +1342,8 @@ class CustomerController extends Controller
                     'accept_cheque' => boolval($row['accept_cheque'] ?? false),
                     'payment_day' => $row['payment_day'] ?? null,
                     'track_payment' => $row['track_payment'] ?? 'no',
-                    'settlement_method' => $row['settlement_method'] ?? 'FIFO',
-                    'pricing_choice' => $row['pricing_choice'] ?? 'price1',
+                    'settlement_method' => $row['settlement_method'] ?? null,
+                    'pricing_choice' => $row['pricing_choice'] ?? null,
                     'global_discount' => $row['global_discount'] ?? null,
                     'discount_class' => $row['discount_class'] ?? null,
                     'markup_percentage' => $row['markup_percentage'] ?? null,

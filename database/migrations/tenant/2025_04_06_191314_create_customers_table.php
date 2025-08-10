@@ -54,11 +54,11 @@ return new class extends Migration {
             $table->boolean('accept_cheques')->default(false);
             $table->enum('payment_day', ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30'])->nullable();
             $table->enum('track_payment', ['yes', 'no'])->default('no');
-            $table->enum('settlement_method', ['FIFO', 'Manual'])->default('FIFO');
+            $table->enum('settlement_method', ['FIFO', 'Manual'])->nullable();
 
 
             //pricing
-            $table->enum('price_choice', ['price1', 'price2', 'price3', 'price4', 'price5', 'price6','last_invoice_price'])->default('price1');
+            $table->enum('price_choice', ['price1', 'price2', 'price3', 'price4', 'price5', 'price6','last_invoice_price'])->nullable();
             $table->string('price_list')->nullable();
             // $table->decimal('discount_by_item', 8, 2)->nullable()->comment('Discount percentage applied per item');
             $table->decimal('global_discount', 8, 2)->nullable()->comment('Global discount percentage applied to entire order');
