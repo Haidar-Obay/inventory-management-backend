@@ -35,4 +35,11 @@ class Item extends Model implements Auditable
     {
         return number_format($this->price, 2);
     }
+
+    // Many-to-many relationship with customer master lists
+    public function customerMasterLists()
+    {
+        return $this->belongsToMany(CustomerMasterList::class, 'customer_master_list_item')
+                    ->withTimestamps();
+    }
 } 

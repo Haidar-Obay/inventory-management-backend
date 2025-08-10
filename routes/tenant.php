@@ -59,6 +59,7 @@ use App\Http\Controllers\CustomerContactController;
 use App\Http\Controllers\CustomerRouteController;
 use App\Http\Controllers\TableTemplateController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\CustomerMasterListController;
 
 /*
 |--------------------------------------------------------------------------
@@ -131,6 +132,15 @@ Route::middleware([
             Route::apiResource('transportation-channels', TransportationChannelController::class);
             Route::apiResource('media-channels', MediaChannelController::class);
             Route::apiResource('items', ItemController::class);
+            Route::apiResource('customer-master-lists', CustomerMasterListController::class);
+
+            // Customer Master List additional routes
+            Route::prefix('customer-master-lists')->group(function () {
+                Route::get('active/list', [CustomerMasterListController::class, 'active']);
+                Route::post('valid-on', [CustomerMasterListController::class, 'validOn']);
+                Route::post('{customerMasterList}/attach-items', [CustomerMasterListController::class, 'attachItems']);
+                Route::post('{customerMasterList}/detach-items', [CustomerMasterListController::class, 'detachItems']);
+            });
 
             // Table Templates Routes
             Route::prefix('table-templates')->group(function () {
@@ -177,6 +187,7 @@ Route::middleware([
                 Route::get('transportation-channels', [TransportationChannelController::class, 'exportExcell']);
                 Route::get('media-channels', [MediaChannelController::class, 'exportExcell']);
                 Route::get('items', [ItemController::class, 'exportExcell']);
+                Route::get('customer-master-lists', [CustomerMasterListController::class, 'export']);
             });
 
             // Export to PDF Routes
@@ -213,6 +224,7 @@ Route::middleware([
                 Route::get('/transportation-channels', [TransportationChannelController::class, 'exportPdf']);
                 Route::get('/media-channels', [MediaChannelController::class, 'exportPdf']);
                 Route::get('/items', [ItemController::class, 'exportPdf']);
+                Route::get('/customer-master-lists', [CustomerMasterListController::class, 'exportPdf']);
             });
 
             // Import from Excel Routes
@@ -249,6 +261,7 @@ Route::middleware([
                 Route::post('/transportation-channels', [TransportationChannelController::class, 'import']);
                 Route::post('/media-channels', [MediaChannelController::class, 'import']);
                 Route::post('/items', [ItemController::class, 'importFromExcel']);
+                Route::post('/customer-master-lists', [CustomerMasterListController::class, 'import']);
             });
 
             // Bulk Delete Routes
