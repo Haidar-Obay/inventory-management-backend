@@ -92,6 +92,7 @@ class TableTemplateController extends Controller
             'distributionChannels',
             'mediaChannels',
             'businessTypes',
+            'customerMasterLists',
         ]; // Add your valid tables heree 
         if (!in_array($tableName, $validTables)) {
             return response()->json(['message' => 'Invalid table name'], 400);
