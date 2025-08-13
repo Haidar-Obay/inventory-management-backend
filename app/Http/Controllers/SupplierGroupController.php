@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SupplierGroup;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
@@ -15,64 +15,108 @@ class SupplierGroupController extends Controller
     public function index()
     {
         $tenantId = tenant('id');
-        $cacheKey = "supplier_groups_{$tenantId}";
+        $key = "tenant_{$tenantId}_supplier_groups";
 
-        return Cache::remember($cacheKey, 3600, function () {
-            return SupplierGroup::all();
-        });
+        $supplierGroups = app('cache')->store('database')->get($key);
+
+        if (!$supplierGroups) {
+            $supplierGroups = SupplierGroup::orderBy('name')->get();
+
+            app('cache')->store('database')->forever($key, $supplierGroups);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Supplier groups fetched successfully.',
+            'data' => $supplierGroups,
+        ]);
     }
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'code' => 'required|string|unique:supplier_groups,code',
             'name' => 'required|string',
-            'is_inactive' => 'boolean',
+            'active' => 'boolean',
         ]);
 
-        $supplierGroup = SupplierGroup::create($request->all());
-        Cache::forget("supplier_groups_" . tenant('id'));
+        $supplierGroup = SupplierGroup::create($validated);
 
-        return response()->json($supplierGroup, 201);
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_groups");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Supplier group created successfully.',
+            'data' => $supplierGroup,
+        ], 201);
     }
 
     public function show(SupplierGroup $supplierGroup)
     {
         $tenantId = tenant('id');
-        $cacheKey = "supplier_group_{$supplierGroup->id}_{$tenantId}";
+        $key = "tenant_{$tenantId}_supplier_group_{$supplierGroup->id}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($supplierGroup) {
-            return $supplierGroup->load('suppliers');
-        });
+        $cachedSupplierGroup = app('cache')->store('database')->get($key);
+
+        if (!$cachedSupplierGroup) {
+            $cachedSupplierGroup = $supplierGroup;
+
+            app('cache')->store('database')->forever($key, $cachedSupplierGroup);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Supplier group details fetched successfully.',
+            'data' => $cachedSupplierGroup,
+        ]);
     }
 
     public function update(Request $request, SupplierGroup $supplierGroup)
     {
-        $request->validate([
-            'code' => 'required|string|unique:supplier_groups,code,' . $supplierGroup->id,
-            'name' => 'required|string',
-            'is_inactive' => 'boolean',
+        $validated = $request->validate([
+            'code' => [
+                'sometimes',
+                'string',
+                Rule::unique('supplier_groups', 'code')->ignore($supplierGroup->id),
+            ],
+            'name' => 'sometimes|string',
+            'active' => 'sometimes|boolean',
         ]);
 
-        $supplierGroup->update($request->all());
-        Cache::forget("supplier_groups_" . tenant('id'));
-        Cache::forget("supplier_group_{$supplierGroup->id}_" . tenant('id'));
+        $supplierGroup->update($validated);
 
-        return response()->json($supplierGroup);
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_groups");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_group_{$supplierGroup->id}");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Supplier group updated successfully.',
+            'data' => $supplierGroup,
+        ]);
     }
 
     public function destroy(SupplierGroup $supplierGroup)
     {
         // Check if supplier group has suppliers
         if ($supplierGroup->suppliers()->exists()) {
-            return response()->json(['message' => 'Cannot delete supplier group with associated suppliers'], 422);
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete supplier group with associated suppliers'
+            ], 422);
         }
 
         $supplierGroup->delete();
-        Cache::forget("supplier_groups_" . tenant('id'));
-        Cache::forget("supplier_group_{$supplierGroup->id}_" . tenant('id'));
 
-        return response()->json(null, 204);
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_groups");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_group_{$supplierGroup->id}");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Supplier group deleted successfully.',
+        ]);
     }
 
     public function bulkDelete(Request $request)
@@ -82,6 +126,10 @@ class SupplierGroupController extends Controller
             'ids.*' => 'exists:supplier_groups,id'
         ]);
 
+        $tenantId = tenant('id');
+        $skipped = [];
+        $deleted = 0;
+
         // Check for supplier groups with suppliers
         $groupsWithSuppliers = SupplierGroup::whereIn('id', $request->ids)
             ->whereHas('suppliers')
@@ -89,56 +137,112 @@ class SupplierGroupController extends Controller
 
         if ($groupsWithSuppliers->isNotEmpty()) {
             return response()->json([
+                'status' => false,
                 'message' => 'Some supplier groups have associated suppliers and cannot be deleted',
                 'groups_with_suppliers' => $groupsWithSuppliers
             ], 422);
         }
 
-        SupplierGroup::whereIn('id', $request->ids)->delete();
-        Cache::forget("supplier_groups_" . tenant('id'));
+        foreach ($request->ids as $id) {
+            try {
+                $deleted += SupplierGroup::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_group_{$id}");
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+            }
+        }
 
-        return response()->json(['message' => 'Supplier groups deleted successfully']);
+        app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_groups");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()
     {
-        $supplierGroups = SupplierGroup::all();
+        $supplierGroups = SupplierGroup::orderBy('name');
 
-        if ($supplierGroups->isEmpty()) {
-            return response()->json(['message' => 'No supplier groups to export'], 404);
+        if ($supplierGroups->count() === 0) {
+            return response()->json(['message' => 'No supplier groups found.'], 404);
         }
 
-        $fileName = 'supplier_groups_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($supplierGroups), $fileName);
+        $columns = ['id', 'code', 'name', 'active'];
+        $headings = ['ID', 'Code', 'Name', 'Active'];
+
+        return Excel::download(new Export($supplierGroups, $columns, $headings), 'supplier_groups.xlsx');
     }
 
     public function exportPdf()
     {
-        $supplierGroups = SupplierGroup::all();
+        $supplierGroups = SupplierGroup::select('id', 'code', 'name', 'active')->get();
 
         if ($supplierGroups->isEmpty()) {
-            return response()->json(['message' => 'No supplier groups to export'], 404);
+            return response()->json(['message' => 'No supplier groups found.'], 404);
         }
 
-        $fileName = 'supplier_groups_' . date('Y-m-d_H-i-s') . '.pdf';
-        return Excel::download(new ExportPDF($supplierGroups), $fileName);
+        $title = 'Supplier Group Report';
+        $headers = [
+            'id' => 'ID',
+            'code' => 'Code',
+            'name' => 'Name',
+            'active' => 'Active',
+        ];
+        $data = $supplierGroups->toArray();
+
+        $pdf = app(ExportPDF::class)->generatePdf($title, $headers, $data);
+        return $pdf->download('SupplierGroups.pdf');
     }
 
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls',
+            'file' => 'required|file|mimes:xlsx,xls,csv',
         ]);
 
         try {
-            $import = new DynamicExcelImport(SupplierGroup::class);
+            $import = new DynamicExcelImport(
+                SupplierGroup::class,
+                ['code', 'name'],
+                function ($row) {
+                    $errors = [];
+
+                    if (empty($row['code'])) {
+                        $errors[] = 'Missing code';
+                    }
+                    if (empty($row['name'])) {
+                        $errors[] = 'Missing name';
+                    }
+
+                    return $errors;
+                },
+                function ($row) {
+                    return [
+                        'code' => $row['code'],
+                        'name' => $row['name'],
+                        'active' => $row['active'] ?? true,
+                    ];
+                }
+            );
+
             Excel::import($import, $request->file('file'));
 
-            Cache::forget("supplier_groups_" . tenant('id'));
+            app('cache')->store('database')->forget('tenant_' . tenant('id') . '_supplier_groups');
 
-            return response()->json(['message' => 'Supplier groups imported successfully']);
+            return response()->json([
+                'success' => true,
+                'rows_imported' => $import->getImportedCount(),
+                'rows_skipped_count' => $import->getSkippedCount(),
+                'skipped_rows' => $import->getSkippedRows(),
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error importing supplier groups: ' . $e->getMessage()], 500);
+            return response()->json([
+                'status' => false,
+                'message' => 'Error importing supplier groups: ' . $e->getMessage()
+            ], 500);
         }
     }
 }
