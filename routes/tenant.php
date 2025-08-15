@@ -34,6 +34,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\ProductLineController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\SupplierGroupController;
+use App\Http\Controllers\SupplierController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -108,7 +109,20 @@ Route::middleware([
             Route::apiResource('brands', BrandController::class);
             Route::apiResource('product-lines', ProductLineController::class);
             Route::apiResource('categories', CategoryController::class);
-            Route::apiResource('supplier-groups', SupplierGroupController::class);
+                    Route::apiResource('supplier-groups', SupplierGroupController::class);
+        Route::apiResource('suppliers', SupplierController::class)->middleware('subscription.limits:opening_balance');
+        
+        // Supplier Opening Balances
+        Route::prefix('suppliers/{supplier}/opening-balances')->middleware('subscription.limits:opening_balance')->group(function () {
+            Route::get('/', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'index']);
+            Route::post('/', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'store']);
+            Route::post('/bulk', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'bulkStore']);
+            Route::get('/available-currencies', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'getAvailableCurrencies']);
+            Route::get('/{openingBalance}', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'show']);
+            Route::put('/{openingBalance}', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'update']);
+            Route::delete('/{openingBalance}', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'destroy']);
+            Route::get('/check-currency/{currencyId}', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'checkCurrencyExists']);
+        });
             Route::apiResource('payment-terms', PaymentTermController::class);
 
             Route::apiResource('currencies', CurrencyController::class)->middleware('subscription.limits:currency');
@@ -173,6 +187,7 @@ Route::middleware([
                 Route::get('product-lines', [ProductLineController::class, 'exportExcel']);
                 Route::get('categories', [CategoryController::class, 'exportExcell']);
                 Route::get('supplier-groups', [SupplierGroupController::class, 'exportExcell']);
+                Route::get('suppliers', [SupplierController::class, 'exportExcell']);
                 Route::get('branches', [BranchController::class, 'exportExcell']);
                 Route::get('adjustment-types', [AdjustmentTypeController::class, 'exportExcell']);
                 Route::get('warehouses', [WarehouseController::class, 'exportExcell']);
@@ -210,6 +225,7 @@ Route::middleware([
                 Route::get('/product-lines', [ProductLineController::class, 'exportPdf']);
                 Route::get('/categories', [CategoryController::class, 'exportPdf']);
                 Route::get('/supplier-groups', [SupplierGroupController::class, 'exportPdf']);
+                Route::get('/suppliers', [SupplierController::class, 'exportPdf']);
                 Route::get('/branches', [BranchController::class, 'exportPdf']);
                 Route::get('/adjustment-types', [AdjustmentTypeController::class, 'exportPdf']);
                 Route::get('/warehouses', [WarehouseController::class, 'exportPdf']);
@@ -247,6 +263,7 @@ Route::middleware([
                 Route::post('/product-lines', [ProductLineController::class, 'importFromExcel']);
                 Route::post('/categories', [CategoryController::class, 'importFromExcel']);
                 Route::post('/supplier-groups', [SupplierGroupController::class, 'importFromExcel']);
+                Route::post('/suppliers', [SupplierController::class, 'importFromExcel']);
                 Route::post('/branches', [BranchController::class, 'importFromExcel']);
                 Route::post('/adjustment-types', [AdjustmentTypeController::class, 'importFromExcel']);
                 Route::post('/warehouses', [WarehouseController::class, 'importFromExcel']);
@@ -283,6 +300,7 @@ Route::middleware([
                 Route::delete('/product-lines', [ProductLineController::class, 'bulkDelete']);
                 Route::delete('/categories', [CategoryController::class, 'bulkDelete']);
                 Route::delete('/supplier-groups', [SupplierGroupController::class, 'bulkDelete']);
+                Route::delete('/suppliers', [SupplierController::class, 'bulkDelete']);
                 Route::delete('/branches', [BranchController::class, 'bulkDelete']);
                 Route::delete('/adjustment-types', [AdjustmentTypeController::class, 'bulkDelete']);
                 Route::delete('/warehouses', [WarehouseController::class, 'bulkDelete']);

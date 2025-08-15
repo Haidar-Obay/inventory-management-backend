@@ -55,6 +55,25 @@ class CheckSubscriptionLimits
                 $canAdd = $tenant->canAddCustomer($currentCount);
                 break;
 
+            case 'opening_balance':
+                // Check if user can create multiple opening balances
+                if ($request->isMethod('post') || $request->isMethod('put')) {
+                    if ($request->has('opening_balances')) {
+                        $currencyCount = count($request->input('opening_balances'));
+                        if ($currencyCount > 1) {
+                            // For now, allow multiple currencies (you can add specific logic here later)
+                            $canAdd = true;
+                        } else {
+                            $canAdd = true;
+                        }
+                    } else {
+                        $canAdd = true;
+                    }
+                } else {
+                    $canAdd = true;
+                }
+                break;
+
             default:
                 return $next($request);
         }
