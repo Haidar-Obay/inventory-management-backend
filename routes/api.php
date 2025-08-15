@@ -128,5 +128,13 @@ foreach (config('tenancy.central_domains') as $domain) {
         Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
         Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
 
+        
+
+    });
+    Route::get('/health', function () {
+        return response()->json([
+            'ok' => true,
+            'time' => now()->toISOString(),
+        ]);
     });
 }
