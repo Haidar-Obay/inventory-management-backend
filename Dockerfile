@@ -15,6 +15,10 @@ WORKDIR /var/www
 
 # Copy Laravel files & install dependencies
 COPY . .
+
+# Copy the Docker-specific environment file as .env
+COPY .env.docker .env
+
 RUN composer install --no-interaction --optimize-autoloader
 
 # Set permissions
@@ -24,4 +28,3 @@ USER www-data
 
 EXPOSE 8000
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
-

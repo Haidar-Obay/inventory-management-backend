@@ -8,7 +8,7 @@ return [
         'http://hadishokor.app.localhost:8000',
         'http://*.localhost:3000',
         'http://*.app.localhost:8000',
-        // 'http://app.localhost:3000',
+        'http://app.localhost:3000',
     ],
     'allowed_origins_patterns' => [
         '#^http://[a-z0-9-]+\.localhost:3000$#',
