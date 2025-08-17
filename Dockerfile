@@ -17,7 +17,7 @@ WORKDIR /var/www
 COPY . .
 
 # Copy the Docker-specific environment file as .env
-COPY .env.docker .env
+# COPY .env.docker .env
 
 RUN composer install --no-interaction --optimize-autoloader
 
