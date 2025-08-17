@@ -24,18 +24,3 @@ jobs:
           context: .
           push: true
           tags: haidarsh/backend-app:latest
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy backend via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd ~/apps/inventory
-            docker compose pull backend
-            docker compose up -d backend
