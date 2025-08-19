@@ -13,13 +13,17 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
-# Copy Laravel files & install dependencies
+# Copy composer files first for better caching
+COPY composer.json composer.lock ./
+
+# Copy Laravel files (excluding .env files)
 COPY . .
 
-# Copy the Docker-specific environment file as .env
-# COPY .env.docker .env
+# Install dependencies
+RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-RUN composer install --no-interaction --optimize-autoloader
+# Remove any existing .env files to prevent conflicts
+RUN rm -f .env .env.* || true
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www && chmod -R 755 storage bootstrap/cache
