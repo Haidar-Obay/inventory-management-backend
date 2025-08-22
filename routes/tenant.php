@@ -81,9 +81,9 @@ Route::middleware([
         Route::post('/login', [AuthController::class, 'login']);
 
 
-
+        //add verified 'auth:sanctum', 'verified'
         // Protected Routes
-        Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+        Route::middleware(['auth:sanctum'])->group(function () {
 
          //log audit
           Route::get('audits', [AuditController::class, 'index']);
