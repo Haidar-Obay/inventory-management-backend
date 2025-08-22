@@ -187,30 +187,38 @@ class SupplierController extends Controller
             'paymentTerm:id,code,name,active',
             'paymentMethod:id,code,name,active',
             'currency:id,code,name,iso_code,symbol,active',
-            'addresses.country:id,name,code,iso_code',
-            'addresses.city:id,name,code,country_id',
-            'addresses.district:id,name,code,city_id',
-            'addresses.zone:id,name,code',
-            'billingAddresses.country:id,name,code,iso_code',
-            'billingAddresses.city:id,name,code,country_id',
-            'billingAddresses.district:id,name,code,city_id',
-            'billingAddresses.zone:id,name,code',
-            'shippingAddresses.country:id,name,code,iso_code',
-            'shippingAddresses.city:id,name,code,country_id',
-            'shippingAddresses.district:id,name,code,city_id',
-            'shippingAddresses.zone:id,name,code',
-            'primaryBillingAddress.country:id,name,code,iso_code',
-            'primaryBillingAddress.city:id,name,code,country_id',
-            'primaryBillingAddress.district:id,name,code,city_id',
-            'primaryBillingAddress.zone:id,name,code',
-            'primaryShippingAddress.country:id,name,code,country_id',
-            'primaryShippingAddress.city:id,name,code,country_id',
-            'primaryShippingAddress.district:id,name,code,city_id',
-            'primaryShippingAddress.zone:id,name,code',
+            'addresses.country:id,name',
+            'addresses.city:id,name',
+            'addresses.district:id,name',
+            'addresses.zone:id,name',
+            'billingAddresses.country:id,name',
+            'billingAddresses.city:id,name',
+            'billingAddresses.district:id,name',
+            'billingAddresses.zone:id,name',
+            'shippingAddresses.country:id,name',
+            'shippingAddresses.city:id,name',
+            'shippingAddresses.district:id,name',
+            'shippingAddresses.zone:id,name',
+            'primaryBillingAddress.country:id,name',
+            'primaryBillingAddress.city:id,name',
+            'primaryBillingAddress.district:id,name',
+            'primaryBillingAddress.zone:id,name',
+            'primaryShippingAddress.country:id,name',
+            'primaryShippingAddress.city:id,name',
+            'primaryShippingAddress.district:id,name',
+            'primaryShippingAddress.zone:id,name',
             'primaryContact:id,name,title,work_phone,mobile,position,extension,is_primary',
             'contacts:id,name,title,work_phone,mobile,position,extension,is_primary',
             'attachments:id,file_name,file_path,file_type,file_size,description,category,is_public',
-            'openingBalances:id,currency_id,opening_amount,opening_date,notes,is_active'
+            // Opening balances with currency
+            'openingBalances:id,currency_id,opening_amount,opening_date,notes,is_active',
+            'openingBalances.currency:id,code,name,iso_code',
+            // Credit limits with currency
+            'creditLimits:id,currency_id,credit_limit,used_credit,available_credit,notes,is_active',
+            'creditLimits.currency:id,code,name,iso_code',
+            // Cheque limits with currency
+            'chequeLimits:id,currency_id,max_cheques,used_cheques,available_cheques,notes,is_active',
+            'chequeLimits.currency:id,code,name,iso_code'
         ]);
 
         // Transform the response to include all supplier data comprehensively
@@ -287,7 +295,6 @@ class SupplierController extends Controller
                 'code' => $supplier->currency->code,
                 'name' => $supplier->currency->name,
                 'iso_code' => $supplier->currency->iso_code,
-                'symbol' => $supplier->currency->symbol,
                 'active' => $supplier->currency->active
             ] : null,
             
@@ -301,28 +308,27 @@ class SupplierController extends Controller
                     'city_id' => $address->city_id,
                     'district_id' => $address->district_id,
                     'zone_id' => $address->zone_id,
+                    'building' => $address->building,
+                    'block' => $address->block,
+                    'floor' => $address->floor,
+                    'side' => $address->side,
+                    'appartment' => $address->appartment,
+                    'zip_code' => $address->zip_code,
                     'country' => $address->country ? [
                         'id' => $address->country->id,
-                        'name' => $address->country->name,
-                        'code' => $address->country->code,
-                        'iso_code' => $address->country->iso_code
+                        'name' => $address->country->name
                     ] : null,
                     'city' => $address->city ? [
                         'id' => $address->city->id,
-                        'name' => $address->city->name,
-                        'code' => $address->city->code,
-                        'country_id' => $address->city->country_id
+                        'name' => $address->city->name
                     ] : null,
                     'district' => $address->district ? [
                         'id' => $address->district->id,
-                        'name' => $address->district->name,
-                        'code' => $address->district->code,
-                        'city_id' => $address->district->city_id
+                        'name' => $address->district->name
                     ] : null,
                     'zone' => $address->zone ? [
                         'id' => $address->zone->id,
-                        'name' => $address->zone->name,
-                        'code' => $address->zone->code
+                        'name' => $address->zone->name
                     ] : null,
                     'pivot' => $address->pivot
                 ];
@@ -338,28 +344,27 @@ class SupplierController extends Controller
                     'city_id' => $address->city_id,
                     'district_id' => $address->district_id,
                     'zone_id' => $address->zone_id,
+                    'building' => $address->building,
+                    'block' => $address->block,
+                    'floor' => $address->floor,
+                    'side' => $address->side,
+                    'appartment' => $address->appartment,
+                    'zip_code' => $address->zip_code,
                     'country' => $address->country ? [
                         'id' => $address->country->id,
-                        'name' => $address->country->name,
-                        'code' => $address->country->code,
-                        'iso_code' => $address->country->iso_code
+                        'name' => $address->country->name
                     ] : null,
                     'city' => $address->city ? [
                         'id' => $address->city->id,
-                        'name' => $address->city->name,
-                        'code' => $address->city->code,
-                        'country_id' => $address->city->country_id
+                        'name' => $address->city->name
                     ] : null,
                     'district' => $address->district ? [
                         'id' => $address->district->id,
-                        'name' => $address->district->name,
-                        'code' => $address->district->code,
-                        'city_id' => $address->district->city_id
+                        'name' => $address->district->name
                     ] : null,
                     'zone' => $address->zone ? [
                         'id' => $address->zone->id,
-                        'name' => $address->zone->name,
-                        'code' => $address->zone->code
+                        'name' => $address->zone->name
                     ] : null,
                     'pivot' => $address->pivot
                 ];
@@ -375,28 +380,27 @@ class SupplierController extends Controller
                     'city_id' => $address->city_id,
                     'district_id' => $address->district_id,
                     'zone_id' => $address->zone_id,
+                    'building' => $address->building,
+                    'block' => $address->block,
+                    'floor' => $address->floor,
+                    'side' => $address->side,
+                    'appartment' => $address->appartment,
+                    'zip_code' => $address->zip_code,
                     'country' => $address->country ? [
                         'id' => $address->country->id,
-                        'name' => $address->country->name,
-                        'code' => $address->country->code,
-                        'iso_code' => $address->country->iso_code
+                        'name' => $address->country->name
                     ] : null,
                     'city' => $address->city ? [
                         'id' => $address->city->id,
-                        'name' => $address->city->name,
-                        'code' => $address->city->code,
-                        'country_id' => $address->city->country_id
+                        'name' => $address->city->name
                     ] : null,
                     'district' => $address->district ? [
                         'id' => $address->district->id,
-                        'name' => $address->district->name,
-                        'code' => $address->district->code,
-                        'city_id' => $address->district->city_id
+                        'name' => $address->district->name
                     ] : null,
                     'zone' => $address->zone ? [
                         'id' => $address->zone->id,
-                        'name' => $address->zone->name,
-                        'code' => $address->zone->code
+                        'name' => $address->zone->name
                     ] : null,
                     'pivot' => $address->pivot
                 ];
@@ -411,28 +415,27 @@ class SupplierController extends Controller
                 'city_id' => $supplier->primaryBillingAddress->first()->city_id,
                 'district_id' => $supplier->primaryBillingAddress->first()->district_id,
                 'zone_id' => $supplier->primaryBillingAddress->first()->zone_id,
+                'building' => $supplier->primaryBillingAddress->first()->building,
+                'block' => $supplier->primaryBillingAddress->first()->block,
+                'floor' => $supplier->primaryBillingAddress->first()->floor,
+                'side' => $supplier->primaryBillingAddress->first()->side,
+                'appartment' => $supplier->primaryBillingAddress->first()->appartment,
+                'zip_code' => $supplier->primaryBillingAddress->first()->zip_code,
                 'country' => $supplier->primaryBillingAddress->first()->country ? [
                     'id' => $supplier->primaryBillingAddress->first()->country->id,
-                    'name' => $supplier->primaryBillingAddress->first()->country->name,
-                    'code' => $supplier->primaryBillingAddress->first()->country->code,
-                    'iso_code' => $supplier->primaryBillingAddress->first()->country->iso_code
+                    'name' => $supplier->primaryBillingAddress->first()->country->name
                 ] : null,
                 'city' => $supplier->primaryBillingAddress->first()->city ? [
                     'id' => $supplier->primaryBillingAddress->first()->city->id,
-                    'name' => $supplier->primaryBillingAddress->first()->city->name,
-                    'code' => $supplier->primaryBillingAddress->first()->city->code,
-                    'country_id' => $supplier->primaryBillingAddress->first()->city->country_id
+                    'name' => $supplier->primaryBillingAddress->first()->city->name
                 ] : null,
                 'district' => $supplier->primaryBillingAddress->first()->district ? [
                     'id' => $supplier->primaryBillingAddress->first()->district->id,
-                    'name' => $supplier->primaryBillingAddress->first()->district->name,
-                    'code' => $supplier->primaryBillingAddress->first()->district->code,
-                    'city_id' => $supplier->primaryBillingAddress->first()->district->city_id
+                    'name' => $supplier->primaryBillingAddress->first()->district->name
                 ] : null,
                 'zone' => $supplier->primaryBillingAddress->first()->zone ? [
                     'id' => $supplier->primaryBillingAddress->first()->zone->id,
-                    'name' => $supplier->primaryBillingAddress->first()->zone->name,
-                    'code' => $supplier->primaryBillingAddress->first()->zone->code
+                    'name' => $supplier->primaryBillingAddress->first()->zone->name
                 ] : null,
                 'pivot' => $supplier->primaryBillingAddress->first()->pivot
             ] : null,
@@ -446,28 +449,27 @@ class SupplierController extends Controller
                 'city_id' => $supplier->primaryShippingAddress->first()->city_id,
                 'district_id' => $supplier->primaryShippingAddress->first()->district_id,
                 'zone_id' => $supplier->primaryShippingAddress->first()->zone_id,
+                'building' => $supplier->primaryShippingAddress->first()->building,
+                'block' => $supplier->primaryShippingAddress->first()->block,
+                'floor' => $supplier->primaryShippingAddress->first()->floor,
+                'side' => $supplier->primaryShippingAddress->first()->side,
+                'appartment' => $supplier->primaryShippingAddress->first()->appartment,
+                'zip_code' => $supplier->primaryShippingAddress->first()->zip_code,
                 'country' => $supplier->primaryShippingAddress->first()->country ? [
                     'id' => $supplier->primaryShippingAddress->first()->country->id,
-                    'name' => $supplier->primaryShippingAddress->first()->country->name,
-                    'code' => $supplier->primaryShippingAddress->first()->country->code,
-                    'iso_code' => $supplier->primaryShippingAddress->first()->country->iso_code
+                    'name' => $supplier->primaryShippingAddress->first()->country->name
                 ] : null,
                 'city' => $supplier->primaryShippingAddress->first()->city ? [
                     'id' => $supplier->primaryShippingAddress->first()->city->id,
-                    'name' => $supplier->primaryShippingAddress->first()->city->name,
-                    'code' => $supplier->primaryShippingAddress->first()->city->code,
-                    'country_id' => $supplier->primaryShippingAddress->first()->city->country_id
+                    'name' => $supplier->primaryShippingAddress->first()->city->name
                 ] : null,
                 'district' => $supplier->primaryShippingAddress->first()->district ? [
                     'id' => $supplier->primaryShippingAddress->first()->district->id,
-                    'name' => $supplier->primaryShippingAddress->first()->district->name,
-                    'code' => $supplier->primaryShippingAddress->first()->district->code,
-                    'city_id' => $supplier->primaryShippingAddress->first()->district->city_id
+                    'name' => $supplier->primaryShippingAddress->first()->district->name
                 ] : null,
                 'zone' => $supplier->primaryShippingAddress->first()->zone ? [
                     'id' => $supplier->primaryShippingAddress->first()->zone->id,
-                    'name' => $supplier->primaryShippingAddress->first()->zone->name,
-                    'code' => $supplier->primaryShippingAddress->first()->zone->code
+                    'name' => $supplier->primaryShippingAddress->first()->zone->name
                 ] : null,
                 'pivot' => $supplier->primaryShippingAddress->first()->pivot
             ] : null,
@@ -509,6 +511,53 @@ class SupplierController extends Controller
                     'description' => $attachment->description,
                     'category' => $attachment->category,
                     'is_public' => $attachment->is_public
+                ];
+            }),
+            
+            // Opening balances with currency info
+            'opening_balances' => $supplier->openingBalances->map(function ($openingBalance) {
+                return [
+                    'id' => $openingBalance->id,
+                    'currency_id' => $openingBalance->currency_id,
+                    'currency_code' => optional($openingBalance->currency)->code,
+                    'currency_name' => optional($openingBalance->currency)->name,
+                    'currency_iso_code' => optional($openingBalance->currency)->iso_code,
+                    'opening_amount' => $openingBalance->opening_amount,
+                    'opening_date' => $openingBalance->opening_date,
+                    'notes' => $openingBalance->notes,
+                    'is_active' => $openingBalance->is_active,
+                ];
+            }),
+            
+            // Credit limits with currency info
+            'credit_limits' => $supplier->creditLimits->map(function ($creditLimit) {
+                return [
+                    'id' => $creditLimit->id,
+                    'currency_id' => $creditLimit->currency_id,
+                    'currency_code' => optional($creditLimit->currency)->code,
+                    'currency_name' => optional($creditLimit->currency)->name,
+                    'currency_iso_code' => optional($creditLimit->currency)->iso_code,
+                    'credit_limit' => $creditLimit->credit_limit,
+                    'used_credit' => $creditLimit->used_credit,
+                    'available_credit' => $creditLimit->available_credit,
+                    'notes' => $creditLimit->notes,
+                    'is_active' => $creditLimit->is_active,
+                ];
+            }),
+            
+            // Cheque limits with currency info
+            'cheque_limits' => $supplier->chequeLimits->map(function ($chequeLimit) {
+                return [
+                    'id' => $chequeLimit->id,
+                    'currency_id' => $chequeLimit->currency_id,
+                    'currency_code' => optional($chequeLimit->currency)->code,
+                    'currency_name' => optional($chequeLimit->currency)->name,
+                    'currency_iso_code' => optional($chequeLimit->currency)->iso_code,
+                    'max_cheques' => $chequeLimit->max_cheques,
+                    'used_cheques' => $chequeLimit->used_cheques,
+                    'available_cheques' => $chequeLimit->available_cheques,
+                    'notes' => $chequeLimit->notes,
+                    'is_active' => $chequeLimit->is_active,
                 ];
             }),
         ];

@@ -72,7 +72,7 @@ class UpdateSupplierRequest extends FormRequest
             'track_payment' => ['nullable', 'string', 'in:yes,no'],
             'settlement_method' => ['nullable', 'string', 'in:FIFO,Manual'],
             'accept_cheques' => ['nullable', 'boolean'],
-            'max_cheques' => ['nullable', 'integer', 'min:0'],
+            // 'max_cheques' => ['nullable', 'integer', 'min:0'], // deprecated in favor of multi-currency cheque_limits
 
             // Multi-currency cheque limits
             'cheque_limits' => ['nullable', 'array'],
