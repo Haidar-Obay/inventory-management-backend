@@ -33,7 +33,7 @@ class CustomerMasterList extends Model implements Auditable
     public function items()
     {
         return $this->belongsToMany(Item::class, 'customer_master_list_item')
-                    ->withPivot(['price', 'discount', 'line'])
+                    ->withPivot(['price', 'discount'])
                     ->withTimestamps();
     }
 
