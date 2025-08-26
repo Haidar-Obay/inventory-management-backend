@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('customer_master_lists', function (Blueprint $table) {
             $table->id();
             $table->date('date');
-            $table->string('name');
+            $table->string('name')->unique();
             $table->date('valid_from');
             $table->date('valid_till');
             $table->timestamps();

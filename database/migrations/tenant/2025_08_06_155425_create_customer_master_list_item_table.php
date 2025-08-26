@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('customer_master_list_id')->constrained()->cascadeOnDelete();
             $table->foreignId('item_id')->constrained()->cascadeOnDelete();
-            $table->string('line')->nullable();
             $table->decimal('price', 10, 2);
             $table->decimal('discount', 5, 2)->default(0.00);
             $table->timestamps();
