@@ -58,17 +58,25 @@ class UserManagementController extends Controller
     
         $validated = $request->validate([
             'name' => 'required',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|confirmed',
+            'email' => 'required_if:active,true|nullable|email|unique:users',
+            'password' => 'required_if:active,true|nullable|confirmed',
             'role' => "nullable|in:{$allowedRoles}",
+            'active' => 'boolean',
         ]);
 
-        $user = User::create([
+        $userData = [
             'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
-        ]);
+            'role' => $validated['role'] ?? 'user',
+            'active' => $validated['active'] ?? true,
+        ];
+
+        // Only set email and password if user is active
+        if ($validated['active'] ?? true) {
+            $userData['email'] = $validated['email'];
+            $userData['password'] = Hash::make($validated['password']);
+        }
+
+        $user = User::create($userData);
 
         CacheHelper::cacheInContext($this->getCacheKey('users'), null);
 
@@ -83,7 +91,7 @@ class UserManagementController extends Controller
         $users = CacheHelper::cacheInContext($cacheKey);
 
         if (!$users) {
-            $users = User::select('id', 'name', 'email', 'role', 'created_at')
+            $users = User::select('id', 'name', 'email', 'role', 'active', 'created_at')
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -104,7 +112,7 @@ class UserManagementController extends Controller
         $user = CacheHelper::cacheInContext($cacheKey);
 
         if (!$user) {
-            $user = User::select('id', 'name', 'email', 'role', 'created_at')->find($id);
+            $user = User::select('id', 'name', 'email', 'role', 'active', 'created_at')->find($id);
 
             if (!$user) {
                 return response()->json(['message' => 'User not found.'], 404);
@@ -181,6 +189,69 @@ class UserManagementController extends Controller
             'message' => 'Bulk user deletion completed.',
             'deleted_count' => $deleted,
             'skipped' => $skipped,
+        ]);
+    }
+
+    /**
+     * Toggle user active status.
+     */
+    public function toggleUserStatus(Request $request, $id)
+    {
+        $authUser = $this->authorizeRoles(['admin', 'owner']);
+
+        if ($authUser->id == $id) {
+            return response()->json(['message' => 'You cannot change your own account status.'], 403);
+        }
+
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        if ($authUser->role === 'admin' && $user->role !== 'user') {
+            return response()->json(['message' => 'Admins can only modify users.'], 403);
+        }
+
+        // If activating user (from false to true), require email and password
+        if (!$user->active) {
+            $validated = $request->validate([
+                'email' => 'required|email|unique:users,email,' . $id,
+                'password' => 'required|confirmed|min:6',
+            ]);
+
+            try {
+                $user->update([
+                    'active' => true,
+                    'email' => $validated['email'],
+                    'password' => Hash::make($validated['password']),
+                ]);
+            } catch (\Exception $e) {
+                return response()->json(['message' => 'Failed to activate user. Please check email and password.'], 500);
+            }
+        } else {
+            // If deactivating user (from true to false), just update status
+            try {
+                $user->update(['active' => false]);
+            } catch (\Exception $e) {
+                return response()->json(['message' => 'Failed to deactivate user.'], 500);
+            }
+        }
+
+        // Clear cache
+        CacheHelper::cacheInContext($this->getCacheKey('users'), null);
+        CacheHelper::cacheInContext($this->getCacheKey('user', $id), null);
+
+        $action = $user->active ? 'activated' : 'deactivated';
+        
+        return response()->json([
+            'message' => "User {$action} successfully.",
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'active' => $user->active
+            ]
         ]);
     }
 }
