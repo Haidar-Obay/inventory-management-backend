@@ -60,6 +60,15 @@ class CustomerMasterListController extends Controller
         try {
             $validated = $request->validated();
 
+            // Check if name already exists
+            $existingMasterList = CustomerMasterList::where('name', $validated['name'])->first();
+            if ($existingMasterList) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'A customer master list with this name already exists. Please choose a different name.',
+                ], 422);
+            }
+
             // Create header
             $customerMasterList = CustomerMasterList::create([
                 'date' => $validated['date'],
@@ -74,7 +83,6 @@ class CustomerMasterListController extends Controller
                 $attach[$row['item_id']] = [
                     'price' => $row['price'],
                     'discount' => $row['discount'] ?? 0,
-                    'line' => $row['line'] ?? null,
                 ];
             }
             $customerMasterList->items()->attach($attach);
@@ -92,6 +100,14 @@ class CustomerMasterListController extends Controller
                 'data' => $data,
             ], 201);
         } catch (\Exception $e) {
+            // Check if it's a duplicate name error
+            if (str_contains($e->getMessage(), 'Duplicate entry') && str_contains($e->getMessage(), 'customer_master_lists_name_unique')) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'A customer master list with this name already exists. Please choose a different name.',
+                ], 422);
+            }
+            
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to create customer master list.',
@@ -104,6 +120,17 @@ class CustomerMasterListController extends Controller
     {
         try {
             $validated = $request->validated();
+
+            // Check if name is being updated and if it's unique
+            if (isset($validated['name']) && $validated['name'] !== $customerMasterList->name) {
+                $existingMasterList = CustomerMasterList::where('name', $validated['name'])->first();
+                if ($existingMasterList) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'A customer master list with this name already exists. Please choose a different name.',
+                    ], 422);
+                }
+            }
 
             // Update header
             $customerMasterList->update(array_filter([
@@ -120,7 +147,6 @@ class CustomerMasterListController extends Controller
                     $sync[$row['item_id']] = [
                         'price' => $row['price'],
                         'discount' => $row['discount'] ?? 0,
-                        'line' => $row['line'] ?? null,
                     ];
                 }
                 $customerMasterList->items()->sync($sync);
@@ -145,6 +171,14 @@ class CustomerMasterListController extends Controller
                 'data' => $data,
             ]);
         } catch (\Exception $e) {
+            // Check if it's a duplicate name error
+            if (str_contains($e->getMessage(), 'Duplicate entry') && str_contains($e->getMessage(), 'customer_master_lists_name_unique')) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'A customer master list with this name already exists. Please choose a different name.',
+                ], 422);
+            }
+            
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to update customer master list.',
@@ -316,8 +350,8 @@ class CustomerMasterListController extends Controller
                 ], 404);
             }
 
-            $columns = ['id', 'date', 'name', 'valid_from', 'valid_till', 'line', 'itemcode', 'price', 'discount'];
-            $headings = ['ID', 'Date', 'Name', 'Valid From', 'Valid Till', 'Line', 'Item Code', 'Price', 'Discount'];
+            $columns = ['id', 'date', 'name', 'valid_from', 'valid_till', 'itemcode', 'price', 'discount'];
+            $headings = ['ID', 'Date', 'Name', 'Valid From', 'Valid Till', 'Item Code', 'Price', 'Discount'];
 
             $fileName = 'customer_master_lists_' . date('Y-m-d_H-i-s') . '.xlsx';
             return Excel::download(new Export($customerMasterLists, $columns, $headings), $fileName);
@@ -339,7 +373,7 @@ class CustomerMasterListController extends Controller
         try {
             $import = new DynamicExcelImport(
                 CustomerMasterList::class,
-                ['date', 'name', 'valid_from', 'valid_till', 'line', 'itemcode', 'price', 'discount'],
+                ['date', 'name', 'valid_from', 'valid_till', 'itemcode', 'price', 'discount'],
                 function ($row) {
                     $errors = [];
 
@@ -367,7 +401,6 @@ class CustomerMasterListController extends Controller
                         'name' => $row['name'],
                         'valid_from' => $row['valid_from'],
                         'valid_till' => $row['valid_till'],
-                        'line' => $row['line'] ?? null,
                         'itemcode' => $row['itemcode'] ?? null,
                         'price' => floatval($row['price']),
                         'discount' => isset($row['discount']) ? floatval($row['discount']) : 0.00,
@@ -400,7 +433,7 @@ class CustomerMasterListController extends Controller
     public function exportPdf(ExportPDF $pdfService)
     {
         $customerMasterLists = CustomerMasterList::with('items')
-            ->select('id', 'date', 'name', 'valid_from', 'valid_till', 'line', 'itemcode', 'price', 'discount')
+            ->select('id', 'date', 'name', 'valid_from', 'valid_till', 'itemcode', 'price', 'discount')
             ->get();
 
         if ($customerMasterLists->isEmpty()) {
@@ -417,7 +450,6 @@ class CustomerMasterListController extends Controller
             'name' => 'Name',
             'valid_from' => 'Valid From',
             'valid_till' => 'Valid Till',
-            'line' => 'Line',
             'itemcode' => 'Item Code',
             'price' => 'Price',
             'discount' => 'Discount (%)',
@@ -432,7 +464,6 @@ class CustomerMasterListController extends Controller
                 'name' => $list->name,
                 'valid_from' => $list->valid_from->format('Y-m-d'),
                 'valid_till' => $list->valid_till->format('Y-m-d'),
-                'line' => $list->line ?? 'N/A',
                 'itemcode' => $list->itemcode ?? 'N/A',
                 'price' => number_format($list->price, 2),
                 'discount' => number_format($list->discount, 2),
