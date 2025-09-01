@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 use OwenIt\Auditing\Auditable;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class User extends Authenticatable implements AuditableContract , MustVerifyEmail
 {
 
@@ -26,11 +27,36 @@ class User extends Authenticatable implements AuditableContract , MustVerifyEmai
         'email',
         'password',
         'role',
+        'active',
     ];
 
     public function tenant()
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * Get the roles that belong to this user.
+     */
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class, 'user_roles');
+    }
+
+    /**
+     * Scope a query to only include active users.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('active', true);
+    }
+
+    /**
+     * Check if the user is active.
+     */
+    public function isActive(): bool
+    {
+        return $this->active;
     }
 
     /**
@@ -53,6 +79,7 @@ class User extends Authenticatable implements AuditableContract , MustVerifyEmai
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'active' => 'boolean',
         ];
     }
 }

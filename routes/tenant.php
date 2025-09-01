@@ -65,6 +65,10 @@ use App\Http\Controllers\CustomerRouteController;
 use App\Http\Controllers\TableTemplateController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\CustomerMasterListController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\UserRoleController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\RolePermissionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -99,6 +103,7 @@ Route::middleware([
             Route::get('/get-user/{id}', action: [UserManagementController::class, 'getUser']);
             Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser']);
             Route::delete('/bulk-delete-users', [UserManagementController::class, 'bulkDeleteUsers']);
+            Route::patch('/toggle-user-status/{id}', [UserManagementController::class, 'toggleUserStatus']);
 
             // Subscription Status Check
             Route::get('/subscription/status', [SubscriptionPlanController::class, 'checkCurrentUserSubscription']);
@@ -215,6 +220,8 @@ Route::get('assignments', [AssignmentController::class, 'exportExcell']);
                 Route::get('media-channels', [MediaChannelController::class, 'exportExcell']);
                 Route::get('items', [ItemController::class, 'exportExcell']);
                 Route::get('customer-master-lists', [CustomerMasterListController::class, 'export']);
+                Route::get('roles', [RoleController::class, 'exportExcell']);
+                Route::get('permissions', [PermissionController::class, 'exportExcell']);
             });
 
             // Export to PDF Routes
@@ -257,6 +264,8 @@ Route::get('/assignments', [AssignmentController::class, 'exportPdf']);
                 Route::get('/media-channels', [MediaChannelController::class, 'exportPdf']);
                 Route::get('/items', [ItemController::class, 'exportPdf']);
                 Route::get('/customer-master-lists', [CustomerMasterListController::class, 'exportPdf']);
+                Route::get('/roles', [RoleController::class, 'exportPdf']);
+                Route::get('/permissions', [PermissionController::class, 'exportPdf']);
             });
 
             // Import from Excel Routes
@@ -299,6 +308,8 @@ Route::post('/assignments', [AssignmentController::class, 'importFromExcel']);
                 Route::post('/media-channels', [MediaChannelController::class, 'import']);
                 Route::post('/items', [ItemController::class, 'importFromExcel']);
                 Route::post('/customer-master-lists', [CustomerMasterListController::class, 'import']);
+                Route::post('/roles', [RoleController::class, 'importFromExcel']);
+                Route::post('/permissions', [PermissionController::class, 'importFromExcel']);
             });
 
             // Bulk Delete Routes
@@ -351,6 +362,8 @@ Route::get('/assignments/active', [AssignmentController::class, 'active']);
                 Route::delete('/transportation-channels', [TransportationChannelController::class, 'bulkDelete']);
                 Route::delete('/media-channels', [MediaChannelController::class, 'bulkDelete']);
                 Route::delete('/items', [ItemController::class, 'bulkDelete']);
+                Route::delete('/roles', [RoleController::class, 'bulkDelete']);
+                Route::delete('/permissions', [PermissionController::class, 'bulkDelete']);
             });
 
             // Get Customer Projects & Jobs
@@ -482,6 +495,45 @@ Route::get('/assignments/active', [AssignmentController::class, 'active']);
                 Route::get('/customers-with-tax-numbers', [CustomerTaxController::class, 'getCustomersWithTaxNumbers']);
                 Route::get('/summary', [CustomerTaxController::class, 'getTaxSummary']);
                 Route::post('/bulk-exemptions', [CustomerTaxController::class, 'bulkUpdateTaxExemptions']);
+            });
+
+            // Role Management
+            Route::prefix('roles')->group(function () {
+                Route::get('/', [RoleController::class, 'index']);
+                Route::post('/', [RoleController::class, 'store']);
+                Route::get('/active', [RoleController::class, 'active']);
+                Route::get('/{role}', [RoleController::class, 'show']);
+                Route::put('/{role}', [RoleController::class, 'update']);
+                Route::delete('/{role}', [RoleController::class, 'destroy']);
+                Route::patch('/{role}/toggle-status', [RoleController::class, 'toggleStatus']);
+            });
+
+            // User-Role Management
+            Route::prefix('user-roles')->group(function () {
+                Route::get('/user/{user}/roles', [UserRoleController::class, 'getUserRoles']);
+                Route::get('/role/{role}/users', [UserRoleController::class, 'getRoleUsers']);
+                Route::post('/user/{user}/assign-roles', [UserRoleController::class, 'assignRoles']);
+                Route::delete('/user/{user}/remove-roles', [UserRoleController::class, 'removeRoles']);
+                Route::post('/user/{user}/check-role', [UserRoleController::class, 'checkUserRole']);
+            });
+
+            // Permission Management
+            Route::prefix('permissions')->group(function () {
+                Route::get('/', [PermissionController::class, 'index']);
+                Route::post('/', [PermissionController::class, 'store']);
+                Route::get('/{permission}', [PermissionController::class, 'show']);
+                Route::put('/{permission}', [PermissionController::class, 'update']);
+                Route::delete('/{permission}', [PermissionController::class, 'destroy']);
+            });
+
+            // Role-Permission Management
+            Route::prefix('role-permissions')->group(function () {
+                Route::get('/role/{role}/permissions', [RolePermissionController::class, 'getRolePermissions']);
+                Route::get('/permission/{permission}/roles', [RolePermissionController::class, 'getPermissionRoles']);
+                Route::post('/role/{role}/assign-permissions', [RolePermissionController::class, 'assignPermissions']);
+                Route::put('/role/{role}/permission/{permission}', [RolePermissionController::class, 'updatePermission']);
+                Route::delete('/role/{role}/permission/{permission}', [RolePermissionController::class, 'removePermission']);
+                Route::post('/role/{role}/check-permission', [RolePermissionController::class, 'checkPermission']);
             });
         });
 
