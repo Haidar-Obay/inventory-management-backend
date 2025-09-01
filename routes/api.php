@@ -96,6 +96,8 @@ foreach (config('tenancy.central_domains') as $domain) {
         });
 
 
+
+
         // Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
         //     $user = User::find($id);
 
