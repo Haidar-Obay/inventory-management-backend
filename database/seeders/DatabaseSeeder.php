@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
                     LocationSeeder::class,
                     CustomerSeeder::class,
                     ProjectSeeder::class,
+                    RoomSeeder::class,
                 ]);
             });
         }

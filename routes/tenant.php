@@ -45,6 +45,10 @@ use App\Http\Controllers\DistrictController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\AdjustmentTypeController;
 use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\RoomController;
+use App\Http\Controllers\SectionController;
+use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AssignmentController;
 use App\Http\Controllers\BusinessTypeController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\JobController;
@@ -135,6 +139,10 @@ Route::middleware([
             Route::apiResource('branches', BranchController::class);
             Route::apiResource('adjustment-types', AdjustmentTypeController::class);
             Route::apiResource('warehouses', WarehouseController::class);
+            Route::apiResource('rooms', RoomController::class);
+Route::apiResource('sections', SectionController::class);
+Route::apiResource('assets', AssetController::class);
+Route::apiResource('assignments', AssignmentController::class);
             Route::apiResource('business-types', BusinessTypeController::class);
             Route::apiResource('projects', ProjectController::class);
             Route::apiResource('jobs', JobController::class);
@@ -191,6 +199,10 @@ Route::middleware([
                 Route::get('branches', [BranchController::class, 'exportExcell']);
                 Route::get('adjustment-types', [AdjustmentTypeController::class, 'exportExcell']);
                 Route::get('warehouses', [WarehouseController::class, 'exportExcell']);
+                Route::get('rooms', [RoomController::class, 'exportExcell']);
+Route::get('sections', [SectionController::class, 'exportExcell']);
+Route::get('assets', [AssetController::class, 'exportExcell']);
+Route::get('assignments', [AssignmentController::class, 'exportExcell']);
                 Route::get('business-types', [BusinessTypeController::class, 'exportExcell']);
                 Route::get('projects', [ProjectController::class, 'exportExcel']);
                 Route::get('jobs', [JobController::class, 'exportExcell']);
@@ -229,6 +241,10 @@ Route::middleware([
                 Route::get('/branches', [BranchController::class, 'exportPdf']);
                 Route::get('/adjustment-types', [AdjustmentTypeController::class, 'exportPdf']);
                 Route::get('/warehouses', [WarehouseController::class, 'exportPdf']);
+                Route::get('/rooms', [RoomController::class, 'exportPdf']);
+Route::get('/sections', [SectionController::class, 'exportPdf']);
+Route::get('/assets', [AssetController::class, 'exportPdf']);
+Route::get('/assignments', [AssignmentController::class, 'exportPdf']);
                 Route::get('/business-types', [BusinessTypeController::class, 'exportPdf']);
                 Route::get('/projects', [ProjectController::class, 'exportPdf']);
                 Route::get('/jobs', [JobController::class, 'exportPdf']);
@@ -267,6 +283,10 @@ Route::middleware([
                 Route::post('/branches', [BranchController::class, 'importFromExcel']);
                 Route::post('/adjustment-types', [AdjustmentTypeController::class, 'importFromExcel']);
                 Route::post('/warehouses', [WarehouseController::class, 'importFromExcel']);
+                Route::post('/rooms', [RoomController::class, 'importFromExcel']);
+Route::post('/sections', [SectionController::class, 'importFromExcel']);
+Route::post('/assets', [AssetController::class, 'importFromExcel']);
+Route::post('/assignments', [AssignmentController::class, 'importFromExcel']);
                 Route::post('/business-types', [BusinessTypeController::class, 'importFromExcel']);
                 Route::post('/projects', [ProjectController::class, 'importFromExcel']);
                 Route::post('/jobs', [JobController::class, 'importFromExcel']);
@@ -304,6 +324,22 @@ Route::middleware([
                 Route::delete('/branches', [BranchController::class, 'bulkDelete']);
                 Route::delete('/adjustment-types', [AdjustmentTypeController::class, 'bulkDelete']);
                 Route::delete('/warehouses', [WarehouseController::class, 'bulkDelete']);
+                Route::delete('/rooms', [RoomController::class, 'bulkDelete']);
+Route::delete('/sections', [SectionController::class, 'bulkDelete']);
+Route::delete('/assets', [AssetController::class, 'bulkDelete']);
+Route::delete('/assignments', [AssignmentController::class, 'bulkDelete']);
+
+// Custom routes for sections
+Route::get('/rooms/{room}/sections', [SectionController::class, 'byRoom']);
+
+// Custom routes for assets
+Route::get('/sections/{section}/assets', [AssetController::class, 'bySection']);
+Route::get('/assets/available', [AssetController::class, 'available']);
+
+// Custom routes for assignments
+Route::get('/assets/{asset}/assignments', [AssignmentController::class, 'byAsset']);
+Route::get('/users/{user}/assignments', [AssignmentController::class, 'byUser']);
+Route::get('/assignments/active', [AssignmentController::class, 'active']);
                 Route::delete('/business-types', [BusinessTypeController::class, 'bulkDelete']);
                 Route::delete('/projects', [ProjectController::class, 'bulkDelete']);
                 Route::delete('/jobs', [JobController::class, 'bulkDelete']);
