@@ -64,6 +64,14 @@ class RolePermissionController extends Controller
             ]);
 
             $permissionsData = $request->input('permissions');
+            // Enforce: Admin cannot edit Owner or Admin roles
+            $authUser = $request->user();
+            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && in_array($role->name, ['Owner','Admin'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Admins cannot modify Owner/Admin role permissions.'
+                ], 403);
+            }
             
             // Clear existing permissions for this role
             $role->permissions()->detach();
@@ -121,6 +129,15 @@ class RolePermissionController extends Controller
                 'can_edit' => 'boolean',
                 'can_delete' => 'boolean',
             ]);
+
+            // Enforce: Admin cannot edit Owner or Admin roles
+            $authUser = $request->user();
+            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && in_array($role->name, ['Owner','Admin'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Admins cannot modify Owner/Admin role permissions.'
+                ], 403);
+            }
 
             $role->permissions()->updateExistingPivot($permission->id, [
                 'can_view' => $request->input('can_view', false),
