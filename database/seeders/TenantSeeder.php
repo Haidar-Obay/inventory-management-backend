@@ -46,8 +46,8 @@ class TenantSeeder extends Seeder
             'active' => true,
         ]);
 
-        // Seed the complete RBAC system
-        $this->call(RbacSeeder::class);
+        // Bootstrap RBAC system automatically
+        \App\Jobs\BootstrapTenantRbac::dispatchSync($owner->id);
 
         // Clear cache
         tenancy()->central(fn () => Cache::store('database')->forget('central_tenants_all'));
