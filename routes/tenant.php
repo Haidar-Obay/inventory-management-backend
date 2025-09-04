@@ -463,41 +463,41 @@ Route::middleware([
 
             // Role Management
             Route::prefix('roles')->group(function () {
-                Route::get('/', [RoleController::class, 'index']);
-                Route::post('/', [RoleController::class, 'store']);
-                Route::get('/active', [RoleController::class, 'active']);
-                Route::get('/{role}', [RoleController::class, 'show']);
-                Route::put('/{role}', [RoleController::class, 'update']);
-                Route::delete('/{role}', [RoleController::class, 'destroy']);
-                Route::patch('/{role}/toggle-status', [RoleController::class, 'toggleStatus']);
+                Route::get('/', [RoleController::class, 'index'])->middleware('check.permission:roles,view');
+                Route::post('/', [RoleController::class, 'store'])->middleware('check.permission:roles,add');
+                Route::get('/active', [RoleController::class, 'active'])->middleware('check.permission:roles,view');
+                Route::get('/{role}', [RoleController::class, 'show'])->middleware('check.permission:roles,view');
+                Route::put('/{role}', [RoleController::class, 'update'])->middleware('check.permission:roles,edit');
+                Route::delete('/{role}', [RoleController::class, 'destroy'])->middleware('check.permission:roles,delete');
+                Route::patch('/{role}/toggle-status', [RoleController::class, 'toggleStatus'])->middleware('check.permission:roles,edit');
             });
 
             // User-Role Management
             Route::prefix('user-roles')->group(function () {
-                Route::get('/user/{user}/roles', [UserRoleController::class, 'getUserRoles']);
-                Route::get('/role/{role}/users', [UserRoleController::class, 'getRoleUsers']);
-                Route::post('/user/{user}/assign-roles', [UserRoleController::class, 'assignRoles']);
-                Route::delete('/user/{user}/remove-roles', [UserRoleController::class, 'removeRoles']);
-                Route::post('/user/{user}/check-role', [UserRoleController::class, 'checkUserRole']);
+                Route::get('/user/{user}/roles', [UserRoleController::class, 'getUserRoles'])->middleware('check.permission:roles,view');
+                Route::get('/role/{role}/users', [UserRoleController::class, 'getRoleUsers'])->middleware('check.permission:roles,view');
+                Route::post('/user/{user}/assign-roles', [UserRoleController::class, 'assignRoles'])->middleware('check.permission:roles,edit');
+                Route::delete('/user/{user}/remove-roles', [UserRoleController::class, 'removeRoles'])->middleware('check.permission:roles,edit');
+                Route::post('/user/{user}/check-role', [UserRoleController::class, 'checkUserRole'])->middleware('check.permission:roles,view');
             });
 
             // Permission Management
             Route::prefix('permissions')->group(function () {
-                Route::get('/', [PermissionController::class, 'index']);
-                Route::post('/', [PermissionController::class, 'store']);
-                Route::get('/{permission}', [PermissionController::class, 'show']);
-                Route::put('/{permission}', [PermissionController::class, 'update']);
-                Route::delete('/{permission}', [PermissionController::class, 'destroy']);
+                Route::get('/', [PermissionController::class, 'index'])->middleware('check.permission:permissions,view');
+                Route::post('/', [PermissionController::class, 'store'])->middleware('check.permission:permissions,add');
+                Route::get('/{permission}', [PermissionController::class, 'show'])->middleware('check.permission:permissions,view');
+                Route::put('/{permission}', [PermissionController::class, 'update'])->middleware('check.permission:permissions,edit');
+                Route::delete('/{permission}', [PermissionController::class, 'destroy'])->middleware('check.permission:permissions,delete');
             });
 
             // Role-Permission Management
             Route::prefix('role-permissions')->group(function () {
-                Route::get('/role/{role}/permissions', [RolePermissionController::class, 'getRolePermissions']);
-                Route::get('/permission/{permission}/roles', [RolePermissionController::class, 'getPermissionRoles']);
-                Route::post('/role/{role}/assign-permissions', [RolePermissionController::class, 'assignPermissions']);
-                Route::put('/role/{role}/permission/{permission}', [RolePermissionController::class, 'updatePermission']);
-                Route::delete('/role/{role}/permission/{permission}', [RolePermissionController::class, 'removePermission']);
-                Route::post('/role/{role}/check-permission', [RolePermissionController::class, 'checkPermission']);
+                Route::get('/role/{role}/permissions', [RolePermissionController::class, 'getRolePermissions'])->middleware('check.permission:roles,view');
+                Route::get('/permission/{permission}/roles', [RolePermissionController::class, 'getPermissionRoles'])->middleware('check.permission:permissions,view');
+                Route::post('/role/{role}/assign-permissions', [RolePermissionController::class, 'assignPermissions'])->middleware('check.permission:roles,edit');
+                Route::put('/role/{role}/permission/{permission}', [RolePermissionController::class, 'updatePermission'])->middleware('check.permission:roles,edit');
+                Route::delete('/role/{role}/permission/{permission}', [RolePermissionController::class, 'removePermission'])->middleware('check.permission:roles,edit');
+                Route::post('/role/{role}/check-permission', [RolePermissionController::class, 'checkPermission'])->middleware('check.permission:roles,view');
             });
         });
 

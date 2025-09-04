@@ -38,12 +38,16 @@ class TenantSeeder extends Seeder
         ]);
         tenancy()->initialize($tenant);
         \App\Jobs\CreateDefaultTableTemplates::dispatchSync();
-        User::create([
+        // Create the original owner user
+        $owner = User::create([
             'name' => 'hadishokor_owner',
             'email' => 'hadishokor@gmail.com',
             'password' => Hash::make('12345678'),
-            'role' => 'owner',
+            'active' => true,
         ]);
+
+        // Seed the complete RBAC system
+        $this->call(RbacSeeder::class);
 
         // Clear cache
         tenancy()->central(fn () => Cache::store('database')->forget('central_tenants_all'));

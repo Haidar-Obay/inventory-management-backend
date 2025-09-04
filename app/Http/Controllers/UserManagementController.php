@@ -5,19 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 use App\Helpers\CacheHelper;
 
 class UserManagementController extends Controller
 {
+    // Deprecated: legacy role column authorization removed. Use middleware-based permissions.
     protected function authorizeRoles(array $roles)
     {
-        $authUser = auth()->user();
-
-        if (!in_array($authUser->role, $roles)) {
-            abort(response()->json(['message' => 'Only owner or admins can perform this operation'], 403));
-        }
-
-        return $authUser;
+        return Auth::user();
     }
 
     protected function getCacheKey($suffix, $id = null)
@@ -54,19 +50,15 @@ class UserManagementController extends Controller
         //         'message' => 'Could not validate email address. Try again later.',
         //     ], 500);
         // }
-        $allowedRoles = $authUser->role === 'owner' ? 'user,admin' : 'user';
-    
         $validated = $request->validate([
             'name' => 'required',
             'email' => 'required_if:active,true|nullable|email|unique:users',
             'password' => 'required_if:active,true|nullable|confirmed',
-            'role' => "nullable|in:{$allowedRoles}",
             'active' => 'boolean',
         ]);
 
         $userData = [
             'name' => $validated['name'],
-            'role' => $validated['role'] ?? 'user',
             'active' => $validated['active'] ?? true,
         ];
 
@@ -85,14 +77,14 @@ class UserManagementController extends Controller
 
     public function getAllUsers()
     {
-        $this->authorizeRoles(['admin', 'owner']);
+        // $this->authorizeRoles(['admin', 'owner']);
 
         $cacheKey = $this->getCacheKey('users');
         $users = CacheHelper::cacheInContext($cacheKey);
 
         if (!$users) {
-            $users = User::select('id', 'name', 'email', 'role', 'active', 'created_at')
-                ->orderBy('created_at', 'desc')
+            $users = User::select('id', 'name', 'email', 'active', 'created_at')
+                ->orderBy('created_at', 'desc')->with('roles')
                 ->get();
 
             CacheHelper::cacheInContext($cacheKey, $users);
@@ -106,13 +98,13 @@ class UserManagementController extends Controller
 
     public function getUser($id)
     {
-        $this->authorizeRoles(['admin', 'owner']);
+        // $this->authorizeRoles(['admin', 'owner']);
 
         $cacheKey = $this->getCacheKey('user', $id);
         $user = CacheHelper::cacheInContext($cacheKey);
 
         if (!$user) {
-            $user = User::select('id', 'name', 'email', 'role', 'active', 'created_at')->find($id);
+            $user = User::select('id', 'name', 'email', 'active', 'created_at')->with('roles')->find($id);
 
             if (!$user) {
                 return response()->json(['message' => 'User not found.'], 404);
@@ -141,9 +133,7 @@ class UserManagementController extends Controller
             return response()->json(['message' => 'User not found.'], 404);
         }
 
-        if ($authUser->role === 'admin' && $user->role !== 'user') {
-            return response()->json(['message' => 'Admins can only delete users.'], 403);
-        }
+        // Note: Role-based authorization now handled by middleware/permissions
 
         try {
             $user->delete();
@@ -209,9 +199,7 @@ class UserManagementController extends Controller
             return response()->json(['message' => 'User not found.'], 404);
         }
 
-        if ($authUser->role === 'admin' && $user->role !== 'user') {
-            return response()->json(['message' => 'Admins can only modify users.'], 403);
-        }
+        // Note: Role-based authorization now handled by middleware/permissions
 
         // If activating user (from false to true), require email and password
         if (!$user->active) {

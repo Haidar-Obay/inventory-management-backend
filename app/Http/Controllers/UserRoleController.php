@@ -22,6 +22,14 @@ class UserRoleController extends Controller
             ]);
 
             $roleIds = $request->input('role_ids');
+            // Enforce: Admin cannot assign Admin or Owner roles
+            $authUser = $request->user();
+            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && Role::whereIn('id', $roleIds)->whereIn('name', ['Admin','Owner'])->exists()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Admins cannot assign Admin or Owner roles.'
+                ], 403);
+            }
             
             // Sync roles (this will replace existing roles)
             $user->roles()->sync($roleIds);
@@ -65,6 +73,14 @@ class UserRoleController extends Controller
             ]);
 
             $roleIds = $request->input('role_ids');
+            // Enforce: Admin cannot remove Admin or Owner roles
+            $authUser = $request->user();
+            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && Role::whereIn('id', $roleIds)->whereIn('name', ['Admin','Owner'])->exists()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Admins cannot modify Admin or Owner roles.'
+                ], 403);
+            }
             
             // Detach specified roles
             $user->roles()->detach($roleIds);

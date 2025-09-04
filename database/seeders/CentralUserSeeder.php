@@ -19,7 +19,7 @@ class CentralUserSeeder extends Seeder
             'name' => 'obay',
             'email' => 'obay@gmail.com',
             'password' => Hash::make('12345678'),
-            'role' => 'admin',
+            'active' => true,
             'email_verified_at' => Carbon::create(2021, 1, 1),
         ]);
     }

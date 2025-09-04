@@ -26,7 +26,6 @@ class User extends Authenticatable implements AuditableContract , MustVerifyEmai
         'name',
         'email',
         'password',
-        'role',
         'active',
     ];
 
