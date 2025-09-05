@@ -62,7 +62,13 @@ class TenancyServiceProvider extends ServiceProvider
 
             // Database events
             Events\DatabaseCreated::class => [],
-            Events\DatabaseMigrated::class => [],
+            Events\DatabaseMigrated::class => [
+                JobPipeline::make([
+                    \App\Jobs\CreateDefaultTableTemplates::class,
+                ])->send(function (Events\DatabaseMigrated $event) {
+                    return $event->tenant;
+                })->shouldBeQueued(false),
+            ],
             Events\DatabaseSeeded::class => [],
             Events\DatabaseRolledBack::class => [],
             Events\DatabaseDeleted::class => [],
