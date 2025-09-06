@@ -20,30 +20,40 @@ class PermissionController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Permission::with('roles');
+            $tenantId = tenant('id');
+            $key = "tenant_{$tenantId}_permissions";
 
-            // Search functionality
-            if ($request->has('search') && !empty($request->search)) {
-                $query->search($request->search);
+            $permissions = app('cache')->store('database')->get($key);
+
+            if (!$permissions) {
+                $query = Permission::with('roles');
+
+                // Search functionality
+                if ($request->has('search') && !empty($request->search)) {
+                    $query->search($request->search);
+                }
+
+                $permissions = $query->get();
+
+                $transformedData = $permissions->map(function ($permission) {
+                    return [
+                        'id' => $permission->id,
+                        'resource_key' => $permission->resource_key,
+                        'resource_label' => $permission->resource_label,
+                        'roles_count' => $permission->roles->count(),
+                        'created_at' => $permission->created_at,
+                        'updated_at' => $permission->updated_at,
+                    ];
+                });
+
+                app('cache')->store('database')->forever($key, $transformedData);
+                $permissions = $transformedData;
             }
-
-            $permissions = $query->get();
-
-            $transformedData = $permissions->map(function ($permission) {
-                return [
-                    'id' => $permission->id,
-                    'resource_key' => $permission->resource_key,
-                    'resource_label' => $permission->resource_label,
-                    'roles_count' => $permission->roles->count(),
-                    'created_at' => $permission->created_at,
-                    'updated_at' => $permission->updated_at,
-                ];
-            });
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Permissions retrieved successfully',
-                'data' => $transformedData
+                'data' => $permissions
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -61,6 +71,9 @@ class PermissionController extends Controller
     {
         try {
             $permission = Permission::create($request->validated());
+
+            $tenantId = tenant('id');
+            app('cache')->store('database')->forget("tenant_{$tenantId}_permissions");
 
             return response()->json([
                 'status' => 'success',
@@ -82,27 +95,37 @@ class PermissionController extends Controller
     public function show(Permission $permission): JsonResponse
     {
         try {
-            $permission->load('roles');
+            $tenantId = tenant('id');
+            $key = "tenant_{$tenantId}_permission_{$permission->id}";
 
-            $transformedData = [
-                'id' => $permission->id,
-                'resource_key' => $permission->resource_key,
-                'resource_label' => $permission->resource_label,
-                'roles' => $permission->roles->map(function ($role) {
-                    return [
-                        'id' => $role->id,
-                        'name' => $role->name,
-                        'description' => $role->description,
-                    ];
-                }),
-                'created_at' => $permission->created_at,
-                'updated_at' => $permission->updated_at,
-            ];
+            $cachedPermission = app('cache')->store('database')->get($key);
+
+            if (!$cachedPermission) {
+                $permission->load('roles');
+
+                $transformedData = [
+                    'id' => $permission->id,
+                    'resource_key' => $permission->resource_key,
+                    'resource_label' => $permission->resource_label,
+                    'roles' => $permission->roles->map(function ($role) {
+                        return [
+                            'id' => $role->id,
+                            'name' => $role->name,
+                            'description' => $role->description,
+                        ];
+                    }),
+                    'created_at' => $permission->created_at,
+                    'updated_at' => $permission->updated_at,
+                ];
+
+                app('cache')->store('database')->forever($key, $transformedData);
+                $cachedPermission = $transformedData;
+            }
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Permission retrieved successfully',
-                'data' => $transformedData
+                'data' => $cachedPermission
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -120,6 +143,10 @@ class PermissionController extends Controller
     {
         try {
             $permission->update($request->validated());
+
+            $tenantId = tenant('id');
+            app('cache')->store('database')->forget("tenant_{$tenantId}_permissions");
+            app('cache')->store('database')->forget("tenant_{$tenantId}_permission_{$permission->id}");
 
             return response()->json([
                 'status' => 'success',
@@ -150,6 +177,10 @@ class PermissionController extends Controller
             }
 
             $permission->delete();
+
+            $tenantId = tenant('id');
+            app('cache')->store('database')->forget("tenant_{$tenantId}_permissions");
+            app('cache')->store('database')->forget("tenant_{$tenantId}_permission_{$permission->id}");
 
             return response()->json([
                 'status' => 'success',
@@ -251,6 +282,9 @@ class PermissionController extends Controller
 
             Excel::import($import, $request->file('file'));
 
+            $tenantId = tenant('id');
+            app('cache')->store('database')->forget("tenant_{$tenantId}_permissions");
+
             return response()->json([
                 'success' => true,
                 'rows_imported' => $import->getImportedCount(),
@@ -281,6 +315,8 @@ class PermissionController extends Controller
             $deletedCount = 0;
             $errors = [];
 
+            $tenantId = tenant('id');
+            
             foreach ($permissionIds as $permissionId) {
                 $permission = Permission::find($permissionId);
                 
@@ -290,8 +326,11 @@ class PermissionController extends Controller
                 }
 
                 $permission->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_permission_{$permissionId}");
                 $deletedCount++;
             }
+
+            app('cache')->store('database')->forget("tenant_{$tenantId}_permissions");
 
             $response = [
                 'status' => 'success',

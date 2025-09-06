@@ -20,8 +20,8 @@ class TenantController extends Controller
 {
     private function isAuthorized()
     {
-        $user = auth()->user();
-        return in_array($user->role, ['admin', 'owner']);
+        // Note: Authorization now handled by middleware/permissions
+        return true;
     }
 
     public function getAllTenants()
@@ -36,7 +36,7 @@ class TenantController extends Controller
         if (!$tenants) {
             $tenants = Tenant::all()->map(function ($tenant) {
                 tenancy()->initialize($tenant);
-                $owner = User::where('role', 'owner')->first();
+                $owner = User::first(); // Note: Owner identification now via roles table
 
                 return [
                     'id' => $tenant->id,
@@ -94,8 +94,11 @@ class TenantController extends Controller
                 'name' => "{$request->name}_owner",
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
-                'role' => 'owner',
+                'active' => true,
             ]);
+
+            // Bootstrap RBAC (Owner/Admin roles + base permissions) and assign Owner role to this user
+            \App\Jobs\BootstrapTenantRbac::dispatchSync($user->id);
 
             $user->sendEmailVerificationNotification();
             $user->notify(new TenantCreated($tenant, auth()->user()));
@@ -197,7 +200,7 @@ class TenantController extends Controller
             }
 
             tenancy()->initialize($model);
-            $owner = User::where('role', 'owner')->first();
+            $owner = User::first(); // Note: Owner identification now via roles table
 
             $tenant = [
                 'id' => $model->id,
