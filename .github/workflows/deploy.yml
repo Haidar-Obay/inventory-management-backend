@@ -15,14 +15,10 @@ jobs:
       - name: Prepare SSH
         run: |
           mkdir -p ~/.ssh
-          # Write the private key EXACTLY as stored (multiline) in the secret
           printf "%s" "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # Trust host key to avoid interactive prompt
           ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
-          # Sanity check the key is readable by ssh
-          ssh-keygen -lf ~/.ssh/deploy_key
 
       - name: Deploy over SSH
         run: |
