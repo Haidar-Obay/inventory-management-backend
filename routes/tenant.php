@@ -97,14 +97,14 @@ Route::middleware([
           Route::get('audits', [AuditController::class, 'index']);
 
             // Auth & User Management
-            Route::post('/user/register', [UserManagementController::class, 'registerUser'])->middleware('subscription.limits:user');
+            Route::post('/user/register', [UserManagementController::class, 'registerUser'])->middleware(['subscription.limits:user', 'check.permission:users,add']);
             Route::post('/logout', [AuthController::class, 'logout']);
-            Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsers']);
-            Route::get('/get-user/{id}', action: [UserManagementController::class, 'getUser']);
-            Route::put('/update-user/{id}', [UserManagementController::class, 'updateUser']);
-            Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser']);
-            Route::delete('/bulk-delete-users', [UserManagementController::class, 'bulkDeleteUsers']);
-            Route::patch('/toggle-user-status/{id}', [UserManagementController::class, 'toggleUserStatus']);
+            Route::get('/get-all-users', [UserManagementController::class, 'getAllUsers'])->middleware('check.permission:users,view');
+            Route::get('/get-user/{id}', [UserManagementController::class, 'getUser'])->middleware('check.permission:users,view');
+            Route::put('/update-user/{id}', [UserManagementController::class, 'updateUser'])->middleware('check.permission:users,edit');
+            Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser'])->middleware('check.permission:users,delete');
+            Route::delete('/bulk-delete-users', [UserManagementController::class, 'bulkDeleteUsers'])->middleware('check.permission:users,delete');
+            Route::patch('/toggle-user-status/{id}', [UserManagementController::class, 'toggleUserStatus'])->middleware('check.permission:users,edit');
 
             // Subscription Status Check
             Route::get('/subscription/status', [SubscriptionPlanController::class, 'checkCurrentUserSubscription']);

@@ -100,6 +100,11 @@ class UserManagementController extends Controller
     {
         // $this->authorizeRoles(['admin', 'owner']);
 
+        // Validate ID parameter
+        if (!$id || $id === 'undefined' || !is_numeric($id)) {
+            return response()->json(['message' => 'Invalid user ID provided.'], 400);
+        }
+
         $cacheKey = $this->getCacheKey('user', $id);
         $user = CacheHelper::cacheInContext($cacheKey);
 
@@ -122,6 +127,11 @@ class UserManagementController extends Controller
     public function updateUser(Request $request, $id)
     {
         $authUser = $this->authorizeRoles(['admin', 'owner']);
+
+        // Validate ID parameter
+        if (!$id || $id === 'undefined' || !is_numeric($id)) {
+            return response()->json(['message' => 'Invalid user ID provided.'], 400);
+        }
 
         $user = User::find($id);
 
@@ -175,6 +185,11 @@ class UserManagementController extends Controller
 
     public function deleteUser($id)
     {
+        // Validate ID parameter
+        if (!$id || $id === 'undefined' || !is_numeric($id)) {
+            return response()->json(['message' => 'Invalid user ID provided.'], 400);
+        }
+
         $authUser = Auth::user();
 
         if ($authUser->id == $id) {
@@ -241,6 +256,11 @@ class UserManagementController extends Controller
      */
     public function toggleUserStatus(Request $request, $id)
     {
+        // Validate ID parameter
+        if (!$id || $id === 'undefined' || !is_numeric($id)) {
+            return response()->json(['message' => 'Invalid user ID provided.'], 400);
+        }
+
         $authUser = $this->authorizeRoles(['admin', 'owner']);
 
         if ($authUser->id == $id) {
@@ -255,21 +275,38 @@ class UserManagementController extends Controller
 
         // Note: Role-based authorization now handled by middleware/permissions
 
-        // If activating user (from false to true), require email and password
+        // If activating user (from false to true)
         if (!$user->active) {
-            $validated = $request->validate([
-                'email' => 'required|email|unique:users,email,' . $id,
-                'password' => 'required|confirmed|min:6',
-            ]);
+            // Check if user already has email and password
+            if ($user->email && $user->password) {
+                // User has credentials, activate instantly
+                try {
+                    $user->update(['active' => true]);
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'Failed to activate user.'], 500);
+                }
+            } else {
+                // User needs email and password, require them
+                if (!$request->has('email') || !$request->has('password')) {
+                    return response()->json([
+                        'message' => 'Add an email and password for the user and try again'
+                    ], 422);
+                }
 
-            try {
-                $user->update([
-                    'active' => true,
-                    'email' => $validated['email'],
-                    'password' => Hash::make($validated['password']),
+                $validated = $request->validate([
+                    'email' => 'required|email|unique:users,email,' . $id,
+                    'password' => 'required|confirmed|min:6',
                 ]);
-            } catch (\Exception $e) {
-                return response()->json(['message' => 'Failed to activate user. Please check email and password.'], 500);
+
+                try {
+                    $user->update([
+                        'active' => true,
+                        'email' => $validated['email'],
+                        'password' => Hash::make($validated['password']),
+                    ]);
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'Failed to activate user. Please check email and password.'], 500);
+                }
             }
         } else {
             // If deactivating user (from true to false), just update status
