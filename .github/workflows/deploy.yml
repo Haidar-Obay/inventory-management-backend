@@ -1,0 +1,51 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install SSH client
+        run: sudo apt-get update && sudo apt-get install -y openssh-client
+
+      - name: Configure SSH key
+        env:
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SERVER_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Add server to known_hosts
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        run: ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy on server (pull & restart backend, run migrations)
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ${SERVER_USER}@${SERVER_HOST} <<'EOSSH'
+            set -euo pipefail
+            cd /home/hussein/deploy
+            echo "Pulling latest backend image…"
+            docker compose pull backend
+            echo "Recreating backend container…"
+            docker compose up -d --no-deps backend
+            echo "Running Laravel maintenance & migrations…"
+            docker compose exec -T backend php artisan down || true
+            docker compose exec -T backend php artisan config:cache || true
+            docker compose exec -T backend php artisan route:cache || true
+            docker compose exec -T backend php artisan migrate --force
+            docker compose exec -T backend php artisan up || true
+            echo "Backend deploy finished."
+          EOSSH
