@@ -27,7 +27,7 @@ class UserManagementController extends Controller
 
     public function registerUser(Request $request)
     {
-        $authUser = $this->authorizeRoles(['admin', 'owner']);
+        
         // $email = $request->email;
         // $url = "https://apilayer.net/api/check?access_key=774df7c6873b3b081fb76f9e71580f93&email={$email}&smtp=1&format=1";
         // $response = Http::get($url);
@@ -119,9 +119,63 @@ class UserManagementController extends Controller
         ]);
     }
 
-    public function deleteUser($id)
+    public function updateUser(Request $request, $id)
     {
         $authUser = $this->authorizeRoles(['admin', 'owner']);
+
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|email|unique:users,email,' . $id,
+            'password' => 'sometimes|confirmed|min:6',
+            'active' => 'sometimes|boolean',
+        ]);
+
+        $updateData = [];
+
+        if (isset($validated['name'])) {
+            $updateData['name'] = $validated['name'];
+        }
+
+        if (isset($validated['email'])) {
+            $updateData['email'] = $validated['email'];
+        }
+
+        if (isset($validated['password'])) {
+            $updateData['password'] = Hash::make($validated['password']);
+        }
+
+        if (isset($validated['active'])) {
+            $updateData['active'] = $validated['active'];
+        }
+
+        try {
+            $user->update($updateData);
+
+            // Clear cache
+            CacheHelper::cacheInContext($this->getCacheKey('users'), null);
+            CacheHelper::cacheInContext($this->getCacheKey('user', $id), null);
+
+            return response()->json([
+                'message' => 'User updated successfully.',
+                'user' => $user->fresh(['roles'])
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to update user.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteUser($id)
+    {
+        $authUser = Auth::user();
 
         if ($authUser->id == $id) {
             return response()->json(['message' => 'You cannot delete your own account.'], 403);
