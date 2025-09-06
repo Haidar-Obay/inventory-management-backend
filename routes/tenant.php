@@ -93,10 +93,11 @@ Route::middleware([
           Route::get('audits', [AuditController::class, 'index']);
 
             // Auth & User Management
-            Route::post('/register', [UserManagementController::class, 'registerUser'])->middleware('subscription.limits:user');
+            Route::post('/user/register', [UserManagementController::class, 'registerUser'])->middleware('subscription.limits:user');
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsers']);
             Route::get('/get-user/{id}', action: [UserManagementController::class, 'getUser']);
+            Route::put('/update-user/{id}', [UserManagementController::class, 'updateUser']);
             Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser']);
             Route::delete('/bulk-delete-users', [UserManagementController::class, 'bulkDeleteUsers']);
             Route::patch('/toggle-user-status/{id}', [UserManagementController::class, 'toggleUserStatus']);
