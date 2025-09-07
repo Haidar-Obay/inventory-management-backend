@@ -139,11 +139,25 @@ class UserManagementController extends Controller
             return response()->json(['message' => 'User not found.'], 404);
         }
 
-        $validated = $request->validate([
+        // Check if user has password in database
+        $hasPassword = !empty($user->password);
+        
+        // Build validation rules based on whether user has password
+        $validationRules = [
             'name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|email|unique:users,email,' . $id,
-            'password' => 'sometimes|confirmed|min:6',
             'active' => 'sometimes|boolean',
+        ];
+        
+        // If user doesn't have password, make it required
+        if (!$hasPassword) {
+            $validationRules['password'] = 'required|confirmed|min:6';
+        } else {
+            $validationRules['password'] = 'sometimes|confirmed|min:6';
+        }
+
+        $validated = $request->validate($validationRules, [
+            'password.required' => 'Password is required when user is active'
         ]);
 
         $updateData = [];

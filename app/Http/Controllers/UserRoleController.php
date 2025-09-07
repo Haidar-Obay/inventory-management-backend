@@ -22,6 +22,23 @@ class UserRoleController extends Controller
             ]);
 
             $roleIds = $request->input('role_ids');
+            
+            // Check if trying to assign Owner role
+            $ownerRole = Role::whereIn('id', $roleIds)->where('name', 'Owner')->first();
+            if ($ownerRole) {
+                // Check if there's already an owner
+                $existingOwner = User::whereHas('roles', function($query) {
+                    $query->where('name', 'Owner');
+                })->first();
+                
+                if ($existingOwner && $existingOwner->id !== $user->id) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Only one user can have the Owner role.'
+                    ], 422);
+                }
+            }
+            
             // Enforce: Admin cannot assign Admin or Owner roles
             $authUser = $request->user();
             if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && Role::whereIn('id', $roleIds)->whereIn('name', ['Admin','Owner'])->exists()) {
