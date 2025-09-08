@@ -83,9 +83,15 @@ class UserManagementController extends Controller
         $users = CacheHelper::cacheInContext($cacheKey);
 
         if (!$users) {
-            $users = User::select('id', 'name', 'email', 'active', 'created_at')
-                ->orderBy('created_at', 'desc')->with('roles')
-                ->get();
+            $query = User::select('id', 'name', 'email', 'active', 'created_at')
+                ->orderBy('created_at', 'desc');
+            
+            // Only load roles if we're in a tenant context (roles table exists)
+            if (tenancy()->initialized) {
+                $query->with('roles');
+            }
+            
+            $users = $query->get();
 
             CacheHelper::cacheInContext($cacheKey, $users);
         }
@@ -109,7 +115,14 @@ class UserManagementController extends Controller
         $user = CacheHelper::cacheInContext($cacheKey);
 
         if (!$user) {
-            $user = User::select('id', 'name', 'email', 'active', 'created_at')->with('roles')->find($id);
+            $query = User::select('id', 'name', 'email', 'active', 'created_at');
+            
+            // Only load roles if we're in a tenant context (roles table exists)
+            if (tenancy()->initialized) {
+                $query->with('roles');
+            }
+            
+            $user = $query->find($id);
 
             if (!$user) {
                 return response()->json(['message' => 'User not found.'], 404);
@@ -185,9 +198,12 @@ class UserManagementController extends Controller
             CacheHelper::cacheInContext($this->getCacheKey('users'), null);
             CacheHelper::cacheInContext($this->getCacheKey('user', $id), null);
 
+            // Only load roles if we're in a tenant context
+            $freshUser = tenancy()->initialized ? $user->fresh(['roles']) : $user->fresh();
+            
             return response()->json([
                 'message' => 'User updated successfully.',
-                'user' => $user->fresh(['roles'])
+                'user' => $freshUser
             ]);
         } catch (\Exception $e) {
             return response()->json([
