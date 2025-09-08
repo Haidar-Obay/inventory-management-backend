@@ -19,7 +19,7 @@ return [
     // 'central_domains' => [
     //     'app.localhost',
     // ],
-    'central_domains' => collect(explode(',', env('CENTRAL_DOMAINS', 'app.localhost')))
+    'central_domains' => collect(explode(',', env('CENTRAL_DOMAIN', 'app.localhost')))
     ->map(fn ($d) => trim($d))
     ->filter()
     ->values()
