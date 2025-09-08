@@ -136,6 +136,14 @@ class RoleController extends Controller
     public function destroy(Role $role): JsonResponse
     {
         try {
+            // Prevent deleting protected roles
+            if (in_array($role->name, ['Owner', 'Admin'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Cannot delete protected role '{$role->name}'."
+                ], 422);
+            }
+
             // Check if role has users assigned
             if ($role->users()->count() > 0) {
                 return response()->json([
@@ -324,6 +332,17 @@ class RoleController extends Controller
 
             foreach ($roleIds as $roleId) {
                 $role = Role::find($roleId);
+                
+                if (!$role) {
+                    $errors[] = "Role with ID {$roleId} not found.";
+                    continue;
+                }
+                
+                // Prevent deleting protected roles
+                if (in_array($role->name, ['Owner', 'Admin'])) {
+                    $errors[] = "Cannot delete protected role '{$role->name}'.";
+                    continue;
+                }
                 
                 if ($role->users()->count() > 0) {
                     $errors[] = "Cannot delete role '{$role->name}' - it has users assigned to it.";
