@@ -22,15 +22,27 @@ class UpdateRoleRequest extends FormRequest
      */
     public function rules(): array
     {
+        $routeRole = request()->route('role');
+        $roleId = is_object($routeRole) ? ($routeRole->id ?? null) : $routeRole;
+
         return [
             'name' => [
                 'required', 
                 'string', 
                 'max:100', 
-                Rule::unique('roles', 'name')->ignore($this->route('role'))
+                Rule::unique('roles', 'name')->ignore($roleId)
             ],
             'description' => ['nullable', 'string'],
             'active' => ['boolean'],
+            // Optional bulk permissions payload
+            'permissions' => ['sometimes', 'array'],
+            'permissions.*.permission_id' => ['required', 'integer', 'exists:permissions,id'],
+            'permissions.*.can_view' => ['sometimes', 'boolean'],
+            'permissions.*.can_add' => ['sometimes', 'boolean'],
+            'permissions.*.can_edit' => ['sometimes', 'boolean'],
+            'permissions.*.can_delete' => ['sometimes', 'boolean'],
+            // Optional sync flag (default true in controller)
+            'sync' => ['sometimes', 'boolean'],
         ];
     }
 
