@@ -11,9 +11,26 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use Illuminate\Support\Facades\DB;
 
 class RoleController extends Controller
 {
+    /**
+     * Check if the authenticated user has the Owner role.
+     */
+    protected function actingUserIsOwner(Request $request): bool
+    {
+        $user = $request->user();
+        return $user ? $user->roles()->where('name', 'Owner')->exists() : false;
+    }
+
+    /**
+     * Check if a role is privileged (Owner/Admin).
+     */
+    protected function roleIsPrivileged(Role $role): bool
+    {
+        return in_array($role->name, ['Owner', 'Admin']);
+    }
     /**
      * Display a listing of the resource.
      */
@@ -114,14 +131,81 @@ class RoleController extends Controller
     public function update(UpdateRoleRequest $request, Role $role): JsonResponse
     {
         try {
-            $role->update($request->validated());
+            // Guard: Only Owner can modify Owner/Admin roles
+            if ($this->roleIsPrivileged($role) && !$this->actingUserIsOwner($request)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Insufficient permissions to modify privileged roles.'
+                ], 403);
+            }
+
+            DB::beginTransaction();
+
+            // Update basic role fields
+            $validated = $request->validated();
+            $role->update(collect($validated)->only(['name', 'description', 'active'])->toArray());
+
+            // Handle optional bulk permission sync
+            if (isset($validated['permissions']) && is_array($validated['permissions'])) {
+                $sync = $validated['sync'] ?? true;
+
+                // Build sync map: [permission_id => [pivot data]]
+                $syncMap = [];
+                foreach ($validated['permissions'] as $perm) {
+                    $permissionId = $perm['permission_id'];
+                    $syncMap[$permissionId] = [
+                        'can_view' => (bool)($perm['can_view'] ?? false),
+                        'can_add' => (bool)($perm['can_add'] ?? false),
+                        'can_edit' => (bool)($perm['can_edit'] ?? false),
+                        'can_delete' => (bool)($perm['can_delete'] ?? false),
+                    ];
+                }
+
+                if ($sync) {
+                    $role->permissions()->sync($syncMap);
+                } else {
+                    // Attach/update without removing existing others
+                    foreach ($syncMap as $permissionId => $pivot) {
+                        $role->permissions()->syncWithoutDetaching([$permissionId => $pivot]);
+                        // Ensure pivot flags are updated if already attached
+                        $role->permissions()->updateExistingPivot($permissionId, $pivot);
+                    }
+                }
+            }
+
+            DB::commit();
+
+            // Return role with permissions and pivot flags
+            $role->load(['permissions' => function ($q) {
+                $q->select('permissions.id', 'permissions.resource_key', 'permissions.resource_label');
+            }]);
+
+            $transformed = [
+                'id' => $role->id,
+                'name' => $role->name,
+                'description' => $role->description,
+                'active' => $role->active,
+                'permissions' => $role->permissions->map(function ($perm) {
+                    return [
+                        'permission_id' => $perm->id,
+                        'resource_key' => $perm->resource_key,
+                        'resource_label' => $perm->resource_label,
+                        'can_view' => (bool)$perm->pivot->can_view,
+                        'can_add' => (bool)$perm->pivot->can_add,
+                        'can_edit' => (bool)$perm->pivot->can_edit,
+                        'can_delete' => (bool)$perm->pivot->can_delete,
+                    ];
+                })->values(),
+                'updated_at' => $role->updated_at,
+            ];
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Role updated successfully',
-                'data' => $role
+                'data' => $transformed,
             ]);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update role',
@@ -136,6 +220,13 @@ class RoleController extends Controller
     public function destroy(Role $role): JsonResponse
     {
         try {
+            // Guard: Only Owner can delete Owner/Admin roles
+            if ($this->roleIsPrivileged($role) && !request()->user()?->roles()->where('name', 'Owner')->exists()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Insufficient permissions to delete privileged roles.'
+                ], 403);
+            }
             // Prevent deleting protected roles
             if (in_array($role->name, ['Owner', 'Admin'])) {
                 return response()->json([
@@ -195,6 +286,13 @@ class RoleController extends Controller
     public function toggleStatus(Role $role): JsonResponse
     {
         try {
+            // Guard: Only Owner can toggle Owner/Admin roles
+            if ($this->roleIsPrivileged($role) && !request()->user()?->roles()->where('name', 'Owner')->exists()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Insufficient permissions to modify privileged roles.'
+                ], 403);
+            }
             $role->update(['active' => !$role->active]);
 
             return response()->json([
@@ -329,6 +427,7 @@ class RoleController extends Controller
             $roleIds = $request->input('role_ids');
             $deletedCount = 0;
             $errors = [];
+            $isOwner = $request->user() ? $request->user()->roles()->where('name', 'Owner')->exists() : false;
 
             foreach ($roleIds as $roleId) {
                 $role = Role::find($roleId);
@@ -338,8 +437,8 @@ class RoleController extends Controller
                     continue;
                 }
                 
-                // Prevent deleting protected roles
-                if (in_array($role->name, ['Owner', 'Admin'])) {
+                // Prevent deleting protected roles for non-owners
+                if (in_array($role->name, ['Owner', 'Admin']) && !$isOwner) {
                     $errors[] = "Cannot delete protected role '{$role->name}'.";
                     continue;
                 }
