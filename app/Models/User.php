@@ -81,4 +81,14 @@ class User extends Authenticatable implements AuditableContract , MustVerifyEmai
             'active' => 'boolean',
         ];
     }
+
+    /**
+     * Normalize email to lowercase and trim on assignment.
+     */
+    public function setEmailAttribute($value): void
+    {
+        $this->attributes['email'] = is_string($value)
+            ? strtolower(trim($value))
+            : $value;
+    }
 }
