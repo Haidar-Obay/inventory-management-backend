@@ -145,6 +145,25 @@ class UserManagementController extends Controller
         ]);
     }
 
+    /**
+     * Return the authenticated user.
+     */
+    public function me(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $user->load('roles');
+
+        return response()->json([
+            'message' => 'User retrieved successfully.',
+            'user' => $user,
+        ]);
+    }
+
     public function updateUser(Request $request, $id)
     {
         $authUser = $this->authorizeRoles(['admin', 'owner']);
