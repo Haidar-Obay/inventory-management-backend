@@ -53,7 +53,7 @@ class UserManagementController extends Controller
         $validated = $request->validate([
             'name' => 'required',
             'email' => 'required_if:active,true|nullable|email|unique:users',
-            'password' => 'required_if:active,true|nullable|confirmed',
+            'password' => 'required_if:active,true|nullable',
             'active' => 'boolean',
         ]);
 
@@ -69,6 +69,9 @@ class UserManagementController extends Controller
         }
 
         $user = User::create($userData);
+
+        // Comment out email verification
+        // $user->sendEmailVerificationNotification();
 
         CacheHelper::cacheInContext($this->getCacheKey('users'), null);
 
