@@ -25,6 +25,14 @@ class UserManagementController extends Controller
         return $id ? "{$prefix}_{$suffix}_{$id}" : "{$prefix}_{$suffix}";
     }
 
+    /**
+     * Check whether the given user has a specific role by name.
+     */
+    protected function userHasRole(User $user, string $roleName): bool
+    {
+        return $user->roles()->where('name', $roleName)->exists();
+    }
+
     public function registerUser(Request $request)
     {
         
@@ -140,6 +148,25 @@ class UserManagementController extends Controller
         ]);
     }
 
+    /**
+     * Return the authenticated user.
+     */
+    public function me(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $user->load('roles');
+
+        return response()->json([
+            'message' => 'User retrieved successfully.',
+            'user' => $user,
+        ]);
+    }
+
     public function updateUser(Request $request, $id)
     {
         $authUser = $this->authorizeRoles(['admin', 'owner']);
@@ -153,6 +180,13 @@ class UserManagementController extends Controller
 
         if (!$user) {
             return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        // Prevent non-Owner from updating an Owner user
+        $authIsOwner = $this->userHasRole($authUser, 'Owner');
+        $targetIsOwner = $this->userHasRole($user, 'Owner');
+        if ($targetIsOwner && !$authIsOwner) {
+            return response()->json(['message' => 'You are not allowed to modify an Owner user.'], 403);
         }
 
         // Check if user has password in database
@@ -235,6 +269,13 @@ class UserManagementController extends Controller
             return response()->json(['message' => 'User not found.'], 404);
         }
 
+        // Prevent non-Owner from deleting an Owner user
+        $authIsOwner = $this->userHasRole($authUser, 'Owner');
+        $targetIsOwner = $this->userHasRole($user, 'Owner');
+        if ($targetIsOwner && !$authIsOwner) {
+            return response()->json(['message' => 'You are not allowed to modify an Owner user.'], 403);
+        }
+
         // Note: Role-based authorization now handled by middleware/permissions
 
         try {
@@ -264,6 +305,13 @@ class UserManagementController extends Controller
         foreach ($request->ids as $id) {
             if ($authUser->id == $id) {
                 $skipped[] = ['id' => $id, 'reason' => 'Cannot delete the currently authenticated user.'];
+                continue;
+            }
+
+            // Skip deleting Owner user if auth user is not Owner
+            $target = User::find($id);
+            if ($target && $this->userHasRole($target, 'Owner') && !$this->userHasRole($authUser, 'Owner')) {
+                $skipped[] = ['id' => $id, 'reason' => 'You are not allowed to modify an Owner user.'];
                 continue;
             }
 
@@ -304,6 +352,13 @@ class UserManagementController extends Controller
 
         if (!$user) {
             return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        // Prevent non-Owner from toggling an Owner user's status
+        $authIsOwner = $this->userHasRole($authUser, 'Owner');
+        $targetIsOwner = $this->userHasRole($user, 'Owner');
+        if ($targetIsOwner && !$authIsOwner) {
+            return response()->json(['message' => 'You are not allowed to modify an Owner user.'], 403);
         }
 
         // Note: Role-based authorization now handled by middleware/permissions

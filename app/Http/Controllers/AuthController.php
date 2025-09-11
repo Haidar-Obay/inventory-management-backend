@@ -16,6 +16,10 @@ class AuthController extends Controller
         // ]);
 
         $credentials = $request->only('email', 'password');
+        // Normalize email: lowercase + trim
+        if (isset($credentials['email'])) {
+            $credentials['email'] = strtolower(trim($credentials['email']));
+        }
 
         if (!Auth::attempt($credentials)) {
             return response()->json(['message' => 'Invalid credentials'], 401);

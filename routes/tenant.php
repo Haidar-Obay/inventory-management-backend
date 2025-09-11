@@ -99,6 +99,7 @@ Route::middleware([
             // Auth & User Management
             Route::post('/user/register', [UserManagementController::class, 'registerUser'])->middleware(['subscription.limits:user', 'check.permission:users,add']);
             Route::post('/logout', [AuthController::class, 'logout']);
+            Route::get('/me', [UserManagementController::class, 'me']);
             Route::get('/get-all-users', [UserManagementController::class, 'getAllUsers'])->middleware('check.permission:users,view');
             Route::get('/get-user/{id}', [UserManagementController::class, 'getUser'])->middleware('check.permission:users,view');
             Route::put('/update-user/{id}', [UserManagementController::class, 'updateUser'])->middleware('check.permission:users,edit');
