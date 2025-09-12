@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use App\Helpers\CacheHelper;
 
 class UserManagementController extends Controller
@@ -30,6 +31,15 @@ class UserManagementController extends Controller
      */
     protected function userHasRole(User $user, string $roleName): bool
     {
+        // Roles are tenant-scoped. If tenancy isn't initialized or tables don't exist, treat as no role.
+        if (!tenancy()->initialized) {
+            return false;
+        }
+
+        if (!Schema::hasTable('roles') || !Schema::hasTable('user_roles')) {
+            return false;
+        }
+
         return $user->roles()->where('name', $roleName)->exists();
     }
 
@@ -61,7 +71,7 @@ class UserManagementController extends Controller
         $validated = $request->validate([
             'name' => 'required',
             'email' => 'required_if:active,true|nullable|email|unique:users',
-            'password' => 'required_if:active,true|nullable|confirmed',
+            'password' => 'required_if:active,true|nullable',
             'active' => 'boolean',
         ]);
 
@@ -77,6 +87,9 @@ class UserManagementController extends Controller
         }
 
         $user = User::create($userData);
+
+        // Comment out email verification
+        // $user->sendEmailVerificationNotification();
 
         CacheHelper::cacheInContext($this->getCacheKey('users'), null);
 
