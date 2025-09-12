@@ -16,6 +16,8 @@ return new class extends Migration
             $table->string('name', 100)->unique();
             $table->text('description')->nullable();
             $table->boolean('active')->default(true);
+            $table->unsignedBigInteger('created_by')->nullable()->after('active');
+            $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
             $table->timestamps();
         });
     }

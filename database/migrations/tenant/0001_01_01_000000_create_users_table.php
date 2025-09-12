@@ -15,6 +15,8 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password')->nullable();
             $table->boolean('active')->default(true);
+            $table->unsignedBigInteger('created_by')->nullable()->after('active');
+            $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
             $table->rememberToken();
             $table->timestamps();
         });
