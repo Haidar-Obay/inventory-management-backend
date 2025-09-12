@@ -91,6 +91,7 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsers']);
             Route::get('/get-user/{id}', action: [UserManagementController::class, 'getUser']);
+            Route::put('/update-user/{id}', [UserManagementController::class, 'updateUser']);
             Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser']);
             Route::delete('/bulk-delete-users', [UserManagementController::class, 'bulkDeleteUsers']);
         });
