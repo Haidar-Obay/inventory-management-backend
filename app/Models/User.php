@@ -26,6 +26,7 @@ class User extends Authenticatable implements AuditableContract
         'email',
         'password',
         'active',
+        'created_by',
     ];
 
     public function tenant()
@@ -55,6 +56,14 @@ class User extends Authenticatable implements AuditableContract
     public function isActive(): bool
     {
         return $this->active;
+    }
+
+    /**
+     * Get the user who created this user.
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /**

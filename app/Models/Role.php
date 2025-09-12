@@ -20,6 +20,7 @@ class Role extends Model
         'name',
         'description',
         'active',
+        'created_by',
     ];
 
     /**
@@ -55,6 +56,14 @@ class Role extends Model
     public function rolePermissions(): HasMany
     {
         return $this->hasMany(RolePermission::class);
+    }
+
+    /**
+     * Get the user who created this role.
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /**

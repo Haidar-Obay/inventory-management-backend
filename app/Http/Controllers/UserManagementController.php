@@ -78,6 +78,7 @@ class UserManagementController extends Controller
         $userData = [
             'name' => $validated['name'],
             'active' => $validated['active'] ?? true,
+            'created_by' => Auth::user()->id,
         ];
 
         // Only set email and password if user is active
@@ -104,15 +105,9 @@ class UserManagementController extends Controller
         $users = CacheHelper::cacheInContext($cacheKey);
 
         if (!$users) {
-            $query = User::select('id', 'name', 'email', 'active', 'created_at')
-                ->orderBy('created_at', 'desc');
-            
-            // Only load roles if we're in a tenant context (roles table exists)
-            if (tenancy()->initialized) {
-                $query->with('roles');
-            }
-            
-            $users = $query->get();
+            $users = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by')
+                ->orderBy('created_at', 'desc')->with(['roles', 'creator'])
+                ->get();
 
             CacheHelper::cacheInContext($cacheKey, $users);
         }
@@ -136,14 +131,7 @@ class UserManagementController extends Controller
         $user = CacheHelper::cacheInContext($cacheKey);
 
         if (!$user) {
-            $query = User::select('id', 'name', 'email', 'active', 'created_at');
-            
-            // Only load roles if we're in a tenant context (roles table exists)
-            if (tenancy()->initialized) {
-                $query->with('roles');
-            }
-            
-            $user = $query->find($id);
+            $user = User::select('id', 'name', 'email', 'active', 'created_at')->with('roles')->find($id);
 
             if (!$user) {
                 return response()->json(['message' => 'User not found.'], 404);
@@ -169,7 +157,7 @@ class UserManagementController extends Controller
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        $user->load('roles');
+        $user->load(['roles', 'creator']);
 
         return response()->json([
             'message' => 'User retrieved successfully.',

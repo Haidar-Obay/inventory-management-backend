@@ -12,6 +12,7 @@ use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class RoleController extends Controller
 {
@@ -37,7 +38,7 @@ class RoleController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $roles = Role::with('users')->get();
+            $roles = Role::with(['users', 'creator'])->get();
 
             $transformedData = $roles->map(function ($role) {
                 return [
@@ -46,6 +47,17 @@ class RoleController extends Controller
                     'description' => $role->description,
                     'active' => $role->active,
                     'users_count' => $role->users->count(),
+                    'users' => $role->users->map(function ($user) {
+                        return [
+                            'id' => $user->id,
+                            'name' => $user->name,
+                            'active' => $user->active,
+                        ];
+                    }),
+                    'created_by' => $role->creator ? [
+                        'id' => $role->creator->id,
+                        'name' => $role->creator->name,
+                    ] : null,
                     'created_at' => $role->created_at,
                     'updated_at' => $role->updated_at,
                 ];
@@ -71,7 +83,10 @@ class RoleController extends Controller
     public function store(StoreRoleRequest $request): JsonResponse
     {
         try {
-            $role = Role::create($request->validated());
+            $data = $request->validated();
+            $data['created_by'] = Auth::user()->id;
+            
+            $role = Role::create($data);
 
             return response()->json([
                 'status' => 'success',
