@@ -4,17 +4,15 @@ namespace App\Jobs;
 
 use App\Models\CustomerMasterList;
 use App\Models\TableTemplate;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 
-class CreateDefaultTableTemplates implements ShouldQueue
+class CreateDefaultTableTemplates
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, SerializesModels;
 
     public function handle()
     {

@@ -16,9 +16,14 @@ return [
      *
      * Only relevant if you're using the domain or subdomain identification middleware.
      */
-    'central_domains' => [
-        'app.localhost',
-    ],
+    // 'central_domains' => [
+    //     'app.localhost',
+    // ],
+    'central_domains' => collect(explode(',', env('CENTRAL_DOMAIN', 'app.localhost')))
+    ->map(fn ($d) => trim($d))
+    ->filter()
+    ->values()
+    ->all(),
 
     /**
      * Tenancy bootstrappers are executed when tenancy is initialized.
