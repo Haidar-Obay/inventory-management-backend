@@ -105,9 +105,15 @@ class UserManagementController extends Controller
         $users = CacheHelper::cacheInContext($cacheKey);
 
         if (!$users) {
-            $users = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by')
-                ->orderBy('created_at', 'desc')->with(['roles', 'creator'])
-                ->get();
+            $query = User::select('id', 'name', 'email', 'active', 'created_at')
+                ->orderBy('created_at', 'desc');
+            
+            // Only load roles if we're in a tenant context (roles table exists)
+            if (tenancy()->initialized) {
+                $query->with('roles');
+            }
+            
+            $users = $query->get();
 
             CacheHelper::cacheInContext($cacheKey, $users);
         }
