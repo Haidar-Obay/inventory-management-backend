@@ -14,10 +14,16 @@ class StoreTenantRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255|unique:tenants,name',
+            'name' => 'required|string|max:255',
             'email' => 'required|email|unique:tenants,email',
-            'domain' => 'required|string|alpha_dash|unique:domains,domain',
+            'domain' => 'required|string|unique:tenants,id',
             'password' => 'required|string|min:8',
+            'subscription_plan_id' => 'nullable|exists:subscription_plans,id',
+            'subscription_start_date' => 'nullable|date',
+            'subscription_end_date' => 'nullable|date',
+            'subscription_status' => 'nullable|in:active,expired,cancelled,trial',
+            'auto_renew' => 'nullable|boolean',
+            'data' => 'nullable|array',
         ];
     }
 }

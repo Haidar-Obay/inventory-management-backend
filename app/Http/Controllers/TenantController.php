@@ -62,38 +62,92 @@ class TenantController extends Controller
         }
 
         try {
-            // Get default subscription plan
-            $defaultPlan = \App\Models\SubscriptionPlan::where('is_default', true)
-                ->where('is_active', true)
-                ->first();
+            // Get subscription plan (user choice or default)
+            $subscriptionPlan = null;
+            if ($request->filled('subscription_plan_id')) {
+                $subscriptionPlan = \App\Models\SubscriptionPlan::where('id', $request->input('subscription_plan_id'))
+                    ->where('is_active', true)
+                    ->first();
+                
+                if (!$subscriptionPlan) {
+                    return response()->json([
+                        'error' => 'Selected subscription plan not found or inactive.'
+                    ], 422);
+                }
+            } else {
+                // Fallback to default plan if no plan specified
+                $subscriptionPlan = \App\Models\SubscriptionPlan::where('is_default', true)
+                    ->where('is_active', true)
+                    ->first();
 
-            if (!$defaultPlan) {
-                return response()->json([
-                    'error' => 'No default subscription plan found. Please create a default plan first.'
-                ], 500);
+                if (!$subscriptionPlan) {
+                    return response()->json([
+                        'error' => 'No subscription plan specified and no default plan found. Please create a default plan or specify a plan.'
+                    ], 500);
+                }
             }
 
-            $tenant = Tenant::create([
-                'id' => $request->domain,
-                'name' => $request->name,
-                'email' => $request->email,
-                'subscription_plan_id' => $defaultPlan->id,
-                'subscription_start_date' => now(),
-                'subscription_end_date' => now()->addDays(30), // 30-day trial
-                'subscription_status' => 'trial',
-                'auto_renew' => false,
-            ]);
+            // Prepare tenant data with user choices
+            $tenantData = [
+                'id' => $request->input('domain'),
+                'name' => $request->input('name'),
+                'email' => $request->input('email'),
+                'subscription_plan_id' => $subscriptionPlan->id,
+            ];
+
+            // Add subscription fields if provided, otherwise use defaults
+            if ($request->filled('subscription_start_date')) {
+                $tenantData['subscription_start_date'] = $request->input('subscription_start_date');
+            } else {
+                $tenantData['subscription_start_date'] = now();
+            }
+
+            if ($request->filled('subscription_end_date')) {
+                $tenantData['subscription_end_date'] = $request->input('subscription_end_date');
+            } else {
+                // If no end date specified, add 30 days from start date
+                $startDate = $tenantData['subscription_start_date'];
+                $tenantData['subscription_end_date'] = is_string($startDate) 
+                    ? \Carbon\Carbon::parse($startDate)->addDays(30)
+                    : $startDate->addDays(30);
+            }
+
+            if ($request->filled('subscription_status')) {
+                $tenantData['subscription_status'] = $request->input('subscription_status');
+            } else {
+                $tenantData['subscription_status'] = 'trial';
+            }
+
+            if ($request->filled('auto_renew')) {
+                $tenantData['auto_renew'] = $request->input('auto_renew');
+            } else {
+                $tenantData['auto_renew'] = false;
+            }
+
+            if ($request->filled('last_billing_date')) {
+                $tenantData['last_billing_date'] = $request->input('last_billing_date');
+            }
+
+            if ($request->filled('next_billing_date')) {
+                $tenantData['next_billing_date'] = $request->input('next_billing_date');
+            }
+
+            if ($request->filled('data')) {
+                $tenantData['data'] = $request->input('data');
+            }
+
+            $tenant = Tenant::create($tenantData);
 
             $tenant->domains()->create([
-                'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
+                'domain' => "{$request->input('domain')}." . env('CENTRAL_DOMAIN'),
             ]);
 
             tenancy()->initialize($tenant);
 
             $user = User::create([
-                'name' => "{$request->name}_owner",
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
+                'name' => "{$request->input('name')}_owner",
+                'email' => $request->input('email'),
+                'password' => Hash::make($request->input('password')),
                 'active' => true,
             ]);
 
@@ -101,21 +155,25 @@ class TenantController extends Controller
             \App\Jobs\BootstrapTenantRbac::dispatchSync($user->id);
 
             $user->sendEmailVerificationNotification();
-            $user->notify(new TenantCreated($tenant, auth()->user()));
-            auth()->user()->notify(new TenantCreated($tenant, auth()->user()));
+            $user->notify(new TenantCreated($tenant, Auth::user()));
+            Auth::user()->notify(new TenantCreated($tenant, Auth::user()));
 
             tenancy()->central(fn () => Cache::store('database')->forget('central_tenants_all'));
 
             return response()->json([
                 'message' => 'Tenant and owner created successfully!',
                 'tenant_id' => $tenant->id,
-                'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
+                'domain' => "{$request->input('domain')}." . env('CENTRAL_DOMAIN'),
                 'email' => $tenant->email,
                 'name' => $tenant->name,
                 'owner' => $user->name,
-                'password' => $request->password,
-                'subscription_plan' => $defaultPlan->name,
-                'subscription_status' => 'trial',
+                'password' => $request->input('password'),
+                'subscription_plan' => $subscriptionPlan->name,
+                'subscription_plan_id' => $subscriptionPlan->id,
+                'subscription_status' => $tenant->subscription_status,
+                'subscription_start_date' => $tenant->subscription_start_date,
+                'subscription_end_date' => $tenant->subscription_end_date,
+                'auto_renew' => $tenant->auto_renew,
                 'trial_ends_at' => $tenant->subscription_end_date->format('Y-m-d'),
             ], 201);
         } catch (\Exception $e) {
@@ -238,19 +296,19 @@ class TenantController extends Controller
             $tenant = Tenant::findOrFail($id);
 
             $tenant->update([
-                'name' => $request->name,
-                'email' => $request->email,
+                'name' => $request->input('name'),
+                'email' => $request->input('email'),
             ]);
 
             if ($request->filled('domain')) {
                 $tenant->domains()->update([
-                    'domain' => "{$request->domain}." . env('CENTRAL_DOMAIN'),
+                    'domain' => "{$request->input('domain')}." . env('CENTRAL_DOMAIN'),
                 ]);
             }
 
             if ($request->filled('password')) {
                 $tenant->update([
-                    'password' => Hash::make($request->password),
+                    'password' => Hash::make($request->input('password')),
                 ]);
             }
 
@@ -265,7 +323,7 @@ class TenantController extends Controller
                     'id' => $tenant->id,
                     'name' => $tenant->name,
                     'email' => $tenant->email,
-                    'password' => $request->password,
+                    'password' => $request->input('password'),
                     'domain' => optional($tenant->domains->first())->domain,
                     'updated_at' => $tenant->updated_at->toDateTimeString(),
                 ],
