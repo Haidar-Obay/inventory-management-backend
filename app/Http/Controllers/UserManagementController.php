@@ -78,7 +78,6 @@ class UserManagementController extends Controller
         $userData = [
             'name' => $validated['name'],
             'active' => $validated['active'] ?? true,
-            'created_by' => Auth::user()->id,
         ];
 
         // Only set email and password if user is active

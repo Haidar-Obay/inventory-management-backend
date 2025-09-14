@@ -14,14 +14,31 @@ class CreateTenantsTable extends Migration
             $table->string('id')->primary();
             $table->string('name')->nullable(); 
             $table->string('email')->nullable();
-            $table->timestamps();
             $table->json('data')->nullable();
-
+            $table->foreignId('subscription_plan_id')->nullable()->constrained('subscription_plans');
+            $table->date('subscription_start_date')->nullable();
+            $table->date('subscription_end_date')->nullable();
+            $table->enum('subscription_status', ['active', 'expired', 'cancelled', 'trial'])->default('trial');
+            $table->boolean('auto_renew')->default(false);
+            $table->timestamp('last_billing_date')->nullable();
+            $table->timestamp('next_billing_date')->nullable();
+            $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('tenants');
+        Schema::table('tenants', function (Blueprint $table) {
+            $table->dropForeign(['subscription_plan_id']);
+            $table->dropColumn([
+                'subscription_plan_id',
+                'subscription_start_date',
+                'subscription_end_date',
+                'subscription_status',
+                'auto_renew',
+                'last_billing_date',
+                'next_billing_date'
+            ]);
+        });
     }
 }
