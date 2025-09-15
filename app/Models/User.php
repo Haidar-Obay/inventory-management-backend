@@ -67,6 +67,14 @@ class User extends Authenticatable implements AuditableContract
     }
 
     /**
+     * Get the assignments for this user.
+     */
+    public function assignments()
+    {
+        return $this->hasMany(Assignment::class);
+    }
+
+    /**
      * The attributes that should be hidden for serialization.
      *
      * @var list<string>

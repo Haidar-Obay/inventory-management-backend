@@ -101,6 +101,7 @@ Route::middleware([
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/me', [UserManagementController::class, 'me']);
             Route::get('/get-all-users', [UserManagementController::class, 'getAllUsers'])->middleware('check.permission:users,view');
+            Route::get('/get-assignable-users', [UserManagementController::class, 'getAssignableUsers'])->middleware('check.permission:users,view');
             Route::get('/get-user/{id}', [UserManagementController::class, 'getUser'])->middleware('check.permission:users,view');
             Route::put('/update-user/{id}', [UserManagementController::class, 'updateUser'])->middleware('check.permission:users,edit');
             Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser'])->middleware('check.permission:users,delete');
@@ -148,6 +149,10 @@ Route::middleware([
             Route::apiResource('warehouses', WarehouseController::class);
             Route::apiResource('rooms', RoomController::class);
 Route::apiResource('sections', SectionController::class);
+
+// Custom routes for assets (must be before resource route)
+Route::get('/assets/available', [AssetController::class, 'available']);
+
 Route::apiResource('assets', AssetController::class);
 Route::apiResource('assignments', AssignmentController::class);
             Route::apiResource('business-types', BusinessTypeController::class);
@@ -347,7 +352,6 @@ Route::get('/rooms/{room}/sections', [SectionController::class, 'byRoom']);
 
 // Custom routes for assets
 Route::get('/sections/{section}/assets', [AssetController::class, 'bySection']);
-Route::get('/assets/available', [AssetController::class, 'available']);
 
 // Custom routes for assignments
 Route::get('/assets/{asset}/assignments', [AssignmentController::class, 'byAsset']);
