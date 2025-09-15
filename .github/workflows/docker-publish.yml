@@ -10,9 +10,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE_NAME: haidarsh/backend-app           # <— Docker Hub image name
-  DEPLOY_DIR: /home/hussein/deploy           # <— server compose directory
-  SERVICE_NAME: backend                      # <— must match service name in docker-compose.yml
+  IMAGE_NAME: haidarsh/backend-app           # Docker Hub image name
+  DEPLOY_DIR: /home/hussein/deploy           # server compose directory
+  SERVICE_NAME: backend                      # must match service name in docker-compose.yml
 
 jobs:
   build-and-push:
@@ -52,4 +52,45 @@ jobs:
             cd "${{ env.DEPLOY_DIR }}"
             docker compose pull "${{ env.SERVICE_NAME }}"
             docker compose up -d --no-deps "${{ env.SERVICE_NAME }}"
+            # Show digest of the running image for traceability
+            echo "Running digest:"
+            docker inspect -f '{{.Image}}' "${{ env.SERVICE_NAME }}" | xargs docker image inspect -f '{{index .RepoDigests 0}}'
             docker image prune -f
+
+      - name: Email (success)
+        if: ${{ success() }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "✅ Deploy succeeded • ${{ github.repository }} • ${{ env.SERVICE_NAME }} • ${{ github.ref_name }}"
+          from: ${{ secrets.MAIL_FROM }}
+          to: ${{ secrets.MAIL_TO }}
+          body: |
+            <h3>Deploy Succeeded</h3>
+            <p><b>Repo:</b> ${{ github.repository }}</p>
+            <p><b>Service:</b> ${{ env.SERVICE_NAME }}</p>
+            <p><b>Branch:</b> ${{ github.ref_name }}</p>
+            <p><b>Commit:</b> <code>${{ github.sha }}</code> by ${{ github.actor }}</p>
+            <p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">View workflow logs</a></p>
+
+      - name: Email (failure)
+        if: ${{ failure() }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "❌ Deploy failed • ${{ github.repository }} • ${{ env.SERVICE_NAME }} • ${{ github.ref_name }}"
+          from: ${{ secrets.MAIL_FROM }}
+          to: ${{ secrets.MAIL_TO }}
+          body: |
+            <h3>Deploy Failed</h3>
+            <p><b>Repo:</b> ${{ github.repository }}</p>
+            <p><b>Service:</b> ${{ env.SERVICE_NAME }}</p>
+            <p><b>Branch:</b> ${{ github.ref_name }}</p>
+            <p><b>Commit:</b> <code>${{ github.sha }}</code> by ${{ github.actor }}</p>
+            <p><a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">View workflow logs</a></p>
