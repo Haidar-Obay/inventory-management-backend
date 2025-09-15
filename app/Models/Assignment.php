@@ -11,7 +11,15 @@ class Assignment extends Model implements Auditable
 {
     use HasFactory, AuditableTrait;
 
-    protected $guarded = ['id'];
+    protected $fillable = [
+        'asset_id',
+        'user_id', 
+        'start_at',
+        'end_at',
+        'status',
+        'notes',
+        'color'
+    ];
     protected $table = 'assignments';
     protected $primaryKey = 'id';
     public $timestamps = true;

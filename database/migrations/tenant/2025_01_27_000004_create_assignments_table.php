@@ -19,6 +19,7 @@ return new class extends Migration
             $table->timestamp('end_at')->nullable();
             $table->enum('status', ['active', 'completed', 'cancelled', 'overdue'])->default('active');
             $table->text('notes')->nullable();
+            $table->string('color', 7)->nullable(); // Hex color code (e.g., #FF5733)
             $table->timestamps();
             
             // Add index for better performance on date queries

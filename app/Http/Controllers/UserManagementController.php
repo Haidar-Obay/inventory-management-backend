@@ -118,6 +118,26 @@ class UserManagementController extends Controller
         ]);
     }
 
+    public function getAssignableUsers()
+    {
+        // Debug: Get all users with roles to see what we're working with
+        $allUsers = User::with(['roles:id,name'])->get();
+        
+        $users = User::select('id', 'name', 'email', 'active')
+            ->with(['roles:id,name'])
+            ->whereDoesntHave('roles', function ($query) {
+                $query->whereRaw('LOWER(name) IN (?, ?)', ['owner', 'admin']);
+            })
+            ->where('active', true)
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'message' => 'Assignable users retrieved successfully.',
+            'users' => $users,
+        ]);
+    }
+
     public function getUser($id)
     {
         // $this->authorizeRoles(['admin', 'owner']);
@@ -131,7 +151,7 @@ class UserManagementController extends Controller
         $user = CacheHelper::cacheInContext($cacheKey);
 
         if (!$user) {
-            $user = User::select('id', 'name', 'email', 'active', 'created_at')->with('roles')->find($id);
+            $user = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by')->with(['roles', 'creator'])->find($id);
 
             if (!$user) {
                 return response()->json(['message' => 'User not found.'], 404);
