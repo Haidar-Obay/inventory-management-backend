@@ -69,6 +69,20 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RolePermissionController;
+use App\Http\Controllers\SpecialityController;
+use App\Http\Controllers\SpecialistController;
+use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\ServiceNeededItemController;
+use App\Http\Controllers\ServiceAdvancedPricingController;
+use App\Http\Controllers\AssociationController;
+use App\Http\Controllers\AssociationContactController;
+use App\Http\Controllers\AssociationServicePriceController;
+use App\Http\Controllers\ConnectionTypeController;
+use App\Http\Controllers\ConnectionController;
+use App\Http\Controllers\ReferrerController;
+use App\Http\Controllers\ReferrerServiceCommissionController;
+use App\Http\Controllers\PricingController;
+use App\Http\Controllers\ServiceCategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -167,6 +181,20 @@ Route::apiResource('assignments', AssignmentController::class);
             Route::apiResource('media-channels', MediaChannelController::class);
             Route::apiResource('items', ItemController::class);
             Route::apiResource('customer-master-lists', CustomerMasterListController::class);
+            Route::apiResource('specialities', SpecialityController::class);
+            Route::apiResource('specialists', SpecialistController::class);
+            Route::apiResource('services', ServiceController::class);
+            Route::apiResource('service-needed-items', ServiceNeededItemController::class);
+            Route::apiResource('service-advanced-pricings', ServiceAdvancedPricingController::class);
+            Route::apiResource('associations', AssociationController::class);
+            Route::apiResource('association-contacts', AssociationContactController::class);
+            Route::apiResource('association-service-prices', AssociationServicePriceController::class);
+            Route::apiResource('connection-types', ConnectionTypeController::class);
+            Route::apiResource('connections', ConnectionController::class);
+            Route::apiResource('service-categories', ServiceCategoryController::class);
+            Route::get('service-categories/service/{service}', [ServiceCategoryController::class, 'getByService']);
+            Route::apiResource('referrers', ReferrerController::class);
+            Route::apiResource('referrer-service-commissions', ReferrerServiceCommissionController::class);
 
             // Customer Master List additional routes
             Route::prefix('customer-master-lists')->group(function () {
@@ -227,6 +255,18 @@ Route::get('assignments', [AssignmentController::class, 'exportExcell']);
                 Route::get('media-channels', [MediaChannelController::class, 'exportExcell']);
                 Route::get('items', [ItemController::class, 'exportExcell']);
                 Route::get('customer-master-lists', [CustomerMasterListController::class, 'export']);
+                Route::get('specialities', [SpecialityController::class, 'exportExcell']);
+                Route::get('specialists', [SpecialistController::class, 'exportExcell']);
+                Route::get('services', [ServiceController::class, 'exportExcell']);
+                Route::get('service-needed-items', [ServiceNeededItemController::class, 'exportExcell']);
+                Route::get('service-advanced-pricings', [ServiceAdvancedPricingController::class, 'exportExcell']);
+                Route::get('associations', [AssociationController::class, 'exportExcell']);
+                Route::get('association-contacts', [AssociationContactController::class, 'exportExcell']);
+                Route::get('association-service-prices', [AssociationServicePriceController::class, 'exportExcell']);
+                Route::get('connection-types', [ConnectionTypeController::class, 'exportExcell']);
+                Route::get('connections', [ConnectionController::class, 'exportExcell']);
+                Route::get('referrers', [ReferrerController::class, 'exportExcell']);
+                Route::get('referrer-service-commissions', [ReferrerServiceCommissionController::class, 'exportExcell']);
                 Route::get('roles', [RoleController::class, 'exportExcell']);
                 Route::get('permissions', [PermissionController::class, 'exportExcell']);
             });
@@ -271,6 +311,18 @@ Route::get('/assignments', [AssignmentController::class, 'exportPdf']);
                 Route::get('/media-channels', [MediaChannelController::class, 'exportPdf']);
                 Route::get('/items', [ItemController::class, 'exportPdf']);
                 Route::get('/customer-master-lists', [CustomerMasterListController::class, 'exportPdf']);
+                Route::get('/specialities', [SpecialityController::class, 'exportPdf']);
+                Route::get('/specialists', [SpecialistController::class, 'exportPdf']);
+                Route::get('/services', [ServiceController::class, 'exportPdf']);
+                Route::get('/service-needed-items', [ServiceNeededItemController::class, 'exportPdf']);
+                Route::get('/service-advanced-pricings', [ServiceAdvancedPricingController::class, 'exportPdf']);
+                Route::get('/associations', [AssociationController::class, 'exportPdf']);
+                Route::get('/association-contacts', [AssociationContactController::class, 'exportPdf']);
+                Route::get('/association-service-prices', [AssociationServicePriceController::class, 'exportPdf']);
+                Route::get('/connection-types', [ConnectionTypeController::class, 'exportPdf']);
+                Route::get('/connections', [ConnectionController::class, 'exportPdf']);
+                Route::get('/referrers', [ReferrerController::class, 'exportPdf']);
+                Route::get('/referrer-service-commissions', [ReferrerServiceCommissionController::class, 'exportPdf']);
                 Route::get('/roles', [RoleController::class, 'exportPdf']);
                 Route::get('/permissions', [PermissionController::class, 'exportPdf']);
             });
@@ -315,6 +367,18 @@ Route::get('/assignments', [AssignmentController::class, 'exportPdf']);
                 Route::post('/media-channels', [MediaChannelController::class, 'import']);
                 Route::post('/items', [ItemController::class, 'importFromExcel']);
                 Route::post('/customer-master-lists', [CustomerMasterListController::class, 'import']);
+                Route::post('/specialities', [SpecialityController::class, 'importFromExcel']);
+                Route::post('/specialists', [SpecialistController::class, 'importFromExcel']);
+                Route::post('/services', [ServiceController::class, 'importFromExcel']);
+                Route::post('/service-needed-items', [ServiceNeededItemController::class, 'importFromExcel']);
+                Route::post('/service-advanced-pricings', [ServiceAdvancedPricingController::class, 'importFromExcel']);
+                Route::post('/associations', [AssociationController::class, 'importFromExcel']);
+                Route::post('/association-contacts', [AssociationContactController::class, 'importFromExcel']);
+                Route::post('/association-service-prices', [AssociationServicePriceController::class, 'importFromExcel']);
+                Route::post('/connection-types', [ConnectionTypeController::class, 'importFromExcel']);
+                Route::post('/connections', [ConnectionController::class, 'importFromExcel']);
+                Route::post('/referrers', [ReferrerController::class, 'importFromExcel']);
+                Route::post('/referrer-service-commissions', [ReferrerServiceCommissionController::class, 'importFromExcel']);
                 Route::post('/roles', [RoleController::class, 'importFromExcel']);
                 Route::post('/permissions', [PermissionController::class, 'importFromExcel']);
             });
@@ -368,9 +432,45 @@ Route::get('/assignments/active', [AssignmentController::class, 'active']);
                 Route::delete('/transportation-channels', [TransportationChannelController::class, 'bulkDelete']);
                 Route::delete('/media-channels', [MediaChannelController::class, 'bulkDelete']);
                 Route::delete('/items', [ItemController::class, 'bulkDelete']);
+                Route::delete('/specialities', [SpecialityController::class, 'bulkDelete']);
+                Route::delete('/specialists', [SpecialistController::class, 'bulkDelete']);
+                Route::delete('/services', [ServiceController::class, 'bulkDelete']);
+                Route::delete('/service-needed-items', [ServiceNeededItemController::class, 'bulkDelete']);
+                Route::delete('/service-advanced-pricings', [ServiceAdvancedPricingController::class, 'bulkDelete']);
+                Route::delete('/associations', [AssociationController::class, 'bulkDelete']);
+                Route::delete('/association-contacts', [AssociationContactController::class, 'bulkDelete']);
+                Route::delete('/association-service-prices', [AssociationServicePriceController::class, 'bulkDelete']);
+                Route::delete('/connection-types', [ConnectionTypeController::class, 'bulkDelete']);
+                Route::delete('/connections', [ConnectionController::class, 'bulkDelete']);
+                Route::delete('/referrers', [ReferrerController::class, 'bulkDelete']);
+                Route::delete('/referrer-service-commissions', [ReferrerServiceCommissionController::class, 'bulkDelete']);
                 Route::delete('/roles', [RoleController::class, 'bulkDelete']);
                 Route::delete('/permissions', [PermissionController::class, 'bulkDelete']);
             });
+
+            // Specialist association routes
+            Route::prefix('specialists/{specialist}')->group(function () {
+                Route::post('/attach-specialities', [SpecialistController::class, 'attachSpecialities']);
+                Route::post('/detach-specialities', [SpecialistController::class, 'detachSpecialities']);
+                Route::post('/attach-assets', [SpecialistController::class, 'attachAssets']);
+                Route::post('/detach-assets', [SpecialistController::class, 'detachAssets']);
+            });
+
+            // Service nested needed items
+            Route::get('services/{service}/needed-items', [ServiceNeededItemController::class, 'indexByService']);
+            // Service nested advanced pricing
+            Route::get('services/{service}/advanced-pricing', [ServiceAdvancedPricingController::class, 'indexByService']);
+            // Association nested contacts
+            Route::get('associations/{association}/contacts', [AssociationContactController::class, 'byAssociation']);
+            // Nested association service prices
+            Route::get('associations/{association}/service-prices', [AssociationServicePriceController::class, 'byAssociation']);
+            Route::get('services/{service}/association-prices', [AssociationServicePriceController::class, 'byService']);
+            // Nested referrer service commissions
+            Route::get('referrers/{referrer}/service-commissions', [ReferrerServiceCommissionController::class, 'byReferrer']);
+            Route::get('services/{service}/referrer-commissions', [ReferrerServiceCommissionController::class, 'byService']);
+
+            // Pricing engine
+            Route::post('pricing/resolve', [PricingController::class, 'resolvePrice']);
 
             // Get Customer Projects & Jobs
             Route::get('customers/{customerId}/projects', [ProjectController::class, 'getCustomerProjects']);
