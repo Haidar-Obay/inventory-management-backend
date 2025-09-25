@@ -22,7 +22,7 @@ class ServiceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Service::query()->with(['category:id,name', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
+        $query = Service::query()->with(['department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
 
         if ($request->filled('category_id')) {
             $query->where('service_category_id', $request->integer('category_id'));
@@ -43,9 +43,9 @@ class ServiceController extends Controller
         }
 
         $services = $query->orderBy('name')->paginate(10);
-        // Hide raw FK ids but keep related models
+        // Hide raw FK ids and image, but keep other related models
         $services->getCollection()->transform(function ($service) {
-            return $service->makeHidden(['service_category_id', 'department_id', 'sub_department_id']);
+            return $service->makeHidden(['service_category_id', 'department_id', 'sub_department_id', 'image']);
         });
         return response()->json($services);
     }
@@ -57,10 +57,31 @@ class ServiceController extends Controller
         $specialistIds = $data['specialist_ids'] ?? [];
         unset($data['specialist_ids']);
 
-        // Handle image upload (file or URL string)
-        if ($request->hasFile('image')) {
-            $path = Storage::disk('public')->putFile('services', $request->file('image'));
+        // Handle image upload (file or base64 data URL or plain URL string)
+        if (request()->hasFile('image')) {
+            $path = Storage::disk('public')->putFile('services', request()->file('image'));
             $data['image'] = Storage::url($path);
+        } elseif (!empty($data['image']) && is_string($data['image'])) {
+            $imageString = $data['image'];
+            if (str_starts_with($imageString, 'data:image')) {
+                // Decode base64 data URL and store as file
+                [$_meta, $base64Data] = explode(',', $imageString, 2);
+                $binary = base64_decode($base64Data, true);
+                if ($binary !== false) {
+                    $filename = 'services/' . uniqid('svc_', true) . '.png';
+                    Storage::disk('public')->put($filename, $binary);
+                    $data['image'] = Storage::url($filename);
+                } else {
+                    // If decode fails, drop the image to avoid oversized string insert
+                    unset($data['image']);
+                }
+            } else if (filter_var($imageString, FILTER_VALIDATE_URL)) {
+                // Keep as-is if it is a valid URL
+                $data['image'] = $imageString;
+            } else {
+                // Unknown format; drop to avoid DB overflow
+                unset($data['image']);
+            }
         }
 
         $service = Service::create($data);
@@ -119,9 +140,29 @@ class ServiceController extends Controller
         $specialistIds = $data['specialist_ids'] ?? null;
         unset($data['specialist_ids']);
 
-        if ($request->hasFile('image')) {
-            $path = Storage::disk('public')->putFile('services', $request->file('image'));
+        if (request()->hasFile('image')) {
+            $path = Storage::disk('public')->putFile('services', request()->file('image'));
             $data['image'] = Storage::url($path);
+        } elseif (array_key_exists('image', $data) && is_string($data['image'])) {
+            $imageString = $data['image'];
+            if (str_starts_with($imageString, 'data:image')) {
+                [$_meta, $base64Data] = explode(',', $imageString, 2);
+                $binary = base64_decode($base64Data, true);
+                if ($binary !== false) {
+                    $filename = 'services/' . uniqid('svc_', true) . '.png';
+                    Storage::disk('public')->put($filename, $binary);
+                    $data['image'] = Storage::url($filename);
+                } else {
+                    unset($data['image']);
+                }
+            } else if (!empty($imageString) && filter_var($imageString, FILTER_VALIDATE_URL)) {
+                $data['image'] = $imageString;
+            } else if ($imageString === null || $imageString === '') {
+                // Explicitly clearing image
+                $data['image'] = null;
+            } else {
+                unset($data['image']);
+            }
         }
 
         $service->update($data);
