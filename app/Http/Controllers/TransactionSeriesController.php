@@ -82,14 +82,20 @@ class TransactionSeriesController extends Controller
             return response()->json(['message' => 'No data to export'], 404);
         }
 
-        $export = new Export($transactionSeries, [
+        $headers = [
             'id' => 'ID',
             'code' => 'Code',
             'name' => 'Name',
             'template' => 'Template',
             'companyCode.code' => 'Company Code',
             'trade.code' => 'Trade'
-        ]);
+        ];
+
+        $columns = array_keys($headers);
+        $headings = array_values($headers);
+        $query = TransactionSeries::with(['companyCode', 'trade']);
+
+        $export = new Export($query, $columns, $headings);
 
         return Excel::download($export, 'transaction_series.xlsx');
     }
@@ -102,16 +108,26 @@ class TransactionSeriesController extends Controller
             return response()->json(['message' => 'No data to export'], 404);
         }
 
-        $export = new ExportPDF($transactionSeries, [
+        $headers = [
             'id' => 'ID',
             'code' => 'Code',
             'name' => 'Name',
             'template' => 'Template',
             'companyCode.code' => 'Company Code',
             'trade.code' => 'Trade'
-        ]);
+        ];
 
-        return $export->download('transaction_series.pdf');
+        $columns = array_keys($headers);
+        $data = $transactionSeries->map(function ($row) use ($columns) {
+            $mapped = [];
+            foreach ($columns as $column) {
+                $mapped[$column] = data_get($row, $column);
+            }
+            return $mapped;
+        })->toArray();
+
+        $pdf = (new ExportPDF())->generatePdf('Transaction Series', $headers, $data);
+        return $pdf->download('transaction_series.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -213,10 +229,5 @@ class TransactionSeriesController extends Controller
                 ->with(['companyCode', 'trade'])
                 ->get();
         });
-    }
-
-    public function importFromExcel(Request $request)
-    {
-        return $this->import($request);
     }
 }

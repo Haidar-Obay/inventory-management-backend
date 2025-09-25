@@ -78,6 +78,7 @@ class UserManagementController extends Controller
         $userData = [
             'name' => $validated['name'],
             'active' => $validated['active'] ?? true,
+            'created_by' => Auth::user()->id,
         ];
 
         // Only set email and password if user is active
@@ -104,15 +105,9 @@ class UserManagementController extends Controller
         $users = CacheHelper::cacheInContext($cacheKey);
 
         if (!$users) {
-            $query = User::select('id', 'name', 'email', 'active', 'created_at')
-                ->orderBy('created_at', 'desc');
-            
-            // Only load roles if we're in a tenant context (roles table exists)
-            if (tenancy()->initialized) {
-                $query->with('roles');
-            }
-            
-            $users = $query->get();
+            $users = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by')
+                ->orderBy('created_at', 'desc')->with(['roles', 'creator'])
+                ->get();
 
             CacheHelper::cacheInContext($cacheKey, $users);
         }
@@ -125,17 +120,21 @@ class UserManagementController extends Controller
 
     public function getAssignableUsers()
     {
-        // Debug: Get all users with roles to see what we're working with
-        $allUsers = User::with(['roles:id,name'])->get();
-        
-        $users = User::select('id', 'name', 'email', 'active')
-            ->with(['roles:id,name'])
-            ->whereDoesntHave('roles', function ($query) {
-                $query->whereRaw('LOWER(name) IN (?, ?)', ['owner', 'admin']);
-            })
-            ->where('active', true)
-            ->orderBy('name')
-            ->get();
+        $cacheKey = $this->getCacheKey('assignable_users');
+        $users = CacheHelper::cacheInContext($cacheKey);
+
+        if (!$users) {
+            $users = User::select('id', 'name', 'email', 'active')
+                ->with(['roles:id,name'])
+                ->whereDoesntHave('roles', function ($query) {
+                    $query->whereIn('name', ['owner', 'admin']);
+                })
+                ->where('active', true)
+                ->orderBy('name')
+                ->get();
+
+            CacheHelper::cacheInContext($cacheKey, $users);
+        }
 
         return response()->json([
             'message' => 'Assignable users retrieved successfully.',

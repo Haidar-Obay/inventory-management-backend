@@ -25,7 +25,8 @@ class Export implements FromCollection, WithHeadings, ShouldAutoSize, WithMappin
 
     public function collection()
     {
-        return $this->query->get($this->columns);
+        // Fetch full rows so nested relation paths in $this->columns are accessible via data_get
+        return $this->query->get();
     }
 
     public function headings(): array
