@@ -29,3 +29,6 @@ jobs:
 
       - name: Verify artisan
         run: php artisan --version
+
+      - name: Run database migrations
+        run: php artisan migrate --force
