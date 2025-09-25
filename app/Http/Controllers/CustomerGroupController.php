@@ -156,18 +156,104 @@ class CustomerGroupController extends Controller
     {
         $tenantId = tenant('id');
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            // Get model class from the import
+            CustomerGroup::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
+
         try {
-            $import = new DynamicExcelImport(CustomerGroup::class);
+            $import = new DynamicExcelImport(
+                CustomerGroup::class,
+                ['code', 'name', 'active'],
+                function ($row) {
+                    $errors = [];
+
+                    $code = isset($row['code']) ? trim((string)$row['code']) : '';
+                    $name = isset($row['name']) ? trim((string)$row['name']) : '';
+
+                    if ($code === '') {
+                        $errors[] = 'Missing code';
+                    } elseif (CustomerGroup::where('code', $code)->exists()) {
+                        $errors[] = "Customer group code '{$code}' already exists";
+                    }
+
+                    if ($name === '') {
+                        $errors[] = 'Missing name';
+                    }
+
+                    return $errors;
+                },
+                function ($row) {
+                    $code = trim((string)($row['code'] ?? ''));
+                    $name = trim((string)($row['name'] ?? ''));
+                    $active = isset($row['active']) ? (bool)$row['active'] : false;
+
+                    return [
+                        'code' => $code,
+                        'name' => $name,
+                        'active' => $active,
+                    ];
+                },
+                true // Enable header validation
+            );
             Excel::import($import, $request->file('file'));
+
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
 
             app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
 
+            $imported = $import->getImportedCount();
+            $skippedCount = $import->getSkippedCount();
+            $skippedRows = $import->getSkippedRows();
+            $totalProcessed = $imported + $skippedCount;
+
+            $message = '';
+            if ($imported > 0 && $skippedCount === 0) {
+                $message = "Imported {$imported} row(s) successfully.";
+            } elseif ($imported > 0 && $skippedCount > 0) {
+                $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+            } elseif ($imported === 0 && $skippedCount > 0) {
+                $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+            } else {
+                $message = 'No rows found to import.';
+            }
+
             return response()->json([
-                'status' => true,
-                'message' => 'Customer groups imported successfully.',
+                'success' => $imported > 0,
+                'message' => $message,
+                'rows_processed' => $totalProcessed,
+                'rows_imported' => $imported,
+                'rows_skipped_count' => $skippedCount,
+                'skipped_rows' => $skippedRows,
             ]);
         } catch (\Exception $e) {
             return response()->json([

@@ -216,19 +216,104 @@ class CostCenterController extends Controller
         return $pdf->download('Cost_Centers.pdf');
     }
 
-    public function import(Request $request)
+    public function importFromExcel(Request $request)
     {
+        $tenantId = tenant('id');
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv|max:2048'
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
+        if ($request->input('type') === 'fresh') {
+            CostCenter::truncate();
+        }
+
+        $mapping = $request->input('mapping');
+
         try {
-            $import = new DynamicExcelImport(CostCenter::class);
+            $import = new DynamicExcelImport(
+                CostCenter::class,
+                ['code', 'name'],
+                function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $errors = [];
+                    if (($row['code'] ?? '') === '') { $errors[] = 'Code is required'; }
+                    if (($row['name'] ?? '') === '') { $errors[] = 'Name is required'; }
+                    if (!empty($row['sub_cost_center_of'])) {
+                        $parent = CostCenter::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_cost_center_of'])])->first();
+                        if (!$parent) {
+                            $errors[] = "Parent cost center with code '{$row['sub_cost_center_of']}' not found";
+                        }
+                    }
+                    return $errors;
+                },
+                function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $subCostCenterOfId = null;
+                    if (!empty($row['sub_cost_center_of'])) {
+                        $parent = CostCenter::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_cost_center_of'])])->first();
+                        if ($parent) {
+                            $subCostCenterOfId = $parent->id;
+                        }
+                    }
+                    return [
+                        'code' => $row['code'] ?? null,
+                        'name' => $row['name'] ?? null,
+                        'sub_cost_center_of' => $subCostCenterOfId,
+                    ];
+                },
+                true
+            );
+
             Excel::import($import, $request->file('file'));
-            Cache::forget("cost_centers_" . tenant('id'));
+
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
+
+            app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
+
+            $imported = $import->getImportedCount();
+            $skippedCount = $import->getSkippedCount();
+            $skippedRows = $import->getSkippedRows();
+            $totalProcessed = $imported + $skippedCount;
+
+            $message = '';
+            if ($imported > 0 && $skippedCount === 0) {
+                $message = "Imported {$imported} row(s) successfully.";
+            } elseif ($imported > 0 && $skippedCount > 0) {
+                $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+            } elseif ($imported === 0 && $skippedCount > 0) {
+                $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+            } else {
+                $message = 'No rows found to import.';
+            }
+
             return response()->json([
-                'status' => true,
-                'message' => 'Import successful',
+                'success' => $imported > 0,
+                'message' => $message,
+                'rows_processed' => $totalProcessed,
+                'rows_imported' => $imported,
+                'rows_skipped_count' => $skippedCount,
+                'skipped_rows' => $skippedRows,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -237,6 +322,8 @@ class CostCenterController extends Controller
             ], 422);
         }
     }
+
+    
 
     public function getSubCostCenters($costCenterId)
     {

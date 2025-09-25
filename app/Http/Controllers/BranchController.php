@@ -111,15 +111,78 @@ class BranchController extends Controller
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            Branch::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
+        $fields = $mapping ? array_values($mapping) : ['code', 'name', 'active'];
+
         try {
-            $import = new DynamicExcelImport(new Branch());
+            $import = new DynamicExcelImport(
+                Branch::class,
+                $fields,
+                function ($row) use ($mapping) {
+                    $errors = [];
+                    $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                    $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                    if (empty($row[$codeKey])) $errors[] = 'Missing code';
+                    if (empty($row[$nameKey])) $errors[] = 'Missing name';
+                    return $errors;
+                },
+                function ($row) use ($mapping) {
+                    $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                    $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                    $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+                    return [
+                        'code' => $row[$codeKey] ?? null,
+                        'name' => $row[$nameKey] ?? null,
+                        'active' => boolval($row[$activeKey] ?? true),
+                    ];
+                },
+                true // Enable header validation
+            );
+            
             Excel::import($import, $request->file('file'));
+            
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
+            
             Cache::forget("branches_" . tenant('id'));
 
-            return response()->json(['message' => 'Branches imported successfully']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Branches imported successfully',
+                'rows_imported' => $import->getImportedCount(),
+                'rows_skipped_count' => $import->getSkippedCount(),
+                'skipped_rows' => $import->getSkippedRows(),
+            ]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error importing branches: ' . $e->getMessage()], 500);
         }

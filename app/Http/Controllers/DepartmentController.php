@@ -216,20 +216,113 @@ class DepartmentController extends Controller
         return $pdf->download('Departments.pdf');
     }
 
-    public function import(Request $request)
+    public function importFromExcel(Request $request)
     {
         $tenantId = tenant('id');
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv|max:2048'
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            // Get model class from the import
+            Department::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
+
         try {
-            $import = new DynamicExcelImport(Department::class);
+            $import = new DynamicExcelImport(
+                Department::class,
+                ['code', 'name', 'sub_department_of', 'active'],
+                function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $errors = [];
+                    if (($row['code'] ?? '') === '') { $errors[] = 'Missing code'; }
+                    if (($row['name'] ?? '') === '') { $errors[] = 'Missing name'; }
+                    // Validate parent department code if provided
+                    if (!empty($row['sub_department_of'])) {
+                        $parentDepartment = Department::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_department_of'])])->first();
+                        if (!$parentDepartment) {
+                            $errors[] = "Parent department with code '{$row['sub_department_of']}' not found";
+                        }
+                    }
+                    return $errors;
+                },
+                function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $subDepartmentOfId = null;
+                    
+                    // If sub_department_of is provided, resolve the code to ID
+                    if (!empty($row['sub_department_of'])) {
+                        $parentDepartment = Department::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_department_of'])])->first();
+                        if ($parentDepartment) {
+                            $subDepartmentOfId = $parentDepartment->id;
+                        }
+                    }
+                    
+                    return [
+                        'code' => $row['code'] ?? null,
+                        'name' => $row['name'] ?? null,
+                        'sub_department_of' => $subDepartmentOfId,
+                        'active' => boolval($row['active'] ?? true),
+                    ];
+                },
+                true // Enable header validation
+            );
+            
             Excel::import($import, $request->file('file'));
+            
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
+            
             app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
+
+            $imported = $import->getImportedCount();
+            $skippedCount = $import->getSkippedCount();
+            $skippedRows = $import->getSkippedRows();
+            $totalProcessed = $imported + $skippedCount;
+
+            $message = '';
+            if ($imported > 0 && $skippedCount === 0) {
+                $message = "Imported {$imported} row(s) successfully.";
+            } elseif ($imported > 0 && $skippedCount > 0) {
+                $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+            } elseif ($imported === 0 && $skippedCount > 0) {
+                $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+            } else {
+                $message = 'No rows found to import.';
+            }
+
             return response()->json([
-                'status' => true,
-                'message' => 'Import successful',
+                'success' => $imported > 0,
+                'message' => $message,
+                'rows_processed' => $totalProcessed,
+                'rows_imported' => $imported,
+                'rows_skipped_count' => $skippedCount,
+                'skipped_rows' => $skippedRows,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -238,6 +331,8 @@ class DepartmentController extends Controller
             ], 422);
         }
     }
+
+    
 
     public function getSubDepartments($departmentId)
     {

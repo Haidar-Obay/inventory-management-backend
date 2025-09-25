@@ -189,8 +189,25 @@ class SectionController extends Controller
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
+
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            // Get model class from the import
+            Section::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
 
         $import = new DynamicExcelImport(
             Section::class,
@@ -213,10 +230,27 @@ class SectionController extends Controller
                     'name' => $row['name'],
                     'order_index' => $row['order_index'] ?? 0,
                 ];
-            }
+            },
+            true // Enable header validation
         );
 
         Excel::import($import, $request->file('file'));
+
+        // Check if headers were valid
+        if (!$import->areHeadersValid()) {
+            $headerResult = $import->getHeaderValidationResult();
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Excel file headers',
+                'header_validation' => $headerResult,
+                'errors' => [
+                    'missing_headers' => $headerResult['missing'],
+                    'extra_headers' => $headerResult['extra'],
+                    'expected_headers' => $headerResult['expected_headers'],
+                    'actual_headers' => $headerResult['excel_headers']
+                ]
+            ], 422);
+        }
 
         app('cache')->store('database')->forget('tenant_' . tenant('id') . '_sections');
 

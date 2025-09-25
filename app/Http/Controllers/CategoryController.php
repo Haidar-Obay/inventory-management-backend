@@ -216,21 +216,123 @@ class CategoryController extends Controller
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            Category::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
+        $fields = $mapping ? array_values($mapping) : ['code', 'name', 'subcategory_of', 'active'];
+
         try {
-            $import = new DynamicExcelImport(Category::class);
+            $import = new DynamicExcelImport(
+                Category::class,
+                $fields,
+                function ($row) use ($mapping) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $errors = [];
+                    $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                    $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                    $subcategoryKey = $mapping ? array_search('subcategory_of', $mapping) : 'subcategory_of';
+                    
+                    if (($row[$codeKey] ?? '') === '') $errors[] = 'Missing code';
+                    if (($row[$nameKey] ?? '') === '') $errors[] = 'Missing name';
+                    
+                    // Validate parent category code if provided
+                    if (!empty($row[$subcategoryKey])) {
+                        $parentCategory = Category::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subcategoryKey])])->first();
+                        if (!$parentCategory) {
+                            $errors[] = "Parent category with code '{$row[$subcategoryKey]}' not found";
+                        }
+                    }
+                    
+                    return $errors;
+                },
+                function ($row) use ($mapping) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $subcategoryOf = null;
+                    
+                    $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                    $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                    $subcategoryKey = $mapping ? array_search('subcategory_of', $mapping) : 'subcategory_of';
+                    $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+                    
+                    // If subcategory_of is provided and not empty, look up the parent category by code
+                    if (!empty($row[$subcategoryKey])) {
+                        $parentCategory = Category::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subcategoryKey])])->first();
+                        if ($parentCategory) {
+                            $subcategoryOf = $parentCategory->id;
+                        }
+                    }
+                    
+                    return [
+                        'code' => $row[$codeKey] ?? null,
+                        'name' => $row[$nameKey] ?? null,
+                        'subcategory_of' => $subcategoryOf,
+                        'active' => boolval($row[$activeKey] ?? true),
+                    ];
+                },
+                true // Enable header validation
+            );
+            
             Excel::import($import, $request->file('file'));
+            
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
 
             $tenantId = tenant('id');
             $key = "tenant_{$tenantId}_categories";
 
             app('cache')->store('database')->forget($key);
 
+            $imported = $import->getImportedCount();
+            $skippedCount = $import->getSkippedCount();
+            $skippedRows = $import->getSkippedRows();
+            $totalProcessed = $imported + $skippedCount;
+
+            $message = '';
+            if ($imported > 0 && $skippedCount === 0) {
+                $message = "Imported {$imported} row(s) successfully.";
+            } elseif ($imported > 0 && $skippedCount > 0) {
+                $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+            } elseif ($imported === 0 && $skippedCount > 0) {
+                $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+            } else {
+                $message = 'No rows found to import.';
+            }
+
             return response()->json([
-                'status' => true,
-                'message' => 'Categories imported successfully',
+                'success' => $imported > 0,
+                'message' => $message,
+                'rows_processed' => $totalProcessed,
+                'rows_imported' => $imported,
+                'rows_skipped_count' => $skippedCount,
+                'skipped_rows' => $skippedRows,
             ]);
         } catch (\Exception $e) {
             return response()->json([

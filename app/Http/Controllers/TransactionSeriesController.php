@@ -114,17 +114,78 @@ class TransactionSeriesController extends Controller
         return $export->download('transaction_series.pdf');
     }
 
-    public function import(Request $request)
+    public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv|max:2048'
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            // Get model class from the import
+            TransactionSeries::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
+
         try {
-            $import = new DynamicExcelImport(TransactionSeries::class);
+            $import = new DynamicExcelImport(
+                TransactionSeries::class,
+                ['code', 'name', 'company_code_id', 'trade_id', 'active'],
+                function ($row) {
+                    $errors = [];
+                    if (empty($row['code'])) $errors[] = 'Missing code';
+                    if (empty($row['name'])) $errors[] = 'Missing name';
+                    if (empty($row['company_code_id'])) $errors[] = 'Missing company_code_id';
+                    if (empty($row['trade_id'])) $errors[] = 'Missing trade_id';
+                    return $errors;
+                },
+                function ($row) {
+                    return [
+                        'code' => $row['code'],
+                        'name' => $row['name'],
+                        'company_code_id' => $row['company_code_id'],
+                        'trade_id' => $row['trade_id'],
+                        'active' => boolval($row['active'] ?? true),
+                    ];
+                },
+                true // Enable header validation
+            );
+            
             Excel::import($import, $request->file('file'));
+            
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
+            
             Cache::forget("transaction_series_" . tenant('id'));
-            return response()->json(['message' => 'Import successful']);
+            return response()->json([
+                'message' => 'Import successful',
+                'rows_imported' => $import->getImportedCount(),
+                'rows_skipped_count' => $import->getSkippedCount(),
+                'skipped_rows' => $import->getSkippedRows(),
+            ]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Import failed: ' . $e->getMessage()], 422);
         }
@@ -152,5 +213,10 @@ class TransactionSeriesController extends Controller
                 ->with(['companyCode', 'trade'])
                 ->get();
         });
+    }
+
+    public function importFromExcel(Request $request)
+    {
+        return $this->import($request);
     }
 }

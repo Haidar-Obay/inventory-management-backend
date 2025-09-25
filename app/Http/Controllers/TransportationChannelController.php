@@ -213,35 +213,89 @@ class TransportationChannelController extends Controller
         return $pdf->download('TransportationChannels.pdf');
     }
 
-    public function import(Request $request)
+    public function importFromExcel(Request $request)
     {
         $tenantId = tenant('id');
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv|max:2048'
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
+        if ($request->input('type') === 'fresh') {
+            TransportationChannel::truncate();
+        }
+
+        $mapping = $request->input('mapping');
+        $fields = $mapping ? array_values($mapping) : ['code', 'name'];
+
         try {
-            $import = new DynamicExcelImport(TransportationChannel::class, ['code', 'name'], function ($row) {
-                $errors = [];
-                if (empty($row['code'])) {
-                    $errors[] = 'Code is required';
-                }
-                if (empty($row['name'])) {
-                    $errors[] = 'Name is required';
-                }
-                return $errors;
-            }, function ($row) {
-                return [
-                    'code' => $row['code'],
-                    'name' => $row['name'],
-                    'sub_transportation_of' => $row['sub_transportation_of'] ?? null,
-                ];
-            });
+            $import = new DynamicExcelImport(
+                TransportationChannel::class,
+                $fields,
+                function ($row) use ($mapping) {
+                    $errors = [];
+                    $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                    $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                    $subKey = $mapping ? array_search('sub_transportation_of', $mapping) : 'sub_transportation_of';
+                    if (empty($row[$codeKey])) $errors[] = 'Code is required';
+                    if (empty($row[$nameKey])) $errors[] = 'Name is required';
+                    if (!empty($row[$subKey])) {
+                        $parentChannel = TransportationChannel::where('code', $row[$subKey])->first();
+                        if (!$parentChannel) {
+                            $errors[] = "Parent transportation channel with code '{$row[$subKey]}' not found";
+                        }
+                    }
+                    return $errors;
+                },
+                function ($row) use ($mapping) {
+                    $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                    $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                    $subKey = $mapping ? array_search('sub_transportation_of', $mapping) : 'sub_transportation_of';
+                    $subTransportationOfId = null;
+                    if (!empty($row[$subKey])) {
+                        $parentChannel = TransportationChannel::where('code', $row[$subKey])->first();
+                        if ($parentChannel) {
+                            $subTransportationOfId = $parentChannel->id;
+                        }
+                    }
+                    return [
+                        'code' => $row[$codeKey] ?? null,
+                        'name' => $row[$nameKey] ?? null,
+                        'sub_transportation_of' => $subTransportationOfId,
+                    ];
+                },
+                true // Enable header validation
+            );
             Excel::import($import, $request->file('file'));
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
             app('cache')->store('database')->forget("tenant_{$tenantId}_transportation_channels");
             return response()->json([
                 'status' => true,
                 'message' => 'Import successful',
+                'rows_imported' => $import->getImportedCount(),
+                'rows_skipped_count' => $import->getSkippedCount(),
+                'skipped_rows' => $import->getSkippedRows(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -249,6 +303,11 @@ class TransportationChannelController extends Controller
                 'message' => 'Import failed: ' . $e->getMessage(),
             ], 422);
         }
+    }
+
+    public function importFromExcel(Request $request)
+    {
+        return $this->import($request);
     }
 
     public function getSubTransportationChannels($transportationChannelId)
