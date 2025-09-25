@@ -22,8 +22,7 @@ class StoreAssignmentRequest extends FormRequest
                     $user = \App\Models\User::with('roles')->find($value);
                     if ($user) {
                         $roleNames = $user->roles->pluck('name')->toArray();
-                        $roleNamesLower = array_map('strtolower', $roleNames);
-                        if (in_array('owner', $roleNamesLower, true) || in_array('admin', $roleNamesLower, true)) {
+                        if (in_array('owner', $roleNames) || in_array('admin', $roleNames)) {
                             $fail('Cannot assign assets to users with owner or admin roles.');
                         }
                     }
