@@ -31,12 +31,21 @@ class DatabaseSeeder extends Seeder
         if ($tenant) {
             $tenant->run(function () {
                 $this->call([
+                    DepartmentSeeder::class,
+                    SpecialitySeeder::class,
+                    SpecialistSeeder::class,
+                    ServiceSeeder::class,
                     LocationSeeder::class,
                     CustomerSeeder::class,
                     ProjectSeeder::class,
                     RoomSeeder::class,
                     SectionSeeder::class,
                     AssetSeeder::class,
+                    ServiceAdvancedPricingSeeder::class,
+                    ServiceNeededItemSeeder::class,
+                    AssociationPricingSeeder::class,
+                    AssociationContactSeeder::class,
+                    ReferrerSeeder::class,
                 ]);
             });
         }

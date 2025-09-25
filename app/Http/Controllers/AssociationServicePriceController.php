@@ -9,6 +9,8 @@ use App\Models\AssociationServicePrice;
 use App\Models\Service;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
@@ -24,9 +26,50 @@ class AssociationServicePriceController extends Controller
         return response()->json($query->orderByDesc('id')->paginate());
     }
 
-    public function store(StoreAssociationServicePriceRequest $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $row = AssociationServicePrice::create($request->validated());
+        $payload = $request->all();
+
+        if (isset($payload[0]) && is_array($payload[0])) {
+            $rules = [
+                'association_id' => ['required', 'integer', 'exists:associations,id'],
+                'service_id' => ['required', 'integer', 'exists:services,id'],
+                'price' => ['nullable', 'numeric', 'min:0'],
+                'discount' => ['nullable', 'numeric', 'min:0'],
+            ];
+            $created = [];
+            $errors = [];
+            DB::beginTransaction();
+            try {
+                foreach ($payload as $index => $row) {
+                    $validator = Validator::make($row, $rules);
+                    if ($validator->fails()) {
+                        $errors[] = ['index' => $index, 'errors' => $validator->errors()];
+                        continue;
+                    }
+                    $created[] = AssociationServicePrice::create($validator->validated())
+                        ->load(['association:id,name', 'service:id,name']);
+                }
+                if (!empty($errors) && empty($created)) {
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'errors' => $errors], 422);
+                }
+                DB::commit();
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                throw $e;
+            }
+            return response()->json(['success' => true, 'created_count' => count($created), 'errors' => $errors, 'data' => $created], 201);
+        }
+
+        $validator = Validator::make($payload, [
+            'association_id' => ['required', 'integer', 'exists:associations,id'],
+            'service_id' => ['required', 'integer', 'exists:services,id'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'discount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+        $validator->validate();
+        $row = AssociationServicePrice::create($validator->validated());
         return response()->json($row->load(['association:id,name', 'service:id,name']), 201);
     }
 

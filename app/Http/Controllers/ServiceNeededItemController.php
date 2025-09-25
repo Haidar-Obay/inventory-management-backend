@@ -8,6 +8,8 @@ use App\Models\Service;
 use App\Models\ServiceNeededItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
@@ -27,9 +29,64 @@ class ServiceNeededItemController extends Controller
         return response()->json($query->orderByDesc('id')->paginate());
     }
 
-    public function store(StoreServiceNeededItemRequest $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $item = ServiceNeededItem::create($request->validated());
+        $payload = $request->all();
+
+        // Bulk: array of items
+        if (isset($payload[0]) && is_array($payload[0])) {
+            $rules = [
+                'service_id' => ['required', 'integer', 'exists:services,id'],
+                'asset_id' => ['required', 'integer', 'exists:assets,id'],
+                'description' => ['nullable', 'string', 'max:255'],
+                'unit' => ['nullable', 'string', 'max:50'],
+                'qty' => ['required', 'numeric', 'min:0'],
+                'notes_multiline' => ['nullable', 'string'],
+            ];
+
+            $created = [];
+            $errors = [];
+
+            DB::beginTransaction();
+            try {
+                foreach ($payload as $index => $row) {
+                    $validator = Validator::make($row, $rules);
+                    if ($validator->fails()) {
+                        $errors[] = ['index' => $index, 'errors' => $validator->errors()];
+                        continue;
+                    }
+                    $created[] = ServiceNeededItem::create($validator->validated())
+                        ->load(['service:id,name', 'asset:id,name']);
+                }
+                if (!empty($errors) && empty($created)) {
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'errors' => $errors], 422);
+                }
+                DB::commit();
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+            return response()->json([
+                'success' => true,
+                'created_count' => count($created),
+                'errors' => $errors,
+                'data' => $created,
+            ], 201);
+        }
+
+        // Single
+        $validator = Validator::make($payload, [
+            'service_id' => ['required', 'integer', 'exists:services,id'],
+            'asset_id' => ['required', 'integer', 'exists:assets,id'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'unit' => ['nullable', 'string', 'max:50'],
+            'qty' => ['required', 'numeric', 'min:0'],
+            'notes_multiline' => ['nullable', 'string'],
+        ]);
+        $validator->validate();
+        $item = ServiceNeededItem::create($validator->validated());
         return response()->json($item->load(['service:id,name', 'asset:id,name']), 201);
     }
 

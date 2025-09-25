@@ -5,6 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreServiceRequest;
 use App\Http\Requests\UpdateServiceRequest;
 use App\Models\Service;
+use App\Models\ServiceCategory;
+use App\Models\ServiceAdvancedPricing;
+use App\Models\ServiceNeededItem;
+use App\Models\AssociationServicePrice;
+use App\Models\ReferrerServiceCommission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -36,7 +41,11 @@ class ServiceController extends Controller
             $query->where('active', filter_var($request->input('active'), FILTER_VALIDATE_BOOLEAN));
         }
 
-        $services = $query->orderBy('name')->paginate();
+        $services = $query->orderBy('name')->paginate(10);
+        // Hide raw FK ids but keep related models
+        $services->getCollection()->transform(function ($service) {
+            return $service->makeHidden(['service_category_id', 'department_id', 'sub_department_id']);
+        });
         return response()->json($services);
     }
 
@@ -56,7 +65,45 @@ class ServiceController extends Controller
 
     public function show(Service $service): JsonResponse
     {
-        return response()->json($service->load(['category:id,name', 'department:id,name', 'subDepartment:id,name', 'specialist:id,name']));
+        $loaded = $service->load([
+            'category:id,name',
+            'department:id,name',
+            'subDepartment:id,name',
+            'specialists:id,name',
+        ]);
+
+        // Attach per-service categories (JSON list)
+        $serviceCategory = ServiceCategory::where('service_id', $service->id)->first();
+        $loaded->setRelation('service_categories', $serviceCategory);
+
+        // Attach advanced pricing (with specialist)
+        $advancedPricings = ServiceAdvancedPricing::with('specialist:id,name')
+            ->where('service_id', $service->id)
+            ->get();
+        $loaded->setRelation('advanced_pricings', $advancedPricings);
+
+        // Attach needed items (with asset)
+        $neededItems = ServiceNeededItem::with('asset:id,name')
+            ->where('service_id', $service->id)
+            ->get();
+        $loaded->setRelation('needed_items', $neededItems);
+
+        // Attach association pricing rules (with association)
+        $associationPrices = AssociationServicePrice::with('association:id,name')
+            ->where('service_id', $service->id)
+            ->get();
+        $loaded->setRelation('association_prices', $associationPrices);
+
+        // Attach referrer rules (with referrer)
+        $referrerRules = ReferrerServiceCommission::with('referrer:id,name')
+            ->where('service_id', $service->id)
+            ->get();
+        $loaded->setRelation('referrer_rules', $referrerRules);
+
+        // Hide raw IDs but keep related objects
+        $loaded->makeHidden(['service_category_id', 'department_id', 'sub_department_id']);
+
+        return response()->json($loaded);
     }
 
     public function update(UpdateServiceRequest $request, Service $service): JsonResponse

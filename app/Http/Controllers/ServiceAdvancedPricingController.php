@@ -8,6 +8,8 @@ use App\Models\Service;
 use App\Models\ServiceAdvancedPricing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
@@ -23,9 +25,50 @@ class ServiceAdvancedPricingController extends Controller
         return response()->json($query->orderByDesc('id')->paginate());
     }
 
-    public function store(StoreServiceAdvancedPricingRequest $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $pricing = ServiceAdvancedPricing::create($request->validated());
+        $payload = $request->all();
+
+        if (isset($payload[0]) && is_array($payload[0])) {
+            $rules = [
+                'service_id' => ['required', 'integer', 'exists:services,id'],
+                'specialist_id' => ['required', 'integer', 'exists:specialists,id'],
+                'price_on_site' => ['required', 'numeric', 'min:0'],
+                'price_on_call' => ['required', 'numeric', 'min:0'],
+            ];
+            $created = [];
+            $errors = [];
+            DB::beginTransaction();
+            try {
+                foreach ($payload as $index => $row) {
+                    $validator = Validator::make($row, $rules);
+                    if ($validator->fails()) {
+                        $errors[] = ['index' => $index, 'errors' => $validator->errors()];
+                        continue;
+                    }
+                    $created[] = ServiceAdvancedPricing::create($validator->validated())
+                        ->load(['service:id,name', 'specialist:id,name']);
+                }
+                if (!empty($errors) && empty($created)) {
+                    DB::rollBack();
+                    return response()->json(['success' => false, 'errors' => $errors], 422);
+                }
+                DB::commit();
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                throw $e;
+            }
+            return response()->json(['success' => true, 'created_count' => count($created), 'errors' => $errors, 'data' => $created], 201);
+        }
+
+        $validator = Validator::make($payload, [
+            'service_id' => ['required', 'integer', 'exists:services,id'],
+            'specialist_id' => ['required', 'integer', 'exists:specialists,id'],
+            'price_on_site' => ['required', 'numeric', 'min:0'],
+            'price_on_call' => ['required', 'numeric', 'min:0'],
+        ]);
+        $validator->validate();
+        $pricing = ServiceAdvancedPricing::create($validator->validated());
         return response()->json($pricing->load(['service:id,name', 'specialist:id,name']), 201);
     }
 
