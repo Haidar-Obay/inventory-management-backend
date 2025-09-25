@@ -16,6 +16,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use Illuminate\Support\Facades\Storage;
 
 class ServiceController extends Controller
 {
@@ -55,6 +56,12 @@ class ServiceController extends Controller
 
         $specialistIds = $data['specialist_ids'] ?? [];
         unset($data['specialist_ids']);
+
+        // Handle image upload (file or URL string)
+        if ($request->hasFile('image')) {
+            $path = Storage::disk('public')->putFile('services', $request->file('image'));
+            $data['image'] = Storage::url($path);
+        }
 
         $service = Service::create($data);
         if (!empty($specialistIds)) {
@@ -111,6 +118,11 @@ class ServiceController extends Controller
         $data = $request->validated();
         $specialistIds = $data['specialist_ids'] ?? null;
         unset($data['specialist_ids']);
+
+        if ($request->hasFile('image')) {
+            $path = Storage::disk('public')->putFile('services', $request->file('image'));
+            $data['image'] = Storage::url($path);
+        }
 
         $service->update($data);
         if (is_array($specialistIds)) {

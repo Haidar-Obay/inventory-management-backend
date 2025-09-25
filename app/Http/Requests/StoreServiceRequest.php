@@ -32,7 +32,7 @@ class StoreServiceRequest extends FormRequest
             'price_calculated_by_hour' => ['boolean'],
             'hour_price' => ['nullable', 'numeric', 'min:0', 'required_if:price_calculated_by_hour,true'],
             'estimated_cost' => ['nullable', 'numeric', 'min:0'],
-            'image' => ['nullable', 'string', 'max:2048'],
+            'image' => ['nullable'],
             'service_color' => ['nullable', 'string', 'max:50'],
             'service_sex' => ['nullable', Rule::in(['male', 'female', 'both'])],
             'active' => ['boolean'],
