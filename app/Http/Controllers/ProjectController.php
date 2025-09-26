@@ -11,6 +11,8 @@ use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
+use App\Models\Customer;
 
 class ProjectController extends Controller
 {
@@ -141,7 +143,7 @@ class ProjectController extends Controller
             ->select([
                 'projects.id',
                 'projects.name',
-                \DB::raw("CONCAT(customers.first_name, ' ', customers.last_name) as customer_name"),
+                DB::raw("CONCAT(customers.first_name, ' ', customers.last_name) as customer_name"),
                 'projects.start_date',
                 'projects.end_date',
                 'projects.expected_date'
@@ -170,28 +172,127 @@ class ProjectController extends Controller
         return $pdf->download('Projects.pdf');
     }
 
-    public function import(Request $request)
+    public function importFromExcel(Request $request)
     {
         $tenantId = tenant('id');
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv|max:2048'
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            // Get model class from the import
+            Project::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
+
         try {
-            $import = new DynamicExcelImport(Project::class);
+            $import = new DynamicExcelImport(
+                Project::class,
+                ['name', 'start_date', 'end_date', 'expected_date', 'customer_id'],
+                function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $errors = [];
+                    if (($row['name'] ?? '') === '') $errors[] = 'Missing name';
+                    if (($row['customer_id'] ?? '') === '') $errors[] = 'Missing customer_id';
+                    // Validate foreign keys in a readable way so rows are skipped instead of causing SQL errors
+                    if (($row['customer_id'] ?? '') !== '') {
+                        $customerId = $row['customer_id'];
+                        if (!Customer::where('id', $customerId)->exists()) {
+                            $errors[] = "Invalid customer_id: {$customerId} not found";
+                        }
+                    }
+                    return $errors;
+                },
+                function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    return [
+                        'name' => $row['name'] ?? null,
+                        'description' => $row['description'] ?? null,
+                        'customer_id' => $row['customer_id'] ?? null,
+                        'start_date' => $row['start_date'] ?? null,
+                        'end_date' => $row['end_date'] ?? null,
+                        'status' => $row['status'] ?? 'active',
+                    ];
+                },
+                true // Enable header validation
+            );
+            
             Excel::import($import, $request->file('file'));
-            app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+            
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
                 return response()->json([
-                'status' => true,
-                'message' => 'Import successful',
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
+            
+            app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+
+            $imported = $import->getImportedCount();
+            $skippedCount = $import->getSkippedCount();
+            $skippedRows = $import->getSkippedRows();
+            $totalProcessed = $imported + $skippedCount;
+
+            $message = '';
+            if ($imported > 0 && $skippedCount === 0) {
+                $message = "Imported {$imported} row(s) successfully.";
+            } elseif ($imported > 0 && $skippedCount > 0) {
+                $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+            } elseif ($imported === 0 && $skippedCount > 0) {
+                $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+            } else {
+                $message = 'No rows found to import.';
+            }
+
+            return response()->json([
+                'success' => $imported > 0,
+                'message' => $message,
+                'rows_processed' => $totalProcessed,
+                'rows_imported' => $imported,
+                'rows_skipped_count' => $skippedCount,
+                'skipped_rows' => $skippedRows,
             ]);
-        } catch (\Exception $e) {
+        } catch (QueryException $e) {
+            // Handle FK violations and other DB errors with user-friendly messages
+            $message = $e->getMessage();
+            $readable = 'Import failed due to invalid related data.';
+            // Postgres SQLSTATE 23503 (foreign key violation) or generic FK text
+            if (str_contains($message, 'SQLSTATE[23503]') || str_contains(strtolower($message), 'foreign key')) {
+                $readable = 'Import failed: One or more rows reference a customer that does not exist. Please verify customer_id values.';
+            }
             return response()->json([
                 'status' => false,
-                'message' => 'Import failed: ' . $e->getMessage(),
-            ]);
+                'message' => $readable,
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Import failed due to an unexpected error. Please check your file and try again.',
+            ], 422);
         }
     }
+
+    
 
     public function getCustomerProjects($customerId)
     {

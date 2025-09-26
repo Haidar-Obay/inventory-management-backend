@@ -364,10 +364,16 @@ class CustomerMasterListController extends Controller
         }
     }
 
-    public function import(Request $request)
+    public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
         try {
@@ -375,34 +381,36 @@ class CustomerMasterListController extends Controller
                 CustomerMasterList::class,
                 ['date', 'name', 'valid_from', 'valid_till', 'itemcode', 'price', 'discount'],
                 function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                     $errors = [];
 
-                    if (empty($row['date'])) {
+                    if (($row['date'] ?? '') === '') {
                         $errors[] = 'Missing date';
                     }
-                    if (empty($row['name'])) {
+                    if (($row['name'] ?? '') === '') {
                         $errors[] = 'Missing name';
                     }
-                    if (empty($row['valid_from'])) {
+                    if (($row['valid_from'] ?? '') === '') {
                         $errors[] = 'Missing valid from date';
                     }
-                    if (empty($row['valid_till'])) {
+                    if (($row['valid_till'] ?? '') === '') {
                         $errors[] = 'Missing valid till date';
                     }
-                    if (empty($row['price']) || !is_numeric($row['price'])) {
+                    if (!isset($row['price']) || $row['price'] === '' || !is_numeric($row['price'])) {
                         $errors[] = 'Invalid price';
                     }
 
                     return $errors;
                 },
                 function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                     return [
-                        'date' => $row['date'],
-                        'name' => $row['name'],
-                        'valid_from' => $row['valid_from'],
-                        'valid_till' => $row['valid_till'],
+                        'date' => $row['date'] ?? null,
+                        'name' => $row['name'] ?? null,
+                        'valid_from' => $row['valid_from'] ?? null,
+                        'valid_till' => $row['valid_till'] ?? null,
                         'itemcode' => $row['itemcode'] ?? null,
-                        'price' => floatval($row['price']),
+                        'price' => isset($row['price']) ? floatval($row['price']) : null,
                         'discount' => isset($row['discount']) ? floatval($row['discount']) : 0.00,
                     ];
                 }
@@ -414,12 +422,29 @@ class CustomerMasterListController extends Controller
             $tenantId = tenant('id');
             app('cache')->store('database')->forget("tenant_{$tenantId}_customer_master_lists");
 
+            $imported = $import->getImportedCount();
+            $skippedCount = $import->getSkippedCount();
+            $skippedRows = $import->getSkippedRows();
+            $totalProcessed = $imported + $skippedCount;
+
+            $message = '';
+            if ($imported > 0 && $skippedCount === 0) {
+                $message = "Imported {$imported} row(s) successfully.";
+            } elseif ($imported > 0 && $skippedCount > 0) {
+                $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+            } elseif ($imported === 0 && $skippedCount > 0) {
+                $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+            } else {
+                $message = 'No rows found to import.';
+            }
+
             return response()->json([
-                'status' => true,
-                'message' => 'Customer master lists imported successfully.',
-                'rows_imported' => $import->getImportedCount(),
-                'rows_skipped_count' => $import->getSkippedCount(),
-                'skipped_rows' => $import->getSkippedRows(),
+                'success' => $imported > 0,
+                'message' => $message,
+                'rows_processed' => $totalProcessed,
+                'rows_imported' => $imported,
+                'rows_skipped_count' => $skippedCount,
+                'skipped_rows' => $skippedRows,
             ]);
         } catch (\Exception $e) {
             return response()->json([

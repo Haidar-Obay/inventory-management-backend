@@ -242,40 +242,83 @@ class AssignmentController extends Controller
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
+
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            Assignment::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
+        $fields = $mapping ? array_values($mapping) : ['asset_id', 'user_id', 'start_at', 'end_at', 'status', 'notes'];
 
         $import = new DynamicExcelImport(
             Assignment::class,
-            ['asset_id', 'user_id', 'start_at', 'end_at', 'status', 'notes'],
-            function ($row) {
+            $fields,
+            function ($row) use ($mapping) {
                 $errors = [];
+                $assetIdKey = $mapping ? array_search('asset_id', $mapping) : 'asset_id';
+                $userIdKey = $mapping ? array_search('user_id', $mapping) : 'user_id';
 
-                if (empty($row['asset_id'])) {
+                if (empty($row[$assetIdKey])) {
                     $errors[] = 'Missing asset_id';
                 }
-                if (empty($row['user_id'])) {
+                if (empty($row[$userIdKey])) {
                     $errors[] = 'Missing user_id';
                 }
-                if (empty($row['start_at'])) {
+                $startAtKey = $mapping ? array_search('start_at', $mapping) : 'start_at';
+                if (empty($row[$startAtKey])) {
                     $errors[] = 'Missing start_at';
                 }
 
                 return $errors;
             },
-            function ($row) {
+            function ($row) use ($mapping) {
+                $assetIdKey = $mapping ? array_search('asset_id', $mapping) : 'asset_id';
+                $userIdKey = $mapping ? array_search('user_id', $mapping) : 'user_id';
+                $startAtKey = $mapping ? array_search('start_at', $mapping) : 'start_at';
+                $endAtKey = $mapping ? array_search('end_at', $mapping) : 'end_at';
+                $statusKey = $mapping ? array_search('status', $mapping) : 'status';
+                $notesKey = $mapping ? array_search('notes', $mapping) : 'notes';
                 return [
-                    'asset_id' => $row['asset_id'],
-                    'user_id' => $row['user_id'],
-                    'start_at' => $row['start_at'],
-                    'end_at' => $row['end_at'] ?? null,
-                    'status' => $row['status'] ?? 'active',
-                    'notes' => $row['notes'] ?? null,
+                    'asset_id' => $row[$assetIdKey] ?? null,
+                    'user_id' => $row[$userIdKey] ?? null,
+                    'start_at' => $row[$startAtKey] ?? null,
+                    'end_at' => $row[$endAtKey] ?? null,
+                    'status' => $row[$statusKey] ?? 'active',
+                    'notes' => $row[$notesKey] ?? null,
                 ];
-            }
+            },
+            true // Enable header validation
         );
 
         Excel::import($import, $request->file('file'));
+
+        // Check if headers were valid
+        if (!$import->areHeadersValid()) {
+            $headerResult = $import->getHeaderValidationResult();
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Excel file headers',
+                'header_validation' => $headerResult,
+                'errors' => [
+                    'missing_headers' => $headerResult['missing'],
+                    'extra_headers' => $headerResult['extra'],
+                    'expected_headers' => $headerResult['expected_headers'],
+                    'actual_headers' => $headerResult['excel_headers']
+                ]
+            ], 422);
+        }
 
         app('cache')->store('database')->forget('tenant_' . tenant('id') . '_assignments');
 

@@ -175,41 +175,95 @@ class CompanyCodeController extends Controller
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
+
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            CompanyCode::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
+        $fields = $mapping ? array_values($mapping) : ['code', 'name'];
 
         $import = new DynamicExcelImport(
             CompanyCode::class,
-            ['code', 'name'],
-            function ($row) {
+            $fields,
+            function ($row) use ($mapping) {
+                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
 
-                if (empty($row['code'])) {
-                    $errors[] = 'Missing code';
-                }
-                if (empty($row['name'])) {
-                    $errors[] = 'Missing name';
-                }
+                if (($row[$codeKey] ?? '') === '') { $errors[] = 'Missing code'; }
+                if (($row[$nameKey] ?? '') === '') { $errors[] = 'Missing name'; }
 
                 return $errors;
             },
-            function ($row) {
+            function ($row) use ($mapping) {
+                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 return [
-                    'code' => $row['code'],
-                    'name' => $row['name'],
+                    'code' => $row[$codeKey] ?? null,
+                    'name' => $row[$nameKey] ?? null,
                 ];
-            }
+            },
+            true // Enable header validation
         );
 
         Excel::import($import, $request->file('file'));
 
+        // Check if headers were valid
+        if (!$import->areHeadersValid()) {
+            $headerResult = $import->getHeaderValidationResult();
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Excel file headers',
+                'header_validation' => $headerResult,
+                'errors' => [
+                    'missing_headers' => $headerResult['missing'],
+                    'extra_headers' => $headerResult['extra'],
+                    'expected_headers' => $headerResult['expected_headers'],
+                    'actual_headers' => $headerResult['excel_headers']
+                ]
+            ], 422);
+        }
+
         app('cache')->store('database')->forget('tenant_' . tenant('id') . '_company_codes');
 
+        $imported = $import->getImportedCount();
+        $skippedCount = $import->getSkippedCount();
+        $skippedRows = $import->getSkippedRows();
+        $totalProcessed = $imported + $skippedCount;
+
+        $message = '';
+        if ($imported > 0 && $skippedCount === 0) {
+            $message = "Imported {$imported} row(s) successfully.";
+        } elseif ($imported > 0 && $skippedCount > 0) {
+            $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+        } elseif ($imported === 0 && $skippedCount > 0) {
+            $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+        } else {
+            $message = 'No rows found to import.';
+        }
+
         return response()->json([
-            'success' => true,
-            'rows_imported' => $import->getImportedCount(),
-            'rows_skipped_count' => $import->getSkippedCount(),
-            'skipped_rows' => $import->getSkippedRows(),
+            'success' => $imported > 0,
+            'message' => $message,
+            'rows_processed' => $totalProcessed,
+            'rows_imported' => $imported,
+            'rows_skipped_count' => $skippedCount,
+            'skipped_rows' => $skippedRows,
         ]);
     }
 }

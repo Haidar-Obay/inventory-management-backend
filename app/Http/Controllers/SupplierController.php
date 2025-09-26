@@ -878,28 +878,178 @@ class SupplierController extends Controller
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls'
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
         try {
-            $import = new DynamicExcelImport('suppliers');
+            // If type is 'fresh', delete all records first so duplicate detection does not skip rows
+            if ($request->input('type') === 'fresh') {
+                Supplier::truncate();
+            }
+            $import = new DynamicExcelImport(
+                Supplier::class,
+                [
+                    'title',
+                    'first_name',
+                    'middle_name',
+                    'last_name',
+                    'display_name',
+                    'company_name',
+                    'phone1',
+                    'phone2',
+                    'phone3',
+                    'file_number',
+                    'barcode',
+                    'search_terms',
+                    'trade_id',
+                    'supplier_group_id',
+                    'business_type_id',
+                    'indicator',
+                    'currency_id',
+                    'opening_amount',
+                    'opening_date',
+                    'payment_term_id',
+                    'payment_method_id',
+                    'credit_limit',
+                    'payment_day',
+                    'track_payment',
+                    'settlement_method',
+                    'accept_cheques',
+                    'max_cheques',
+                    'notes',
+                    'taxable',
+                    'taxed_from_date',
+                    'taxed_till_date',
+                    'subjected_to_tax',
+                    'added_tax',
+                    'catalog',
+                    'is_foreign',
+                    'active',
+                    'add_message',
+                    'message',
+                    'contacts_id'
+                ],
+                function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $errors = [];
+                    if (($row['first_name'] ?? '') === '') $errors[] = 'Missing first_name';
+                    if (($row['last_name'] ?? '') === '') $errors[] = 'Missing last_name';
+                    if (($row['phone1'] ?? '') === '') $errors[] = 'Missing phone1';
+                    // Validate foreign keys as numeric if present
+                    foreach (['trade_id','supplier_group_id','business_type_id','currency_id','payment_term_id','payment_method_id','contacts_id'] as $fk) {
+                        if (isset($row[$fk]) && $row[$fk] !== '' && !is_numeric($row[$fk])) {
+                            $errors[] = "Invalid $fk: must be numeric ID";
+                        }
+                    }
+                    return $errors;
+                },
+                function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    return [
+                        'title' => $row['title'] ?? null,
+                        'first_name' => $row['first_name'] ?? null,
+                        'middle_name' => $row['middle_name'] ?? null,
+                        'last_name' => $row['last_name'] ?? null,
+                        'display_name' => $row['display_name'] ?? null,
+                        'company_name' => $row['company_name'] ?? null,
+                        'phone1' => $row['phone1'] ?? null,
+                        'phone2' => $row['phone2'] ?? null,
+                        'phone3' => $row['phone3'] ?? null,
+                        'file_number' => $row['file_number'] ?? null,
+                        'barcode' => $row['barcode'] ?? null,
+                        'search_terms' => $row['search_terms'] ?? null,
+                        'trade_id' => $row['trade_id'] ?? null,
+                        'supplier_group_id' => $row['supplier_group_id'] ?? null,
+                        'business_type_id' => $row['business_type_id'] ?? null,
+                        'indicator' => $row['indicator'] ?? null,
+                        'currency_id' => $row['currency_id'] ?? null,
+                        'opening_amount' => $row['opening_amount'] ?? null,
+                        'opening_date' => $row['opening_date'] ?? null,
+                        'payment_term_id' => $row['payment_term_id'] ?? null,
+                        'payment_method_id' => $row['payment_method_id'] ?? null,
+                        'credit_limit' => $row['credit_limit'] ?? null,
+                        'payment_day' => $row['payment_day'] ?? null,
+                        'track_payment' => $row['track_payment'] ?? null,
+                        'settlement_method' => $row['settlement_method'] ?? null,
+                        'accept_cheques' => $row['accept_cheques'] ?? null,
+                        'max_cheques' => $row['max_cheques'] ?? null,
+                        'notes' => $row['notes'] ?? null,
+                        'taxable' => $row['taxable'] ?? null,
+                        'taxed_from_date' => $row['taxed_from_date'] ?? null,
+                        'taxed_till_date' => $row['taxed_till_date'] ?? null,
+                        'subjected_to_tax' => $row['subjected_to_tax'] ?? null,
+                        'added_tax' => $row['added_tax'] ?? null,
+                        'catalog' => $row['catalog'] ?? null,
+                        'is_foreign' => $row['is_foreign'] ?? null,
+                        'active' => isset($row['active']) ? (bool)$row['active'] : true,
+                        'add_message' => $row['add_message'] ?? null,
+                        'message' => $row['message'] ?? null,
+                        'contacts_id' => $row['contacts_id'] ?? null,
+                    ];
+                },
+                true, // Enable header validation
+                $request->input('type') === 'fresh' // Skip duplicate check when fresh
+            );
+            
             Excel::import($import, $request->file('file'));
+            
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
+
+            $imported = $import->getImportedCount();
+            $skippedCount = $import->getSkippedCount();
+            $skippedRows = $import->getSkippedRows();
+            $totalProcessed = $imported + $skippedCount;
+
+            $message = '';
+            if ($imported > 0 && $skippedCount === 0) {
+                $message = "Imported {$imported} row(s) successfully.";
+            } elseif ($imported > 0 && $skippedCount > 0) {
+                $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+            } elseif ($imported === 0 && $skippedCount > 0) {
+                $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+            } else {
+                $message = 'No rows found to import.';
+            }
 
             return response()->json([
-                'status' => 'success',
-                'message' => 'Suppliers imported successfully',
-                'data' => [
-                    'imported_count' => $import->getImportedCount(),
-                    'errors' => $import->getSkippedRows()
-                ]
+                'success' => $imported > 0,
+                'message' => $message,
+                'rows_processed' => $totalProcessed,
+                'rows_imported' => $imported,
+                'rows_skipped_count' => $skippedCount,
+                'skipped_rows' => $skippedRows,
             ]);
 
         } catch (\Exception $e) {
+            // Log the error for debugging
+            \Log::error('Supplier import failed: ' . $e->getMessage(), ['exception' => $e]);
             return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to import suppliers',
-                'error' => $e->getMessage()
-            ], 500);
+                'success' => false,
+                'message' => 'Import failed due to invalid data. Please check your file for invalid or missing references (e.g., payment method, etc.).',
+                'error_type' => 'database',
+            ], 422);
         }
     }
 

@@ -87,9 +87,10 @@ foreach (config('tenancy.central_domains') as $domain) {
         // User Management
 
         Route::middleware(['auth:sanctum'])->group(function () {
-            Route::post('/register', [UserManagementController::class, 'registerUser']);
+            Route::post('/register', [UserManagementController::class, 'registerUserForCentral']);
             Route::post('/logout', [AuthController::class, 'logout']);
-            Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsers']);
+            // Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsers']);
+            Route::get('/get-all-users', action: [UserManagementController::class, 'getAllUsersForCentral']);
             Route::get('/get-user/{id}', action: [UserManagementController::class, 'getUser']);
             Route::put('/update-user/{id}', [UserManagementController::class, 'updateUser']);
             Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser']);

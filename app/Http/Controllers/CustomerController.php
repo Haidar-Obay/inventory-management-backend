@@ -939,23 +939,8 @@ class CustomerController extends Controller
 
     public function exportExcell()
     {
-        $customers = Customer::with([
-            'customerGroup',
-            'salesman',
-            'collector',
-            'supervisor',
-            'manager',
-            'paymentTerm',
-            'paymentMethod',
-            'trade',
-            'companyCode',
-            'businessType',
-            'salesChannel',
-            'distributionChannel',
-            'mediaChannel',
-        ])->select('id', 'first_name', 'last_name');
-        $collection = $customers->get();
-        if ($collection->isEmpty()) {
+        $customers = Customer::query();
+        if ((clone $customers)->count() === 0) {
             return response()->json(['message' => 'No customers found.'], 404);
         }
         $columns = [
@@ -987,20 +972,22 @@ class CustomerController extends Controller
             'payment_term_id',
             'payment_method_id',
             'allow_credit',
-            'accept_cheque',
+            'accept_cheques',
             'payment_day',
             'track_payment',
             'settlement_method',
-            'pricing_choice',
+            'price_choice',
             'global_discount',
             'discount_class',
             'markup_percentage',
             'markdown_percentage',
             'taxable',
-            'tax_rate',
-            'tax_number',
-            'is_exempted',
-            'exemption_from',
+            'taxed_from_date',
+            'taxed_till_date',
+            'subjected_to_tax',
+            'added_tax',
+            'exempted',
+            'exempted_from',
             'exemption_reference',
             'exempted_from_date',
             'exempted_till_date',
@@ -1012,8 +999,8 @@ class CustomerController extends Controller
             'free_delivery_charge',
             'print_invoice_language',
             'send_invoice',
-            'add_message',
-            'invoice_message',
+            'showMessageField',
+            'message',
             'contacts_id',
             'notes'
         ];
@@ -1046,20 +1033,22 @@ class CustomerController extends Controller
             'Payment Term ID',
             'Payment Method ID',
             'Allow Credit',
-            'Accept Cheque',
+            'Accept Cheques',
             'Payment Day',
             'Track Payment',
             'Settlement Method',
-            'Pricing Choice',
+            'Price Choice',
             'Global Discount',
             'Discount Class',
             'Markup Percentage',
             'Markdown Percentage',
             'Taxable',
-            'Tax Rate',
-            'Tax Number',
+            'Taxed From Date',
+            'Taxed Till Date',
+            'Subjected To Tax',
+            'Added Tax',
             'Is Exempted',
-            'Exemption From',
+            'Exempted From',
             'Exemption Reference',
             'Exempted From Date',
             'Exempted Till Date',
@@ -1082,7 +1071,11 @@ class CustomerController extends Controller
     //export pdf
     public function exportPdf(ExportPDF $pdfService)
     {
-        $customers = Customer::select(
+        $requestedColumns = request()->input('columns');
+        $order = request()->input('order');
+        // Size and layout options (orientation, fit, fontSize) are read by ExportPDF from request
+
+        $baseColumns = [
             'id',
             'first_name',
             'last_name',
@@ -1111,20 +1104,22 @@ class CustomerController extends Controller
             'payment_term_id',
             'payment_method_id',
             'allow_credit',
-            'accept_cheque',
+            'accept_cheques',
             'payment_day',
             'track_payment',
             'settlement_method',
-            'pricing_choice',
+            'price_choice',
             'global_discount',
             'discount_class',
             'markup_percentage',
             'markdown_percentage',
             'taxable',
-            'tax_rate',
-            'tax_number',
-            'is_exempted',
-            'exemption_from',
+            'taxed_from_date',
+            'taxed_till_date',
+            'subjected_to_tax',
+            'added_tax',
+            'exempted',
+            'exempted_from',
             'exemption_reference',
             'exempted_from_date',
             'exempted_till_date',
@@ -1136,11 +1131,24 @@ class CustomerController extends Controller
             'free_delivery_charge',
             'print_invoice_language',
             'send_invoice',
-            'add_message',
-            'invoice_message',
+            'showMessageField',
+            'message',
             'contacts_id',
             'notes'
-        )->get();
+        ];
+
+        $columns = is_array($requestedColumns) && !empty($requestedColumns)
+            ? array_values(array_intersect($requestedColumns, $baseColumns))
+            : $baseColumns;
+
+        $query = Customer::select($columns);
+
+        if (is_array($order) && isset($order['by']) && in_array($order['by'], $columns, true)) {
+            $direction = strtolower($order['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+            $query->orderBy($order['by'], $direction);
+        }
+
+        $customers = $query->get();
 
         if ($customers->isEmpty()) {
             return response()->json(['message' => 'No customers found.'], 404);
@@ -1176,20 +1184,22 @@ class CustomerController extends Controller
             'payment_term_id' => 'Payment Term ID',
             'payment_method_id' => 'Payment Method ID',
             'allow_credit' => 'Allow Credit',
-            'accept_cheque' => 'Accept Cheque',
+            'accept_cheques' => 'Accept Cheque',
             'payment_day' => 'Payment Day',
             'track_payment' => 'Track Payment',
             'settlement_method' => 'Settlement Method',
-            'pricing_choice' => 'Pricing Choice',
+            'price_choice' => 'Price Choice',
             'global_discount' => 'Global Discount',
             'discount_class' => 'Discount Class',
             'markup_percentage' => 'Markup Percentage',
             'markdown_percentage' => 'Markdown Percentage',
             'taxable' => 'Taxable',
-            'tax_rate' => 'Tax Rate',
-            'tax_number' => 'Tax Number',
-            'is_exempted' => 'Is Exempted',
-            'exemption_from' => 'Exemption From',
+            'taxed_from_date' => 'Taxed From Date',
+            'taxed_till_date' => 'Taxed Till Date',
+            'subjected_to_tax' => 'Subjected To Tax',
+            'added_tax' => 'Added Tax',
+            'exempted' => 'Is Exempted',
+            'exempted_from' => 'Exempted From',
             'exemption_reference' => 'Exemption Reference',
             'exempted_from_date' => 'Exempted From Date',
             'exempted_till_date' => 'Exempted Till Date',
@@ -1201,13 +1211,27 @@ class CustomerController extends Controller
             'free_delivery_charge' => 'Free Delivery Charge',
             'print_invoice_language' => 'Print Invoice Language',
             'send_invoice' => 'Send Invoice',
-            'add_message' => 'Add Message',
-            'invoice_message' => 'Invoice Message',
+            'showMessageField' => 'Add Message',
+            'message' => 'Invoice Message',
             'contacts_id' => 'Contacts ID',
             'notes' => 'Notes'
         ];
 
         $data = $customers->toArray();
+
+        // Reorder headers to match selected columns
+        if (!empty($requestedColumns)) {
+            $headers = array_filter($headers, function ($key) use ($columns) {
+                return in_array($key, $columns, true);
+            }, ARRAY_FILTER_USE_KEY);
+            $headers = array_replace(array_flip($columns), $headers);
+            foreach ($headers as $key => $val) {
+                if ($val === $key) {
+                    unset($headers[$key]);
+                    $headers[$key] = ucfirst(str_replace('_', ' ', $key));
+                }
+            }
+        }
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
         return $pdf->download('customers.pdf');
@@ -1216,10 +1240,24 @@ class CustomerController extends Controller
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
-        $import = new DynamicExcelImport(
+        try {
+            // If type is 'fresh', delete all records first so duplicate detection does not skip rows
+            if ($request->input('type') === 'fresh') {
+                Customer::truncate();
+            }
+
+            $import = new DynamicExcelImport(
             Customer::class,
             [
                 'first_name',
@@ -1249,20 +1287,22 @@ class CustomerController extends Controller
                 'payment_term_id',
                 'payment_method_id',
                 'allow_credit',
-                'accept_cheque',
+                'accept_cheques',
                 'payment_day',
                 'track_payment',
                 'settlement_method',
-                'pricing_choice',
+                'price_choice',
                 'global_discount',
                 'discount_class',
                 'markup_percentage',
                 'markdown_percentage',
                 'taxable',
-                'tax_rate',
-                'tax_number',
-                'is_exempted',
-                'exemption_from',
+                'taxed_from_date',
+                'taxed_till_date',
+                'subjected_to_tax',
+                'added_tax',
+                'exempted',
+                'exempted_from',
                 'exemption_reference',
                 'exempted_from_date',
                 'exempted_till_date',
@@ -1274,21 +1314,20 @@ class CustomerController extends Controller
                 'free_delivery_charge',
                 'print_invoice_language',
                 'send_invoice',
-                'add_message',
-                'invoice_message',
+                'showMessageField',
+                'message',
                 'contacts_id',
                 'notes'
             ],
             function ($row) {
+                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
 
-                // Required fields
-                if (empty($row['first_name']))
+                if (($row['first_name'] ?? '') === '')
                     $errors[] = 'Missing first_name';
-                if (empty($row['last_name']))
+                if (($row['last_name'] ?? '') === '')
                     $errors[] = 'Missing last_name';
 
-                // Optional validations
                 foreach (['phone1', 'phone2', 'phone3'] as $phoneField) {
                     if (!empty($row[$phoneField]) && !is_string($row[$phoneField])) {
                         $errors[] = "$phoneField must be a string";
@@ -1310,11 +1349,12 @@ class CustomerController extends Controller
                 return $errors;
             },
             function ($row) {
+                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 return [
                     'title' => $row['title'] ?? null,
-                    'first_name' => $row['first_name'],
+                    'first_name' => $row['first_name'] ?? null,
                     'middle_name' => $row['middle_name'] ?? null,
-                    'last_name' => $row['last_name'],
+                    'last_name' => $row['last_name'] ?? null,
                     'display_name' => $row['display_name'] ?? null,
                     'company_name' => $row['company_name'] ?? null,
                     'phone1' => $row['phone1'] ?? null,
@@ -1339,20 +1379,22 @@ class CustomerController extends Controller
                     'payment_term_id' => $row['payment_term_id'] ?? null,
                     'payment_method_id' => $row['payment_method_id'] ?? null,
                     'allow_credit' => boolval($row['allow_credit'] ?? false),
-                    'accept_cheque' => boolval($row['accept_cheque'] ?? false),
+                    'accept_cheques' => boolval($row['accept_cheques'] ?? false),
                     'payment_day' => $row['payment_day'] ?? null,
                     'track_payment' => $row['track_payment'] ?? 'no',
                     'settlement_method' => $row['settlement_method'] ?? null,
-                    'pricing_choice' => $row['pricing_choice'] ?? null,
+                    'price_choice' => $row['price_choice'] ?? null,
                     'global_discount' => $row['global_discount'] ?? null,
                     'discount_class' => $row['discount_class'] ?? null,
                     'markup_percentage' => $row['markup_percentage'] ?? null,
                     'markdown_percentage' => $row['markdown_percentage'] ?? null,
                     'taxable' => boolval($row['taxable'] ?? false),
-                    'tax_rate' => $row['tax_rate'] ?? null,
-                    'tax_number' => $row['tax_number'] ?? null,
-                    'is_exempted' => boolval($row['is_exempted'] ?? false),
-                    'exemption_from' => $row['exemption_from'] ?? null,
+                    'taxed_from_date' => $row['taxed_from_date'] ?? null,
+                    'taxed_till_date' => $row['taxed_till_date'] ?? null,
+                    'subjected_to_tax' => boolval($row['subjected_to_tax'] ?? false),
+                    'added_tax' => $row['added_tax'] ?? null,
+                    'exempted' => boolval($row['exempted'] ?? false),
+                    'exempted_from' => $row['exempted_from'] ?? null,
                     'exemption_reference' => $row['exemption_reference'] ?? null,
                     'exempted_from_date' => $row['exempted_from_date'] ?? null,
                     'exempted_till_date' => $row['exempted_till_date'] ?? null,
@@ -1364,22 +1406,68 @@ class CustomerController extends Controller
                     'free_delivery_charge' => boolval($row['free_delivery_charge'] ?? false),
                     'print_invoice_language' => $row['print_invoice_language'] ?? 'English',
                     'send_invoice' => $row['send_invoice'] ?? 'email',
-                    'add_message' => boolval($row['add_message'] ?? false),
-                    'invoice_message' => $row['invoice_message'] ?? null,
+                    'showMessageField' => boolval($row['showMessageField'] ?? false),
+                    'message' => $row['message'] ?? null,
                     'contacts_id' => $row['contacts_id'] ?? null,
                     'notes' => $row['notes'] ?? null,
                 ];
-            }
+            },
+            true, // Enable header validation
+            $request->input('type') === 'fresh' // Skip duplicate check when fresh
         );
 
-        Excel::import($import, $request->file('file'));
+            Excel::import($import, $request->file('file'));
 
-        return response()->json([
-            'success' => true,
-            'rows_imported' => $import->getImportedCount(),
-            'rows_skipped_count' => $import->getSkippedCount(),
-            'skipped_rows' => $import->getSkippedRows(),
-        ]);
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
+
+            $imported = $import->getImportedCount();
+            $skippedCount = $import->getSkippedCount();
+            $skippedRows = $import->getSkippedRows();
+            $totalProcessed = $imported + $skippedCount;
+
+            $message = '';
+            if ($imported > 0 && $skippedCount === 0) {
+                $message = "Imported {$imported} row(s) successfully.";
+            } elseif ($imported > 0 && $skippedCount > 0) {
+                $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+            } elseif ($imported === 0 && $skippedCount > 0) {
+                $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+            } else {
+                $message = 'No rows found to import.';
+            }
+
+            return response()->json([
+                'success' => $imported > 0,
+                'message' => $message,
+                'rows_processed' => $totalProcessed,
+                'rows_imported' => $imported,
+                'rows_skipped_count' => $skippedCount,
+                'skipped_rows' => $skippedRows,
+                'header_validation' => $import->getHeaderValidationResult(),
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Log the error for debugging
+            \Log::error('Import failed: ' . $e->getMessage(), ['exception' => $e]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Import failed due to invalid data. Please check your file for invalid or missing references (e.g., payment method, salesman, etc.).',
+                'error_type' => 'database',
+            ], 422);
+        }
     }
 
     public function getNames()

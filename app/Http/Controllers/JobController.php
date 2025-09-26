@@ -10,6 +10,8 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use Illuminate\Database\QueryException;
+use App\Models\Project;
 
 class JobController extends Controller
 {
@@ -173,51 +175,128 @@ class JobController extends Controller
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
+
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            // Get model class from the import
+            Job::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
 
         $import = new DynamicExcelImport(
             Job::class,
             ['code', 'description', 'project_id', 'start_date', 'expected_date', 'end_date'],
             function ($row) {
+                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
 
-                if (empty($row['description'])) {
+                if (($row['description'] ?? '') === '') {
                     $errors[] = 'Missing description';
                 }
-                if (empty($row['project_id'])) {
+                if (($row['project_id'] ?? '') === '') {
                     $errors[] = 'Missing project';
+                } else {
+                    $projectId = $row['project_id'];
+                    if (!Project::where('id', $projectId)->exists()) {
+                        $errors[] = "Invalid project_id: {$projectId} not found";
+                    }
                 }
-                if (empty($row['start_date'])) {
+                if (($row['start_date'] ?? '') === '') {
                     $errors[] = 'Missing start date';
                 }
-                if (empty($row['expected_date'])) {
+                if (($row['expected_date'] ?? '') === '') {
                     $errors[] = 'Missing expected date';
                 }
 
                 return $errors;
             },
             function ($row) {
+                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 return [
-                    'code' => $row['code'],
-                    'description' => $row['description'],
-                    'project_id' => $row['project_id'],
-                    'start_date' => $row['start_date'],
-                    'expected_date' => $row['expected_date'],
+                    'code' => $row['code'] ?? null,
+                    'description' => $row['description'] ?? null,
+                    'project_id' => $row['project_id'] ?? null,
+                    'start_date' => $row['start_date'] ?? null,
+                    'expected_date' => $row['expected_date'] ?? null,
                     'end_date' => $row['end_date'] ?? null,
                 ];
-            }
+            },
+            true, // Enable header validation
+            $request->input('type') === 'fresh' // Skip duplicate check when fresh
         );
 
-        Excel::import($import, $request->file('file'));
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (QueryException $e) {
+            $message = $e->getMessage();
+            $readable = 'Import failed due to invalid related data.';
+            if (str_contains($message, 'SQLSTATE[23503]') || str_contains(strtolower($message), 'foreign key')) {
+                $readable = 'Import failed: One or more rows reference a project that does not exist. Please verify project_id values.';
+            }
+            return response()->json([
+                'status' => false,
+                'message' => $readable,
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Import failed due to an unexpected error. Please check your file and try again.',
+            ], 422);
+        }
+
+        // Check if headers were valid
+        if (!$import->areHeadersValid()) {
+            $headerResult = $import->getHeaderValidationResult();
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Excel file headers',
+                'header_validation' => $headerResult,
+                'errors' => [
+                    'missing_headers' => $headerResult['missing'],
+                    'extra_headers' => $headerResult['extra'],
+                    'expected_headers' => $headerResult['expected_headers'],
+                    'actual_headers' => $headerResult['excel_headers']
+                ]
+            ], 422);
+        }
 
         app('cache')->store('database')->forget('tenant_' . tenant('id') . '_jobs');
 
+        $imported = $import->getImportedCount();
+        $skippedCount = $import->getSkippedCount();
+        $skippedRows = $import->getSkippedRows();
+        $totalProcessed = $imported + $skippedCount;
+
+        $message = '';
+        if ($imported > 0 && $skippedCount === 0) {
+            $message = "Imported {$imported} row(s) successfully.";
+        } elseif ($imported > 0 && $skippedCount > 0) {
+            $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+        } elseif ($imported === 0 && $skippedCount > 0) {
+            $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+        } else {
+            $message = 'No rows found to import.';
+        }
+
         return response()->json([
-            'success' => true,
-            'rows_imported' => $import->getImportedCount(),
-            'rows_skipped_count' => $import->getSkippedCount(),
-            'skipped_rows' => $import->getSkippedRows(),
+            'success' => $imported > 0,
+            'message' => $message,
+            'rows_processed' => $totalProcessed,
+            'rows_imported' => $imported,
+            'rows_skipped_count' => $skippedCount,
+            'skipped_rows' => $skippedRows,
         ]);
     }
 

@@ -97,6 +97,33 @@ class UserManagementController extends Controller
         return response()->json(['message' => 'User created successfully.', 'user' => $user], 201);
     }
 
+    public function registerUserForCentral(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required',
+            'email' => 'required_if:active,true|nullable|email|unique:users',
+            'password' => 'required_if:active,true|nullable',
+            'active' => 'boolean',
+        ]);
+
+        $userData = [
+            'name' => $validated['name'],
+            'active' => $validated['active'] ?? true,
+        ];
+
+        // Only set email and password if user is active
+        if ($validated['active'] ?? true) {
+            $userData['email'] = $validated['email'];
+            $userData['password'] = Hash::make($validated['password']);
+        }
+
+        $user = User::create($userData);
+
+        CacheHelper::cacheInContext($this->getCacheKey('central_users'), null);
+
+        return response()->json(['message' => 'User created successfully.', 'user' => $user], 201);
+    }
+
     public function getAllUsers()
     {
         // $this->authorizeRoles(['admin', 'owner']);
@@ -107,6 +134,25 @@ class UserManagementController extends Controller
         if (!$users) {
             $users = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by')
                 ->orderBy('created_at', 'desc')->with(['roles', 'creator'])
+                ->get();
+
+            CacheHelper::cacheInContext($cacheKey, $users);
+        }
+
+        return response()->json([
+            'message' => 'Users retrieved successfully.',
+            'users' => $users,
+        ]);
+    }
+
+    public function getAllUsersForCentral()
+    {
+        $cacheKey = $this->getCacheKey('central_users');
+        $users = CacheHelper::cacheInContext($cacheKey);
+
+        if (!$users) {
+            $users = User::select('id', 'name', 'email', 'active', 'created_at')
+                ->orderBy('created_at', 'desc')
                 ->get();
 
             CacheHelper::cacheInContext($cacheKey, $users);

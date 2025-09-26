@@ -196,38 +196,79 @@ class AssetController extends Controller
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
+
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            Asset::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
+        $fields = $mapping ? array_values($mapping) : ['section_id', 'name', 'type', 'status'];
 
         $import = new DynamicExcelImport(
             Asset::class,
-            ['section_id', 'name', 'type', 'status'],
-            function ($row) {
+            $fields,
+            function ($row) use ($mapping) {
                 $errors = [];
+                $sectionIdKey = $mapping ? array_search('section_id', $mapping) : 'section_id';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $typeKey = $mapping ? array_search('type', $mapping) : 'type';
 
-                if (empty($row['section_id'])) {
+                if (empty($row[$sectionIdKey])) {
                     $errors[] = 'Missing section_id';
                 }
-                if (empty($row['name'])) {
+                if (empty($row[$nameKey])) {
                     $errors[] = 'Missing name';
                 }
-                if (empty($row['type'])) {
+                if (empty($row[$typeKey])) {
                     $errors[] = 'Missing type';
                 }
 
                 return $errors;
             },
-            function ($row) {
+            function ($row) use ($mapping) {
+                $sectionIdKey = $mapping ? array_search('section_id', $mapping) : 'section_id';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $typeKey = $mapping ? array_search('type', $mapping) : 'type';
+                $statusKey = $mapping ? array_search('status', $mapping) : 'status';
                 return [
-                    'section_id' => $row['section_id'],
-                    'name' => $row['name'],
-                    'type' => $row['type'] ?? 'other',
-                    'status' => $row['status'] ?? 'active',
+                    'section_id' => $row[$sectionIdKey] ?? null,
+                    'name' => $row[$nameKey] ?? null,
+                    'type' => $row[$typeKey] ?? 'other',
+                    'status' => $row[$statusKey] ?? 'active',
                 ];
-            }
+            },
+            true // Enable header validation
         );
 
         Excel::import($import, $request->file('file'));
+
+        // Check if headers were valid
+        if (!$import->areHeadersValid()) {
+            $headerResult = $import->getHeaderValidationResult();
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Excel file headers',
+                'header_validation' => $headerResult,
+                'errors' => [
+                    'missing_headers' => $headerResult['missing'],
+                    'extra_headers' => $headerResult['extra'],
+                    'expected_headers' => $headerResult['expected_headers'],
+                    'actual_headers' => $headerResult['excel_headers']
+                ]
+            ], 422);
+        }
 
         app('cache')->store('database')->forget('tenant_' . tenant('id') . '_assets');
 

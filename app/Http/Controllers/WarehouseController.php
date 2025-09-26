@@ -150,15 +150,79 @@ class WarehouseController extends Controller
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            Warehouse::truncate();
+        }
+
+        // If type is 'mapping', use provided mapping, else use default
+        $mapping = $request->input('mapping');
+        $fields = $mapping ? array_values($mapping) : ['name', 'address', 'city', 'country', 'active'];
+
         try {
-            $import = new DynamicExcelImport(new Warehouse());
+            $import = new DynamicExcelImport(
+                Warehouse::class,
+                $fields,
+                function ($row) use ($mapping) {
+                    $errors = [];
+                    $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                    if (empty($row[$nameKey])) $errors[] = 'Missing name';
+                    return $errors;
+                },
+                function ($row) use ($mapping) {
+                    $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                    $addressKey = $mapping ? array_search('address', $mapping) : 'address';
+                    $cityKey = $mapping ? array_search('city', $mapping) : 'city';
+                    $countryKey = $mapping ? array_search('country', $mapping) : 'country';
+                    $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+                    return [
+                        'name' => $row[$nameKey] ?? null,
+                        'address' => $row[$addressKey] ?? null,
+                        'city' => $row[$cityKey] ?? null,
+                        'country' => $row[$countryKey] ?? null,
+                        'active' => boolval($row[$activeKey] ?? true),
+                    ];
+                },
+                true // Enable header validation
+            );
+            
             Excel::import($import, $request->file('file'));
+            
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
+            
             Cache::forget("warehouses_" . tenant('id'));
 
-            return response()->json(['message' => 'Warehouses imported successfully']);
+            return response()->json([
+                'message' => 'Warehouses imported successfully',
+                'rows_imported' => $import->getImportedCount(),
+                'rows_skipped_count' => $import->getSkippedCount(),
+                'skipped_rows' => $import->getSkippedRows(),
+            ]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error importing warehouses: ' . $e->getMessage()], 500);
         }
