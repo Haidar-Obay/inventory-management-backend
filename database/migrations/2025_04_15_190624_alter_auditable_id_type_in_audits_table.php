@@ -12,6 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // SQLite doesn't support altering column types this way; skip in CI/sqlite
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         Schema::table('audits', function (Blueprint $table) {
             DB::statement('ALTER TABLE audits ALTER COLUMN auditable_id TYPE TEXT;');
         });
@@ -22,6 +27,11 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // Skip on SQLite for the same reason as in up()
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         Schema::table('audits', function (Blueprint $table) {
             DB::statement('ALTER TABLE audits ALTER COLUMN auditable_id TYPE BIGINT USING auditable_id::BIGINT;');
         });
