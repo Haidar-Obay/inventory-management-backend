@@ -20,7 +20,6 @@ class Service extends Model
         'cnss_code',
         'result_after_days',
         'needs_specialist',
-        'specialist_id',
         'duration_minutes',
         'normal_price',
         'vip_price',
@@ -42,9 +41,9 @@ class Service extends Model
         'active' => 'boolean',
     ];
 
-    public function category(): BelongsTo
+    public function serviceCategory(): BelongsTo
     {
-        return $this->belongsTo(Category::class, 'service_category_id');
+        return $this->belongsTo(ServiceCategory::class, 'service_category_id');
     }
 
     public function department(): BelongsTo
@@ -57,10 +56,6 @@ class Service extends Model
         return $this->belongsTo(Department::class, 'sub_department_id');
     }
 
-    public function specialist(): BelongsTo
-    {
-        return $this->belongsTo(Specialist::class);
-    }
 
     public function specialists(): BelongsToMany
     {

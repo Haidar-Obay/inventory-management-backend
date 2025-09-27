@@ -14,12 +14,8 @@ class StoreServiceCategoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'service_id' => ['required', 'integer', 'exists:services,id'],
-            'categories' => ['required', 'array', 'min:1'],
-            'categories.*.name' => ['required', 'string', 'max:255'],
-            'categories.*.price' => ['required', 'numeric', 'min:0'],
+            'name' => ['required', 'string', 'max:255', 'unique:service_categories,name'],
+            'description' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }
-
-

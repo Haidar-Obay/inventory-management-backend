@@ -15,10 +15,13 @@ class ServiceSeeder extends Seeder
         $imaging = Department::where('code', 'IMG')->first();
         $mriUnit = Department::where('code', 'MRI')->first();
 
+        // Get a service category
+        $imagingCategory = ServiceCategory::where('name', 'Imaging Services')->first();
+        
         $service = Service::firstOrCreate([
             'name' => 'MRI Brain Scan',
         ], [
-            'service_category_id' => null,
+            'service_category_id' => $imagingCategory?->id,
             'department_id' => $imaging?->id,
             'sub_department_id' => $mriUnit?->id,
             'cnss_code' => 'CNSS-99123',
@@ -37,16 +40,8 @@ class ServiceSeeder extends Seeder
             'active' => true,
         ]);
 
-        // Service per-category pricing JSON
-        ServiceCategory::updateOrCreate([
-            'service_id' => $service->id,
-        ], [
-            'categories' => [
-                ['name' => 'Adult', 'price' => 260],
-                ['name' => 'Child', 'price' => 210],
-                ['name' => 'Senior', 'price' => 230],
-            ],
-        ]);
+        // Note: Service categories are now simple classification, not pricing
+        // Pricing is handled through normal_price, vip_price, etc. on the service itself
 
         // Attach specialists
         $specialists = Specialist::pluck('id')->take(2)->all();

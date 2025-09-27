@@ -194,67 +194,43 @@ class PricingServiceTest extends TestCase
         $this->assertContains('Event pricing applied', $result['overrides_applied']);
     }
 
-    public function test_resolves_category_specific_pricing()
+    public function test_resolves_base_price_with_service_category()
     {
+        // Create a service category
+        $category = ServiceCategory::create([
+            'name' => 'Medical Consultation',
+            'description' => 'General medical consultation services',
+        ]);
+
         $service = Service::factory()->create([
             'normal_price' => 100.00,
             'price_calculated_by_hour' => false,
+            'service_category_id' => $category->id,
         ]);
 
-        // Create service categories
-        ServiceCategory::create([
-            'service_id' => $service->id,
-            'categories' => [
-                ['name' => 'Adult', 'price' => 150.00],
-                ['name' => 'Child', 'price' => 80.00],
-                ['name' => 'Senior', 'price' => 120.00],
-            ],
-        ]);
-
-        // Test Adult category pricing
         $result = $this->pricingService->resolvePrice([
             'service_id' => $service->id,
-            'category_name' => 'Adult',
-        ]);
-
-        $this->assertEquals(150.00, $result['base_price']);
-        $this->assertEquals(150.00, $result['final_price']);
-
-        // Test Child category pricing
-        $result = $this->pricingService->resolvePrice([
-            'service_id' => $service->id,
-            'category_name' => 'Child',
-        ]);
-
-        $this->assertEquals(80.00, $result['base_price']);
-        $this->assertEquals(80.00, $result['final_price']);
-
-        // Test non-existent category falls back to normal price
-        $result = $this->pricingService->resolvePrice([
-            'service_id' => $service->id,
-            'category_name' => 'NonExistent',
         ]);
 
         $this->assertEquals(100.00, $result['base_price']);
         $this->assertEquals(100.00, $result['final_price']);
     }
 
-    public function test_category_pricing_with_association_discount()
+    public function test_service_with_category_and_association_discount()
     {
+        // Create a service category
+        $category = ServiceCategory::create([
+            'name' => 'Laboratory Tests',
+            'description' => 'Blood work and lab diagnostic services',
+        ]);
+
         $service = Service::factory()->create([
             'normal_price' => 100.00,
             'price_calculated_by_hour' => false,
+            'service_category_id' => $category->id,
         ]);
 
         $association = Association::factory()->create();
-
-        // Create service categories
-        ServiceCategory::create([
-            'service_id' => $service->id,
-            'categories' => [
-                ['name' => 'Adult', 'price' => 150.00],
-            ],
-        ]);
 
         // Create association discount
         AssociationServicePrice::create([
@@ -266,13 +242,12 @@ class PricingServiceTest extends TestCase
 
         $result = $this->pricingService->resolvePrice([
             'service_id' => $service->id,
-            'category_name' => 'Adult',
             'association_id' => $association->id,
         ]);
 
-        $this->assertEquals(150.00, $result['base_price']);
+        $this->assertEquals(100.00, $result['base_price']);
         $this->assertEquals(20.00, $result['discount_total']);
-        $this->assertEquals(130.00, $result['final_price']);
+        $this->assertEquals(80.00, $result['final_price']);
     }
 
     public function test_resolves_advanced_pricing_on_site()
