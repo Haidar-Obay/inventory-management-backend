@@ -17,6 +17,7 @@ use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class ServiceController extends Controller
 {
@@ -177,20 +178,25 @@ class ServiceController extends Controller
 
     public function exportExcell()
     {
-        $query = Service::query()->with([
+        $services = Service::query()->with([
+            'serviceCategory:id,name',
             'department:id,name',
             'subDepartment:id,name',
             'specialists:id,name',
         ]);
-        $collection = $query->get();
+        $collection = $services->get();
 
         if ($collection->isEmpty()) {
-            return response()->json(['message' => 'No services found.'], 404);
+            return response()->json([
+                'status' => false,
+                'message' => 'No services to export',
+            ], 404);
         }
 
         $columns = [
             'id',
             'name',
+            'serviceCategory.name',
             'cnss_code',
             'result_after_days',
             'needs_specialist',
@@ -213,7 +219,7 @@ class ServiceController extends Controller
         ];
 
         $headings = [
-            'ID', 'Name', 'CNSS Code', 'Result After Days', 'Needs Specialist', 'Duration (min)',
+            'ID', 'Name', 'Service Category', 'CNSS Code', 'Result After Days', 'Needs Specialist', 'Duration (min)',
             'Normal Price', 'VIP Price', 'Price In Group', 'Event Pricing',
             'Price Calculated by Hour', 'Hour Price', 'Estimated Cost',
             'Service Color', 'Service Sex', 'Active',
@@ -221,33 +227,38 @@ class ServiceController extends Controller
             'Created At', 'Updated At'
         ];
 
-        $fileName = 'services.xlsx';
-        return Excel::download(new Export($query, $columns, $headings), $fileName);
+        $fileName = 'services_' . '.xlsx';
+        return Excel::download(new Export($services, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
         $services = Service::query()
             ->with([
+                'serviceCategory:id,name',
                 'department:id,name',
                 'subDepartment:id,name',
                 'specialists:id,name',
             ])
             ->get([
-                'id', 'name', 'cnss_code', 'result_after_days', 'needs_specialist',
+                'id', 'name', 'service_category_id', 'cnss_code', 'result_after_days', 'needs_specialist',
                 'duration_minutes', 'normal_price', 'vip_price', 'price_in_group', 'event_pricing',
                 'price_calculated_by_hour', 'hour_price', 'estimated_cost', 'service_color', 'service_sex',
                 'active', 'department_id', 'sub_department_id', 'created_at', 'updated_at'
             ]);
 
         if ($services->isEmpty()) {
-            return response()->json(['message' => 'No services found.'], 404);
+            return response()->json([
+                'status' => false,
+                'message' => 'No services to export',
+            ], 404);
         }
 
         $title = 'Services Report';
         $headers = [
             'id' => 'ID',
             'name' => 'Name',
+            'serviceCategory.name' => 'Service Category',
             'cnss_code' => 'CNSS Code',
             'result_after_days' => 'Result After Days',
             'needs_specialist' => 'Needs Specialist',
@@ -274,6 +285,7 @@ class ServiceController extends Controller
             return [
                 'id' => $s->id,
                 'name' => $s->name,
+                'serviceCategory.name' => optional($s->serviceCategory)->name,
                 'cnss_code' => $s->cnss_code,
                 'result_after_days' => $s->result_after_days,
                 'needs_specialist' => $s->needs_specialist,
@@ -297,7 +309,7 @@ class ServiceController extends Controller
         })->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
-        return $pdf->download('Services.pdf');
+        return $pdf->download('services_' . '.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -441,7 +453,7 @@ class ServiceController extends Controller
                 'header_validation' => $import->getHeaderValidationResult(),
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
-            \Log::error('Import failed: ' . $e->getMessage(), ['exception' => $e]);
+            Log::error('Import failed: ' . $e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'success' => false,
                 'message' => 'Import failed due to invalid data. Please check your file for invalid or missing references.',

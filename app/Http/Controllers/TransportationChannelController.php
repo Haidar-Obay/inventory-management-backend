@@ -305,10 +305,6 @@ class TransportationChannelController extends Controller
         }
     }
 
-    public function importFromExcel(Request $request)
-    {
-        return $this->import($request);
-    }
 
     public function getSubTransportationChannels($transportationChannelId)
     {

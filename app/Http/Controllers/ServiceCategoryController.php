@@ -51,11 +51,14 @@ class ServiceCategoryController extends Controller
 
     public function exportExcell()
     {
-        $query = ServiceCategory::query();
-        $collection = $query->get();
+        $serviceCategories = ServiceCategory::query();
+        $collection = $serviceCategories->get();
 
         if ($collection->isEmpty()) {
-            return response()->json(['message' => 'No service categories found.'], 404);
+            return response()->json([
+                'status' => false,
+                'message' => 'No service categories to export',
+            ], 404);
         }
 
         $columns = [
@@ -70,16 +73,19 @@ class ServiceCategoryController extends Controller
             'ID', 'Name', 'Description', 'Created At', 'Updated At'
         ];
 
-        $fileName = 'service_categories_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($query, $columns, $headings), $fileName);
+        $fileName = 'service_categories_' . '.xlsx';
+        return Excel::download(new Export($serviceCategories, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $categories = ServiceCategory::select('id', 'name', 'description')->get();
+        $serviceCategories = ServiceCategory::select('id', 'name', 'description', 'created_at', 'updated_at')->get();
 
-        if ($categories->isEmpty()) {
-            return response()->json(['message' => 'No service categories found.'], 404);
+        if ($serviceCategories->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No service categories to export',
+            ], 404);
         }
 
         $title = 'Service Categories Report';
@@ -87,10 +93,13 @@ class ServiceCategoryController extends Controller
             'id' => 'ID',
             'name' => 'Name',
             'description' => 'Description',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
+        $data = $serviceCategories->toArray();
 
-        $pdf = $pdfService->generatePdf($title, $headers, $categories->toArray());
-        return $pdf->download('Service_Categories.pdf');
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('service_categories_' . '.pdf');
     }
 
     public function importFromExcel(Request $request)
