@@ -180,7 +180,11 @@ class ServiceController extends Controller
 
     public function exportExcell()
     {
-        $query = Service::query();
+        $query = Service::query()->with([
+            'department:id,name',
+            'subDepartment:id,name',
+            'specialists:id,name',
+        ]);
         $collection = $query->get();
 
         if ($collection->isEmpty()) {
@@ -190,13 +194,9 @@ class ServiceController extends Controller
         $columns = [
             'id',
             'name',
-            'service_category_id',
-            'department_id',
-            'sub_department_id',
             'cnss_code',
             'result_after_days',
             'needs_specialist',
-            // 'specialist_id',
             'duration_minutes',
             'normal_price',
             'vip_price',
@@ -205,33 +205,43 @@ class ServiceController extends Controller
             'price_calculated_by_hour',
             'hour_price',
             'estimated_cost',
-            'image',
             'service_color',
             'service_sex',
             'active',
+            'department.name',
+            'subDepartment.name',
+            'specialists.*.name',
             'created_at',
             'updated_at',
         ];
 
         $headings = [
-            'ID', 'Name', 'Category ID', 'Department ID', 'Sub Department ID', 'CNSS Code',
-            'Result After Days', 'Needs Specialist', 'Specialist ID', 'Duration (min)',
+            'ID', 'Name', 'CNSS Code', 'Result After Days', 'Needs Specialist', 'Duration (min)',
             'Normal Price', 'VIP Price', 'Price In Group', 'Event Pricing',
-            'Calculated By Hour', 'Hour Price', 'Estimated Cost', 'Image',
-            'Service Color', 'Service Sex', 'Active', 'Created At', 'Updated At'
+            'Price Calculated by Hour', 'Hour Price', 'Estimated Cost',
+            'Service Color', 'Service Sex', 'Active',
+            'Department', 'Sub Department', 'Specialists',
+            'Created At', 'Updated At'
         ];
 
-        $fileName = 'services_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'services.xlsx';
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $services = Service::select(
-            'id', 'name', 'service_category_id', 'department_id', 'sub_department_id',
-            'needs_specialist', /*'specialist_id',*/ 'duration_minutes', 'normal_price', 'vip_price',
-            'price_in_group', 'event_pricing', 'price_calculated_by_hour', 'hour_price', 'active'
-        )->get();
+        $services = Service::query()
+            ->with([
+                'department:id,name',
+                'subDepartment:id,name',
+                'specialists:id,name',
+            ])
+            ->get([
+                'id', 'name', 'cnss_code', 'result_after_days', 'needs_specialist',
+                'duration_minutes', 'normal_price', 'vip_price', 'price_in_group', 'event_pricing',
+                'price_calculated_by_hour', 'hour_price', 'estimated_cost', 'service_color', 'service_sex',
+                'active', 'department_id', 'sub_department_id', 'created_at', 'updated_at'
+            ]);
 
         if ($services->isEmpty()) {
             return response()->json(['message' => 'No services found.'], 404);
@@ -241,112 +251,206 @@ class ServiceController extends Controller
         $headers = [
             'id' => 'ID',
             'name' => 'Name',
-            'service_category_id' => 'Category ID',
-            'department_id' => 'Department ID',
-            'sub_department_id' => 'Sub Department ID',
+            'cnss_code' => 'CNSS Code',
+            'result_after_days' => 'Result After Days',
             'needs_specialist' => 'Needs Specialist',
-            'specialist_id' => 'Specialist ID',
             'duration_minutes' => 'Duration (min)',
             'normal_price' => 'Normal Price',
             'vip_price' => 'VIP Price',
             'price_in_group' => 'Price In Group',
             'event_pricing' => 'Event Pricing',
-            'price_calculated_by_hour' => 'Calculated By Hour',
+            'price_calculated_by_hour' => 'Price Calculated by Hour',
             'hour_price' => 'Hour Price',
+            'estimated_cost' => 'Estimated Cost',
+            'service_color' => 'Service Color',
+            'service_sex' => 'Service Sex',
             'active' => 'Active',
+            'department.name' => 'Department',
+            'subDepartment.name' => 'Sub Department',
+            'specialists' => 'Specialists',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
 
-        $pdf = $pdfService->generatePdf($title, $headers, $services->toArray());
+        // Normalize specialists to array of names for PDF
+        $data = $services->map(function ($s) {
+            return [
+                'id' => $s->id,
+                'name' => $s->name,
+                'cnss_code' => $s->cnss_code,
+                'result_after_days' => $s->result_after_days,
+                'needs_specialist' => $s->needs_specialist,
+                'duration_minutes' => $s->duration_minutes,
+                'normal_price' => $s->normal_price,
+                'vip_price' => $s->vip_price,
+                'price_in_group' => $s->price_in_group,
+                'event_pricing' => $s->event_pricing,
+                'price_calculated_by_hour' => $s->price_calculated_by_hour,
+                'hour_price' => $s->hour_price,
+                'estimated_cost' => $s->estimated_cost,
+                'service_color' => $s->service_color,
+                'service_sex' => $s->service_sex,
+                'active' => $s->active,
+                'department.name' => optional($s->department)->name,
+                'subDepartment.name' => optional($s->subDepartment)->name,
+                'specialists' => $s->specialists->pluck('name')->values()->all(),
+                'created_at' => $s->created_at,
+                'updated_at' => $s->updated_at,
+            ];
+        })->toArray();
+
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
         return $pdf->download('Services.pdf');
     }
 
     public function importFromExcel(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
-        ]);
-
-        $import = new DynamicExcelImport(
-            Service::class,
-            [
-                'name',
-                'service_category_id',
-                'department_id',
-                'sub_department_id',
-                'cnss_code',
-                'result_after_days',
-                'needs_specialist',
-                'specialist_id',
-                'duration_minutes',
-                'normal_price',
-                'vip_price',
-                'price_in_group',
-                'event_pricing',
-                'price_calculated_by_hour',
-                'hour_price',
-                'estimated_cost',
-                'image',
-                'service_color',
-                'service_sex',
-                'active',
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
             ],
-            function ($row) {
-                $errors = [];
-
-                if (empty($row['name'])) {
-                    $errors[] = 'Missing name';
-                }
-
-                if (!empty($row['needs_specialist']) && empty($row['specialist_id'])) {
-                    $errors[] = 'specialist_id required when needs_specialist is true';
-                }
-
-                if (!empty($row['price_calculated_by_hour']) && (empty($row['hour_price']) || !is_numeric($row['hour_price']))) {
-                    $errors[] = 'hour_price required and numeric when price_calculated_by_hour is true';
-                }
-
-                return $errors;
-            },
-            function ($row) {
-                $toBool = function ($val) {
-                    if (is_bool($val)) return $val;
-                    $val = strtolower((string) $val);
-                    return in_array($val, ['1', 'true', 'yes', 'y']);
-                };
-
-                return [
-                    'name' => $row['name'],
-                    'service_category_id' => $row['service_category_id'] ?? null,
-                    'department_id' => $row['department_id'] ?? null,
-                    'sub_department_id' => $row['sub_department_id'] ?? null,
-                    'cnss_code' => $row['cnss_code'] ?? null,
-                    'result_after_days' => isset($row['result_after_days']) ? (int) $row['result_after_days'] : null,
-                    'needs_specialist' => $toBool($row['needs_specialist'] ?? false),
-                    'specialist_id' => $row['specialist_id'] ?? null,
-                    'duration_minutes' => isset($row['duration_minutes']) ? (int) $row['duration_minutes'] : null,
-                    'normal_price' => isset($row['normal_price']) ? (float) $row['normal_price'] : null,
-                    'vip_price' => isset($row['vip_price']) ? (float) $row['vip_price'] : null,
-                    'price_in_group' => isset($row['price_in_group']) ? (float) $row['price_in_group'] : null,
-                    'event_pricing' => $toBool($row['event_pricing'] ?? false),
-                    'price_calculated_by_hour' => $toBool($row['price_calculated_by_hour'] ?? false),
-                    'hour_price' => isset($row['hour_price']) ? (float) $row['hour_price'] : null,
-                    'estimated_cost' => isset($row['estimated_cost']) ? (float) $row['estimated_cost'] : null,
-                    'image' => $row['image'] ?? null,
-                    'service_color' => $row['service_color'] ?? null,
-                    'service_sex' => $row['service_sex'] ?? 'both',
-                    'active' => $toBool($row['active'] ?? true),
-                ];
-            }
-        );
-
-        Excel::import($import, $request->file('file'));
-
-        return response()->json([
-            'success' => true,
-            'rows_imported' => $import->getImportedCount(),
-            'rows_skipped_count' => $import->getSkippedCount(),
-            'skipped_rows' => $import->getSkippedRows(),
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
+
+        try {
+            // If type is 'fresh', delete all records first so duplicate detection does not skip rows
+            if ($request->input('type') === 'fresh') {
+                Service::truncate();
+            }
+
+            $import = new DynamicExcelImport(
+                Service::class,
+                [
+                    'name',
+                    'service_category_id',
+                    'department_id',
+                    'sub_department_id',
+                    'cnss_code',
+                    'result_after_days',
+                    'needs_specialist',
+                    'specialist_id',
+                    'duration_minutes',
+                    'normal_price',
+                    'vip_price',
+                    'price_in_group',
+                    'event_pricing',
+                    'price_calculated_by_hour',
+                    'hour_price',
+                    'estimated_cost',
+                    'image',
+                    'service_color',
+                    'service_sex',
+                    'active',
+                ],
+                function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $errors = [];
+
+                    if (empty($row['name'])) {
+                        $errors[] = 'Missing name';
+                    }
+
+                    if (!empty($row['needs_specialist']) && empty($row['specialist_id'])) {
+                        $errors[] = 'specialist_id required when needs_specialist is true';
+                    }
+
+                    if (!empty($row['price_calculated_by_hour']) && (empty($row['hour_price']) || !is_numeric($row['hour_price']))) {
+                        $errors[] = 'hour_price required and numeric when price_calculated_by_hour is true';
+                    }
+
+                    return $errors;
+                },
+                function ($row) {
+                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $toBool = function ($val) {
+                        if (is_bool($val)) return $val;
+                        $val = strtolower((string) $val);
+                        return in_array($val, ['1', 'true', 'yes', 'y']);
+                    };
+
+                    return [
+                        'name' => $row['name'] ?? null,
+                        'service_category_id' => $row['service_category_id'] ?? null,
+                        'department_id' => $row['department_id'] ?? null,
+                        'sub_department_id' => $row['sub_department_id'] ?? null,
+                        'cnss_code' => $row['cnss_code'] ?? null,
+                        'result_after_days' => isset($row['result_after_days']) ? (int) $row['result_after_days'] : null,
+                        'needs_specialist' => $toBool($row['needs_specialist'] ?? false),
+                        'specialist_id' => $row['specialist_id'] ?? null,
+                        'duration_minutes' => isset($row['duration_minutes']) ? (int) $row['duration_minutes'] : null,
+                        'normal_price' => isset($row['normal_price']) ? (float) $row['normal_price'] : null,
+                        'vip_price' => isset($row['vip_price']) ? (float) $row['vip_price'] : null,
+                        'price_in_group' => isset($row['price_in_group']) ? (float) $row['price_in_group'] : null,
+                        'event_pricing' => $toBool($row['event_pricing'] ?? false),
+                        'price_calculated_by_hour' => $toBool($row['price_calculated_by_hour'] ?? false),
+                        'hour_price' => isset($row['hour_price']) ? (float) $row['hour_price'] : null,
+                        'estimated_cost' => isset($row['estimated_cost']) ? (float) $row['estimated_cost'] : null,
+                        'image' => $row['image'] ?? null,
+                        'service_color' => $row['service_color'] ?? null,
+                        'service_sex' => $row['service_sex'] ?? 'both',
+                        'active' => $toBool($row['active'] ?? true),
+                    ];
+                },
+                true, // Enable header validation
+                $request->input('type') === 'fresh' // Skip duplicate check when fresh
+            );
+
+            Excel::import($import, $request->file('file'));
+
+            // Check if headers were valid
+            if (!$import->areHeadersValid()) {
+                $headerResult = $import->getHeaderValidationResult();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Excel file headers',
+                    'header_validation' => $headerResult,
+                    'errors' => [
+                        'missing_headers' => $headerResult['missing'],
+                        'extra_headers' => $headerResult['extra'],
+                        'expected_headers' => $headerResult['expected_headers'],
+                        'actual_headers' => $headerResult['excel_headers']
+                    ]
+                ], 422);
+            }
+
+            $imported = $import->getImportedCount();
+            $skippedCount = $import->getSkippedCount();
+            $skippedRows = $import->getSkippedRows();
+            $totalProcessed = $imported + $skippedCount;
+
+            $message = '';
+            if ($imported > 0 && $skippedCount === 0) {
+                $message = "Imported {$imported} row(s) successfully.";
+            } elseif ($imported > 0 && $skippedCount > 0) {
+                $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+            } elseif ($imported === 0 && $skippedCount > 0) {
+                $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+            } else {
+                $message = 'No rows found to import.';
+            }
+
+            return response()->json([
+                'success' => $imported > 0,
+                'message' => $message,
+                'rows_processed' => $totalProcessed,
+                'rows_imported' => $imported,
+                'rows_skipped_count' => $skippedCount,
+                'skipped_rows' => $skippedRows,
+                'header_validation' => $import->getHeaderValidationResult(),
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Log::error('Import failed: ' . $e->getMessage(), ['exception' => $e]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Import failed due to invalid data. Please check your file for invalid or missing references.',
+                'error_type' => 'database',
+            ], 422);
+        }
     }
 
     public function bulkDelete(Request $request)

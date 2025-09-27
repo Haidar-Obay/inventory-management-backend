@@ -76,6 +76,16 @@ class Service extends Model
     {
         return $this->hasMany(ServiceAdvancedPricing::class);
     }
+
+    public function associationPrices(): HasMany
+    {
+        return $this->hasMany(AssociationServicePrice::class);
+    }
+
+    public function referrerRules(): HasMany
+    {
+        return $this->hasMany(ReferrerServiceCommission::class);
+    }
 }
 
 

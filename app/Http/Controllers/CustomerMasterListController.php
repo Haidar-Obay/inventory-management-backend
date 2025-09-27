@@ -337,31 +337,39 @@ class CustomerMasterListController extends Controller
         }
     }
 
-    public function export(Request $request)
+    public function exportExcell()
     {
-        try {
-             $customerMasterLists = CustomerMasterList::with('items')->orderBy('name');
-            $collection = $customerMasterLists->get();
-            
-            if ($collection->isEmpty()) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'No customer master lists to export',
-                ], 404);
-            }
+        $query = CustomerMasterList::query()->with(['items']);
+        $collection = $query->get();
 
-            $columns = ['id', 'date', 'name', 'valid_from', 'valid_till', 'itemcode', 'price', 'discount'];
-            $headings = ['ID', 'Date', 'Name', 'Valid From', 'Valid Till', 'Item Code', 'Price', 'Discount'];
-
-            $fileName = 'customer_master_lists_' . date('Y-m-d_H-i-s') . '.xlsx';
-            return Excel::download(new Export($customerMasterLists, $columns, $headings), $fileName);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Export failed.',
-                'error' => $e->getMessage(),
-            ], 500);
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No customer master lists found.'], 404);
         }
+
+        $columns = [
+            'id',
+            'date',
+            'name',
+            'valid_from',
+            'valid_till',
+            'items.*.name',
+            'items.*.pivot.price',
+            'items.*.pivot.discount',
+        ];
+
+        $headings = [
+            'ID',
+            'Date',
+            'Name',
+            'Valid From',
+            'Valid Till',
+            'Items',
+            'Prices',
+            'Discounts',
+        ];
+
+        $fileName = 'customer_master_lists.xlsx';
+        return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
     public function importFromExcel(Request $request)
@@ -457,15 +465,14 @@ class CustomerMasterListController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $customerMasterLists = CustomerMasterList::with('items')
-            ->select('id', 'date', 'name', 'valid_from', 'valid_till', 'itemcode', 'price', 'discount')
-            ->get();
+        $customerMasterLists = CustomerMasterList::query()
+            ->with(['items'])
+            ->get([
+                'id', 'date', 'name', 'valid_from', 'valid_till'
+            ]);
 
         if ($customerMasterLists->isEmpty()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'No customer master lists to export',
-            ], 404);
+            return response()->json(['message' => 'No customer master lists found.'], 404);
         }
 
         $title = 'Customer Master Lists Report';
@@ -475,28 +482,26 @@ class CustomerMasterListController extends Controller
             'name' => 'Name',
             'valid_from' => 'Valid From',
             'valid_till' => 'Valid Till',
-            'itemcode' => 'Item Code',
-            'price' => 'Price',
-            'discount' => 'Discount (%)',
-            'items_count' => 'Items Count'
+            'items' => 'Items',
+            'prices' => 'Prices',
+            'discounts' => 'Discounts',
         ];
-        
-        // Transform data to include items count and format properly
+
+        // Transform data to include related items information
         $data = $customerMasterLists->map(function ($list) {
             return [
                 'id' => $list->id,
-                'date' => $list->date->format('Y-m-d'),
+                'date' => $list->date,
                 'name' => $list->name,
-                'valid_from' => $list->valid_from->format('Y-m-d'),
-                'valid_till' => $list->valid_till->format('Y-m-d'),
-                'itemcode' => $list->itemcode ?? 'N/A',
-                'price' => number_format($list->price, 2),
-                'discount' => number_format($list->discount, 2),
-                'items_count' => $list->items->count()
+                'valid_from' => $list->valid_from,
+                'valid_till' => $list->valid_till,
+                'items' => $list->items->pluck('name')->values()->all(),
+                'prices' => $list->items->pluck('pivot.price')->values()->all(),
+                'discounts' => $list->items->pluck('pivot.discount')->values()->all(),
             ];
         })->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
-        return $pdf->download('CustomerMasterLists.pdf');
+        return $pdf->download('customer_master_lists.pdf');
     }
 }
