@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('name')->unique();
 
             // Foreign references
-            $table->foreignId('service_category_id')->nullable()->constrained('categories')->nullOnDelete();
+            $table->foreignId('service_category_id')->nullable()->constrained('service_categories')->nullOnDelete();
             $table->foreignId('department_id')->nullable()->constrained('departments')->nullOnDelete();
             $table->foreignId('sub_department_id')->nullable()->constrained('departments')->nullOnDelete();
 

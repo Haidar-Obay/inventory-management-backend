@@ -22,7 +22,7 @@ class ServiceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Service::query()->with(['department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
+        $query = Service::query()->with(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
 
         if ($request->filled('category_id')) {
             $query->where('service_category_id', $request->integer('category_id'));
@@ -88,21 +88,18 @@ class ServiceController extends Controller
         if (!empty($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
-        return response()->json($service->load(['category:id,name', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']), 201);
+        return response()->json($service->load(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']), 201);
     }
 
     public function show(Service $service): JsonResponse
     {
         $loaded = $service->load([
-            'category:id,name',
+            'serviceCategory:id,name,description',
             'department:id,name',
             'subDepartment:id,name',
             'specialists:id,name',
         ]);
 
-        // Attach per-service categories (JSON list)
-        $serviceCategory = ServiceCategory::where('service_id', $service->id)->first();
-        $loaded->setRelation('service_categories', $serviceCategory);
 
         // Attach advanced pricing (with specialist)
         $advancedPricings = ServiceAdvancedPricing::with('specialist:id,name')
@@ -169,7 +166,7 @@ class ServiceController extends Controller
         if (is_array($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
-        return response()->json($service->load(['category:id,name', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']));
+        return response()->json($service->load(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']));
     }
 
     public function destroy(Service $service): JsonResponse

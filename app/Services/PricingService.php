@@ -16,7 +16,6 @@ class PricingService
         $serviceId = $context['service_id'];
         $associationId = $context['association_id'] ?? null;
         $referrerId = $context['referrer_id'] ?? null;
-        $categoryName = $context['category_name'] ?? null;
         $specialistId = $context['specialist_id'] ?? null;
         $serviceType = $context['service_type'] ?? null; // 'on_site' or 'on_call'
         $hours = $context['hours'] ?? 1;
@@ -26,8 +25,8 @@ class PricingService
         $overridesApplied = [];
         $discountsApplied = [];
 
-        // Base price calculation - check for category-specific pricing first
-        $basePrice = $this->calculateBasePrice($service, $hours, $categoryName);
+        // Base price calculation
+        $basePrice = $this->calculateBasePrice($service, $hours);
         $overridesApplied[] = "Base price: {$basePrice}";
 
         // Service advanced pricing override (specialist + service type)
@@ -138,22 +137,13 @@ class PricingService
         ];
     }
 
-    private function calculateBasePrice(Service $service, int $hours, ?string $categoryName = null): float
+    private function calculateBasePrice(Service $service, int $hours): float
     {
-        // Check for category-specific pricing first
-        if ($categoryName) {
-            $serviceCategory = ServiceCategory::where('service_id', $service->id)->first();
-            
-            if ($serviceCategory && is_array($serviceCategory->categories)) {
-                foreach ($serviceCategory->categories as $category) {
-                    if (isset($category['name']) && $category['name'] === $categoryName) {
-                        return (float) ($category['price'] ?? 0);
-                    }
-                }
-            }
-        }
+        // Since we now have a simple one-to-one relationship with service categories,
+        // we don't need category-specific pricing logic anymore.
+        // The service category is just for classification, not pricing.
         
-        // Fall back to normal pricing logic
+        // Use normal pricing logic
         if ($service->price_calculated_by_hour && $service->hour_price) {
             return $service->hour_price * $hours;
         }

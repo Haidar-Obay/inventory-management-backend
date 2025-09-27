@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateServiceCategoryRequest extends FormRequest
 {
@@ -13,12 +14,12 @@ class UpdateServiceCategoryRequest extends FormRequest
 
     public function rules(): array
     {
+        $routeCategory = request()->route('service_category');
+        $categoryId = is_object($routeCategory) ? ($routeCategory->id ?? null) : $routeCategory;
+
         return [
-            'categories' => ['required', 'array', 'min:1'],
-            'categories.*.name' => ['required', 'string', 'max:255'],
-            'categories.*.price' => ['required', 'numeric', 'min:0'],
+            'name' => ['required', 'string', 'max:255', Rule::unique('service_categories', 'name')->ignore($categoryId)],
+            'description' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }
-
-
