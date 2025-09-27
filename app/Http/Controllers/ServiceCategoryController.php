@@ -22,7 +22,7 @@ class ServiceCategoryController extends Controller
             $query->where('name', 'like', '%' . $request->input('name') . '%');
         }
 
-        $categories = $query->orderBy('name')->paginate(10);
+        $categories = $query->orderBy('name')->get();
         return response()->json($categories);
     }
 
