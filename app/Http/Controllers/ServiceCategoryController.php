@@ -5,38 +5,41 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreServiceCategoryRequest;
 use App\Http\Requests\UpdateServiceCategoryRequest;
 use App\Models\ServiceCategory;
-use App\Models\Service;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 
 class ServiceCategoryController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json(ServiceCategory::with('service:id,name')->paginate());
+        $query = ServiceCategory::query();
+
+        if ($request->filled('name')) {
+            $query->where('name', 'like', '%' . $request->input('name') . '%');
+        }
+
+        $categories = $query->orderBy('name')->paginate(10);
+        return response()->json($categories);
     }
 
     public function store(StoreServiceCategoryRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        // Ensure one record per service
-        $existing = ServiceCategory::where('service_id', (int) $data['service_id'])->first();
-        if ($existing) {
-            $existing->update(['categories' => $data['categories']]);
-            return response()->json($existing->refresh(), 200);
-        }
-        $row = ServiceCategory::create($data);
-        return response()->json($row, 201);
+        $category = ServiceCategory::create($request->validated());
+        return response()->json($category, 201);
     }
 
     public function show(ServiceCategory $serviceCategory): JsonResponse
     {
-        return response()->json($serviceCategory->load('service:id,name'));
+        return response()->json($serviceCategory);
     }
 
     public function update(UpdateServiceCategoryRequest $request, ServiceCategory $serviceCategory): JsonResponse
     {
-        $data = $request->validated();
-        $serviceCategory->update(['categories' => $data['categories']]);
+        $serviceCategory->update($request->validated());
         return response()->json($serviceCategory);
     }
 
@@ -46,23 +49,111 @@ class ServiceCategoryController extends Controller
         return response()->json(['message' => 'Deleted']);
     }
 
-    public function getByService(Service $service): JsonResponse
+    public function exportExcell()
     {
-        $serviceCategory = ServiceCategory::where('service_id', $service->id)->first();
+        $query = ServiceCategory::query();
+        $collection = $query->get();
 
-        if (!$serviceCategory) {
-            return response()->json([
-                'success' => true,
-                'data' => null,
-                'message' => 'No categories found for this service',
-            ]);
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No service categories found.'], 404);
         }
+
+        $columns = [
+            'id',
+            'name',
+            'description',
+            'created_at',
+            'updated_at',
+        ];
+
+        $headings = [
+            'ID', 'Name', 'Description', 'Created At', 'Updated At'
+        ];
+
+        $fileName = 'service_categories_' . date('Y-m-d_H-i-s') . '.xlsx';
+        return Excel::download(new Export($query, $columns, $headings), $fileName);
+    }
+
+    public function exportPdf(ExportPDF $pdfService)
+    {
+        $categories = ServiceCategory::select('id', 'name', 'description')->get();
+
+        if ($categories->isEmpty()) {
+            return response()->json(['message' => 'No service categories found.'], 404);
+        }
+
+        $title = 'Service Categories Report';
+        $headers = [
+            'id' => 'ID',
+            'name' => 'Name',
+            'description' => 'Description',
+        ];
+
+        $pdf = $pdfService->generatePdf($title, $headers, $categories->toArray());
+        return $pdf->download('Service_Categories.pdf');
+    }
+
+    public function importFromExcel(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        $import = new DynamicExcelImport(
+            ServiceCategory::class,
+            [
+                'name',
+                'description',
+            ],
+            function ($row) {
+                $errors = [];
+
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
+                }
+
+                return $errors;
+            },
+            function ($row) {
+                return [
+                    'name' => $row['name'],
+                    'description' => $row['description'] ?? null,
+                ];
+            }
+        );
+
+        Excel::import($import, $request->file('file'));
 
         return response()->json([
             'success' => true,
-            'data' => $serviceCategory,
+            'rows_imported' => $import->getImportedCount(),
+            'rows_skipped_count' => $import->getSkippedCount(),
+            'skipped_rows' => $import->getSkippedRows(),
+        ]);
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:service_categories,id',
+        ]);
+
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->ids as $id) {
+            try {
+                $deleted += ServiceCategory::where('id', $id)->delete();
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
         ]);
     }
 }
-
-

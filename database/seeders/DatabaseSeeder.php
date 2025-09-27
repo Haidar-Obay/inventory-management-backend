@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
         User::factory()->create([
             'name' => 'Admin User',
             'email' => 'binbotadmin@brain.com',
-            'password' => bcrypt('br@in_binbot'),
+            'password' => bcrypt('br@in_binbot'),   
         ]);
 
         $this->call([
@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
                     DepartmentSeeder::class,
                     SpecialitySeeder::class,
                     SpecialistSeeder::class,
+                    ServiceCategorySeeder::class,
                     ServiceSeeder::class,
                     LocationSeeder::class,
                     CustomerSeeder::class,
