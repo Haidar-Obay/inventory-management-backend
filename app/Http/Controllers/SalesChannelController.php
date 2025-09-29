@@ -175,8 +175,8 @@ class SalesChannelController extends Controller
             ]);
         }
 
-        $columns = ['id', 'code', 'name', 'parent_code'];
-        $headings = ['ID', 'Code', 'Name', 'Parent Sales Channel'];
+        $columns = ['id', 'code', 'name', 'parent_code', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Parent Sales Channel', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($salesChannels, $columns, $headings), 'sales_channels.xlsx');
     }
@@ -190,7 +190,7 @@ class SalesChannelController extends Controller
                 'sales_channels.code',
                 'sales_channels.name',
                 'parent.code as parent_code',
-            ])
+                'created_at', 'updated_at'])
             ->get();
 
         if ($salesChannels->isEmpty()) {
@@ -338,13 +338,15 @@ class SalesChannelController extends Controller
     public function getNames()
     {
         $salesChannels = SalesChannel::whereNull('sub_sales_of')
-            ->select('id', 'name')
+            ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
             ->orderBy('name')
             ->get()
             ->map(function ($salesChannel) {
                 return [
                     'id' => $salesChannel->id,
-                    'name' => $salesChannel->name
+                    'name' => $salesChannel->name,
+                    'created_at' => $salesChannel->created_at,
+                    'updated_at' => $salesChannel->updated_at,
                 ];
             });
 

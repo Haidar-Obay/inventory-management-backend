@@ -150,8 +150,11 @@ class PaymentTermController extends Controller
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No payment terms found.'], 404);
         }
-        $columns = ['id', 'code', 'name', 'nb_days', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Number of Days', 'Active'];
+        $columns = ['id', 'code', 'name', 'nb_days', 'active',
+            'created_at',
+            'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Number of Days', 'Active',
+            'Created At', 'Updated At'];
         return Excel::download(new Export($paymentTerms, $columns, $headings), 'payment_terms.xlsx');
     }
 

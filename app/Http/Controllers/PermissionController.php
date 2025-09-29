@@ -202,8 +202,11 @@ class PermissionController extends Controller
     {
         try {
             $permissions = Permission::with('roles');
-            $columns = ['id', 'resource_key', 'resource_label'];
-            $headings = ['ID', 'Resource Key', 'Resource Label'];
+            $columns = ['id', 'resource_key', 'resource_label',
+            'created_at',
+            'updated_at'];
+            $headings = ['ID', 'Resource Key', 'Resource Label',
+            'Created At', 'Updated At'];
 
             return Excel::download(new Export($permissions, $columns, $headings), 'permissions.xlsx');
         } catch (\Exception $e) {
@@ -228,11 +231,7 @@ class PermissionController extends Controller
             }
 
             $title = 'Permissions Report';
-            $headers = [
-                'id' => 'Permission ID',
-                'resource_key' => 'Resource Key',
-                'resource_label' => 'Resource Label'
-            ];
+            $headers = ['id' => 'Permission ID', 'resource_key' => 'Resource Key', 'resource_label' => 'Resource Label', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
             $data = $permissions->toArray();
 
             $pdf = app(ExportPDF::class)->generatePdf($title, $headers, $data);

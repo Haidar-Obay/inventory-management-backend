@@ -106,7 +106,14 @@ class ServiceCategoryController extends Controller
     {
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv',
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
         ]);
+
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            ServiceCategory::truncate();
+        }
 
         $import = new DynamicExcelImport(
             ServiceCategory::class,
@@ -115,6 +122,13 @@ class ServiceCategoryController extends Controller
                 'description',
             ],
             function ($row) {
+                // Normalize inputs (trim strings)
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
+
                 $errors = [];
 
                 if (empty($row['name'])) {
@@ -124,20 +138,74 @@ class ServiceCategoryController extends Controller
                 return $errors;
             },
             function ($row) {
+                // Normalize inputs (trim strings)
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
+
                 return [
-                    'name' => $row['name'],
+                    'name' => $row['name'] ?? null,
                     'description' => $row['description'] ?? null,
                 ];
-            }
+            },
+            true // Enable header validation
         );
 
-        Excel::import($import, $request->file('file'));
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Import failed due to duplicate or invalid data. Please review your file and try again.',
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Import failed. Please check the file format and data.',
+            ], 422);
+        }
+
+        // Check if headers were valid
+        if (!$import->areHeadersValid()) {
+            $headerResult = $import->getHeaderValidationResult();
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Excel file headers',
+                'header_validation' => $headerResult,
+                'errors' => [
+                    'missing_headers' => $headerResult['missing'],
+                    'extra_headers' => $headerResult['extra'],
+                    'expected_headers' => $headerResult['expected_headers'],
+                    'actual_headers' => $headerResult['excel_headers']
+                ]
+            ], 422);
+        }
+
+        $imported = $import->getImportedCount();
+        $skippedCount = $import->getSkippedCount();
+        $skippedRows = $import->getSkippedRows();
+        $totalProcessed = $imported + $skippedCount;
+
+        $message = '';
+        if ($imported > 0 && $skippedCount === 0) {
+            $message = "Imported {$imported} row(s) successfully.";
+        } elseif ($imported > 0 && $skippedCount > 0) {
+            $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+        } elseif ($imported === 0 && $skippedCount > 0) {
+            $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+        } else {
+            $message = 'No rows found to import.';
+        }
 
         return response()->json([
-            'success' => true,
-            'rows_imported' => $import->getImportedCount(),
-            'rows_skipped_count' => $import->getSkippedCount(),
-            'skipped_rows' => $import->getSkippedRows(),
+            'success' => $imported > 0,
+            'message' => $message,
+            'rows_processed' => $totalProcessed,
+            'rows_imported' => $imported,
+            'rows_skipped_count' => $skippedCount,
+            'skipped_rows' => $skippedRows,
         ]);
     }
 

@@ -48,7 +48,13 @@ class CustomerGroupController extends Controller
 
     public function show(CustomerGroup $customerGroup)
     {
-        return response()->json($customerGroup->load('customers'));
+        $customerGroup->load('customers');
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Customer group details fetched successfully.',
+            'data' => $customerGroup,
+        ]);
     }
 
     public function update(Request $request, CustomerGroup $customerGroup)
@@ -120,16 +126,16 @@ class CustomerGroupController extends Controller
             ], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Active'];
+        $columns = ['id', 'code', 'name', 'active', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At'];
 
-        $fileName = 'customer_groups_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'customer_groups' . '.xlsx';
         return Excel::download(new Export($customerGroups, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $customerGroups = CustomerGroup::select('id', 'code', 'name', 'active')->get();
+        $customerGroups = CustomerGroup::select('id', 'code', 'name', 'active', 'created_at', 'updated_at')->get();
 
         if ($customerGroups->isEmpty()) {
             return response()->json([
@@ -141,15 +147,17 @@ class CustomerGroupController extends Controller
         $title = 'Customer Groups Report';
         $headers = [
             'id' => 'ID',
-            'code' => 'Code', 
+            'code' => 'Code',
             'name' => 'Name',
-            'active' => 'Active'
+            'active' => 'Active',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'
         ];
 
         $data = $customerGroups->toArray();
         $pdf = $pdfService->generatePdf($title, $headers, $data);
         
-        return $pdf->download('customer_groups_' . date('Y-m-d_H-i-s') . '.pdf');
+        return $pdf->download('customer_groups' . '.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -272,14 +280,16 @@ class CustomerGroupController extends Controller
 
         if (!$customerGroups) {
             $customerGroups = CustomerGroup::where('active', true)
-                ->select('id', 'code', 'name')
+                ->select('id', 'code', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($customerGroup) {
                     return [
                         'id' => $customerGroup->id,
                         'code' => $customerGroup->code,
-                        'name' => $customerGroup->name
+                        'name' => $customerGroup->name,
+                        'created_at' => $customerGroup->created_at,
+                        'updated_at' => $customerGroup->updated_at,
                     ];
                 });
 

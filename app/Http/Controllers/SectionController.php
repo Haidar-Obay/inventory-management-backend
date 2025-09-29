@@ -166,7 +166,7 @@ class SectionController extends Controller
 
     public function exportPdf()
     {
-        $sections = Section::with('room:id,name')->select('id', 'name', 'order_index', 'room_id')->get();
+        $sections = Section::with('room:id,name')->select('id', 'name', 'order_index', 'room_id', 'created_at', 'updated_at')->get();
 
         if ($sections->isEmpty()) {
             return response()->json(['message' => 'No sections found.'], 404);

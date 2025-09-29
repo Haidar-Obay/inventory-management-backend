@@ -164,7 +164,9 @@ class CostCenterController extends Controller
                 'cost_centers.code',
                 'cost_centers.name',
                 'parent.code as parent_code',
-                'cost_centers.active'
+                'cost_centers.active',
+                'cost_centers.created_at',
+                'cost_centers.updated_at'
             ]);
 
         $collection = $costCenters->get();
@@ -176,8 +178,8 @@ class CostCenterController extends Controller
             ]);
         }
 
-        $columns = ['id', 'code', 'name', 'parent_code', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Parent Cost Center', 'Status'];
+        $columns = ['id', 'code', 'name', 'parent_code', 'active', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Parent Cost Center', 'Status', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($costCenters, $columns, $headings), 'cost_centers.xlsx');
     }
@@ -191,8 +193,8 @@ class CostCenterController extends Controller
                 'cost_centers.code',
                 'cost_centers.name',
                 'parent.code as parent_code',
-                'cost_centers.active'
-            ])
+                'cost_centers.active',
+                'created_at', 'updated_at'])
             ->get();
 
         if ($costCenters->isEmpty()) {
@@ -203,13 +205,7 @@ class CostCenterController extends Controller
         }
 
         $title = 'Cost Centers Report';
-        $headers = [
-            'id' => 'ID',
-            'code' => 'Code',
-            'name' => 'Name',
-            'parent_code' => 'Parent Cost Center',
-            'active' => 'Status'
-        ];
+        $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'parent_code' => 'Parent Cost Center', 'active' => 'Status', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $costCenters->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
@@ -376,13 +372,15 @@ class CostCenterController extends Controller
     public function getNames()
     {
             $costCenters = CostCenter::whereNull('sub_cost_center_of')
-                ->select('id', 'name')
+                ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($costCenter) {
                     return [
                         'id' => $costCenter->id,
-                        'name' => $costCenter->name
+                        'name' => $costCenter->name,
+                        'created_at' => $costCenter->created_at,
+                        'updated_at' => $costCenter->updated_at,
                     ];
                 });
 

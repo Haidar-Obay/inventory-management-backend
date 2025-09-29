@@ -152,14 +152,17 @@ class PaymentMethodController extends Controller
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No payment methods found.'], 404);
         }
-        $columns = ['id', 'code', 'name', 'is_credit_card', 'is_online_payment', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Is Credit Card', 'Is Online Payment', 'Active'];
+        $columns = ['id', 'code', 'name', 'is_credit_card', 'is_online_payment', 'active',
+            'created_at',
+            'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Is Credit Card', 'Is Online Payment', 'Active',
+            'Created At', 'Updated At'];
         return Excel::download(new Export($paymentMethods, $columns, $headings), 'payment_methods.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $paymentMethods = PaymentMethod::select('id', 'code', 'name', 'is_credit_card', 'is_online_payment', 'active')->get();
+        $paymentMethods = PaymentMethod::select('id', 'code', 'name', 'is_credit_card', 'is_online_payment', 'active', 'created_at', 'updated_at')->get();
         if ($paymentMethods->isEmpty()) {
             return response()->json(['message' => 'No payment methods found.'], 404);
         }
@@ -171,6 +174,8 @@ class PaymentMethodController extends Controller
             'is_credit_card' => 'Is Credit Card',
             'is_online_payment' => 'Is Online Payment',
             'active' => 'Active',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
         $data = $paymentMethods->toArray();
         $pdf = $pdfService->generatePdf($title, $headers, $data);

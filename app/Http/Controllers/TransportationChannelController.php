@@ -164,6 +164,8 @@ class TransportationChannelController extends Controller
                 'transportation_channels.code',
                 'transportation_channels.name',
                 'parent.code as parent_code',
+                'transportation_channels.created_at',
+                'transportation_channels.updated_at',
             ]);
 
         $collection = $transportationChannels->get();
@@ -175,8 +177,8 @@ class TransportationChannelController extends Controller
             ]);
         }
 
-        $columns = ['id', 'code', 'name', 'parent_code'];
-        $headings = ['ID', 'Code', 'Name', 'Parent Transportation Channel'];
+        $columns = ['id', 'code', 'name', 'parent_code', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Parent Transportation Channel', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($transportationChannels, $columns, $headings), 'transportation_channels.xlsx');
     }
@@ -190,7 +192,9 @@ class TransportationChannelController extends Controller
                 'transportation_channels.code',
                 'transportation_channels.name',
                 'parent.code as parent_code',
-            ])
+                'transportation_channels.created_at',
+                'transportation_channels.updated_at',
+                'created_at', 'updated_at'])
             ->get();
 
         if ($transportationChannels->isEmpty()) {
@@ -206,6 +210,8 @@ class TransportationChannelController extends Controller
             'code' => 'Code',
             'name' => 'Name',
             'parent_code' => 'Parent Transportation Channel',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
         $data = $transportationChannels->toArray();
 
@@ -321,7 +327,7 @@ class TransportationChannelController extends Controller
     public function getNames()
     {
         $transportationChannels = TransportationChannel::whereNull('sub_transportation_of')
-            ->select('id', 'name')
+            ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
             ->orderBy('name')
             ->get()
             ->map(function ($transportationChannel) {

@@ -358,7 +358,8 @@ class TenantController extends Controller
     {
         $tenants = Tenant::query()
             ->leftJoin('domains', 'tenants.id', '=', 'domains.tenant_id')
-            ->select(['tenants.id', 'tenants.name', 'tenants.email', 'domains.domain', 'tenants.created_at', 'tenants.updated_at'])
+            ->select(['tenants.id', 'tenants.name', 'tenants.email', 'domains.domain', 'tenants.created_at', 'tenants.updated_at',
+                'created_at', 'updated_at'])
             ->get();
 
         if ($tenants->isEmpty()) {

@@ -41,7 +41,8 @@ class SalesmanController extends Controller
         $cachedSalesman = app('cache')->store('database')->get($key);
 
         if (!$cachedSalesman) {
-            $cachedSalesman = $salesman->loadCount('customers');
+            $salesman->loadCount('customers');
+            $cachedSalesman = $salesman;
             app('cache')->store('database')->forever($key, $cachedSalesman);
         }
 
@@ -151,7 +152,7 @@ class SalesmanController extends Controller
         $columns = ['id', 'code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_by_item', 'active'];
         $headings = ['ID', 'Code', 'Name', 'Email', 'Phone 1', 'Phone 2', 'Address', 'Is Manager', 'Is Supervisor', 'Is Collector', 'Fix Commission', 'Commission by Item', 'Active'];
 
-        $fileName = 'salesmen_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'salesmen_' . '.xlsx';
         return Excel::download(new Export($salesmen, $columns, $headings), $fileName);
     }
 
@@ -289,14 +290,16 @@ class SalesmanController extends Controller
 
         if (!$salesmen) {
             $salesmen = Salesman::where('active', true)
-                ->select('id', 'code', 'name')
+                ->select('id', 'code', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($salesman) {
                     return [
                         'id' => $salesman->id,
                         'code' => $salesman->code,
-                        'name' => $salesman->name
+                        'name' => $salesman->name,
+                        'created_at' => $salesman->created_at,
+                        'updated_at' => $salesman->updated_at,
                     ];
                 });
 

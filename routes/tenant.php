@@ -368,7 +368,7 @@ Route::apiResource('assignments', AssignmentController::class);
                 Route::post('/transportation-channels', [TransportationChannelController::class, 'import']);
                 Route::post('/media-channels', [MediaChannelController::class, 'import']);
                 Route::post('/items', [ItemController::class, 'importFromExcel']);
-                Route::post('/customer-master-lists', [CustomerMasterListController::class, 'import']);
+                Route::post('/customer-master-lists', [CustomerMasterListController::class, 'importFromExcel']);
                 Route::post('/specialities', [SpecialityController::class, 'importFromExcel']);
                 Route::post('/specialists', [SpecialistController::class, 'importFromExcel']);
                 Route::post('/services', [ServiceController::class, 'importFromExcel']);

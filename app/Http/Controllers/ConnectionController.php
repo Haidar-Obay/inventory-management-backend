@@ -24,18 +24,36 @@ class ConnectionController extends Controller
     public function store(StoreConnectionRequest $request): JsonResponse
     {
         $row = Connection::create($request->validated());
-        return response()->json($row->load('type:id,name'), 201);
+        $row->load('type:id,name');
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Connection created successfully.',
+            'data' => $row,
+        ], 201);
     }
 
     public function show(Connection $connection): JsonResponse
     {
-        return response()->json($connection->load('type:id,name'));
+        $connection->load('type:id,name');
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Connection details fetched successfully.',
+            'data' => $connection,
+        ]);
     }
 
     public function update(UpdateConnectionRequest $request, Connection $connection): JsonResponse
     {
         $connection->update($request->validated());
-        return response()->json($connection->load('type:id,name'));
+        $connection->load('type:id,name');
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Connection updated successfully.',
+            'data' => $connection,
+        ]);
     }
 
     public function destroy(Connection $connection): JsonResponse
@@ -66,7 +84,7 @@ class ConnectionController extends Controller
         if ($collection->isEmpty()) return response()->json(['message' => 'No connections found.'], 404);
         $columns = ['id','name','type_id','created_at','updated_at'];
         $headings = ['ID','Name','Type ID','Created At','Updated At'];
-        $fileName = 'connections_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'connections' . '.xlsx';
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
@@ -75,11 +93,7 @@ class ConnectionController extends Controller
         $rows = Connection::select('id','name','type_id')->get();
         if ($rows->isEmpty()) return response()->json(['message' => 'No connections found.'], 404);
         $title = 'Connections';
-        $headers = [
-            'id' => 'ID',
-            'name' => 'Name',
-            'type_id' => 'Type ID',
-        ];
+        $headers = ['id' => 'ID', 'name' => 'Name', 'type_id' => 'Type ID', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
         return $pdf->download('Connections.pdf');
     }

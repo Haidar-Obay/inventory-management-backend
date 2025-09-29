@@ -92,8 +92,11 @@ class BranchController extends Controller
             return response()->json(['message' => 'No branches to export'], 404);
         }
 
-        $fileName = 'branches_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($branches), $fileName);
+        $columns = ['id', 'code', 'name', 'active', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At'];
+        
+        $fileName = 'branches' . '.xlsx';
+        return Excel::download(new Export($branches, $columns, $headings), $fileName);
     }
 
     public function exportPdf()
@@ -104,8 +107,14 @@ class BranchController extends Controller
             return response()->json(['message' => 'No branches to export'], 404);
         }
 
-        $fileName = 'branches_' . date('Y-m-d_H-i-s') . '.pdf';
-        return Excel::download(new ExportPDF($branches), $fileName);
+        $branches = Branch::select('id', 'code', 'name', 'active', 'created_at', 'updated_at')->get();
+        
+        $title = 'Branches Report';
+        $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'active' => 'Active', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
+        
+        $pdfService = new ExportPDF();
+        $pdf = $pdfService->generatePdf($title, $headers, $branches->toArray());
+        return $pdf->download('branches' . '.pdf');
     }
 
     public function importFromExcel(Request $request)

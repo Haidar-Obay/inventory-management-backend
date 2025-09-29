@@ -170,8 +170,11 @@ class SupplierGroupController extends Controller
             return response()->json(['message' => 'No supplier groups found.'], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Active'];
+        $columns = ['id', 'code', 'name', 'active',
+            'created_at',
+            'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Active',
+            'Created At', 'Updated At'];
 
         return Excel::download(new Export($supplierGroups, $columns, $headings), 'supplier_groups.xlsx');
     }

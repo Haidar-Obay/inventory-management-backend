@@ -164,7 +164,9 @@ class DepartmentController extends Controller
                 'departments.code',
                 'departments.name',
                 'parent.code as parent_code',
-                'departments.active'
+                'departments.active',
+                'departments.created_at',
+                'departments.updated_at'
             ]);
 
         $collection = $departments->get();
@@ -176,8 +178,8 @@ class DepartmentController extends Controller
             ]);
         }
 
-        $columns = ['id', 'code', 'name', 'parent_code', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Parent Department', 'Status'];
+        $columns = ['id', 'code', 'name', 'parent_code', 'active', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Parent Department', 'Status', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($departments, $columns, $headings), 'departments.xlsx');
     }
@@ -191,8 +193,8 @@ class DepartmentController extends Controller
                 'departments.code',
                 'departments.name',
                 'parent.code as parent_code',
-                'departments.active'
-            ])
+                'departments.active',
+                'created_at', 'updated_at'])
             ->get();
 
         if ($departments->isEmpty()) {
@@ -203,13 +205,7 @@ class DepartmentController extends Controller
         }
 
         $title = 'Departments Report';
-        $headers = [
-            'id' => 'ID',
-            'code' => 'Code',
-            'name' => 'Name',
-            'parent_code' => 'Parent Department',
-            'active' => 'Status'
-        ];
+        $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'parent_code' => 'Parent Department', 'active' => 'Status', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $departments->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
@@ -384,13 +380,15 @@ class DepartmentController extends Controller
     public function getNames()
     {
             $departments = Department::whereNull('sub_department_of')
-                ->select('id', 'name')
+                ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($department) {
                     return [
                         'id' => $department->id,
-                        'name' => $department->name
+                        'name' => $department->name,
+                        'created_at' => $department->created_at,
+                        'updated_at' => $department->updated_at,
                     ];
                 });
 

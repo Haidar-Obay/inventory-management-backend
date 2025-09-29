@@ -26,18 +26,36 @@ class AssociationController extends Controller
     public function store(StoreAssociationRequest $request): JsonResponse
     {
         $association = Association::create($request->validated());
-        return response()->json($association->load('contacts'), 201);
+        $association->load('contacts');
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Association created successfully.',
+            'data' => $association,
+        ], 201);
     }
 
     public function show(Association $association): JsonResponse
     {
-        return response()->json($association->load('contacts'));
+        $association->load('contacts');
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Association details fetched successfully.',
+            'data' => $association,
+        ]);
     }
 
     public function update(UpdateAssociationRequest $request, Association $association): JsonResponse
     {
         $association->update($request->validated());
-        return response()->json($association->load('contacts'));
+        $association->load('contacts');
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Association updated successfully.',
+            'data' => $association,
+        ]);
     }
 
     public function destroy(Association $association): JsonResponse
@@ -80,7 +98,7 @@ class AssociationController extends Controller
         $headings = [
             'ID','Name','Phone 1','Phone 2','Email','Website','Markup Value','Markup Type','Markdown Value','Markdown Type','Allowed To Pay For Guests','Active','Created At','Updated At'
         ];
-        $fileName = 'associations_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'associations_' . '.xlsx';
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
@@ -98,7 +116,8 @@ class AssociationController extends Controller
             'website' => 'Website',
             'allowed_to_pay_for_guests' => 'Allowed Guests',
             'active' => 'Active',
-        ];
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
         return $pdf->download('Associations.pdf');
     }

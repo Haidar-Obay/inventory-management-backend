@@ -66,7 +66,7 @@ class ReferrerController extends Controller
         if ($collection->isEmpty()) return response()->json(['message' => 'No referrers found.'], 404);
         $columns = ['id','name','address','phone1','phone2','email','active','commission_percent','created_at','updated_at'];
         $headings = ['ID','Name','Address','Phone 1','Phone 2','Email','Active','Commission %','Created At','Updated At'];
-        $fileName = 'referrers_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'referrers' . '.xlsx';
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
@@ -84,7 +84,8 @@ class ReferrerController extends Controller
             'email' => 'Email',
             'active' => 'Active',
             'commission_percent' => 'Commission %',
-        ];
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
         return $pdf->download('Referrers.pdf');
     }

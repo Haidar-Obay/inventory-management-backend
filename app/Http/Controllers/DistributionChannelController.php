@@ -164,6 +164,8 @@ class DistributionChannelController extends Controller
                 'distribution_channels.code',
                 'distribution_channels.name',
                 'parent.code as parent_code',
+                'distribution_channels.created_at',
+                'distribution_channels.updated_at'
             ]);
 
         $collection = $distributionChannels->get();
@@ -175,8 +177,8 @@ class DistributionChannelController extends Controller
             ]);
         }
 
-        $columns = ['id', 'code', 'name', 'parent_code'];
-        $headings = ['ID', 'Code', 'Name', 'Parent Distribution Channel'];
+        $columns = ['id', 'code', 'name', 'parent_code', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Parent Distribution Channel', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($distributionChannels, $columns, $headings), 'distribution_channels.xlsx');
     }
@@ -190,6 +192,8 @@ class DistributionChannelController extends Controller
                 'distribution_channels.code',
                 'distribution_channels.name',
                 'parent.code as parent_code',
+                'distribution_channels.created_at',
+                'distribution_channels.updated_at'
             ])
             ->get();
 
@@ -206,6 +210,8 @@ class DistributionChannelController extends Controller
             'code' => 'Code',
             'name' => 'Name',
             'parent_code' => 'Parent Distribution Channel',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
         $data = $distributionChannels->toArray();
 
@@ -349,13 +355,15 @@ class DistributionChannelController extends Controller
     public function getNames()
     {
         $distributionChannels = DistributionChannel::whereNull('sub_distribution_of')
-            ->select('id', 'name')
+            ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
             ->orderBy('name')
             ->get()
             ->map(function ($distributionChannel) {
                 return [
                     'id' => $distributionChannel->id,
-                    'name' => $distributionChannel->name
+                    'name' => $distributionChannel->name,
+                    'created_at' => $distributionChannel->created_at,
+                    'updated_at' => $distributionChannel->updated_at,
                 ];
             });
 

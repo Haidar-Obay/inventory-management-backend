@@ -135,16 +135,16 @@ class ItemController extends Controller
             ], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'price'];
-        $headings = ['ID', 'Code', 'Name', 'Price'];
+        $columns = ['id', 'code', 'name', 'price', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Price', 'Created At', 'Updated At'];
 
-        $fileName = 'items_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'items' . '.xlsx';
         return Excel::download(new Export($items, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $items = Item::select('id', 'code', 'name', 'price')->get();
+        $items = Item::select('id', 'code', 'name', 'price', 'created_at', 'updated_at')->get();
 
         if ($items->isEmpty()) {
             return response()->json([
@@ -154,12 +154,7 @@ class ItemController extends Controller
         }
 
         $title = 'Items Report';
-        $headers = [
-            'id' => 'ID',
-            'code' => 'Code',
-            'name' => 'Name',
-            'price' => 'Price'
-        ];
+        $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'price' => 'Price', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $items->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
@@ -281,7 +276,9 @@ class ItemController extends Controller
                     return [
                         'id' => $item->id,
                         'code' => $item->code,
-                        'name' => $item->name
+                        'name' => $item->name,
+                        'created_at' => $item->created_at,
+                        'updated_at' => $item->updated_at,
                     ];
                 });
 

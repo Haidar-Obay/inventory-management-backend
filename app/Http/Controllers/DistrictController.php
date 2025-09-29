@@ -243,15 +243,15 @@ class DistrictController extends Controller
             return response()->json(['message' => 'No districts found.'], 404);
         }
 
-        $columns = ['id', 'name'];
-        $headings = ['ID', 'Name'];
+        $columns = ['id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Name', 'Created At', 'Updated At', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($districts, $columns, $headings), 'districts.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $districts = District::select('id', 'name')->get();
+        $districts = District::select('id', 'name', 'created_at', 'updated_at')->get();
 
         if ($districts->isEmpty()) {
             return response()->json(['message' => 'No districts found.'], 404);
@@ -261,6 +261,8 @@ class DistrictController extends Controller
         $headers = [
             'id' => 'District ID',
             'name' => 'District Name',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
         $data = $districts->toArray();
 

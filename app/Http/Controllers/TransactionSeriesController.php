@@ -29,7 +29,13 @@ class TransactionSeriesController extends Controller
         $transactionSeries = TransactionSeries::create($request->validated());
         Cache::forget("transaction_series_" . tenant('id'));
 
-        return response()->json($transactionSeries->load(['companyCode', 'trade']), 201);
+        $transactionSeries->load(['companyCode', 'trade']);
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Transaction series created successfully.',
+            'data' => $transactionSeries,
+        ], 201);
     }
 
     public function show(TransactionSeries $transactionSeries)
@@ -37,9 +43,16 @@ class TransactionSeriesController extends Controller
         $tenantId = tenant('id');
         $cacheKey = "transaction_series_{$transactionSeries->id}_{$tenantId}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($transactionSeries) {
-            return $transactionSeries->load(['companyCode', 'trade']);
+        $cached = Cache::remember($cacheKey, 3600, function () use ($transactionSeries) {
+            $transactionSeries->load(['companyCode', 'trade']);
+            return $transactionSeries;
         });
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Transaction series details fetched successfully.',
+            'data' => $cached,
+        ]);
     }
 
     public function update(UpdateTransactionSeriesRequest $request, TransactionSeries $transactionSeries)
@@ -48,7 +61,13 @@ class TransactionSeriesController extends Controller
         Cache::forget("transaction_series_" . tenant('id'));
         Cache::forget("transaction_series_{$transactionSeries->id}_" . tenant('id'));
 
-        return response()->json($transactionSeries->load(['companyCode', 'trade']));
+        $transactionSeries->load(['companyCode', 'trade']);
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Transaction series updated successfully.',
+            'data' => $transactionSeries,
+        ]);
     }
 
     public function destroy(TransactionSeries $transactionSeries)
@@ -82,14 +101,7 @@ class TransactionSeriesController extends Controller
             return response()->json(['message' => 'No data to export'], 404);
         }
 
-        $headers = [
-            'id' => 'ID',
-            'code' => 'Code',
-            'name' => 'Name',
-            'template' => 'Template',
-            'companyCode.code' => 'Company Code',
-            'trade.code' => 'Trade'
-        ];
+        $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'template' => 'Template', 'companyCode.code' => 'Company Code', 'trade.code' => 'Trade', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
 
         $columns = array_keys($headers);
         $headings = array_values($headers);
@@ -108,14 +120,7 @@ class TransactionSeriesController extends Controller
             return response()->json(['message' => 'No data to export'], 404);
         }
 
-        $headers = [
-            'id' => 'ID',
-            'code' => 'Code',
-            'name' => 'Name',
-            'template' => 'Template',
-            'companyCode.code' => 'Company Code',
-            'trade.code' => 'Trade'
-        ];
+        $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'template' => 'Template', 'companyCode.code' => 'Company Code', 'trade.code' => 'Trade', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
 
         $columns = array_keys($headers);
         $data = $transactionSeries->map(function ($row) use ($columns) {

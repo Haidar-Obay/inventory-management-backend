@@ -89,7 +89,13 @@ class ServiceController extends Controller
         if (!empty($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
-        return response()->json($service->load(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']), 201);
+        $service->load(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Service created successfully.',
+            'data' => $service,
+        ], 201);
     }
 
     public function show(Service $service): JsonResponse
@@ -129,7 +135,11 @@ class ServiceController extends Controller
         // Hide raw IDs but keep related objects
         $loaded->makeHidden(['service_category_id', 'department_id', 'sub_department_id']);
 
-        return response()->json($loaded);
+        return response()->json([
+            'status' => true,
+            'message' => 'Service details fetched successfully.',
+            'data' => $loaded,
+        ]);
     }
 
     public function update(UpdateServiceRequest $request, Service $service): JsonResponse
@@ -167,7 +177,13 @@ class ServiceController extends Controller
         if (is_array($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
-        return response()->json($service->load(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']));
+        $service->load(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Service updated successfully.',
+            'data' => $service,
+        ]);
     }
 
     public function destroy(Service $service): JsonResponse

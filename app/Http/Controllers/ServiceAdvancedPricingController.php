@@ -143,7 +143,8 @@ class ServiceAdvancedPricingController extends Controller
             'specialist_id' => 'Specialist ID',
             'price_on_site' => 'Price On Site',
             'price_on_call' => 'Price On Call',
-        ];
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
         return $pdf->download('ServiceAdvancedPricing.pdf');
     }

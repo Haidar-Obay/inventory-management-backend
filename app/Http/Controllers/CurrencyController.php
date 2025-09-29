@@ -163,14 +163,14 @@ class CurrencyController extends Controller
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No currencies found.'], 404);
         }
-        $columns = ['id', 'name', 'code', 'iso_code', 'rate'];
-        $headings = ['ID', 'Name', 'Code', 'ISO Code', 'Rate'];
+        $columns = ['id', 'name', 'code', 'iso_code', 'rate', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Name', 'Code', 'ISO Code', 'Rate', 'Created At', 'Updated At'];
         return Excel::download(new Export($currencies, $columns, $headings), 'currencies.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $currencies = Currency::select('id', 'name', 'code', 'iso_code', 'rate')->get();
+        $currencies = Currency::select('id', 'name', 'code', 'iso_code', 'rate', 'created_at', 'updated_at')->get();
 
         if ($currencies->isEmpty()) {
             return response()->json(['message' => 'No currencies found.'], 404);
@@ -182,7 +182,9 @@ class CurrencyController extends Controller
             'name' => 'Currency Name',
             'code' => 'Currency Code',
             'iso_code' => 'ISO Code',
-            'rate' => 'Exchange Rate'
+            'rate' => 'Exchange Rate',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'
         ];
         $data = $currencies->toArray();
 

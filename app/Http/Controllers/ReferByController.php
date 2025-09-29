@@ -129,8 +129,8 @@ class ReferByController extends Controller
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No ReferBy found.'], 404);
         }
-        $columns = ['id', 'name'];
-        $headings = ['ID', 'Name'];
+        $columns = ['id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Name', 'Created At', 'Updated At', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($ReferBy, $columns, $headings), 'ReferBy.xlsx');
     }
@@ -144,10 +144,7 @@ class ReferByController extends Controller
         }
 
         $title = 'Refer By Group Report';
-        $headers = [
-            'id' => 'Refer By ID',
-            'name' => 'Refer By Name'
-        ];
+        $headers = ['id' => 'Refer By ID', 'name' => 'Refer By Name', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $referBies->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);

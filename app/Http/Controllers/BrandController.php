@@ -196,8 +196,8 @@ class BrandController extends Controller
             return response()->json(['message' => 'No brands found.'], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'sub_brand_of', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Sub Brand Of', 'Active'];
+        $columns = ['id', 'code', 'name', 'sub_brand_of', 'active', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Sub Brand Of', 'Active', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($brands, $columns, $headings), 'brands.xlsx');
     }
@@ -205,7 +205,7 @@ class BrandController extends Controller
     public function exportPdf(ExportPDF $pdfService)
     {
         $brands = Brand::with(['parentBrand'])
-            ->select('id', 'code', 'name', 'sub_brand_of', 'active')
+            ->select('id', 'code', 'name', 'sub_brand_of', 'active', 'created_at', 'updated_at')
             ->get();
 
         if ($brands->isEmpty()) {
@@ -213,13 +213,7 @@ class BrandController extends Controller
         }
 
         $title = 'Brand Report';
-        $headers = [
-            'id' => 'Brand ID',
-            'code' => 'Code',
-            'name' => 'Name',
-            'sub_brand_of' => 'Sub Brand Of',
-            'active' => 'Status'
-        ];
+        $headers = ['id' => 'Brand ID', 'code' => 'Code', 'name' => 'Name', 'sub_brand_of' => 'Sub Brand Of', 'active' => 'Status', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $brands->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
@@ -339,7 +333,7 @@ class BrandController extends Controller
     {
         // Only get top-level brands (not subbrands)
         $brands = Brand::whereNull('sub_brand_of')
-                ->select('id', 'name')
+                ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get();
 
