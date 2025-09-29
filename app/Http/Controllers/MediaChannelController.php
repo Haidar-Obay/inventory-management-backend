@@ -164,6 +164,8 @@ class MediaChannelController extends Controller
                 'media_channels.code',
                 'media_channels.name',
                 'parent.code as parent_code',
+                'media_channels.created_at',
+                'media_channels.updated_at'
             ]);
 
         $collection = $mediaChannels->get();
@@ -175,8 +177,8 @@ class MediaChannelController extends Controller
             ]);
         }
 
-        $columns = ['id', 'code', 'name', 'parent_code'];
-        $headings = ['ID', 'Code', 'Name', 'Parent Media Channel'];
+        $columns = ['id', 'code', 'name', 'parent_code', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Parent Media Channel', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($mediaChannels, $columns, $headings), 'media_channels.xlsx');
     }
@@ -190,6 +192,8 @@ class MediaChannelController extends Controller
                 'media_channels.code',
                 'media_channels.name',
                 'parent.code as parent_code',
+                'media_channels.created_at',
+                'media_channels.updated_at'
             ])
             ->get();
 
@@ -206,6 +210,8 @@ class MediaChannelController extends Controller
             'code' => 'Code',
             'name' => 'Name',
             'parent_code' => 'Parent Media Channel',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
         $data = $mediaChannels->toArray();
 
@@ -373,13 +379,15 @@ class MediaChannelController extends Controller
     public function getNames()
     {
         $mediaChannels = MediaChannel::whereNull('sub_media_of')
-            ->select('id', 'name')
+            ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
             ->orderBy('name')
             ->get()
             ->map(function ($mediaChannel) {
                 return [
                     'id' => $mediaChannel->id,
-                    'name' => $mediaChannel->name
+                    'name' => $mediaChannel->name,
+                    'created_at' => $mediaChannel->created_at,
+                    'updated_at' => $mediaChannel->updated_at,
                 ];
             });
 

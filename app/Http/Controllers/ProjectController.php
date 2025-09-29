@@ -50,7 +50,13 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
-        return response()->json($project->load(['customer', 'jobs']));
+        $project->load(['customer', 'jobs']);
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Project details fetched successfully.',
+            'data' => $project,
+        ]);
     }
 
     public function update(UpdateProjectRequest $request, Project $project)
@@ -146,8 +152,8 @@ class ProjectController extends Controller
                 DB::raw("CONCAT(customers.first_name, ' ', customers.last_name) as customer_name"),
                 'projects.start_date',
                 'projects.end_date',
-                'projects.expected_date'
-            ])
+                'projects.expected_date',
+                'created_at', 'updated_at'])
             ->get();
 
         if ($projects->isEmpty()) {
@@ -158,14 +164,7 @@ class ProjectController extends Controller
         }
 
         $title = 'Project Report';
-        $headers = [
-            'id' => 'ID',
-            'name' => 'Name',
-            'customer_name' => 'Customer',
-            'start_date' => 'Start Date',
-            'end_date' => 'End Date',
-            'expected_date' => 'Expected Date'
-        ];
+        $headers = ['id' => 'ID', 'name' => 'Name', 'customer_name' => 'Customer', 'start_date' => 'Start Date', 'end_date' => 'End Date', 'expected_date' => 'Expected Date', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $projects->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
@@ -216,12 +215,29 @@ class ProjectController extends Controller
                 },
                 function ($row) {
                     foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+
+                    $parseDate = function ($value) {
+                        if ($value === null || $value === '') { return null; }
+                        if (is_numeric($value)) {
+                            try {
+                                $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$value);
+                                return \Carbon\Carbon::instance($dt)->format('Y-m-d');
+                            } catch (\Throwable $e) {}
+                        }
+                        $tryFormats = ['n/j/Y', 'm/d/Y', 'Y-m-d'];
+                        foreach ($tryFormats as $fmt) {
+                            try { return \Carbon\Carbon::createFromFormat($fmt, (string)$value)->format('Y-m-d'); } catch (\Throwable $e) {}
+                        }
+                        try { return \Carbon\Carbon::parse((string)$value)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
+                    };
+
                     return [
                         'name' => $row['name'] ?? null,
                         'description' => $row['description'] ?? null,
                         'customer_id' => $row['customer_id'] ?? null,
-                        'start_date' => $row['start_date'] ?? null,
-                        'end_date' => $row['end_date'] ?? null,
+                        'start_date' => $parseDate($row['start_date'] ?? null),
+                        'end_date' => $parseDate($row['end_date'] ?? null),
+                        'expected_date' => $parseDate($row['expected_date'] ?? null),
                         'status' => $row['status'] ?? 'active',
                     ];
                 },
@@ -325,7 +341,9 @@ class ProjectController extends Controller
             ->map(function ($project) {
                 return [
                     'id' => $project->id,
-                    'name' => $project->name
+                    'name' => $project->name,
+                    'created_at' => $project->created_at,
+                    'updated_at' => $project->updated_at,
                 ];
             });
 

@@ -953,6 +953,12 @@ class SupplierController extends Controller
                 },
                 function ($row) {
                     foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    $parseDate = function ($value) {
+                        if ($value === null || $value === '') { return null; }
+                        if (is_numeric($value)) { try { $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$value); return \Carbon\Carbon::instance($dt)->format('Y-m-d'); } catch (\Throwable $e) {} }
+                        foreach (['n/j/Y','m/d/Y','Y-m-d'] as $fmt) { try { return \Carbon\Carbon::createFromFormat($fmt, (string)$value)->format('Y-m-d'); } catch (\Throwable $e) {} }
+                        try { return \Carbon\Carbon::parse((string)$value)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
+                    };
                     return [
                         'title' => $row['title'] ?? null,
                         'first_name' => $row['first_name'] ?? null,
@@ -983,8 +989,8 @@ class SupplierController extends Controller
                         'max_cheques' => $row['max_cheques'] ?? null,
                         'notes' => $row['notes'] ?? null,
                         'taxable' => $row['taxable'] ?? null,
-                        'taxed_from_date' => $row['taxed_from_date'] ?? null,
-                        'taxed_till_date' => $row['taxed_till_date'] ?? null,
+                        'taxed_from_date' => $parseDate($row['taxed_from_date'] ?? null),
+                        'taxed_till_date' => $parseDate($row['taxed_till_date'] ?? null),
                         'subjected_to_tax' => $row['subjected_to_tax'] ?? null,
                         'added_tax' => $row['added_tax'] ?? null,
                         'catalog' => $row['catalog'] ?? null,

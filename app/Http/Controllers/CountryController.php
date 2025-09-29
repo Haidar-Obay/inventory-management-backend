@@ -149,15 +149,15 @@ class CountryController extends Controller
             return response()->json(['message' => 'No countries found.'], 404);
         }
 
-        $columns = ['id', 'name'];
-        $headings = ['ID', 'Name'];
+        $columns = ['id', 'name', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Name', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($countries, $columns, $headings), 'countries.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $countries = Country::select('id', 'name')->get();
+        $countries = Country::select('id', 'name', 'created_at', 'updated_at')->get();
 
         if ($countries->isEmpty()) {
             return response()->json(['message' => 'No countries found.'], 404);
@@ -167,6 +167,8 @@ class CountryController extends Controller
         $headers = [
             'id' => 'Country ID',
             'name' => 'Country Name',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
         $data = $countries->toArray();
 

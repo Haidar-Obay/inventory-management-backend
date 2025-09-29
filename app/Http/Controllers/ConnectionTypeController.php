@@ -63,9 +63,9 @@ class ConnectionTypeController extends Controller
         $query = ConnectionType::query();
         $collection = $query->get();
         if ($collection->isEmpty()) return response()->json(['message' => 'No connection types found.'], 404);
-        $columns = ['id','name','created_at','updated_at'];
-        $headings = ['ID','Name','Created At','Updated At'];
-        $fileName = 'connection_types_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $columns = ['id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Name', 'Created At', 'Updated At', 'Created At', 'Updated At'];
+        $fileName = 'connection_types' . '.xlsx';
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
@@ -74,10 +74,7 @@ class ConnectionTypeController extends Controller
         $rows = ConnectionType::select('id','name')->get();
         if ($rows->isEmpty()) return response()->json(['message' => 'No connection types found.'], 404);
         $title = 'Connection Types';
-        $headers = [
-            'id' => 'ID',
-            'name' => 'Name',
-        ];
+        $headers = ['id' => 'ID', 'name' => 'Name', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
         return $pdf->download('ConnectionTypes.pdf');
     }

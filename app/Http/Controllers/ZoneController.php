@@ -62,13 +62,13 @@ class ZoneController extends Controller
         if (!$cached) {
             $zone->loadCount('addresses');
             app('cache')->store('database')->forever($key, $zone);
-        } else {
+            $cached = $zone;
         }
 
         return response()->json([
             'status' => true,
             'message' => 'Zone details fetched successfully.',
-            'data' => $zone,
+            'data' => $cached,
         ]);
     }
 
@@ -146,8 +146,8 @@ class ZoneController extends Controller
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No Zone found.'], 404);
         }
-        $columns = ['id', 'name'];
-        $headings = ['ID', 'Name'];
+        $columns = ['id', 'name', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Name', 'Created At', 'Updated At'];
         return Excel::download(new Export($Zone, $columns, $headings), 'zones.xlsx');
     }
 
@@ -160,10 +160,7 @@ class ZoneController extends Controller
         }
 
         $title = 'Zone Report';
-        $headers = [
-            'id' => 'Zone ID',
-            'name' => 'Zone Name'
-        ];
+        $headers = ['id' => 'Zone ID', 'name' => 'Zone Name', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $zones->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);

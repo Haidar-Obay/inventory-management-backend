@@ -189,8 +189,8 @@ class CategoryController extends Controller
             ], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'subcategory_of', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Subcategory Of', 'Active'];
+        $columns = ['id', 'code', 'name', 'subcategory_of', 'active', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Subcategory Of', 'Active', 'Created At', 'Updated At'];
 
         $fileName = 'categories_' . date('Y-m-d_H-i-s') . '.xlsx';
         return Excel::download(new Export($categories, $columns, $headings), $fileName);
@@ -199,7 +199,7 @@ class CategoryController extends Controller
     public function exportPdf()
     {
         $categories = Category::with('parentCategory')
-            ->select('id', 'code', 'name', 'subcategory_of', 'active')
+            ->select('id', 'code', 'name', 'subcategory_of', 'active', 'created_at', 'updated_at')
             ->get();
 
         if ($categories->isEmpty()) {
@@ -209,8 +209,20 @@ class CategoryController extends Controller
             ], 404);
         }
 
-        $fileName = 'categories_' . date('Y-m-d_H-i-s') . '.pdf';
-        return Excel::download(new ExportPDF($categories), $fileName);
+        $title = 'Categories Report';
+        $headers = [
+            'id' => 'ID',
+            'code' => 'Code',
+            'name' => 'Name',
+            'subcategory_of' => 'Subcategory Of',
+            'active' => 'Active',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'
+        ];
+        
+        $pdfService = new ExportPDF();
+        $pdf = $pdfService->generatePdf($title, $headers, $categories->toArray());
+        return $pdf->download('categories_' . date('Y-m-d_H-i-s') . '.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -346,13 +358,15 @@ class CategoryController extends Controller
     {
         // Only get top-level categories (not subcategories)
         $categories = Category::whereNull('subcategory_of')
-                ->select('id', 'name')
+                ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($category) {
                     return [
                         'id' => $category->id,
-                        'name' => $category->name
+                        'name' => $category->name,
+                        'created_at' => $category->created_at,
+                        'updated_at' => $category->updated_at,
                     ];
                 });
 

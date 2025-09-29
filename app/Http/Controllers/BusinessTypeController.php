@@ -149,10 +149,10 @@ class BusinessTypeController extends Controller
             ], 404);
         }
 
-        $columns = ['id', 'code', 'name'];
-        $headings = ['ID', 'Code', 'Name'];
+        $columns = ['id', 'code', 'name', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Created At', 'Updated At'];
 
-        $fileName = 'business_types_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'business_types_' . '.xlsx';
         return Excel::download(new Export($businessTypes, $columns, $headings), $fileName);
     }
 
@@ -168,11 +168,7 @@ class BusinessTypeController extends Controller
         }
 
         $title = 'Business Types Report';
-        $headers = [
-            'id' => 'ID',
-            'code' => 'Code',
-            'name' => 'Name'
-        ];
+        $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $businessTypes->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);

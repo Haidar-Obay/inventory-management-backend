@@ -146,8 +146,8 @@ class CompanyCodeController extends Controller
             return response()->json(['message' => 'No company codes found.'], 404);
         }
 
-        $columns = ['id', 'code', 'name'];
-        $headings = ['ID', 'Code', 'Name'];
+        $columns = ['id', 'code', 'name', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($companyCodes, $columns, $headings), 'company_codes.xlsx');
     }
@@ -161,11 +161,7 @@ class CompanyCodeController extends Controller
         }
 
         $title = 'Company Code Report';
-        $headers = [
-            'id' => 'Company Code ID',
-            'code' => 'Code',
-            'name' => 'Name'
-        ];
+        $headers = ['id' => 'Company Code ID', 'code' => 'Code', 'name' => 'Name', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $companyCodes->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);

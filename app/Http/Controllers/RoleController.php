@@ -192,7 +192,7 @@ class RoleController extends Controller
 
             // Return role with permissions and pivot flags
             $role->load(['permissions' => function ($q) {
-                $q->select('permissions.id', 'permissions.resource_key', 'permissions.resource_label');
+                $q->select('permissions.id', 'permissions.resource_key', 'permissions.resource_label', 'created_at', 'updated_at', 'created_at', 'updated_at');
             }]);
 
             $transformed = [
@@ -335,8 +335,11 @@ class RoleController extends Controller
     {
         try {
             $roles = Role::with('users');
-            $columns = ['id', 'name', 'description', 'active'];
-            $headings = ['ID', 'Name', 'Description', 'Active'];
+            $columns = ['id', 'name', 'description', 'active',
+            'created_at',
+            'updated_at'];
+            $headings = ['ID', 'Name', 'Description', 'Active',
+            'Created At', 'Updated At'];
 
             return Excel::download(new Export($roles, $columns, $headings), 'roles.xlsx');
         } catch (\Exception $e) {
@@ -361,12 +364,7 @@ class RoleController extends Controller
             }
 
             $title = 'Roles Report';
-            $headers = [
-                'id' => 'Role ID',
-                'name' => 'Role Name',
-                'description' => 'Description',
-                'active' => 'Active Status'
-            ];
+            $headers = ['id' => 'Role ID', 'name' => 'Role Name', 'description' => 'Description', 'active' => 'Active Status', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
             $data = $roles->toArray();
 
             $pdf = app(ExportPDF::class)->generatePdf($title, $headers, $data);

@@ -171,7 +171,7 @@ class AssetController extends Controller
     public function exportPdf()
     {
         $assets = Asset::with(['section:id,name,room_id', 'section.room:id,name'])
-            ->select('id', 'name', 'type', 'status', 'section_id')
+            ->select('id', 'name', 'type', 'status', 'section_id', 'created_at', 'updated_at')
             ->get();
 
         if ($assets->isEmpty()) {
@@ -185,6 +185,8 @@ class AssetController extends Controller
             'type' => 'Type',
             'status' => 'Status',
             'section_id' => 'Section ID',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
         $data = $assets->toArray();
 

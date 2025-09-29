@@ -132,7 +132,7 @@ class WarehouseController extends Controller
         }
 
         $fileName = 'warehouses_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($warehouses), $fileName);
+        return Excel::download(new Export($warehouses, ['id', 'name', 'location', 'active', 'created_at', 'updated_at'], ['ID', 'Name', 'Location', 'Active', 'Created At', 'Updated At']), $fileName);
     }
 
     public function exportPdf()
@@ -144,7 +144,7 @@ class WarehouseController extends Controller
         }
 
         $fileName = 'warehouses_' . date('Y-m-d_H-i-s') . '.pdf';
-        return Excel::download(new ExportPDF($warehouses), $fileName);
+        return Excel::download(new ExportPDF($warehousecontroller, ['id', 'code', 'name', 'active', 'created_at', 'updated_at'], ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At']), $fileName);
     }
 
     public function importFromExcel(Request $request)

@@ -126,16 +126,16 @@ class ProductLineController extends Controller
             ], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Active'];
+        $columns = ['id', 'code', 'name', 'active', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At'];
 
-        $fileName = 'product_lines_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'product_lines' . '.xlsx';
         return Excel::download(new Export($productLines, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $productLines = ProductLine::select('id', 'code', 'name', 'active')->get();
+        $productLines = ProductLine::select('id', 'code', 'name', 'active', 'created_at', 'updated_at')->get();
 
         if ($productLines->isEmpty()) {
             return response()->json([
@@ -147,15 +147,17 @@ class ProductLineController extends Controller
         $title = 'Product Lines Report';
         $headers = [
             'id' => 'ID',
-            'code' => 'Code', 
+            'code' => 'Code',
             'name' => 'Name',
-            'active' => 'Active'
+            'active' => 'Active',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'
         ];
 
         $data = $productLines->toArray();
         $pdf = $pdfService->generatePdf($title, $headers, $data);
         
-        return $pdf->download('product_lines_' . date('Y-m-d_H-i-s') . '.pdf');
+        return $pdf->download('product_lines' . '.pdf');
     }
 
     public function importFromExcel(Request $request)

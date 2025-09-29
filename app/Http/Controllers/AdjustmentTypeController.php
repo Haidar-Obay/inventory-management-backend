@@ -92,8 +92,11 @@ class AdjustmentTypeController extends Controller
             return response()->json(['message' => 'No adjustment types to export'], 404);
         }
 
-        $fileName = 'adjustment_types_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($adjustmentTypes), $fileName);
+        $columns = ['id', 'code', 'name', 'active', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At'];
+        
+        $fileName = 'adjustment_types_' . '.xlsx';
+        return Excel::download(new Export($adjustmentTypes, $columns, $headings), $fileName);
     }
 
     public function exportPdf()
@@ -104,8 +107,14 @@ class AdjustmentTypeController extends Controller
             return response()->json(['message' => 'No adjustment types to export'], 404);
         }
 
-        $fileName = 'adjustment_types_' . date('Y-m-d_H-i-s') . '.pdf';
-        return Excel::download(new ExportPDF($adjustmentTypes), $fileName);
+        $adjustmentTypes = AdjustmentType::select('id', 'code', 'name', 'active', 'created_at', 'updated_at')->get();
+        
+        $title = 'Adjustment Types Report';
+        $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'active' => 'Active', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
+        
+        $pdfService = new ExportPDF();
+        $pdf = $pdfService->generatePdf($title, $headers, $adjustmentTypes->toArray());
+        return $pdf->download('adjustment_types_' . '.pdf');
     }
 
     public function importFromExcel(Request $request)

@@ -78,18 +78,36 @@ class ReferrerServiceCommissionController extends Controller
         ]);
         $validator->validate();
         $row = ReferrerServiceCommission::create($validator->validated());
-        return response()->json($row->load(['referrer:id,name', 'service:id,name']), 201);
+        $row->load(['referrer:id,name', 'service:id,name']);
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Referrer service commission created successfully.',
+            'data' => $row,
+        ], 201);
     }
 
     public function show(ReferrerServiceCommission $referrerServiceCommission): JsonResponse
     {
-        return response()->json($referrerServiceCommission->load(['referrer:id,name', 'service:id,name']));
+        $referrerServiceCommission->load(['referrer:id,name', 'service:id,name']);
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Referrer service commission details fetched successfully.',
+            'data' => $referrerServiceCommission,
+        ]);
     }
 
     public function update(UpdateReferrerServiceCommissionRequest $request, ReferrerServiceCommission $referrerServiceCommission): JsonResponse
     {
         $referrerServiceCommission->update($request->validated());
-        return response()->json($referrerServiceCommission->load(['referrer:id,name', 'service:id,name']));
+        $referrerServiceCommission->load(['referrer:id,name', 'service:id,name']);
+        
+        return response()->json([
+            'status' => true,
+            'message' => 'Referrer service commission updated successfully.',
+            'data' => $referrerServiceCommission,
+        ]);
     }
 
     public function destroy(ReferrerServiceCommission $referrerServiceCommission): JsonResponse
@@ -138,7 +156,7 @@ class ReferrerServiceCommissionController extends Controller
         if ($collection->isEmpty()) return response()->json(['message' => 'No rows found.'], 404);
         $columns = ['id','referrer_id','service_id','price_override','discount_override','commission_percent','created_at','updated_at'];
         $headings = ['ID','Referrer ID','Service ID','Price Override','Discount Override','Commission %','Created At','Updated At'];
-        $fileName = 'referrer_service_commissions_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'referrer_service_commissions' . '.xlsx';
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
@@ -154,7 +172,8 @@ class ReferrerServiceCommissionController extends Controller
             'price_override' => 'Price Override',
             'discount_override' => 'Discount Override',
             'commission_percent' => 'Commission %',
-        ];
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
         return $pdf->download('ReferrerServiceCommissions.pdf');
     }

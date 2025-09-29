@@ -148,8 +148,8 @@ class TradeController extends Controller
             return response()->json(['message' => 'No trades found.'], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'active'];
-        $headings = ['ID', 'Code', 'Name', 'Status'];
+        $columns = ['id', 'code', 'name', 'active', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Status', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($trades, $columns, $headings), 'trades.xlsx');
     }
@@ -163,12 +163,7 @@ class TradeController extends Controller
         }
 
         $title = 'Trade Report';
-        $headers = [
-            'id' => 'Trade ID',
-            'code' => 'Code',
-            'name' => 'Name',
-            'active' => 'Status'
-        ];
+        $headers = ['id' => 'Trade ID', 'code' => 'Code', 'name' => 'Name', 'active' => 'Status', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $trades->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
@@ -279,14 +274,16 @@ class TradeController extends Controller
 
         if (!$trades) {
             $trades = Trade::where('active', true)
-                ->select('id', 'code', 'name')
+                ->select('id', 'code', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($trade) {
                     return [
                         'id' => $trade->id,
                         'code' => $trade->code,
-                        'name' => $trade->name
+                        'name' => $trade->name,
+                        'created_at' => $trade->created_at,
+                        'updated_at' => $trade->updated_at,
                     ];
                 });
 

@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 
 class ExportPDF
 {
@@ -61,6 +62,17 @@ class ExportPDF
         }
         if ($value === null || $value === '') {
             return '-';
+        }
+        // Format Date/Time values as m/d/Y (e.g., 9/29/2025)
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->format('n/j/Y');
+        }
+        if (is_string($value)) {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+                try {
+                    return Carbon::parse($value)->format('n/j/Y');
+                } catch (\Throwable $e) {}
+            }
         }
         if (is_array($value) || is_object($value)) {
             return json_encode($value, JSON_UNESCAPED_UNICODE);

@@ -149,8 +149,8 @@ class CityController extends Controller
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No cities found.'], 404);
         }
-        $columns = ['id', 'name'];
-        $headings = ['ID', 'Name'];
+        $columns = ['id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Name', 'Created At', 'Updated At', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($cities, $columns, $headings), 'cities.xlsx');
     }
@@ -159,7 +159,9 @@ class CityController extends Controller
     {
         $cities = City::select(
             'id',
-            'name'
+            'name',
+            'created_at',
+            'updated_at'
         )->get();
 
         if ($cities->isEmpty()) {
@@ -167,10 +169,7 @@ class CityController extends Controller
         }
 
         $title = 'City Report';
-        $headers = [
-            'id' => 'City ID',
-            'name' => 'City Name'
-        ];
+        $headers = ['id' => 'City ID', 'name' => 'City Name', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $cities->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);

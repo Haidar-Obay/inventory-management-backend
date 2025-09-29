@@ -142,15 +142,18 @@ class JobController extends Controller
             return response()->json(['message' => 'No jobs found.'], 404);
         }
 
-        $columns = ['id', 'description', 'project_name', 'start_date', 'expected_date', 'end_date'];
-        $headings = ['ID', 'Description', 'Project', 'Start Date', 'Expected Date', 'End Date'];
+        $columns = ['id', 'description', 'project_name', 'start_date', 'expected_date', 'end_date',
+            'created_at',
+            'updated_at'];
+        $headings = ['ID', 'Description', 'Project', 'Start Date', 'Expected Date', 'End Date',
+            'Created At', 'Updated At'];
 
         return Excel::download(new Export($jobs, $columns, $headings), 'jobs.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $jobs = Job::with('project')->get();
+        $jobs = Job::with('project')->select('id', 'code', 'description', 'project_id', 'start_date', 'expected_date', 'end_date', 'created_at', 'updated_at')->get();
 
         if ($jobs->isEmpty()) {
             return response()->json(['message' => 'No jobs found.'], 404);
@@ -164,7 +167,9 @@ class JobController extends Controller
             'project.name' => 'Project',
             'start_date' => 'Start Date',
             'expected_date' => 'Expected Date',
-            'end_date' => 'End Date'
+            'end_date' => 'End Date',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'
         ];
         $data = $jobs->toArray();
 
@@ -202,6 +207,18 @@ class JobController extends Controller
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
 
+                // Helper to validate date inputs
+                $isValidDate = function ($value) {
+                    if ($value === null || $value === '') { return false; }
+                    // Excel serial number
+                    if (is_numeric($value)) { return true; }
+                    // Common formats m/d/Y or mm/dd/YYYY
+                    try { \Carbon\Carbon::createFromFormat('n/j/Y', (string)$value); return true; } catch (\Throwable $e) {}
+                    try { \Carbon\Carbon::createFromFormat('m/d/Y', (string)$value); return true; } catch (\Throwable $e) {}
+                    try { \Carbon\Carbon::parse((string)$value); return true; } catch (\Throwable $e) {}
+                    return false;
+                };
+
                 if (($row['description'] ?? '') === '') {
                     $errors[] = 'Missing description';
                 }
@@ -213,24 +230,44 @@ class JobController extends Controller
                         $errors[] = "Invalid project_id: {$projectId} not found";
                     }
                 }
-                if (($row['start_date'] ?? '') === '') {
-                    $errors[] = 'Missing start date';
+                if (($row['start_date'] ?? '') === '' || !$isValidDate($row['start_date'])) {
+                    $errors[] = 'Invalid start_date (use m/d/Y or Excel date)';
                 }
-                if (($row['expected_date'] ?? '') === '') {
-                    $errors[] = 'Missing expected date';
+                if (($row['expected_date'] ?? '') === '' || !$isValidDate($row['expected_date'])) {
+                    $errors[] = 'Invalid expected_date (use m/d/Y or Excel date)';
+                }
+                if (($row['end_date'] ?? '') !== '' && !$isValidDate($row['end_date'])) {
+                    $errors[] = 'Invalid end_date (use m/d/Y or Excel date)';
                 }
 
                 return $errors;
             },
             function ($row) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+
+                $parseDate = function ($value) {
+                    if ($value === null || $value === '') { return null; }
+                    // Excel serial number
+                    if (is_numeric($value)) {
+                        try {
+                            $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$value);
+                            return \Carbon\Carbon::instance($dt)->format('Y-m-d');
+                        } catch (\Throwable $e) { /* fall through */ }
+                    }
+                    $tryFormats = ['n/j/Y', 'm/d/Y', 'Y-m-d'];
+                    foreach ($tryFormats as $fmt) {
+                        try { return \Carbon\Carbon::createFromFormat($fmt, (string)$value)->format('Y-m-d'); } catch (\Throwable $e) {}
+                    }
+                    try { return \Carbon\Carbon::parse((string)$value)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
+                };
+
                 return [
                     'code' => $row['code'] ?? null,
                     'description' => $row['description'] ?? null,
                     'project_id' => $row['project_id'] ?? null,
-                    'start_date' => $row['start_date'] ?? null,
-                    'expected_date' => $row['expected_date'] ?? null,
-                    'end_date' => $row['end_date'] ?? null,
+                    'start_date' => $parseDate($row['start_date'] ?? null),
+                    'expected_date' => $parseDate($row['expected_date'] ?? null),
+                    'end_date' => $parseDate($row['end_date'] ?? null),
                 ];
             },
             true, // Enable header validation

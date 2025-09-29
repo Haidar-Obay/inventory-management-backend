@@ -130,7 +130,7 @@ class AssociationServicePriceController extends Controller
         if ($collection->isEmpty()) return response()->json(['message' => 'No rows found.'], 404);
         $columns = ['id','association_id','service_id','price','discount','created_at','updated_at'];
         $headings = ['ID','Association ID','Service ID','Price','Discount','Created At','Updated At'];
-        $fileName = 'association_service_prices_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'association_service_prices_' . '.xlsx';
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
@@ -145,7 +145,8 @@ class AssociationServicePriceController extends Controller
             'service_id' => 'Service ID',
             'price' => 'Price',
             'discount' => 'Discount',
-        ];
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
         return $pdf->download('AssociationServicePrices.pdf');
     }

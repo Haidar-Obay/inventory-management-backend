@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use Illuminate\Support\Facades\Log;
 
 class CustomerMasterListController extends Controller
 {
@@ -22,7 +23,7 @@ class CustomerMasterListController extends Controller
         $customerMasterLists = app('cache')->store('database')->get($key);
 
         if (!$customerMasterLists) {
-            $customerMasterLists = CustomerMasterList::select('id', 'date', 'name', 'valid_from', 'valid_till')
+            $customerMasterLists = CustomerMasterList::select('id', 'date', 'name', 'valid_from', 'valid_till', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get();
             app('cache')->store('database')->forever($key, $customerMasterLists);
@@ -337,31 +338,43 @@ class CustomerMasterListController extends Controller
         }
     }
 
-    public function export(Request $request)
+    public function exportExcell()
     {
-        try {
-             $customerMasterLists = CustomerMasterList::with('items')->orderBy('name');
-            $collection = $customerMasterLists->get();
-            
-            if ($collection->isEmpty()) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'No customer master lists to export',
-                ], 404);
-            }
+        $query = CustomerMasterList::query()->with(['items']);
+        $collection = $query->get();
 
-            $columns = ['id', 'date', 'name', 'valid_from', 'valid_till', 'itemcode', 'price', 'discount'];
-            $headings = ['ID', 'Date', 'Name', 'Valid From', 'Valid Till', 'Item Code', 'Price', 'Discount'];
-
-            $fileName = 'customer_master_lists_' . date('Y-m-d_H-i-s') . '.xlsx';
-            return Excel::download(new Export($customerMasterLists, $columns, $headings), $fileName);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Export failed.',
-                'error' => $e->getMessage(),
-            ], 500);
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No customer master lists found.'], 404);
         }
+
+        $columns = [
+            'id',
+            'date',
+            'name',
+            'valid_from',
+            'valid_till',
+            'items.*.name',
+            'items.*.pivot.price',
+            'items.*.pivot.discount',
+            'created_at',
+            'updated_at',
+        ];
+
+        $headings = [
+            'ID',
+            'Date',
+            'Name',
+            'Valid From',
+            'Valid Till',
+            'Items',
+            'Prices',
+            'Discounts',
+            'Created At',
+            'Updated At',
+        ];
+
+        $fileName = 'customer_master_lists.xlsx';
+        return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
     public function importFromExcel(Request $request)
@@ -372,59 +385,273 @@ class CustomerMasterListController extends Controller
                 'file',
                 'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
             ],
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
         ], [
             'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
 
         try {
-            $import = new DynamicExcelImport(
-                CustomerMasterList::class,
-                ['date', 'name', 'valid_from', 'valid_till', 'itemcode', 'price', 'discount'],
-                function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+            // If type is 'fresh', delete all records first so duplicate detection does not skip rows
+            if ($request->input('type') === 'fresh') {
+                CustomerMasterList::truncate();
+            }
+
+            // Custom import logic for CustomerMasterList with many-to-many relationship
+            $imported = 0;
+            $skipped = [];
+            $currentRow = 1;
+
+            // Read Excel file with proper header handling
+            $data = Excel::toArray(new \stdClass(), $request->file('file'));
+            $allRows = $data[0] ?? [];
+            
+            // If first row contains headers, use them as keys
+            $rows = [];
+            if (!empty($allRows)) {
+                $headers = array_shift($allRows); // Remove first row and use as headers
+                $rows = array_map(function($row) use ($headers) {
+                    return array_combine($headers, array_pad($row, count($headers), ''));
+                }, $allRows);
+                
+                // Debug: Log headers for troubleshooting
+                Log::info('Excel headers found:', $headers);
+            }
+
+
+            // Date parser helper
+            $parseDate = function ($value) {
+                if ($value === null || $value === '') { return null; }
+                if (is_numeric($value)) {
+                    try {
+                        $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$value);
+                        return \Carbon\Carbon::instance($dt)->format('Y-m-d');
+                    } catch (\Throwable $e) {}
+                }
+                foreach (['n/j/Y', 'm/d/Y', 'Y-m-d'] as $fmt) {
+                    try { return \Carbon\Carbon::createFromFormat($fmt, (string)$value)->format('Y-m-d'); } catch (\Throwable $e) {}
+                }
+                try { return \Carbon\Carbon::parse((string)$value)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
+            };
+
+            // Group rows by master list name
+            $masterLists = [];
+            foreach ($rows as $index => $row) {
+                $currentRow = $index + 2; // +2 because Excel is 1-indexed (header is row 1, data starts at row 2)
+                
+                // Clean row data
+                foreach ($row as $k => $v) { 
+                    if (is_string($v)) { 
+                        $row[$k] = trim($v); 
+                    } 
+                }
+                
+                // Debug: Log row data for troubleshooting
+                Log::info("Row {$currentRow} data:", $row);
+
+
+                // Validate required fields - try different possible column names
                     $errors = [];
 
-                    if (($row['date'] ?? '') === '') {
+                // Try different possible column names for date
+                $dateValue = $row['date'] ?? $row['Date'] ?? $row['DATE'] ?? '';
+                if ($dateValue === '') {
                         $errors[] = 'Missing date';
-                    }
-                    if (($row['name'] ?? '') === '') {
-                        $errors[] = 'Missing name';
-                    }
-                    if (($row['valid_from'] ?? '') === '') {
-                        $errors[] = 'Missing valid from date';
-                    }
-                    if (($row['valid_till'] ?? '') === '') {
-                        $errors[] = 'Missing valid till date';
-                    }
-                    if (!isset($row['price']) || $row['price'] === '' || !is_numeric($row['price'])) {
-                        $errors[] = 'Invalid price';
-                    }
+                }
+                
+                // Try different possible column names for name
+                $nameValue = $row['name'] ?? $row['Name'] ?? $row['NAME'] ?? '';
+                if ($nameValue === '') {
+                    $errors[] = 'Missing name';
+                }
+                
+                // Try different possible column names for valid_from
+                $validFromValue = $row['valid_from'] ?? $row['Valid From'] ?? $row['valid from'] ?? $row['VALID_FROM'] ?? '';
+                if ($validFromValue === '') {
+                    $errors[] = 'Missing valid from date';
+                }
+                
+                // Try different possible column names for valid_till
+                $validTillValue = $row['valid_till'] ?? $row['Valid Till'] ?? $row['valid till'] ?? $row['VALID_TILL'] ?? '';
+                if ($validTillValue === '') {
+                    $errors[] = 'Missing valid till date';
+                }
 
-                    return $errors;
-                },
-                function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
-                    return [
-                        'date' => $row['date'] ?? null,
-                        'name' => $row['name'] ?? null,
-                        'valid_from' => $row['valid_from'] ?? null,
-                        'valid_till' => $row['valid_till'] ?? null,
-                        'itemcode' => $row['itemcode'] ?? null,
-                        'price' => isset($row['price']) ? floatval($row['price']) : null,
-                        'discount' => isset($row['discount']) ? floatval($row['discount']) : 0.00,
+                // Validate date formats (allow Excel serials and common text formats)
+                $isValidDate = function ($v) use ($parseDate) {
+                    if ($v === '' || $v === null) return false;
+                    return $parseDate($v) !== null;
+                };
+                foreach ([['Date', $dateValue], ['Valid From', $validFromValue], ['Valid Till', $validTillValue]] as [$label, $val]) {
+                    if ($val !== '' && !$isValidDate($val)) {
+                        $errors[] = "$label has invalid date";
+                    }
+                }
+                
+                
+                // Unified field names that support both single values and JSON arrays
+                $itemCodesValue = $row['item_code(s)'] ?? $row['itemcode'] ?? $row['Item Code'] ?? $row['item code'] ?? $row['ITEMCODE'] ?? $row['items'] ?? $row['Items'] ?? $row['ITEMS'] ?? '';
+                $pricesValue = $row['price(s)'] ?? $row['price'] ?? $row['Price'] ?? $row['PRICE'] ?? $row['prices'] ?? $row['Prices'] ?? $row['PRICES'] ?? '';
+                $discountsValue = $row['discount(s)'] ?? $row['discount'] ?? $row['Discount'] ?? $row['DISCOUNT'] ?? $row['discounts'] ?? $row['Discounts'] ?? $row['DISCOUNTS'] ?? '';
+
+                $itemsArray = [];
+                $pricesArray = [];
+                $discountsArray = [];
+
+                // Process item codes - try JSON array first, then single value
+                if (!empty($itemCodesValue)) {
+                    // Try to decode as JSON array
+                    $decodedItems = json_decode($itemCodesValue, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decodedItems)) {
+                        $itemsArray = $decodedItems;
+                    } else {
+                        // Treat as single value
+                        $itemsArray = [$itemCodesValue];
+                    }
+                }
+
+                // Process prices - try JSON array first, then single value
+                if (!empty($pricesValue)) {
+                    // Try to decode as JSON array
+                    $decodedPrices = json_decode($pricesValue, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decodedPrices)) {
+                        $pricesArray = $decodedPrices;
+                    } else {
+                        // Treat as single value - apply to all items
+                        $pricesArray = array_fill(0, count($itemsArray), $pricesValue);
+                    }
+                } else {
+                    // Default to 0.00 for each item if no prices provided
+                    $pricesArray = array_fill(0, count($itemsArray), 0.00);
+                }
+
+                // Process discounts - try JSON array first, then single value
+                if (!empty($discountsValue)) {
+                    // Try to decode as JSON array
+                    $decodedDiscounts = json_decode($discountsValue, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decodedDiscounts)) {
+                        $discountsArray = $decodedDiscounts;
+                    } else {
+                        // Treat as single value - apply to all items
+                        $discountsArray = array_fill(0, count($itemsArray), $discountsValue);
+                    }
+                } else {
+                    // Default to 0.00 for each item if no discounts provided
+                    $discountsArray = array_fill(0, count($itemsArray), 0.00);
+                }
+
+                // Validate arrays have same length
+                if (!empty($itemsArray) && !empty($pricesArray) && count($itemsArray) !== count($pricesArray)) {
+                    $errors[] = 'Items and prices arrays must have same length';
+                }
+
+                if (!empty($itemsArray) && !empty($discountsArray) && count($itemsArray) !== count($discountsArray)) {
+                    $errors[] = 'Items and discounts arrays must have same length';
+                }
+
+                // Validate each item exists
+                if (!empty($itemsArray)) {
+                    foreach ($itemsArray as $itemCode) {
+                        $itemExists = Item::where('code', $itemCode)->exists();
+                        if (!$itemExists) {
+                            $errors[] = "Item code '{$itemCode}' does not exist in items table";
+                        }
+                    }
+                } else {
+                    $errors[] = 'Missing item_code(s)';
+                }
+
+                if (!empty($errors)) {
+                    $skipped[] = [
+                        'row' => $currentRow,
+                        'reasons' => $errors,
+                    ];
+                    continue;
+                }
+
+                // Group by master list name
+                $masterListName = $nameValue;
+                if (!isset($masterLists[$masterListName])) {
+                    $masterLists[$masterListName] = [
+                        'date' => $parseDate($dateValue),
+                        'name' => $nameValue,
+                        'valid_from' => $parseDate($validFromValue),
+                        'valid_till' => $parseDate($validTillValue),
+                        'items' => []
                     ];
                 }
-            );
+                // Add all items from this row to the master list
+                for ($i = 0; $i < count($itemsArray); $i++) {
+                    $masterLists[$masterListName]['items'][] = [
+                        'itemcode' => $itemsArray[$i],
+                        'price' => isset($pricesArray[$i]) ? floatval($pricesArray[$i]) : 0.00,
+                        'discount' => isset($discountsArray[$i]) ? floatval($discountsArray[$i]) : 0.00,
+                    ];
+                }
+            }
 
-            Excel::import($import, $request->file('file'));
+            // Process each master list
+            foreach ($masterLists as $masterListData) {
+                try {
+                    // Check if master list already exists (unless fresh import)
+                    if ($request->input('type') !== 'fresh') {
+                        $existingMasterList = CustomerMasterList::where('name', $masterListData['name'])->first();
+                        if ($existingMasterList) {
+                            $skipped[] = [
+                                'row' => 'Multiple',
+                                'reasons' => ['Master list with this name already exists'],
+                            ];
+                            continue;
+                        }
+                    }
+
+                    // If no valid items, skip this master list
+                    if (empty($masterListData['items'])) {
+                        $skipped[] = [
+                            'row' => 'Multiple',
+                            'reasons' => ['Master list has no valid items'],
+                        ];
+                        continue;
+                    }
+
+                    // Create the master list
+                    $customerMasterList = CustomerMasterList::create([
+                        'date' => $masterListData['date'],
+                        'name' => $masterListData['name'],
+                        'valid_from' => $masterListData['valid_from'],
+                        'valid_till' => $masterListData['valid_till'],
+                    ]);
+
+                    // Attach items with pivot data
+                    $attach = [];
+                    foreach ($masterListData['items'] as $itemData) {
+                        // Find item by code (should exist since we validated above)
+                        $item = Item::where('code', $itemData['itemcode'])->first();
+                        if ($item) {
+                            $attach[$item->id] = [
+                                'price' => $itemData['price'],
+                                'discount' => $itemData['discount'],
+                            ];
+                        }
+                    }
+
+                    $customerMasterList->items()->attach($attach);
+
+                    $imported++;
+
+                } catch (\Exception $e) {
+                    $skipped[] = [
+                        'row' => 'Multiple',
+                        'reasons' => ['Failed to create master list: ' . $e->getMessage()],
+                    ];
+                }
+            }
 
             // Clear cache
             $tenantId = tenant('id');
             app('cache')->store('database')->forget("tenant_{$tenantId}_customer_master_lists");
 
-            $imported = $import->getImportedCount();
-            $skippedCount = $import->getSkippedCount();
-            $skippedRows = $import->getSkippedRows();
+            $skippedCount = count($skipped);
             $totalProcessed = $imported + $skippedCount;
 
             $message = '';
@@ -438,13 +665,14 @@ class CustomerMasterListController extends Controller
                 $message = 'No rows found to import.';
             }
 
+
             return response()->json([
                 'success' => $imported > 0,
                 'message' => $message,
                 'rows_processed' => $totalProcessed,
                 'rows_imported' => $imported,
                 'rows_skipped_count' => $skippedCount,
-                'skipped_rows' => $skippedRows,
+                'skipped_rows' => $skipped,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -457,15 +685,14 @@ class CustomerMasterListController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $customerMasterLists = CustomerMasterList::with('items')
-            ->select('id', 'date', 'name', 'valid_from', 'valid_till', 'itemcode', 'price', 'discount')
-            ->get();
+        $customerMasterLists = CustomerMasterList::query()
+            ->with(['items'])
+            ->get([
+                'id', 'date', 'name', 'valid_from', 'valid_till', 'created_at', 'updated_at'
+            ]);
 
         if ($customerMasterLists->isEmpty()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'No customer master lists to export',
-            ], 404);
+            return response()->json(['message' => 'No customer master lists found.'], 404);
         }
 
         $title = 'Customer Master Lists Report';
@@ -474,29 +701,31 @@ class CustomerMasterListController extends Controller
             'date' => 'Date',
             'name' => 'Name',
             'valid_from' => 'Valid From',
-            'valid_till' => 'Valid Till',
-            'itemcode' => 'Item Code',
-            'price' => 'Price',
-            'discount' => 'Discount (%)',
-            'items_count' => 'Items Count'
+            'valid_till' => 'Valid Till', 
+            'items' => 'Items',
+            'prices' => 'Prices',
+            'discounts' => 'Discounts',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
-        
-        // Transform data to include items count and format properly
+
+        // Transform data to include related items information
         $data = $customerMasterLists->map(function ($list) {
             return [
                 'id' => $list->id,
-                'date' => $list->date->format('Y-m-d'),
+                'date' => $list->date,
                 'name' => $list->name,
-                'valid_from' => $list->valid_from->format('Y-m-d'),
-                'valid_till' => $list->valid_till->format('Y-m-d'),
-                'itemcode' => $list->itemcode ?? 'N/A',
-                'price' => number_format($list->price, 2),
-                'discount' => number_format($list->discount, 2),
-                'items_count' => $list->items->count()
+                'valid_from' => $list->valid_from,
+                'valid_till' => $list->valid_till,
+                'items' => $list->items->pluck('name')->values()->all(),
+                'prices' => $list->items->pluck('pivot.price')->values()->all(),
+                'discounts' => $list->items->pluck('pivot.discount')->values()->all(),
+                'created_at' => $list->created_at,
+                'updated_at' => $list->updated_at,
             ];
         })->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
-        return $pdf->download('CustomerMasterLists.pdf');
+        return $pdf->download('customer_master_lists.pdf');
     }
 }

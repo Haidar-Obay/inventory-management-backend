@@ -1346,10 +1346,31 @@ class CustomerController extends Controller
                     $errors[] = 'markdown_percentage must be numeric';
                 }
 
+                // Date validation
+                $isValidDate = function ($value) {
+                    if ($value === null || $value === '') { return true; }
+                    if (is_numeric($value)) { return true; }
+                    try { \Carbon\Carbon::createFromFormat('n/j/Y', (string)$value); return true; } catch (\Throwable $e) {}
+                    try { \Carbon\Carbon::createFromFormat('m/d/Y', (string)$value); return true; } catch (\Throwable $e) {}
+                    try { \Carbon\Carbon::parse((string)$value); return true; } catch (\Throwable $e) {}
+                    return false;
+                };
+                foreach (['taxed_from_date','taxed_till_date','exempted_from_date','exempted_till_date','exempted_from'] as $df) {
+                    if (isset($row[$df]) && $row[$df] !== '' && !$isValidDate($row[$df])) {
+                        $errors[] = "$df has invalid date";
+                    }
+                }
+
                 return $errors;
             },
             function ($row) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                $parseDate = function ($value) {
+                    if ($value === null || $value === '') { return null; }
+                    if (is_numeric($value)) { try { $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$value); return \Carbon\Carbon::instance($dt)->format('Y-m-d'); } catch (\Throwable $e) {} }
+                    foreach (['n/j/Y','m/d/Y','Y-m-d'] as $fmt) { try { return \Carbon\Carbon::createFromFormat($fmt, (string)$value)->format('Y-m-d'); } catch (\Throwable $e) {} }
+                    try { return \Carbon\Carbon::parse((string)$value)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
+                };
                 return [
                     'title' => $row['title'] ?? null,
                     'first_name' => $row['first_name'] ?? null,
@@ -1389,15 +1410,15 @@ class CustomerController extends Controller
                     'markup_percentage' => $row['markup_percentage'] ?? null,
                     'markdown_percentage' => $row['markdown_percentage'] ?? null,
                     'taxable' => boolval($row['taxable'] ?? false),
-                    'taxed_from_date' => $row['taxed_from_date'] ?? null,
-                    'taxed_till_date' => $row['taxed_till_date'] ?? null,
+                    'taxed_from_date' => $parseDate($row['taxed_from_date'] ?? null),
+                    'taxed_till_date' => $parseDate($row['taxed_till_date'] ?? null),
                     'subjected_to_tax' => boolval($row['subjected_to_tax'] ?? false),
                     'added_tax' => $row['added_tax'] ?? null,
                     'exempted' => boolval($row['exempted'] ?? false),
-                    'exempted_from' => $row['exempted_from'] ?? null,
+                    'exempted_from' => $parseDate($row['exempted_from'] ?? null),
                     'exemption_reference' => $row['exemption_reference'] ?? null,
-                    'exempted_from_date' => $row['exempted_from_date'] ?? null,
-                    'exempted_till_date' => $row['exempted_till_date'] ?? null,
+                    'exempted_from_date' => $parseDate($row['exempted_from_date'] ?? null),
+                    'exempted_till_date' => $parseDate($row['exempted_till_date'] ?? null),
                     'active' => boolval($row['active'] ?? true),
                     'black_listed' => boolval($row['black_listed'] ?? false),
                     'one_time_account' => boolval($row['one_time_account'] ?? true),

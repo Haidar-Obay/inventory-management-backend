@@ -51,11 +51,14 @@ class ServiceCategoryController extends Controller
 
     public function exportExcell()
     {
-        $query = ServiceCategory::query();
-        $collection = $query->get();
+        $serviceCategories = ServiceCategory::query();
+        $collection = $serviceCategories->get();
 
         if ($collection->isEmpty()) {
-            return response()->json(['message' => 'No service categories found.'], 404);
+            return response()->json([
+                'status' => false,
+                'message' => 'No service categories to export',
+            ], 404);
         }
 
         $columns = [
@@ -70,16 +73,19 @@ class ServiceCategoryController extends Controller
             'ID', 'Name', 'Description', 'Created At', 'Updated At'
         ];
 
-        $fileName = 'service_categories_' . date('Y-m-d_H-i-s') . '.xlsx';
-        return Excel::download(new Export($query, $columns, $headings), $fileName);
+        $fileName = 'service_categories_' . '.xlsx';
+        return Excel::download(new Export($serviceCategories, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $categories = ServiceCategory::select('id', 'name', 'description')->get();
+        $serviceCategories = ServiceCategory::select('id', 'name', 'description', 'created_at', 'updated_at')->get();
 
-        if ($categories->isEmpty()) {
-            return response()->json(['message' => 'No service categories found.'], 404);
+        if ($serviceCategories->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No service categories to export',
+            ], 404);
         }
 
         $title = 'Service Categories Report';
@@ -87,17 +93,27 @@ class ServiceCategoryController extends Controller
             'id' => 'ID',
             'name' => 'Name',
             'description' => 'Description',
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At',
         ];
+        $data = $serviceCategories->toArray();
 
-        $pdf = $pdfService->generatePdf($title, $headers, $categories->toArray());
-        return $pdf->download('Service_Categories.pdf');
+        $pdf = $pdfService->generatePdf($title, $headers, $data);
+        return $pdf->download('service_categories_' . '.pdf');
     }
 
     public function importFromExcel(Request $request)
     {
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv',
+            'type' => 'nullable|string|in:fresh,mapping',
+            'mapping' => 'nullable|array',
         ]);
+
+        // If type is 'fresh', delete all records first
+        if ($request->input('type') === 'fresh') {
+            ServiceCategory::truncate();
+        }
 
         $import = new DynamicExcelImport(
             ServiceCategory::class,
@@ -106,6 +122,13 @@ class ServiceCategoryController extends Controller
                 'description',
             ],
             function ($row) {
+                // Normalize inputs (trim strings)
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
+
                 $errors = [];
 
                 if (empty($row['name'])) {
@@ -115,20 +138,74 @@ class ServiceCategoryController extends Controller
                 return $errors;
             },
             function ($row) {
+                // Normalize inputs (trim strings)
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
+
                 return [
-                    'name' => $row['name'],
+                    'name' => $row['name'] ?? null,
                     'description' => $row['description'] ?? null,
                 ];
-            }
+            },
+            true // Enable header validation
         );
 
-        Excel::import($import, $request->file('file'));
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Import failed due to duplicate or invalid data. Please review your file and try again.',
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Import failed. Please check the file format and data.',
+            ], 422);
+        }
+
+        // Check if headers were valid
+        if (!$import->areHeadersValid()) {
+            $headerResult = $import->getHeaderValidationResult();
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid Excel file headers',
+                'header_validation' => $headerResult,
+                'errors' => [
+                    'missing_headers' => $headerResult['missing'],
+                    'extra_headers' => $headerResult['extra'],
+                    'expected_headers' => $headerResult['expected_headers'],
+                    'actual_headers' => $headerResult['excel_headers']
+                ]
+            ], 422);
+        }
+
+        $imported = $import->getImportedCount();
+        $skippedCount = $import->getSkippedCount();
+        $skippedRows = $import->getSkippedRows();
+        $totalProcessed = $imported + $skippedCount;
+
+        $message = '';
+        if ($imported > 0 && $skippedCount === 0) {
+            $message = "Imported {$imported} row(s) successfully.";
+        } elseif ($imported > 0 && $skippedCount > 0) {
+            $message = "Partially imported: {$imported} row(s) added, {$skippedCount} row(s) skipped.";
+        } elseif ($imported === 0 && $skippedCount > 0) {
+            $message = 'No rows imported. All rows were skipped due to validation errors or duplicates.';
+        } else {
+            $message = 'No rows found to import.';
+        }
 
         return response()->json([
-            'success' => true,
-            'rows_imported' => $import->getImportedCount(),
-            'rows_skipped_count' => $import->getSkippedCount(),
-            'skipped_rows' => $import->getSkippedRows(),
+            'success' => $imported > 0,
+            'message' => $message,
+            'rows_processed' => $totalProcessed,
+            'rows_imported' => $imported,
+            'rows_skipped_count' => $skippedCount,
+            'skipped_rows' => $skippedRows,
         ]);
     }
 

@@ -8,6 +8,7 @@ use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Carbon\Carbon;
 
 
 class Export implements FromCollection, WithHeadings, ShouldAutoSize, WithMapping
@@ -51,6 +52,20 @@ class Export implements FromCollection, WithHeadings, ShouldAutoSize, WithMappin
         }
         if ($value === null) {
             return '';
+        }
+        // Format Date/Time values as m/d/Y (e.g., 9/29/2025)
+        if ($value instanceof \DateTimeInterface) {
+            return Carbon::instance($value)->format('n/j/Y');
+        }
+        if (is_string($value)) {
+            // Detect ISO-like timestamp strings and format
+            if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+                try {
+                    return Carbon::parse($value)->format('n/j/Y');
+                } catch (\Throwable $e) {
+                    // fall through to raw string
+                }
+            }
         }
         if (is_array($value) || is_object($value)) {
             return json_encode($value, JSON_UNESCAPED_UNICODE);

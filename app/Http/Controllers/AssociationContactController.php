@@ -88,7 +88,8 @@ class AssociationContactController extends Controller
             'contact_name' => 'Name',
             'contact_phone' => 'Phone',
             'contact_email' => 'Email',
-        ];
+            'created_at' => 'Created At',
+            'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
         return $pdf->download('AssociationContacts.pdf');
     }
