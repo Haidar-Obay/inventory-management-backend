@@ -29,6 +29,12 @@ use App\Http\Controllers\TenantSubscriptionController;
 Route::get('/user', fn(Request $request) => $request->user())
     ->middleware('auth:sanctum');
 
+// Simple ping endpoint for CI/testing
+Route::get('/ping', fn() => response()->json([
+    'pong' => true,
+    'time' => now()->toISOString(),
+]));
+
 /*
 |--------------------------------------------------------------------------
 | Central‐domain tenant management
