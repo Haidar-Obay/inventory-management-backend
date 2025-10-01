@@ -187,31 +187,39 @@ class ItemController extends Controller
         $import = new DynamicExcelImport(
             Item::class,
             ['code', 'name', 'price'],
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
 
-                if (($row['code'] ?? '') === '') {
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $priceKey = $mapping ? array_search('price', $mapping) : 'price';
+
+                if ((($row[$codeKey] ?? '') === '')) {
                     $errors[] = 'Missing code';
                 }
-                if (($row['name'] ?? '') === '') {
+                if ((($row[$nameKey] ?? '') === '')) {
                     $errors[] = 'Missing name';
                 }
-                if (!isset($row['price']) || $row['price'] === '' || !is_numeric($row['price'])) {
+                $priceVal = $row[$priceKey] ?? null;
+                if ($priceVal === '' || $priceVal === null || !is_numeric($priceVal)) {
                     $errors[] = 'Invalid price';
                 }
 
                 return $errors;
             },
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $priceKey = $mapping ? array_search('price', $mapping) : 'price';
                 return [
-                    'code' => $row['code'] ?? null,
-                    'name' => $row['name'] ?? null,
-                    'price' => isset($row['price']) ? floatval($row['price']) : null,
+                    'code' => $row[$codeKey] ?? null,
+                    'name' => $row[$nameKey] ?? null,
+                    'price' => isset($row[$priceKey]) ? floatval($row[$priceKey]) : null,
                 ];
             },
-            true // Enable header validation
+            $mapping ? false : true // Disable header validation when mapping provided
         );
 
         Excel::import($import, $request->file('file'));

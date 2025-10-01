@@ -250,21 +250,25 @@ class MediaChannelController extends Controller
             }
             
             // First pass: Import all media channels without parent relationships
-            $import = new DynamicExcelImport(MediaChannel::class, ['code', 'name'], function ($row) {
+            $import = new DynamicExcelImport(MediaChannel::class, ['code', 'name'], function ($row) use ($mapping) {
                 // Normalize inputs
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
-                if (($row['code'] ?? '') === '') { $errors[] = 'Code is required'; }
-                if (($row['name'] ?? '') === '') { $errors[] = 'Name is required'; }
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                if ((($row[$codeKey] ?? '') === '')) { $errors[] = 'Code is required'; }
+                if ((($row[$nameKey] ?? '') === '')) { $errors[] = 'Name is required'; }
                 return $errors;
-            }, function ($row) {
+            }, function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 return [
-                    'code' => $row['code'] ?? null,
-                    'name' => $row['name'] ?? null,
+                    'code' => $row[$codeKey] ?? null,
+                    'name' => $row[$nameKey] ?? null,
                     'sub_media_of' => null,
                 ];
-            }, true); // Enable header validation
+            }, $mapping ? false : true);
             
             Excel::import($import, $request->file('file'));
             
@@ -285,7 +289,7 @@ class MediaChannelController extends Controller
             }
 
             // Second pass: Update parent relationships
-            $this->updateParentRelationships($request->file('file'));
+            $this->updateParentRelationships($request->file('file'), $mapping);
             
             app('cache')->store('database')->forget("tenant_{$tenantId}_media_channels");
 
@@ -321,7 +325,7 @@ class MediaChannelController extends Controller
         }
     }
 
-    private function updateParentRelationships($file)
+    private function updateParentRelationships($file, $mapping = null)
     {
         $data = Excel::toArray(new \stdClass(), $file);
         $rows = $data[0] ?? [];
@@ -331,20 +335,22 @@ class MediaChannelController extends Controller
         array_shift($rows);
         
         foreach ($rows as $index => $row) {
-            if (empty($row['code']) || empty($row['sub_media_of'])) {
+            $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+            $parentKey = $mapping ? array_search('sub_media_of', $mapping) : 'sub_media_of';
+            if (empty($row[$codeKey]) || empty($row[$parentKey])) {
                 continue;
             }
             
-            $mediaChannel = MediaChannel::where('code', $row['code'])->first();
-            $parentChannel = MediaChannel::where('code', $row['sub_media_of'])->first();
+            $mediaChannel = MediaChannel::where('code', $row[$codeKey])->first();
+            $parentChannel = MediaChannel::where('code', $row[$parentKey])->first();
             
             if (!$mediaChannel) {
-                $errors[] = "Row " . ($index + 2) . ": Media channel with code '{$row['code']}' not found";
+                $errors[] = "Row " . ($index + 2) . ": Media channel with code '{$row[$codeKey]}' not found";
                 continue;
             }
             
             if (!$parentChannel) {
-                $errors[] = "Row " . ($index + 2) . ": Parent media channel with code '{$row['sub_media_of']}' not found";
+                $errors[] = "Row " . ($index + 2) . ": Parent media channel with code '{$row[$parentKey]}' not found";
                 continue;
             }
             

@@ -202,25 +202,27 @@ class CityController extends Controller
         $import = new DynamicExcelImport(
             City::class,
             ['name'],
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
 
-                if (($row['name'] ?? '') === '') {
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                if ((($row[$nameKey] ?? '') === '')) {
                     $errors[] = 'Missing name';
-                } elseif (preg_match('/[0-9]/', $row['name'])) {
+                } elseif (preg_match('/[0-9]/', $row[$nameKey])) {
                     $errors[] = 'City name must not contain numbers';
                 }
 
                 return $errors;
             },
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 return [
-                    'name' => $row['name'] ?? null,
+                    'name' => $row[$nameKey] ?? null,
                 ];
             },
-            true // Enable header validation
+            $mapping ? false : true // Disable header validation when mapping provided
         );
 
         Excel::import($import, $request->file('file'));

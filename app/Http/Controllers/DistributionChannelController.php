@@ -247,43 +247,49 @@ class DistributionChannelController extends Controller
             $import = new DynamicExcelImport(
                 DistributionChannel::class, 
                 ['code', 'name'], 
-                function ($row) {
+                function ($row) use ($mapping) {
                     foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                     $errors = [];
-                    if (($row['code'] ?? '') === '') {
+                    $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                    $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                    $subKey = $mapping ? array_search('sub_distribution_of', $mapping) : 'sub_distribution_of';
+                    if ((($row[$codeKey] ?? '') === '')) {
                         $errors[] = 'Code is required';
                     }
-                    if (($row['name'] ?? '') === '') {
+                    if ((($row[$nameKey] ?? '') === '')) {
                         $errors[] = 'Name is required';
                     }
                     // Validate parent distribution channel code if provided
-                    if (!empty($row['sub_distribution_of'])) {
-                        $parentChannel = DistributionChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_distribution_of'])])->first();
+                    if (!empty($row[$subKey])) {
+                        $parentChannel = DistributionChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subKey])])->first();
                         if (!$parentChannel) {
-                            $errors[] = "Parent distribution channel with code '{$row['sub_distribution_of']}' not found";
+                            $errors[] = "Parent distribution channel with code '{$row[$subKey]}' not found";
                         }
                     }
                     return $errors;
                 }, 
-                function ($row) {
+                function ($row) use ($mapping) {
                     foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                     $subDistributionOfId = null;
+                    $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                    $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                    $subKey = $mapping ? array_search('sub_distribution_of', $mapping) : 'sub_distribution_of';
                     
                     // If sub_distribution_of is provided, resolve the code to ID
-                    if (!empty($row['sub_distribution_of'])) {
-                        $parentChannel = DistributionChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_distribution_of'])])->first();
+                    if (!empty($row[$subKey])) {
+                        $parentChannel = DistributionChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subKey])])->first();
                         if ($parentChannel) {
                             $subDistributionOfId = $parentChannel->id;
                         }
                     }
                     
                     return [
-                        'code' => $row['code'] ?? null,
-                        'name' => $row['name'] ?? null,
+                        'code' => $row[$codeKey] ?? null,
+                        'name' => $row[$nameKey] ?? null,
                         'sub_distribution_of' => $subDistributionOfId,
                     ];
                 },
-                true // Enable header validation
+                $mapping ? false : true
             );
             
             Excel::import($import, $request->file('file'));

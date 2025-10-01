@@ -211,7 +211,7 @@ class ZoneController extends Controller
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 return ['name' => $row[$nameKey] ?? null];
             },
-            true // Enable header validation
+            $mapping ? false : true // Disable header validation when mapping provided
         );
 
         Excel::import($import, $request->file('file'));

@@ -238,37 +238,43 @@ class SalesChannelController extends Controller
         $mapping = $request->input('mapping');
 
         try {
-            $import = new DynamicExcelImport(SalesChannel::class, ['code', 'name'], function ($row) {
+            $import = new DynamicExcelImport(SalesChannel::class, ['code', 'name'], function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
-                if (($row['code'] ?? '') === '') { $errors[] = 'Code is required'; }
-                if (($row['name'] ?? '') === '') { $errors[] = 'Name is required'; }
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $subKey = $mapping ? array_search('sub_sales_of', $mapping) : 'sub_sales_of';
+                if ((($row[$codeKey] ?? '') === '')) { $errors[] = 'Code is required'; }
+                if ((($row[$nameKey] ?? '') === '')) { $errors[] = 'Name is required'; }
                 // Validate parent sales channel code if provided
-                if (!empty($row['sub_sales_of'])) {
-                    $parentChannel = SalesChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_sales_of'])])->first();
+                if (!empty($row[$subKey])) {
+                    $parentChannel = SalesChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subKey])])->first();
                     if (!$parentChannel) {
-                        $errors[] = "Parent sales channel with code '{$row['sub_sales_of']}' not found";
+                        $errors[] = "Parent sales channel with code '{$row[$subKey]}' not found";
                     }
                 }
                 return $errors;
-            }, function ($row) {
+            }, function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $subSalesOfId = null;
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $subKey = $mapping ? array_search('sub_sales_of', $mapping) : 'sub_sales_of';
                 
                 // If sub_sales_of is provided, resolve the code to ID
-                if (!empty($row['sub_sales_of'])) {
-                    $parentChannel = SalesChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_sales_of'])])->first();
+                if (!empty($row[$subKey])) {
+                    $parentChannel = SalesChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subKey])])->first();
                     if ($parentChannel) {
                         $subSalesOfId = $parentChannel->id;
                     }
                 }
                 
                 return [
-                    'code' => $row['code'] ?? null,
-                    'name' => $row['name'] ?? null,
+                    'code' => $row[$codeKey] ?? null,
+                    'name' => $row[$nameKey] ?? null,
                     'sub_sales_of' => $subSalesOfId,
                 ];
-            }, true); // Enable header validation
+            }, $mapping ? false : true);
             Excel::import($import, $request->file('file'));
             
             // Check if headers were valid

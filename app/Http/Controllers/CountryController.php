@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class CountryController extends Controller
 {
@@ -186,6 +187,8 @@ class CountryController extends Controller
             ],
             'type' => 'nullable|string|in:fresh,mapping',
             'mapping' => 'nullable|array',
+            'strictHeaders' => 'nullable|string|in:exact',
+            'importMethod' => 'nullable|string|in:add_new_and_update_existing,add_new_only,update_existing_only,add_new_and_alert_existing,update_existing_and_alert_new',
         ], [
             'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
         ]);
@@ -198,14 +201,143 @@ class CountryController extends Controller
 
         // If type is 'mapping', use provided mapping, else use default
         $mapping = $request->input('mapping');
+        $strictHeaders = $request->input('strictHeaders') === 'exact';
+        $importMethod = $request->input('importMethod');
+
+        // Manual commit path for countries when importMethod is provided
+        if ($request->input('type') === 'mapping' && $mapping && $importMethod) {
+            $filePath = $request->file('file')->getRealPath();
+            $spreadsheet = IOFactory::load($filePath);
+            $sheet = $spreadsheet->getActiveSheet();
+            $highestColumn = $sheet->getHighestColumn();
+            $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+            $highestRow = $sheet->getHighestRow();
+
+            // Build header → column index map
+            $excelHeaders = [];
+            for ($col = 1; $col <= $highestColumnIndex; $col++) {
+                $val = $sheet->getCellByColumnAndRow($col, 1)->getValue();
+                if ($val !== null && $val !== '') {
+                    $excelHeaders[trim((string)$val)] = $col;
+                }
+            }
+
+            // Pre-check required field mappings and header existence
+            $requiredFields = ['name'];
+            $mappedFieldsLower = array_map(fn($v) => mb_strtolower((string)$v), array_values($mapping));
+            foreach ($requiredFields as $req) {
+                if (!in_array($req, $mappedFieldsLower, true)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Missing required field mapping for '{$req}'",
+                    ], 422);
+                }
+            }
+            // Validate that each mapped header exists (case-insensitive)
+            $headersLower = [];
+            foreach ($excelHeaders as $h => $i) { $headersLower[mb_strtolower($h)] = true; }
+            $missingMappedHeaders = [];
+            foreach ($mapping as $excelHeader => $field) {
+                if (!isset($headersLower[mb_strtolower((string)$excelHeader)])) {
+                    $missingMappedHeaders[] = $excelHeader;
+                }
+            }
+            if (!empty($missingMappedHeaders)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'One or more mapped headers were not found in the file',
+                    'missing_mapped_headers' => $missingMappedHeaders,
+                ], 422);
+            }
+            if ($strictHeaders) {
+                // Fail if file has columns beyond the mapped set
+                $mappedHeaderSetLower = [];
+                foreach (array_keys($mapping) as $mh) { $mappedHeaderSetLower[mb_strtolower((string)$mh)] = true; }
+                $extraHeaders = [];
+                foreach (array_keys($headersLower) as $hLower) {
+                    if (!isset($mappedHeaderSetLower[$hLower])) { $extraHeaders[] = $hLower; }
+                }
+                if (!empty($extraHeaders)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'File contains headers not present in mapping (strict mode)',
+                        'extra_headers' => $extraHeaders,
+                    ], 422);
+                }
+            }
+
+            // Case-insensitive resolution of the name header from mapping
+            $nameHeader = array_search('name', $mapping) ?: 'name';
+            $excelHeadersLower = [];
+            foreach ($excelHeaders as $label => $colIndex) { $excelHeadersLower[mb_strtolower($label)] = $colIndex; }
+            $resolvedHeaderKey = isset($excelHeaders[$nameHeader]) ? $nameHeader : (array_key_exists(mb_strtolower($nameHeader), $excelHeadersLower) ? array_search($excelHeadersLower[mb_strtolower($nameHeader)], $excelHeaders) : null);
+            if ($resolvedHeaderKey === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Mapping header '{$nameHeader}' not found in file",
+                ], 422);
+            }
+
+            $imported = 0; $updated = 0; $skipped = 0; $errorsOut = []; $alerts = [];
+            for ($rowIdx = 2; $rowIdx <= $highestRow; $rowIdx++) {
+                $rawName = $sheet->getCellByColumnAndRow($excelHeaders[$resolvedHeaderKey], $rowIdx)->getValue();
+                $name = is_string($rawName) ? trim($rawName) : (string)$rawName;
+                if ($name === '') { $errorsOut[] = ['row' => $rowIdx, 'reasons' => ['Missing name']]; continue; }
+                if (preg_match('/[0-9]/', $name)) { $errorsOut[] = ['row' => $rowIdx, 'reasons' => ['Country name must not contain numbers']]; continue; }
+
+                $existing = \App\Models\Country::whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($name)])->first();
+                // Determine behavior based on importMethod (default to add_new_only)
+                $method = $importMethod ?: 'add_new_only';
+                switch ($method) {
+                    case 'add_new_and_update_existing':
+                        if ($existing) { $existing->update(['name' => $name]); $updated++; }
+                        else { \App\Models\Country::create(['name' => $name]); $imported++; }
+                        break;
+                    case 'add_new_only':
+                        if ($existing) { $skipped++; }
+                        else { \App\Models\Country::create(['name' => $name]); $imported++; }
+                        break;
+                    case 'update_existing_only':
+                        if ($existing) { $existing->update(['name' => $name]); $updated++; }
+                        else { $skipped++; }
+                        break;
+                    case 'add_new_and_alert_existing':
+                        if ($existing) { $alerts[] = ['row' => $rowIdx, 'reason' => 'Exists', 'existing_id' => $existing->id]; $skipped++; }
+                        else { \App\Models\Country::create(['name' => $name]); $imported++; }
+                        break;
+                    case 'update_existing_and_alert_new':
+                        if ($existing) { $existing->update(['name' => $name]); $updated++; }
+                        else { $alerts[] = ['row' => $rowIdx, 'reason' => 'New row would be added']; $skipped++; }
+                        break;
+                }
+            }
+
+            app('cache')->store('database')->forget('tenant_' . tenant('id') . '_countries');
+
+            $totalProcessed = $imported + $updated + $skipped + count($errorsOut);
+            $message = "Imported {$imported}, updated {$updated}, skipped {$skipped}.";
+
+            return response()->json([
+                'success' => ($imported + $updated) > 0,
+                'message' => $message,
+                'rows_processed' => $totalProcessed,
+                'rows_imported' => $imported,
+                'rows_updated' => $updated,
+                'rows_skipped_count' => $skipped,
+                'skipped_rows' => $errorsOut,
+                'alerts' => $alerts,
+            ]);
+        }
 
         $import = new DynamicExcelImport(
             Country::class,
             ['name'],
-            function ($row) {
+            function ($row) use ($mapping) {
                 $errors = [];
 
-                $name = isset($row['name']) ? trim((string)$row['name']) : '';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $rawName = $row[$nameKey] ?? '';
+                $name = is_string($rawName) ? trim($rawName) : '';
 
                 if ($name === '') {
                     $errors[] = 'Missing name';
@@ -215,13 +347,16 @@ class CountryController extends Controller
 
                 return $errors;
             },
-            function ($row) {
-                $name = trim((string)($row['name'] ?? ''));
+            function ($row) use ($mapping) {
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $rawName = $row[$nameKey] ?? '';
+                $name = is_string($rawName) ? trim($rawName) : '';
                 return [
                     'name' => $name,
                 ];
             },
-            true // Enable header validation
+            // When mapping is provided, disable header validation because headers may not match schema
+            $mapping ? false : true
         );
 
         Excel::import($import, $request->file('file'));
@@ -267,6 +402,278 @@ class CountryController extends Controller
             'rows_imported' => $imported,
             'rows_skipped_count' => $skippedCount,
             'skipped_rows' => $skippedRows,
+        ]);
+    }
+
+    public function importSchema(Request $request)
+    {
+        // Optional: accept table param but currently only countries supported here
+        $schema = [
+            'table' => (new \App\Models\Country())->getTable(),
+            'upsertKeys' => ['name'],
+            'fields' => [
+                [
+                    'field' => 'name',
+                    'label' => 'Name',
+                    'type' => 'string',
+                    'required' => true,
+                    'enum' => null,
+                    'relation' => null,
+                    'default' => null,
+                    'allowedTransforms' => ['trim', 'uppercase', 'lowercase'],
+                    'validators' => ['no_numbers'],
+                ],
+            ],
+        ];
+
+        return response()->json($schema);
+    }
+
+    public function importHeaders(Request $request)
+    {
+        $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+        ], [
+            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
+        ]);
+
+        $filePath = $request->file('file')->getRealPath();
+        $spreadsheet = IOFactory::load($filePath);
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $highestColumn = $sheet->getHighestColumn();
+        $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+        $headers = [];
+        for ($col = 1; $col <= $highestColumnIndex; $col++) {
+            $value = $sheet->getCellByColumnAndRow($col, 1)->getValue();
+            if ($value !== null && $value !== '') {
+                $headers[] = trim((string)$value);
+            }
+        }
+
+        $suggestions = [];
+        foreach ($headers as $h) {
+            $norm = strtolower(trim($h));
+            if ($norm === 'name' || $norm === 'country' || $norm === 'country name') {
+                $suggestions[$h] = 'name';
+            }
+        }
+
+        $sampleRow = [];
+        if ($sheet->getHighestRow() >= 2) {
+            for ($col = 1; $col <= $highestColumnIndex; $col++) {
+                $header = $sheet->getCellByColumnAndRow($col, 1)->getValue();
+                if ($header !== null && $header !== '') {
+                    $sampleRow[trim((string)$header)] = $sheet->getCellByColumnAndRow($col, 2)->getValue();
+                }
+            }
+        }
+
+        return response()->json([
+            'headers' => $headers,
+            'sampleRow' => $sampleRow,
+            'suggestions' => $suggestions,
+        ]);
+    }
+
+    public function importDryRun(Request $request)
+    {
+        $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+            ],
+            'mapping' => 'required|array',
+            'strictHeaders' => 'nullable|string|in:exact',
+            'importMethod' => 'nullable|string|in:add_new_and_update_existing,add_new_only,update_existing_only,add_new_and_alert_existing,update_existing_and_alert_new',
+        ]);
+
+        $mapping = $request->input('mapping');
+        $strictHeaders = $request->input('strictHeaders') === 'exact';
+        $importMethod = $request->input('importMethod');
+
+        $filePath = $request->file('file')->getRealPath();
+        $spreadsheet = IOFactory::load($filePath);
+        $sheet = $spreadsheet->getActiveSheet();
+        $highestColumn = $sheet->getHighestColumn();
+        $highestColumnIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
+        $highestRow = $sheet->getHighestRow();
+
+        // Build header array
+        $excelHeaders = [];
+        for ($col = 1; $col <= $highestColumnIndex; $col++) {
+            $val = $sheet->getCellByColumnAndRow($col, 1)->getValue();
+            if ($val !== null && $val !== '') {
+                $excelHeaders[$col] = trim((string)$val);
+            }
+        }
+
+        // Pre-check required field mappings and header existence
+        $requiredFields = ['name'];
+        $mappedFieldsLower = array_map(fn($v) => mb_strtolower((string)$v), array_values($mapping));
+        $missingRequired = [];
+        foreach ($requiredFields as $req) {
+            if (!in_array($req, $mappedFieldsLower, true)) { $missingRequired[] = $req; }
+        }
+        if (!empty($missingRequired)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Missing required field mappings',
+                'missing_mappings' => $missingRequired,
+            ], 422);
+        }
+
+        $headersLower = [];
+        foreach ($excelHeaders as $col => $h) { $headersLower[mb_strtolower($h)] = true; }
+        $missingMappedHeaders = [];
+        foreach ($mapping as $excelHeader => $field) {
+            if (!isset($headersLower[mb_strtolower((string)$excelHeader)])) {
+                $missingMappedHeaders[] = $excelHeader;
+            }
+        }
+        if (!empty($missingMappedHeaders)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'One or more mapped headers were not found in the file',
+                'missing_mapped_headers' => $missingMappedHeaders,
+            ], 422);
+        }
+        if ($strictHeaders) {
+            $mappedHeaderSetLower = [];
+            foreach (array_keys($mapping) as $mh) { $mappedHeaderSetLower[mb_strtolower((string)$mh)] = true; }
+            $extraHeaders = [];
+            foreach (array_values($excelHeaders) as $h) {
+                $hl = mb_strtolower($h);
+                if (!isset($mappedHeaderSetLower[$hl])) { $extraHeaders[] = $h; }
+            }
+            if (!empty($extraHeaders)) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'File contains headers not present in mapping (strict mode)',
+                    'extra_headers' => $extraHeaders,
+                ], 422);
+            }
+        }
+
+        $rows = [];
+        for ($rowIdx = 2; $rowIdx <= $highestRow; $rowIdx++) {
+            $rowAssoc = [];
+            foreach ($excelHeaders as $col => $headerLabel) {
+                $rowAssoc[$headerLabel] = $sheet->getCellByColumnAndRow($col, $rowIdx)->getValue();
+            }
+            $rows[] = $rowAssoc;
+        }
+
+        $results = [];
+        $insertCount = 0; $updateCount = 0; $skipCount = 0; $errorCount = 0;
+        $alerts = [];
+        foreach ($rows as $index => $row) {
+            // Apply mapping (excel header -> model field) with case-insensitive header matching
+            $modelData = [];
+            $rowLower = [];
+            foreach ($row as $k => $v) { $rowLower[mb_strtolower($k)] = $v; }
+            foreach ($mapping as $excelHeader => $modelField) {
+                $value = $rowLower[mb_strtolower($excelHeader)] ?? null;
+                if (is_string($value)) { $value = trim($value); }
+
+                // Normalize target field name (case-insensitive)
+                $normalizedField = mb_strtolower(trim((string)$modelField));
+
+                if (in_array($normalizedField, ['active'])) {
+                    if (is_string($value)) {
+                        $lv = strtolower(trim($value));
+                        $value = in_array($lv, ['1','true','yes','y']) ? true : (in_array($lv, ['0','false','no','n']) ? false : $value);
+                    }
+                }
+                // Only accept known fields
+                if (in_array($normalizedField, ['name'])) {
+                    $modelData[$normalizedField] = $value;
+                }
+            }
+
+            // Validate per-field
+            $errors = [];
+            $name = isset($modelData['name']) ? trim((string)$modelData['name']) : '';
+            if ($name === '') {
+                $errors['name'][] = 'Missing name';
+            } elseif (preg_match('/[0-9]/', $name)) {
+                $errors['name'][] = 'Country name must not contain numbers';
+            }
+
+            // Determine action (insert/update/skip) based on unique name
+            $existing = null;
+            if ($name !== '') {
+                $existing = \App\Models\Country::whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($name)])->first();
+            }
+
+            // Classify based on importMethod (default add_new_only)
+            $method = $importMethod ?: 'add_new_only';
+            $action = 'insert';
+            if ($existing) {
+                if (in_array($method, ['add_new_and_update_existing', 'update_existing_only', 'update_existing_and_alert_new'])) { $action = 'update'; }
+                elseif (in_array($method, ['add_new_only', 'add_new_and_alert_existing'])) { 
+                    $action = 'skip';
+                    if ($method === 'add_new_and_alert_existing') {
+                        $alerts[] = [
+                            'row' => $index + 2,
+                            'reason' => 'Exists',
+                            'existing' => ['id' => $existing->id, 'name' => $existing->name],
+                        ];
+                    }
+                }
+            } else {
+                if (in_array($method, ['add_new_and_update_existing', 'add_new_only', 'add_new_and_alert_existing'])) { $action = 'insert'; }
+                elseif (in_array($method, ['update_existing_only', 'update_existing_and_alert_new'])) { 
+                    $action = 'skip';
+                    if ($method === 'update_existing_and_alert_new') {
+                        $alerts[] = [
+                            'row' => $index + 2,
+                            'reason' => 'New row would be added',
+                            'data' => ['name' => $name],
+                        ];
+                    }
+                }
+            }
+
+            if (!empty($errors)) {
+                $errorCount++;
+                $results[] = [
+                    'row' => $index + 2,
+                    'action' => 'error',
+                    'errors' => $errors,
+                    'data' => $modelData,
+                ];
+                continue;
+            }
+
+            if ($action === 'insert') { $insertCount++; }
+            elseif ($action === 'update') { $updateCount++; }
+            else { $skipCount++; }
+
+            $results[] = [
+                'row' => $index + 2,
+                'action' => $action,
+                'errors' => (object)[],
+                'data' => $modelData,
+                'existing' => $existing ? ['id' => $existing->id, 'name' => $existing->name] : null,
+            ];
+        }
+
+        return response()->json([
+            'stats' => [
+                'total' => count($rows),
+                'insert' => $insertCount,
+                'update' => $updateCount,
+                'skip' => $skipCount,
+                'errors' => $errorCount,
+            ],
+            'rows' => $results,
+            'alerts' => $alerts,
         ]);
     }
 }

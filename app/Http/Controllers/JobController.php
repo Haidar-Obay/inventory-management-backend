@@ -203,7 +203,7 @@ class JobController extends Controller
         $import = new DynamicExcelImport(
             Job::class,
             ['code', 'description', 'project_id', 'start_date', 'expected_date', 'end_date'],
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
 
@@ -219,30 +219,37 @@ class JobController extends Controller
                     return false;
                 };
 
-                if (($row['description'] ?? '') === '') {
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $descriptionKey = $mapping ? array_search('description', $mapping) : 'description';
+                $projectKey = $mapping ? array_search('project_id', $mapping) : 'project_id';
+                $startKey = $mapping ? array_search('start_date', $mapping) : 'start_date';
+                $expectedKey = $mapping ? array_search('expected_date', $mapping) : 'expected_date';
+                $endKey = $mapping ? array_search('end_date', $mapping) : 'end_date';
+
+                if ((($row[$descriptionKey] ?? '') === '')) {
                     $errors[] = 'Missing description';
                 }
-                if (($row['project_id'] ?? '') === '') {
+                if ((($row[$projectKey] ?? '') === '')) {
                     $errors[] = 'Missing project';
                 } else {
-                    $projectId = $row['project_id'];
+                    $projectId = $row[$projectKey];
                     if (!Project::where('id', $projectId)->exists()) {
                         $errors[] = "Invalid project_id: {$projectId} not found";
                     }
                 }
-                if (($row['start_date'] ?? '') === '' || !$isValidDate($row['start_date'])) {
+                if ((($row[$startKey] ?? '') === '') || !$isValidDate($row[$startKey])) {
                     $errors[] = 'Invalid start_date (use m/d/Y or Excel date)';
                 }
-                if (($row['expected_date'] ?? '') === '' || !$isValidDate($row['expected_date'])) {
+                if ((($row[$expectedKey] ?? '') === '') || !$isValidDate($row[$expectedKey])) {
                     $errors[] = 'Invalid expected_date (use m/d/Y or Excel date)';
                 }
-                if (($row['end_date'] ?? '') !== '' && !$isValidDate($row['end_date'])) {
+                if ((($row[$endKey] ?? '') !== '') && !$isValidDate($row[$endKey])) {
                     $errors[] = 'Invalid end_date (use m/d/Y or Excel date)';
                 }
 
                 return $errors;
             },
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
 
                 $parseDate = function ($value) {
@@ -261,16 +268,23 @@ class JobController extends Controller
                     try { return \Carbon\Carbon::parse((string)$value)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
                 };
 
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $descriptionKey = $mapping ? array_search('description', $mapping) : 'description';
+                $projectKey = $mapping ? array_search('project_id', $mapping) : 'project_id';
+                $startKey = $mapping ? array_search('start_date', $mapping) : 'start_date';
+                $expectedKey = $mapping ? array_search('expected_date', $mapping) : 'expected_date';
+                $endKey = $mapping ? array_search('end_date', $mapping) : 'end_date';
+
                 return [
-                    'code' => $row['code'] ?? null,
-                    'description' => $row['description'] ?? null,
-                    'project_id' => $row['project_id'] ?? null,
-                    'start_date' => $parseDate($row['start_date'] ?? null),
-                    'expected_date' => $parseDate($row['expected_date'] ?? null),
-                    'end_date' => $parseDate($row['end_date'] ?? null),
+                    'code' => $row[$codeKey] ?? null,
+                    'description' => $row[$descriptionKey] ?? null,
+                    'project_id' => $row[$projectKey] ?? null,
+                    'start_date' => $parseDate($row[$startKey] ?? null),
+                    'expected_date' => $parseDate($row[$expectedKey] ?? null),
+                    'end_date' => $parseDate($row[$endKey] ?? null),
                 ];
             },
-            true, // Enable header validation
+            $mapping ? false : true, // Disable header validation when mapping provided
             $request->input('type') === 'fresh' // Skip duplicate check when fresh
         );
 

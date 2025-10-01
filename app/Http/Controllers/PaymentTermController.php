@@ -203,26 +203,34 @@ class PaymentTermController extends Controller
         $import = new DynamicExcelImport(
             PaymentTerm::class,
             ['code', 'name', 'nb_days', 'active'],
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
-                if (($row['code'] ?? '') === '') { $errors[] = 'Missing code'; }
-                if (($row['name'] ?? '') === '') { $errors[] = 'Missing name'; }
-                if (!isset($row['nb_days']) || !is_numeric($row['nb_days'])) {
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $daysKey = $mapping ? array_search('nb_days', $mapping) : 'nb_days';
+                $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+                if ((($row[$codeKey] ?? '') === '')) { $errors[] = 'Missing code'; }
+                if ((($row[$nameKey] ?? '') === '')) { $errors[] = 'Missing name'; }
+                if (!isset($row[$daysKey]) || !is_numeric($row[$daysKey])) {
                     $errors[] = 'Invalid or missing nb_days';
                 }
                 return $errors;
             },
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $daysKey = $mapping ? array_search('nb_days', $mapping) : 'nb_days';
+                $activeKey = $mapping ? array_search('active', $mapping) : 'active';
                 return [    
-                    'code' => $row['code'] ?? null,
-                    'name' => $row['name'] ?? null,
-                    'nb_days' => $row['nb_days'] ?? null,
-                    'active' => isset($row['active']) ? (bool)$row['active'] : true,
+                    'code' => $row[$codeKey] ?? null,
+                    'name' => $row[$nameKey] ?? null,
+                    'nb_days' => $row[$daysKey] ?? null,
+                    'active' => isset($row[$activeKey]) ? (bool)$row[$activeKey] : true,
                 ];
             },
-            true // Enable header validation
+            $mapping ? false : true // Disable header validation when mapping provided
         );
 
         Excel::import($import, $request->file('file'));

@@ -208,31 +208,41 @@ class PaymentMethodController extends Controller
         $import = new DynamicExcelImport(
             PaymentMethod::class,
             ['code', 'name', 'is_credit_card', 'is_online_payment', 'active'],
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
-                if (($row['code'] ?? '') === '') {
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $creditKey = $mapping ? array_search('is_credit_card', $mapping) : 'is_credit_card';
+                $onlineKey = $mapping ? array_search('is_online_payment', $mapping) : 'is_online_payment';
+                $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+                if ((($row[$codeKey] ?? '') === '')) {
                     $errors[] = 'Missing code';
                 }
-                if (($row['name'] ?? '') === '') {
+                if ((($row[$nameKey] ?? '') === '')) {
                     $errors[] = 'Missing name';
                 }
-                if (!isset($row['is_credit_card'])) {
+                if (!isset($row[$creditKey])) {
                     $errors[] = 'Missing is_credit_card';
                 }
                 return $errors;
             },
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $creditKey = $mapping ? array_search('is_credit_card', $mapping) : 'is_credit_card';
+                $onlineKey = $mapping ? array_search('is_online_payment', $mapping) : 'is_online_payment';
+                $activeKey = $mapping ? array_search('active', $mapping) : 'active';
                 return [
-                    'code' => $row['code'] ?? null,
-                    'name' => $row['name'] ?? null,
-                    'is_credit_card' => isset($row['is_credit_card']) ? (bool)$row['is_credit_card'] : false,
-                    'is_online_payment' => isset($row['is_online_payment']) ? (bool)$row['is_online_payment'] : false,
-                    'active' => isset($row['active']) ? (bool)$row['active'] : true,
+                    'code' => $row[$codeKey] ?? null,
+                    'name' => $row[$nameKey] ?? null,
+                    'is_credit_card' => isset($row[$creditKey]) ? (bool)$row[$creditKey] : false,
+                    'is_online_payment' => isset($row[$onlineKey]) ? (bool)$row[$onlineKey] : false,
+                    'active' => isset($row[$activeKey]) ? (bool)$row[$activeKey] : true,
                 ];
             },
-            true // Enable header validation
+            $mapping ? false : true // Disable header validation when mapping provided
         );
 
         Excel::import($import, $request->file('file'));
