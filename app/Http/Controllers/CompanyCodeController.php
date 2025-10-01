@@ -214,7 +214,7 @@ class CompanyCodeController extends Controller
                     'name' => $row[$nameKey] ?? null,
                 ];
             },
-            true // Enable header validation
+            $mapping ? false : true // Disable header validation when mapping provided
         );
 
         Excel::import($import, $request->file('file'));

@@ -196,26 +196,33 @@ class TradeController extends Controller
         $import = new DynamicExcelImport(
             Trade::class,
             ['code', 'name'],
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
                 $errors = [];
-                if (($row['code'] ?? '') === '') {
+
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+
+                if ((($row[$codeKey] ?? '') === '')) {
                     $errors[] = 'Missing code';
                 }
-                if (($row['name'] ?? '') === '') {
+                if ((($row[$nameKey] ?? '') === '')) {
                     $errors[] = 'Missing name';
                 }
                 return $errors;
             },
-            function ($row) {
+            function ($row) use ($mapping) {
                 foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                $codeKey = $mapping ? array_search('code', $mapping) : 'code';
+                $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+                $activeKey = $mapping ? array_search('active', $mapping) : 'active';
                 return [
-                    'code' => $row['code'] ?? null,
-                    'name' => $row['name'] ?? null,
-                    'active' => boolval($row['active'] ?? true),
+                    'code' => $row[$codeKey] ?? null,
+                    'name' => $row[$nameKey] ?? null,
+                    'active' => boolval($row[$activeKey] ?? true),
                 ];
             },
-            true // Enable header validation
+            $mapping ? false : true // Disable header validation when mapping provided
         );
 
         Excel::import($import, $request->file('file'));

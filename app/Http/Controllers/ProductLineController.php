@@ -207,7 +207,7 @@ class ProductLineController extends Controller
                         'active' => boolval($row[$activeKey] ?? true),
                     ];
                 },
-                true // Enable header validation
+                $mapping ? false : true // Disable header validation when mapping provided
             );
             
             Excel::import($import, $request->file('file'));
