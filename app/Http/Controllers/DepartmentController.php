@@ -380,7 +380,7 @@ class DepartmentController extends Controller
     public function getNames()
     {
             $departments = Department::whereNull('sub_department_of')
-                ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
+                ->select('id', 'name', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($department) {

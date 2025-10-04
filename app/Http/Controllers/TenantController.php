@@ -386,7 +386,7 @@ class TenantController extends Controller
     public function getTenantByName($name)
     {
 
-        $tenant = Tenant::with('domains')->where('id', $name)->first();
+        $tenant = Tenant::with(['domains', 'subscriptionPlan'])->where('id', $name)->first();
 
         if (!$tenant) {
             return response()->json([
@@ -395,7 +395,8 @@ class TenantController extends Controller
         }
         return response()->json([
             'message' => 'Tenant found',
-            'tenant' => $name
+            'tenant' => $name,
+            'subscription_end_date' => $tenant->subscription_end_date
         ]);
     }
 

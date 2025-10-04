@@ -333,7 +333,7 @@ class BrandController extends Controller
     {
         // Only get top-level brands (not subbrands)
         $brands = Brand::whereNull('sub_brand_of')
-                ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at', 'created_at', 'updated_at')
+                ->select('id', 'name', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get();
 

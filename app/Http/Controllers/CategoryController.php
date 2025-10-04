@@ -358,7 +358,7 @@ class CategoryController extends Controller
     {
         // Only get top-level categories (not subcategories)
         $categories = Category::whereNull('subcategory_of')
-                ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
+                ->select('id', 'name', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($category) {

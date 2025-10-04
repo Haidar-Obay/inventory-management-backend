@@ -327,7 +327,7 @@ class TransportationChannelController extends Controller
     public function getNames()
     {
         $transportationChannels = TransportationChannel::whereNull('sub_transportation_of')
-            ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
+            ->select('id', 'name', 'created_at', 'updated_at')
             ->orderBy('name')
             ->get()
             ->map(function ($transportationChannel) {

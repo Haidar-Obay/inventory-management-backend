@@ -385,7 +385,7 @@ class MediaChannelController extends Controller
     public function getNames()
     {
         $mediaChannels = MediaChannel::whereNull('sub_media_of')
-            ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
+            ->select('id', 'name', 'created_at', 'updated_at')
             ->orderBy('name')
             ->get()
             ->map(function ($mediaChannel) {
