@@ -353,5 +353,4 @@ jobs:
       - name: Verify build
         run: |
           php artisan --version
-          php artisan config:show
           echo "Build completed successfully"
