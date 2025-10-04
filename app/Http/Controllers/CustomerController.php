@@ -2,22 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{
-    Customer,
-    Address,
-    PaymentTerm
-};
-use App\Http\Requests\Customer\{
-    StoreCustomerRequest,
-    UpdateCustomerRequest
-};
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Http\Requests\Customer\StoreCustomerRequest;
+use App\Http\Requests\Customer\UpdateCustomerRequest;
+use App\Imports\DynamicExcelImport;
+use App\Models\Address;
+use App\Models\Customer;
 use App\Models\CustomerAttachment;
+use App\Models\PaymentTerm;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class CustomerController extends Controller
 {
@@ -44,7 +40,7 @@ class CustomerController extends Controller
             'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
             'primaryContact:id,name',
             'contacts:id,name',
-            'attachments:id,file_name,file_path'
+            'attachments:id,file_name,file_path',
         ]);
 
         // Get the customers data
@@ -84,55 +80,55 @@ class CustomerController extends Controller
                 // Related data with only essential info
                 'customer_group' => $customer->customerGroup ? [
                     'id' => $customer->customerGroup->id,
-                    'name' => $customer->customerGroup->name
+                    'name' => $customer->customerGroup->name,
                 ] : null,
                 'salesman' => $customer->salesman ? [
                     'id' => $customer->salesman->id,
-                    'name' => $customer->salesman->name
+                    'name' => $customer->salesman->name,
                 ] : null,
                 'collector' => $customer->collector ? [
                     'id' => $customer->collector->id,
-                    'name' => $customer->collector->name
+                    'name' => $customer->collector->name,
                 ] : null,
                 'supervisor' => $customer->supervisor ? [
                     'id' => $customer->supervisor->id,
-                    'name' => $customer->supervisor->name
+                    'name' => $customer->supervisor->name,
                 ] : null,
                 'manager' => $customer->manager ? [
                     'id' => $customer->manager->id,
-                    'name' => $customer->manager->name
+                    'name' => $customer->manager->name,
                 ] : null,
                 'payment_term' => $customer->paymentTerm ? [
                     'id' => $customer->paymentTerm->id,
-                    'code' => $customer->paymentTerm->code // changed from name to code
+                    'code' => $customer->paymentTerm->code, // changed from name to code
                 ] : null,
                 'payment_method' => $customer->paymentMethod ? [
                     'id' => $customer->paymentMethod->id,
-                    'code' => $customer->paymentMethod->code // changed from name to code
+                    'code' => $customer->paymentMethod->code, // changed from name to code
                 ] : null,
                 'trade' => $customer->trade ? [
                     'id' => $customer->trade->id,
-                    'name' => $customer->trade->name
+                    'name' => $customer->trade->name,
                 ] : null,
                 'company_code' => $customer->companyCode ? [
                     'id' => $customer->companyCode->id,
-                    'code' => $customer->companyCode->code
+                    'code' => $customer->companyCode->code,
                 ] : null,
                 'business_type' => $customer->businessType ? [
                     'id' => $customer->businessType->id,
-                    'name' => $customer->businessType->name
+                    'name' => $customer->businessType->name,
                 ] : null,
                 'sales_channel' => $customer->salesChannel ? [
                     'id' => $customer->salesChannel->id,
-                    'name' => $customer->salesChannel->name
+                    'name' => $customer->salesChannel->name,
                 ] : null,
                 'distribution_channel' => $customer->distributionChannel ? [
                     'id' => $customer->distributionChannel->id,
-                    'name' => $customer->distributionChannel->name
+                    'name' => $customer->distributionChannel->name,
                 ] : null,
                 'media_channel' => $customer->mediaChannel ? [
                     'id' => $customer->mediaChannel->id,
-                    'name' => $customer->mediaChannel->name
+                    'name' => $customer->mediaChannel->name,
                 ] : null,
                 // Addresses with only essential info - use first() to get single model from collection
                 'primary_billing_address_id' => $customer->primaryBillingAddress->first() ? $customer->primaryBillingAddress->first()->id : null,
@@ -198,13 +194,13 @@ class CustomerController extends Controller
         }
 
         // Remove address fields from validated data since we handle them separately
-        unset($validated['billing_address_line1'], $validated['billing_address_line2'], 
-              $validated['billing_country_id'], $validated['billing_city_id'], 
-              $validated['billing_district_id'], $validated['billing_zone_id'],
-              $validated['billing_building'], $validated['billing_block'],
-              $validated['billing_floor'], $validated['billing_side'],
-              $validated['billing_apartment'], $validated['billing_zip_code'],
-              $validated['shipping_addresses']);
+        unset($validated['billing_address_line1'], $validated['billing_address_line2'],
+            $validated['billing_country_id'], $validated['billing_city_id'],
+            $validated['billing_district_id'], $validated['billing_zone_id'],
+            $validated['billing_building'], $validated['billing_block'],
+            $validated['billing_floor'], $validated['billing_side'],
+            $validated['billing_apartment'], $validated['billing_zip_code'],
+            $validated['shipping_addresses']);
 
         // Handle payment terms with new field names
         if ($request->filled('selected_payment_term')) {
@@ -254,7 +250,7 @@ class CustomerController extends Controller
             $customer->addresses()->attach($address->id, [
                 'address_type' => 'shipping',
                 'is_primary' => $index === 0, // First shipping address is primary
-                'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address ' . ($index + 1),
+                'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
             ]);
         }
 
@@ -356,8 +352,8 @@ class CustomerController extends Controller
             'collector:id,name',
             'supervisor:id,name',
             'manager:id,name',
-            'paymentTerm:id,code', 
-            'paymentMethod:id,code', 
+            'paymentTerm:id,code',
+            'paymentMethod:id,code',
             'trade:id,name',
             'companyCode:id,code',
             'businessType:id,name',
@@ -374,7 +370,7 @@ class CustomerController extends Controller
             'attachments:id,file_name,file_path,file_type,file_size,category',
             'creditLimits:id,currency_id,credit_limit,notes,is_active',
             'chequeLimits:id,currency_id,max_cheques,notes,is_active',
-            'openingBalances:id,currency_id,opening_amount,opening_date,notes,is_active'
+            'openingBalances:id,currency_id,opening_amount,opening_date,notes,is_active',
         ]);
 
         // Load related currencies for credit limits, cheque limits, and opening balances
@@ -412,14 +408,14 @@ class CustomerController extends Controller
             'notes' => $customer->notes,
             'created_at' => $customer->created_at,
             'updated_at' => $customer->updated_at,
-            
+
             // Payment and credit related fields
             'allow_credit' => $customer->allow_credit,
             'accept_cheques' => $customer->accept_cheques,
             'payment_day' => $customer->payment_day,
             'track_payment' => $customer->track_payment,
             'settlement_method' => $customer->settlement_method,
-            
+
             // Pricing related fields
             'price_choice' => $customer->price_choice,
             'price_list' => $customer->price_list,
@@ -427,7 +423,7 @@ class CustomerController extends Controller
             'discount_class' => $customer->discount_class,
             'markup_percentage' => $customer->markup_percentage,
             'markdown_percentage' => $customer->markdown_percentage,
-            
+
             // Tax related fields
             'taxable' => $customer->taxable,
             'taxed_from_date' => $customer->taxed_from_date,
@@ -439,61 +435,61 @@ class CustomerController extends Controller
             'exemption_reference' => $customer->exemption_reference,
             'exempted_from_date' => $customer->exempted_from_date,
             'exempted_till_date' => $customer->exempted_till_date,
-            
+
             // Related data with full info
             'customer_group' => $customer->customerGroup ? [
                 'id' => $customer->customerGroup->id,
-                'name' => $customer->customerGroup->name
+                'name' => $customer->customerGroup->name,
             ] : null,
             'salesman' => $customer->salesman ? [
                 'id' => $customer->salesman->id,
-                'name' => $customer->salesman->name
+                'name' => $customer->salesman->name,
             ] : null,
             'collector' => $customer->collector ? [
                 'id' => $customer->collector->id,
-                'name' => $customer->collector->name
+                'name' => $customer->collector->name,
             ] : null,
             'supervisor' => $customer->supervisor ? [
                 'id' => $customer->supervisor->id,
-                'name' => $customer->supervisor->name
+                'name' => $customer->supervisor->name,
             ] : null,
             'manager' => $customer->manager ? [
                 'id' => $customer->manager->id,
-                'name' => $customer->manager->name
+                'name' => $customer->manager->name,
             ] : null,
             'payment_term' => $customer->paymentTerm ? [
                 'id' => $customer->paymentTerm->id,
-                'code' => $customer->paymentTerm->code
+                'code' => $customer->paymentTerm->code,
             ] : null,
             'payment_method' => $customer->paymentMethod ? [
                 'id' => $customer->paymentMethod->id,
-                'code' => $customer->paymentMethod->code
+                'code' => $customer->paymentMethod->code,
             ] : null,
             'trade' => $customer->trade ? [
                 'id' => $customer->trade->id,
-                'name' => $customer->trade->name
+                'name' => $customer->trade->name,
             ] : null,
             'company_code' => $customer->companyCode ? [
                 'id' => $customer->companyCode->id,
-                'code' => $customer->companyCode->code
+                'code' => $customer->companyCode->code,
             ] : null,
             'business_type' => $customer->businessType ? [
                 'id' => $customer->businessType->id,
-                'name' => $customer->businessType->name
+                'name' => $customer->businessType->name,
             ] : null,
             'sales_channel' => $customer->salesChannel ? [
                 'id' => $customer->salesChannel->id,
-                'name' => $customer->salesChannel->name
+                'name' => $customer->salesChannel->name,
             ] : null,
             'distribution_channel' => $customer->distributionChannel ? [
                 'id' => $customer->distributionChannel->id,
-                'name' => $customer->distributionChannel->name
+                'name' => $customer->distributionChannel->name,
             ] : null,
             'media_channel' => $customer->mediaChannel ? [
                 'id' => $customer->mediaChannel->id,
-                'name' => $customer->mediaChannel->name
+                'name' => $customer->mediaChannel->name,
             ] : null,
-            
+
             // Addresses with full details
             'addresses' => $customer->addresses->map(function ($address) {
                 return [
@@ -512,7 +508,7 @@ class CustomerController extends Controller
                     'zip_code' => $address->zip_code,
                 ];
             }),
-            
+
             // Billing addresses
             'billing_addresses' => $customer->billingAddresses->map(function ($address) {
                 return [
@@ -531,7 +527,7 @@ class CustomerController extends Controller
                     'zip_code' => $address->zip_code,
                 ];
             }),
-            
+
             // Shipping addresses
             'shipping_addresses' => $customer->shippingAddresses->map(function ($address) {
                 return [
@@ -550,7 +546,7 @@ class CustomerController extends Controller
                     'zip_code' => $address->zip_code,
                 ];
             }),
-            
+
             // Primary addresses
             'primary_billing_address' => $customer->primaryBillingAddress->first() ? [
                 'id' => $customer->primaryBillingAddress->first()->id,
@@ -567,7 +563,7 @@ class CustomerController extends Controller
                 'appartment' => $customer->primaryBillingAddress->first()->appartment,
                 'zip_code' => $customer->primaryBillingAddress->first()->zip_code,
             ] : null,
-            
+
             'primary_shipping_address' => $customer->primaryShippingAddress->first() ? [
                 'id' => $customer->primaryShippingAddress->first()->id,
                 'address_line1' => $customer->primaryShippingAddress->first()->address_line1,
@@ -583,7 +579,7 @@ class CustomerController extends Controller
                 'appartment' => $customer->primaryShippingAddress->first()->appartment,
                 'zip_code' => $customer->primaryShippingAddress->first()->zip_code,
             ] : null,
-            
+
             // Contacts with full details
             'contacts' => $customer->contacts->map(function ($contact) {
                 return [
@@ -597,7 +593,7 @@ class CustomerController extends Controller
                     'is_primary' => $contact->is_primary,
                 ];
             }),
-            
+
             // Primary contact
             'primary_contact' => $customer->primaryContact ? [
                 'id' => $customer->primaryContact->id,
@@ -608,7 +604,7 @@ class CustomerController extends Controller
                 'position' => $customer->primaryContact->position,
                 'extension' => $customer->primaryContact->extension,
             ] : null,
-            
+
             // Attachments with full details
             'attachments' => $customer->attachments->map(function ($attachment) {
                 return [
@@ -620,7 +616,7 @@ class CustomerController extends Controller
                     'category' => $attachment->category,
                 ];
             }),
-            
+
             // Credit limits with currency info
             'credit_limits' => $creditLimits->map(function ($creditLimit) {
                 return [
@@ -634,7 +630,7 @@ class CustomerController extends Controller
                     'is_active' => $creditLimit->is_active,
                 ];
             }),
-            
+
             // Cheque limits with currency info
             'cheque_limits' => $chequeLimits->map(function ($chequeLimit) {
                 return [
@@ -648,7 +644,7 @@ class CustomerController extends Controller
                     'is_active' => $chequeLimit->is_active,
                 ];
             }),
-            
+
             // Opening balances with currency info
             'opening_balances' => $openingBalances->map(function ($openingBalance) {
                 return [
@@ -728,7 +724,7 @@ class CustomerController extends Controller
                     $customer->addresses()->attach($address->id, [
                         'address_type' => 'shipping',
                         'is_primary' => $index === 0, // First shipping address is primary
-                        'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address ' . ($index + 1),
+                        'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
                         'notes' => $shippingAddressData['notes'] ?? null,
                     ]);
                 }
@@ -736,13 +732,13 @@ class CustomerController extends Controller
         }
 
         // Remove address fields from validated data since we handle them separately
-        unset($validated['billing_address_line1'], $validated['billing_address_line2'], 
-              $validated['billing_country_id'], $validated['billing_city_id'], 
-              $validated['billing_district_id'], $validated['billing_zone_id'],
-              $validated['billing_building'], $validated['billing_block'],
-              $validated['billing_floor'], $validated['billing_side'],
-              $validated['billing_apartment'], $validated['billing_zip_code'],
-              $validated['billing_notes'], $validated['shipping_addresses']);
+        unset($validated['billing_address_line1'], $validated['billing_address_line2'],
+            $validated['billing_country_id'], $validated['billing_city_id'],
+            $validated['billing_district_id'], $validated['billing_zone_id'],
+            $validated['billing_building'], $validated['billing_block'],
+            $validated['billing_floor'], $validated['billing_side'],
+            $validated['billing_apartment'], $validated['billing_zip_code'],
+            $validated['billing_notes'], $validated['shipping_addresses']);
 
         // Handle pricing fields mapping (allow null to clear values)
         if ($request->has('markup')) {
@@ -772,7 +768,7 @@ class CustomerController extends Controller
         if ($request->has('credit_limits')) {
             // Delete existing credit limits completely instead of just marking as inactive
             $customer->creditLimits()->delete();
-            
+
             foreach ($request->input('credit_limits') as $currencyCode => $amount) {
                 // Find currency by code
                 $currency = \App\Models\Currency::where('code', $currencyCode)->first();
@@ -786,7 +782,7 @@ class CustomerController extends Controller
         if ($request->has('max_cheques')) {
             // Delete existing cheque limits completely instead of just marking as inactive
             $customer->chequeLimits()->delete();
-            
+
             foreach ($request->input('max_cheques') as $currencyCode => $maxCheques) {
                 // Find currency by code
                 $currency = \App\Models\Currency::where('code', $currencyCode)->first();
@@ -800,7 +796,7 @@ class CustomerController extends Controller
         if ($request->has('opening_balances')) {
             // Delete existing opening balances completely instead of just marking as inactive
             $customer->openingBalances()->delete();
-            
+
             foreach ($request->input('opening_balances') as $openingBalanceData) {
                 // Find currency by code
                 $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
@@ -818,7 +814,7 @@ class CustomerController extends Controller
         if ($request->has('contacts')) {
             // Remove existing contacts and create new ones
             $customer->contacts()->delete();
-            
+
             foreach ($request->input('contacts') as $contactData) {
                 $contact = $customer->contacts()->create([
                     'title' => $contactData['title'] ?? null,
@@ -1002,7 +998,7 @@ class CustomerController extends Controller
             'showMessageField',
             'message',
             'contacts_id',
-            'notes'
+            'notes',
         ];
         $headings = [
             'ID',
@@ -1063,12 +1059,13 @@ class CustomerController extends Controller
             'Add Message',
             'Invoice Message',
             'Contacts ID',
-            'Notes'
+            'Notes',
         ];
+
         return Excel::download(new Export($customers, $columns, $headings), 'customers.xlsx');
     }
 
-    //export pdf
+    // export pdf
     public function exportPdf(ExportPDF $pdfService)
     {
         $requestedColumns = request()->input('columns');
@@ -1134,10 +1131,10 @@ class CustomerController extends Controller
             'showMessageField',
             'message',
             'contacts_id',
-            'notes'
+            'notes',
         ];
 
-        $columns = is_array($requestedColumns) && !empty($requestedColumns)
+        $columns = is_array($requestedColumns) && ! empty($requestedColumns)
             ? array_values(array_intersect($requestedColumns, $baseColumns))
             : $baseColumns;
 
@@ -1214,13 +1211,13 @@ class CustomerController extends Controller
             'showMessageField' => 'Add Message',
             'message' => 'Invoice Message',
             'contacts_id' => 'Contacts ID',
-            'notes' => 'Notes'
+            'notes' => 'Notes',
         ];
 
         $data = $customers->toArray();
 
         // Reorder headers to match selected columns
-        if (!empty($requestedColumns)) {
+        if (! empty($requestedColumns)) {
             $headers = array_filter($headers, function ($key) use ($columns) {
                 return in_array($key, $columns, true);
             }, ARRAY_FILTER_USE_KEY);
@@ -1234,6 +1231,7 @@ class CustomerController extends Controller
         }
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('customers.pdf');
     }
 
@@ -1258,190 +1256,244 @@ class CustomerController extends Controller
             }
 
             $import = new DynamicExcelImport(
-            Customer::class,
-            [
-                'first_name',
-                'last_name',
-                'title',
-                'middle_name',
-                'company_name',
-                'phone1',
-                'phone2',
-                'phone3',
-                'file_number',
-                'bar_code',
-                'search_terms',
-                'trade_id',
-                'company_code_id',
-                'customer_group_id',
-                'business_type_id',
-                'sales_channel_id',
-                'distribution_channel_id',
-                'media_channel_id',
-                'indicator',
-                'risk_category',
-                'salesman_id',
-                'collector_id',
-                'supervisor_id',
-                'manager_id',
-                'payment_term_id',
-                'payment_method_id',
-                'allow_credit',
-                'accept_cheques',
-                'payment_day',
-                'track_payment',
-                'settlement_method',
-                'price_choice',
-                'global_discount',
-                'discount_class',
-                'markup_percentage',
-                'markdown_percentage',
-                'taxable',
-                'taxed_from_date',
-                'taxed_till_date',
-                'subjected_to_tax',
-                'added_tax',
-                'exempted',
-                'exempted_from',
-                'exemption_reference',
-                'exempted_from_date',
-                'exempted_till_date',
-                'active',
-                'black_listed',
-                'one_time_account',
-                'special_account',
-                'pos_customer',
-                'free_delivery_charge',
-                'print_invoice_language',
-                'send_invoice',
-                'showMessageField',
-                'message',
-                'contacts_id',
-                'notes'
-            ],
-            function ($row) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
-                $errors = [];
-
-                if (($row['first_name'] ?? '') === '')
-                    $errors[] = 'Missing first_name';
-                if (($row['last_name'] ?? '') === '')
-                    $errors[] = 'Missing last_name';
-
-                foreach (['phone1', 'phone2', 'phone3'] as $phoneField) {
-                    if (!empty($row[$phoneField]) && !is_string($row[$phoneField])) {
-                        $errors[] = "$phoneField must be a string";
+                Customer::class,
+                [
+                    'first_name',
+                    'last_name',
+                    'title',
+                    'middle_name',
+                    'company_name',
+                    'phone1',
+                    'phone2',
+                    'phone3',
+                    'file_number',
+                    'bar_code',
+                    'search_terms',
+                    'trade_id',
+                    'company_code_id',
+                    'customer_group_id',
+                    'business_type_id',
+                    'sales_channel_id',
+                    'distribution_channel_id',
+                    'media_channel_id',
+                    'indicator',
+                    'risk_category',
+                    'salesman_id',
+                    'collector_id',
+                    'supervisor_id',
+                    'manager_id',
+                    'payment_term_id',
+                    'payment_method_id',
+                    'allow_credit',
+                    'accept_cheques',
+                    'payment_day',
+                    'track_payment',
+                    'settlement_method',
+                    'price_choice',
+                    'global_discount',
+                    'discount_class',
+                    'markup_percentage',
+                    'markdown_percentage',
+                    'taxable',
+                    'taxed_from_date',
+                    'taxed_till_date',
+                    'subjected_to_tax',
+                    'added_tax',
+                    'exempted',
+                    'exempted_from',
+                    'exemption_reference',
+                    'exempted_from_date',
+                    'exempted_till_date',
+                    'active',
+                    'black_listed',
+                    'one_time_account',
+                    'special_account',
+                    'pos_customer',
+                    'free_delivery_charge',
+                    'print_invoice_language',
+                    'send_invoice',
+                    'showMessageField',
+                    'message',
+                    'contacts_id',
+                    'notes',
+                ],
+                function ($row) {
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
                     }
-                }
+                    $errors = [];
 
-                if (isset($row['global_discount']) && !is_numeric($row['global_discount'])) {
-                    $errors[] = 'global_discount must be numeric';
-                }
-
-                if (isset($row['markup_percentage']) && !is_numeric($row['markup_percentage'])) {
-                    $errors[] = 'markup_percentage must be numeric';
-                }
-
-                if (isset($row['markdown_percentage']) && !is_numeric($row['markdown_percentage'])) {
-                    $errors[] = 'markdown_percentage must be numeric';
-                }
-
-                // Date validation
-                $isValidDate = function ($value) {
-                    if ($value === null || $value === '') { return true; }
-                    if (is_numeric($value)) { return true; }
-                    try { \Carbon\Carbon::createFromFormat('n/j/Y', (string)$value); return true; } catch (\Throwable $e) {}
-                    try { \Carbon\Carbon::createFromFormat('m/d/Y', (string)$value); return true; } catch (\Throwable $e) {}
-                    try { \Carbon\Carbon::parse((string)$value); return true; } catch (\Throwable $e) {}
-                    return false;
-                };
-                foreach (['taxed_from_date','taxed_till_date','exempted_from_date','exempted_till_date','exempted_from'] as $df) {
-                    if (isset($row[$df]) && $row[$df] !== '' && !$isValidDate($row[$df])) {
-                        $errors[] = "$df has invalid date";
+                    if (($row['first_name'] ?? '') === '') {
+                        $errors[] = 'Missing first_name';
                     }
-                }
+                    if (($row['last_name'] ?? '') === '') {
+                        $errors[] = 'Missing last_name';
+                    }
 
-                return $errors;
-            },
-            function ($row) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
-                $parseDate = function ($value) {
-                    if ($value === null || $value === '') { return null; }
-                    if (is_numeric($value)) { try { $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$value); return \Carbon\Carbon::instance($dt)->format('Y-m-d'); } catch (\Throwable $e) {} }
-                    foreach (['n/j/Y','m/d/Y','Y-m-d'] as $fmt) { try { return \Carbon\Carbon::createFromFormat($fmt, (string)$value)->format('Y-m-d'); } catch (\Throwable $e) {} }
-                    try { return \Carbon\Carbon::parse((string)$value)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
-                };
-                return [
-                    'title' => $row['title'] ?? null,
-                    'first_name' => $row['first_name'] ?? null,
-                    'middle_name' => $row['middle_name'] ?? null,
-                    'last_name' => $row['last_name'] ?? null,
-                    'display_name' => $row['display_name'] ?? null,
-                    'company_name' => $row['company_name'] ?? null,
-                    'phone1' => $row['phone1'] ?? null,
-                    'phone2' => $row['phone2'] ?? null,
-                    'phone3' => $row['phone3'] ?? null,
-                    'file_number' => $row['file_number'] ?? null,
-                    'bar_code' => $row['bar_code'] ?? null,
-                    'search_terms' => $row['search_terms'] ?? null,
-                    'trade_id' => $row['trade_id'] ?? null,
-                    'company_code_id' => $row['company_code_id'] ?? null,
-                    'customer_group_id' => $row['customer_group_id'] ?? null,
-                    'business_type_id' => $row['business_type_id'] ?? null,
-                    'sales_channel_id' => $row['sales_channel_id'] ?? null,
-                    'distribution_channel_id' => $row['distribution_channel_id'] ?? null,
-                    'media_channel_id' => $row['media_channel_id'] ?? null,
-                    'indicator' => $row['indicator'] ?? null,
-                    'risk_category' => $row['risk_category'] ?? null,
-                    'salesman_id' => $row['salesman_id'] ?? null,
-                    'collector_id' => $row['collector_id'] ?? null,
-                    'supervisor_id' => $row['supervisor_id'] ?? null,
-                    'manager_id' => $row['manager_id'] ?? null,
-                    'payment_term_id' => $row['payment_term_id'] ?? null,
-                    'payment_method_id' => $row['payment_method_id'] ?? null,
-                    'allow_credit' => boolval($row['allow_credit'] ?? false),
-                    'accept_cheques' => boolval($row['accept_cheques'] ?? false),
-                    'payment_day' => $row['payment_day'] ?? null,
-                    'track_payment' => $row['track_payment'] ?? 'no',
-                    'settlement_method' => $row['settlement_method'] ?? null,
-                    'price_choice' => $row['price_choice'] ?? null,
-                    'global_discount' => $row['global_discount'] ?? null,
-                    'discount_class' => $row['discount_class'] ?? null,
-                    'markup_percentage' => $row['markup_percentage'] ?? null,
-                    'markdown_percentage' => $row['markdown_percentage'] ?? null,
-                    'taxable' => boolval($row['taxable'] ?? false),
-                    'taxed_from_date' => $parseDate($row['taxed_from_date'] ?? null),
-                    'taxed_till_date' => $parseDate($row['taxed_till_date'] ?? null),
-                    'subjected_to_tax' => boolval($row['subjected_to_tax'] ?? false),
-                    'added_tax' => $row['added_tax'] ?? null,
-                    'exempted' => boolval($row['exempted'] ?? false),
-                    'exempted_from' => $parseDate($row['exempted_from'] ?? null),
-                    'exemption_reference' => $row['exemption_reference'] ?? null,
-                    'exempted_from_date' => $parseDate($row['exempted_from_date'] ?? null),
-                    'exempted_till_date' => $parseDate($row['exempted_till_date'] ?? null),
-                    'active' => boolval($row['active'] ?? true),
-                    'black_listed' => boolval($row['black_listed'] ?? false),
-                    'one_time_account' => boolval($row['one_time_account'] ?? true),
-                    'special_account' => boolval($row['special_account'] ?? false),
-                    'pos_customer' => boolval($row['pos_customer'] ?? false),
-                    'free_delivery_charge' => boolval($row['free_delivery_charge'] ?? false),
-                    'print_invoice_language' => $row['print_invoice_language'] ?? 'English',
-                    'send_invoice' => $row['send_invoice'] ?? 'email',
-                    'showMessageField' => boolval($row['showMessageField'] ?? false),
-                    'message' => $row['message'] ?? null,
-                    'contacts_id' => $row['contacts_id'] ?? null,
-                    'notes' => $row['notes'] ?? null,
-                ];
-            },
-            true, // Enable header validation
-            $request->input('type') === 'fresh' // Skip duplicate check when fresh
-        );
+                    foreach (['phone1', 'phone2', 'phone3'] as $phoneField) {
+                        if (! empty($row[$phoneField]) && ! is_string($row[$phoneField])) {
+                            $errors[] = "$phoneField must be a string";
+                        }
+                    }
+
+                    if (isset($row['global_discount']) && ! is_numeric($row['global_discount'])) {
+                        $errors[] = 'global_discount must be numeric';
+                    }
+
+                    if (isset($row['markup_percentage']) && ! is_numeric($row['markup_percentage'])) {
+                        $errors[] = 'markup_percentage must be numeric';
+                    }
+
+                    if (isset($row['markdown_percentage']) && ! is_numeric($row['markdown_percentage'])) {
+                        $errors[] = 'markdown_percentage must be numeric';
+                    }
+
+                    // Date validation
+                    $isValidDate = function ($value) {
+                        if ($value === null || $value === '') {
+                            return true;
+                        }
+                        if (is_numeric($value)) {
+                            return true;
+                        }
+
+                        try {
+                            \Carbon\Carbon::createFromFormat('n/j/Y', (string) $value);
+
+                            return true;
+                        } catch (\Throwable $e) {
+                        }
+
+                        try {
+                            \Carbon\Carbon::createFromFormat('m/d/Y', (string) $value);
+
+                            return true;
+                        } catch (\Throwable $e) {
+                        }
+
+                        try {
+                            \Carbon\Carbon::parse((string) $value);
+
+                            return true;
+                        } catch (\Throwable $e) {
+                        }
+
+                        return false;
+                    };
+                    foreach (['taxed_from_date', 'taxed_till_date', 'exempted_from_date', 'exempted_till_date', 'exempted_from'] as $df) {
+                        if (isset($row[$df]) && $row[$df] !== '' && ! $isValidDate($row[$df])) {
+                            $errors[] = "$df has invalid date";
+                        }
+                    }
+
+                    return $errors;
+                },
+                function ($row) {
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
+                    $parseDate = function ($value) {
+                        if ($value === null || $value === '') {
+                            return;
+                        }
+                        if (is_numeric($value)) {
+                            try {
+                                $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $value);
+
+                                return \Carbon\Carbon::instance($dt)->format('Y-m-d');
+                            } catch (\Throwable $e) {
+                            }
+                        }
+                        foreach (['n/j/Y', 'm/d/Y', 'Y-m-d'] as $fmt) {
+                            try {
+                                return \Carbon\Carbon::createFromFormat($fmt, (string) $value)->format('Y-m-d');
+                            } catch (\Throwable $e) {
+                            }
+                        }
+
+                        try {
+                            return \Carbon\Carbon::parse((string) $value)->format('Y-m-d');
+                        } catch (\Throwable $e) {
+                            return;
+                        }
+                    };
+
+                    return [
+                        'title' => $row['title'] ?? null,
+                        'first_name' => $row['first_name'] ?? null,
+                        'middle_name' => $row['middle_name'] ?? null,
+                        'last_name' => $row['last_name'] ?? null,
+                        'display_name' => $row['display_name'] ?? null,
+                        'company_name' => $row['company_name'] ?? null,
+                        'phone1' => $row['phone1'] ?? null,
+                        'phone2' => $row['phone2'] ?? null,
+                        'phone3' => $row['phone3'] ?? null,
+                        'file_number' => $row['file_number'] ?? null,
+                        'bar_code' => $row['bar_code'] ?? null,
+                        'search_terms' => $row['search_terms'] ?? null,
+                        'trade_id' => $row['trade_id'] ?? null,
+                        'company_code_id' => $row['company_code_id'] ?? null,
+                        'customer_group_id' => $row['customer_group_id'] ?? null,
+                        'business_type_id' => $row['business_type_id'] ?? null,
+                        'sales_channel_id' => $row['sales_channel_id'] ?? null,
+                        'distribution_channel_id' => $row['distribution_channel_id'] ?? null,
+                        'media_channel_id' => $row['media_channel_id'] ?? null,
+                        'indicator' => $row['indicator'] ?? null,
+                        'risk_category' => $row['risk_category'] ?? null,
+                        'salesman_id' => $row['salesman_id'] ?? null,
+                        'collector_id' => $row['collector_id'] ?? null,
+                        'supervisor_id' => $row['supervisor_id'] ?? null,
+                        'manager_id' => $row['manager_id'] ?? null,
+                        'payment_term_id' => $row['payment_term_id'] ?? null,
+                        'payment_method_id' => $row['payment_method_id'] ?? null,
+                        'allow_credit' => boolval($row['allow_credit'] ?? false),
+                        'accept_cheques' => boolval($row['accept_cheques'] ?? false),
+                        'payment_day' => $row['payment_day'] ?? null,
+                        'track_payment' => $row['track_payment'] ?? 'no',
+                        'settlement_method' => $row['settlement_method'] ?? null,
+                        'price_choice' => $row['price_choice'] ?? null,
+                        'global_discount' => $row['global_discount'] ?? null,
+                        'discount_class' => $row['discount_class'] ?? null,
+                        'markup_percentage' => $row['markup_percentage'] ?? null,
+                        'markdown_percentage' => $row['markdown_percentage'] ?? null,
+                        'taxable' => boolval($row['taxable'] ?? false),
+                        'taxed_from_date' => $parseDate($row['taxed_from_date'] ?? null),
+                        'taxed_till_date' => $parseDate($row['taxed_till_date'] ?? null),
+                        'subjected_to_tax' => boolval($row['subjected_to_tax'] ?? false),
+                        'added_tax' => $row['added_tax'] ?? null,
+                        'exempted' => boolval($row['exempted'] ?? false),
+                        'exempted_from' => $parseDate($row['exempted_from'] ?? null),
+                        'exemption_reference' => $row['exemption_reference'] ?? null,
+                        'exempted_from_date' => $parseDate($row['exempted_from_date'] ?? null),
+                        'exempted_till_date' => $parseDate($row['exempted_till_date'] ?? null),
+                        'active' => boolval($row['active'] ?? true),
+                        'black_listed' => boolval($row['black_listed'] ?? false),
+                        'one_time_account' => boolval($row['one_time_account'] ?? true),
+                        'special_account' => boolval($row['special_account'] ?? false),
+                        'pos_customer' => boolval($row['pos_customer'] ?? false),
+                        'free_delivery_charge' => boolval($row['free_delivery_charge'] ?? false),
+                        'print_invoice_language' => $row['print_invoice_language'] ?? 'English',
+                        'send_invoice' => $row['send_invoice'] ?? 'email',
+                        'showMessageField' => boolval($row['showMessageField'] ?? false),
+                        'message' => $row['message'] ?? null,
+                        'contacts_id' => $row['contacts_id'] ?? null,
+                        'notes' => $row['notes'] ?? null,
+                    ];
+                },
+                true, // Enable header validation
+                $request->input('type') === 'fresh' // Skip duplicate check when fresh
+            );
 
             Excel::import($import, $request->file('file'));
 
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -1450,8 +1502,8 @@ class CustomerController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
 
@@ -1482,7 +1534,8 @@ class CustomerController extends Controller
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
             // Log the error for debugging
-            \Log::error('Import failed: ' . $e->getMessage(), ['exception' => $e]);
+            \Log::error('Import failed: '.$e->getMessage(), ['exception' => $e]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Import failed due to invalid data. Please check your file for invalid or missing references (e.g., payment method, salesman, etc.).',
@@ -1498,14 +1551,14 @@ class CustomerController extends Controller
 
         $customers = app('cache')->store('database')->get($key);
 
-        if (!$customers) {
+        if (! $customers) {
             $customers = Customer::select('id', 'first_name', 'last_name')
                 ->orderBy('first_name')
                 ->get()
                 ->map(function ($customer) {
                     return [
                         'id' => $customer->id,
-                        'name' => trim($customer->first_name . ' ' . $customer->last_name)
+                        'name' => trim($customer->first_name.' '.$customer->last_name),
                     ];
                 });
 
@@ -1518,6 +1571,4 @@ class CustomerController extends Controller
             'data' => $customers,
         ]);
     }
-
 }
-

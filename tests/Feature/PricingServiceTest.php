@@ -2,17 +2,17 @@
 
 namespace Tests\Feature;
 
-use App\Models\Service;
-use App\Models\ServiceCategory;
-use App\Models\ServiceAdvancedPricing;
-use App\Models\Specialist;
 use App\Models\Association;
 use App\Models\AssociationServicePrice;
 use App\Models\Referrer;
 use App\Models\ReferrerServiceCommission;
+use App\Models\Service;
+use App\Models\ServiceAdvancedPricing;
+use App\Models\ServiceCategory;
+use App\Models\Specialist;
 use App\Services\PricingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class PricingServiceTest extends TestCase
@@ -24,14 +24,23 @@ class PricingServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
+        // Check if database connection is available
+        try {
+            DB::connection()->getPdo();
+        } catch (\Exception $e) {
+            $this->markTestSkipped('Database connection not available: '.$e->getMessage());
+
+            return;
+        }
+
         // Drop all tables first to ensure clean state
         $this->artisan('migrate:reset', ['--force' => true]);
-        
+
         // Run only tenant migrations for a clean tenant database setup
         $this->artisan('migrate', ['--path' => 'database/migrations/tenant', '--force' => true]);
-        
-        $this->pricingService = new PricingService();
+
+        $this->pricingService = new PricingService;
     }
 
     public function test_resolves_base_price_from_normal_price()
@@ -74,7 +83,7 @@ class PricingServiceTest extends TestCase
             'price_calculated_by_hour' => false,
         ]);
         $association = Association::factory()->create();
-        
+
         AssociationServicePrice::create([
             'association_id' => $association->id,
             'service_id' => $service->id,
@@ -97,7 +106,7 @@ class PricingServiceTest extends TestCase
             'price_calculated_by_hour' => false,
         ]);
         $referrer = Referrer::factory()->create();
-        
+
         ReferrerServiceCommission::create([
             'referrer_id' => $referrer->id,
             'service_id' => $service->id,
@@ -121,7 +130,7 @@ class PricingServiceTest extends TestCase
         ]);
         $association = Association::factory()->create();
         $referrer = Referrer::factory()->create();
-        
+
         // Create association service discount without price override
         AssociationServicePrice::create([
             'association_id' => $association->id,
@@ -130,7 +139,7 @@ class PricingServiceTest extends TestCase
             'discount' => 10.00,
         ]);
 
-        // Create referrer service discount without price override  
+        // Create referrer service discount without price override
         ReferrerServiceCommission::create([
             'referrer_id' => $referrer->id,
             'service_id' => $service->id,
@@ -158,8 +167,8 @@ class PricingServiceTest extends TestCase
             'price_calculated_by_hour' => false,
         ]);
         $referrer = Referrer::factory()->create();
-        
-        // Create referrer service discount without price override  
+
+        // Create referrer service discount without price override
         ReferrerServiceCommission::create([
             'referrer_id' => $referrer->id,
             'service_id' => $service->id,

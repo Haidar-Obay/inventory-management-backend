@@ -37,5 +37,3 @@ class Specialist extends Model
         return $this->belongsToMany(Service::class, 'service_specialist')->withTimestamps();
     }
 }
-
-

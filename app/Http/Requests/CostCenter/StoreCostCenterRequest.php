@@ -29,7 +29,7 @@ class StoreCostCenterRequest extends FormRequest
             ],
             'description' => 'nullable|string',
             'active' => 'boolean',
-            'sub_cost_center_of' => 'nullable|exists:cost_centers,id'
+            'sub_cost_center_of' => 'nullable|exists:cost_centers,id',
         ];
     }
 

@@ -8,20 +8,18 @@ use Illuminate\Http\Request;
 
 class CheckPermission
 {
-    public function __construct(private PermissionService $permissionService)
-    {
-    }
+    public function __construct(private PermissionService $permissionService) {}
 
-    public function handle(Request $request, Closure $next, string $resourceKey = null, string $action = null)
+    public function handle(Request $request, Closure $next, ?string $resourceKey = null, ?string $action = null)
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
         // Infer action from method if not provided
-        if (!$action) {
+        if (! $action) {
             $method = strtoupper($request->method());
             $action = match ($method) {
                 'GET' => 'view',
@@ -32,13 +30,13 @@ class CheckPermission
             };
         }
 
-        if (!$resourceKey || !$action) {
+        if (! $resourceKey || ! $action) {
             return response()->json(['message' => 'Forbidden. Missing permission metadata.'], 403);
         }
 
         $allowed = $this->permissionService->userHas($resourceKey, $action, $user);
 
-        if (!$allowed) {
+        if (! $allowed) {
             // Optional: basic logging
             logger()->warning('Permission denied', [
                 'tenant_id' => tenant('id'),

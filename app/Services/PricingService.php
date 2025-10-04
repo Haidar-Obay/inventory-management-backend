@@ -2,12 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\Service;
-use App\Models\ServiceCategory;
-use App\Models\ServiceAdvancedPricing;
 use App\Models\AssociationServicePrice;
 use App\Models\Referrer;
 use App\Models\ReferrerServiceCommission;
+use App\Models\Service;
+use App\Models\ServiceAdvancedPricing;
 
 class PricingService
 {
@@ -34,12 +33,12 @@ class PricingService
             $advancedPricing = ServiceAdvancedPricing::where('service_id', $serviceId)
                 ->where('specialist_id', $specialistId)
                 ->first();
-            
+
             if ($advancedPricing) {
-                $advancedPrice = $serviceType === 'on_site' 
-                    ? $advancedPricing->price_on_site 
+                $advancedPrice = $serviceType === 'on_site'
+                    ? $advancedPricing->price_on_site
                     : $advancedPricing->price_on_call;
-                
+
                 if ($advancedPrice > 0) {
                     $basePrice = $advancedPrice;
                     $overridesApplied[] = "Advanced pricing ({$serviceType}): {$basePrice}";
@@ -50,7 +49,7 @@ class PricingService
         // Event pricing override
         if ($isEvent && $service->event_pricing) {
             $basePrice = $service->normal_price ?? $basePrice;
-            $overridesApplied[] = "Event pricing applied";
+            $overridesApplied[] = 'Event pricing applied';
         }
 
         // Association-level price override
@@ -58,7 +57,7 @@ class PricingService
             $associationPrice = AssociationServicePrice::where('service_id', $serviceId)
                 ->where('association_id', $associationId)
                 ->first();
-            
+
             if ($associationPrice && $associationPrice->price > 0) {
                 $basePrice = $associationPrice->price;
                 $overridesApplied[] = "Association price override: {$basePrice}";
@@ -70,7 +69,7 @@ class PricingService
             $referrerCommission = ReferrerServiceCommission::where('service_id', $serviceId)
                 ->where('referrer_id', $referrerId)
                 ->first();
-            
+
             if ($referrerCommission && $referrerCommission->price_override > 0) {
                 $basePrice = $referrerCommission->price_override;
                 $overridesApplied[] = "Referrer price override: {$basePrice}";
@@ -86,7 +85,7 @@ class PricingService
             $associationPrice = AssociationServicePrice::where('service_id', $serviceId)
                 ->where('association_id', $associationId)
                 ->first();
-            
+
             if ($associationPrice && $associationPrice->discount > 0) {
                 $discountTotal += $associationPrice->discount;
                 $discountsApplied[] = "Association discount: {$associationPrice->discount}";
@@ -101,12 +100,12 @@ class PricingService
         // Calculate commission
         $commissionPercent = 0;
         $commissionAmount = 0;
-        
+
         if ($referrerId) {
             $referrerCommission = ReferrerServiceCommission::where('service_id', $serviceId)
                 ->where('referrer_id', $referrerId)
                 ->first();
-            
+
             if ($referrerCommission && $referrerCommission->commission_percent > 0) {
                 // Use service-specific commission
                 $commissionPercent = $referrerCommission->commission_percent;
@@ -115,7 +114,7 @@ class PricingService
                 $referrer = Referrer::find($referrerId);
                 $commissionPercent = $referrer->commission_percent ?? 0;
             }
-            
+
             $commissionAmount = ($finalPrice * $commissionPercent) / 100;
         }
 
@@ -142,12 +141,12 @@ class PricingService
         // Since we now have a simple one-to-one relationship with service categories,
         // we don't need category-specific pricing logic anymore.
         // The service category is just for classification, not pricing.
-        
+
         // Use normal pricing logic
         if ($service->price_calculated_by_hour && $service->hour_price) {
             return $service->hour_price * $hours;
         }
-        
+
         return $service->normal_price ?? 0;
     }
 }

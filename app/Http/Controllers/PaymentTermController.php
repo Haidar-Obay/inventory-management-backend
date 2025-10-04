@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PaymentTerm;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use App\Models\PaymentTerm;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PaymentTermController extends Controller
 {
@@ -19,7 +18,7 @@ class PaymentTermController extends Controller
 
         $paymentTerms = app('cache')->store('database')->get($key);
 
-        if (!$paymentTerms) {
+        if (! $paymentTerms) {
             $paymentTerms = PaymentTerm::orderBy('id')->get();
             app('cache')->store('database')->forever($key, $paymentTerms);
         }
@@ -57,7 +56,7 @@ class PaymentTermController extends Controller
         $key = "tenant_{$tenantId}_payment_term_{$paymentTerm->id}";
 
         $cached = app('cache')->store('database')->get($key);
-        if (!$cached) {
+        if (! $cached) {
             $cached = $paymentTerm;
             app('cache')->store('database')->forever($key, $cached);
         }
@@ -72,8 +71,8 @@ class PaymentTermController extends Controller
     public function update(Request $request, PaymentTerm $paymentTerm)
     {
         $validated = $request->validate([
-            'code' => 'required|string|unique:payment_terms,code,' . $paymentTerm->id,
-            'name' => 'required|string|unique:payment_terms,name,' . $paymentTerm->id,
+            'code' => 'required|string|unique:payment_terms,code,'.$paymentTerm->id,
+            'name' => 'required|string|unique:payment_terms,name,'.$paymentTerm->id,
             'nb_days' => 'required|integer|min:0',
             'active' => 'boolean',
         ]);
@@ -123,7 +122,7 @@ class PaymentTermController extends Controller
 
         foreach ($request->ids as $id) {
             $term = PaymentTerm::find($id);
-            if ($term && !$term->customers()->exists()) {
+            if ($term && ! $term->customers()->exists()) {
                 $term->delete();
                 $deleted++;
                 app('cache')->store('database')->forget("tenant_{$tenantId}_payment_term_{$id}");
@@ -132,7 +131,7 @@ class PaymentTermController extends Controller
                     'id' => $id,
                     'reason' => $term ? 'Has associated customers' : 'Not found',
                 ];
-        }
+            }
         }
         app('cache')->store('database')->forget("tenant_{$tenantId}_payment_terms");
 
@@ -155,6 +154,7 @@ class PaymentTermController extends Controller
             'updated_at'];
         $headings = ['ID', 'Code', 'Name', 'Number of Days', 'Active',
             'Created At', 'Updated At'];
+
         return Excel::download(new Export($paymentTerms, $columns, $headings), 'payment_terms.xlsx');
     }
 
@@ -174,6 +174,7 @@ class PaymentTermController extends Controller
         ];
         $data = $paymentTerms->toArray();
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('PaymentTerms.pdf');
     }
 
@@ -204,30 +205,44 @@ class PaymentTermController extends Controller
             PaymentTerm::class,
             ['code', 'name', 'nb_days', 'active'],
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $daysKey = $mapping ? array_search('nb_days', $mapping) : 'nb_days';
                 $activeKey = $mapping ? array_search('active', $mapping) : 'active';
-                if ((($row[$codeKey] ?? '') === '')) { $errors[] = 'Missing code'; }
-                if ((($row[$nameKey] ?? '') === '')) { $errors[] = 'Missing name'; }
-                if (!isset($row[$daysKey]) || !is_numeric($row[$daysKey])) {
+                if ((($row[$codeKey] ?? '') === '')) {
+                    $errors[] = 'Missing code';
+                }
+                if ((($row[$nameKey] ?? '') === '')) {
+                    $errors[] = 'Missing name';
+                }
+                if (! isset($row[$daysKey]) || ! is_numeric($row[$daysKey])) {
                     $errors[] = 'Invalid or missing nb_days';
                 }
+
                 return $errors;
             },
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $daysKey = $mapping ? array_search('nb_days', $mapping) : 'nb_days';
                 $activeKey = $mapping ? array_search('active', $mapping) : 'active';
-                return [    
+
+                return [
                     'code' => $row[$codeKey] ?? null,
                     'name' => $row[$nameKey] ?? null,
                     'nb_days' => $row[$daysKey] ?? null,
-                    'active' => isset($row[$activeKey]) ? (bool)$row[$activeKey] : true,
+                    'active' => isset($row[$activeKey]) ? (bool) $row[$activeKey] : true,
                 ];
             },
             $mapping ? false : true // Disable header validation when mapping provided
@@ -236,8 +251,9 @@ class PaymentTermController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -246,12 +262,12 @@ class PaymentTermController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_payment_terms');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_payment_terms');
 
         $imported = $import->getImportedCount();
         $skippedCount = $import->getSkippedCount();

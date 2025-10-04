@@ -32,5 +32,3 @@ class UpdateAssociationRequest extends FormRequest
         ];
     }
 }
-
-

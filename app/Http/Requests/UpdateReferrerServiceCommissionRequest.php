@@ -22,5 +22,3 @@ class UpdateReferrerServiceCommissionRequest extends FormRequest
         ];
     }
 }
-
-

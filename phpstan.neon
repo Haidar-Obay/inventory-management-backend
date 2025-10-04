@@ -1,0 +1,23 @@
+parameters:
+    level: 3
+    paths:
+        - app
+        - config
+        - database
+        - routes
+    excludePaths:
+        - bootstrap/cache
+        - storage
+        - vendor
+    ignoreErrors:
+        # Ignore Laravel Eloquent dynamic properties and methods
+        - '#Access to an undefined property App\\Models\\[a-zA-Z0-9\\_]+::\$[a-zA-Z0-9\\_]+#'
+        - '#Call to an undefined static method App\\Models\\[a-zA-Z0-9\\_]+::[a-zA-Z0-9\\_]+\\(\\)#'
+        - '#Call to an undefined method App\\Models\\[a-zA-Z0-9\\_]+::[a-zA-Z0-9\\_]+\\(\\)#'
+        - '#Class App\\Http\\Middleware\\[a-zA-Z0-9\\_]+ not found#'
+        - '#Undefined variable: \$this#'
+        - '#PHPDoc type.*is not covariant#'
+    reportUnmatchedIgnoredErrors: false
+    parallel:
+        processTimeout: 300.0
+    tmpDir: storage/framework/cache/phpstan

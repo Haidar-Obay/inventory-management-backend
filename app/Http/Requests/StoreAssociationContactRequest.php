@@ -21,5 +21,3 @@ class StoreAssociationContactRequest extends FormRequest
         ];
     }
 }
-
-

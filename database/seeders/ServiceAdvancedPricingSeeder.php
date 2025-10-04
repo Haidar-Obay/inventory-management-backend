@@ -24,5 +24,3 @@ class ServiceAdvancedPricingSeeder extends Seeder
         }
     }
 }
-
-

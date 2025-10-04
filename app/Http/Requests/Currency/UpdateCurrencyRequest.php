@@ -4,6 +4,7 @@ namespace App\Http\Requests\Currency;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+
 class UpdateCurrencyRequest extends FormRequest
 {
     public function authorize(): bool
@@ -32,5 +33,4 @@ class UpdateCurrencyRequest extends FormRequest
             'rate' => 'nullable|numeric|min:0',
         ];
     }
-
 }

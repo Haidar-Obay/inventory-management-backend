@@ -33,5 +33,3 @@ class ServiceNeededItem extends Model
         return $this->belongsTo(Asset::class);
     }
 }
-
-

@@ -124,7 +124,7 @@ class TenancyServiceProvider extends ServiceProvider
             }
         }
     }
-    
+
     protected function mapRoutes()
     {
         $this->app->booted(function () {

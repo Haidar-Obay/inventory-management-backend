@@ -18,7 +18,7 @@ return new class extends Migration
             $table->enum('type', ['machine', 'bed', 'equipment', 'furniture', 'other'])->default('other');
             $table->enum('status', ['active', 'maintenance', 'inactive', 'retired'])->default('active');
             $table->timestamps();
-            
+
             // Add unique constraint for name within the same section
             $table->unique(['section_id', 'name']);
         });

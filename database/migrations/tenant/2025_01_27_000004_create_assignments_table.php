@@ -21,7 +21,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->string('color', 7)->nullable(); // Hex color code (e.g., #FF5733)
             $table->timestamps();
-            
+
             // Add index for better performance on date queries
             $table->index(['start_at', 'end_at']);
             $table->index(['asset_id', 'status']);

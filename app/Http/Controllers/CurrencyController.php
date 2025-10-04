@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Http\Requests\Currency\StoreCurrencyRequest;
+use App\Http\Requests\Currency\UpdateCurrencyRequest;
+use App\Imports\DynamicExcelImport;
 use App\Models\Currency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Validation\Rule;
-use App\Http\Requests\Currency\StoreCurrencyRequest;
-use App\Http\Requests\Currency\UpdateCurrencyRequest;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class CurrencyController extends Controller
 {
@@ -22,7 +21,7 @@ class CurrencyController extends Controller
 
         $currencies = app('cache')->store('database')->get($key);
 
-        if (!$currencies) {
+        if (! $currencies) {
             $currencies = Currency::all();
             app('cache')->store('database')->forever($key, $currencies);
         }
@@ -37,12 +36,12 @@ class CurrencyController extends Controller
         $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
 
         $response = Http::get($url);
-        if (!$response->ok()) {
+        if (! $response->ok()) {
             return response()->json(['message' => 'Failed to fetch exchange rate.'], 500);
         }
 
         $rate = $response['conversion_rates'][$request->code] ?? null;
-        if (!$rate) {
+        if (! $rate) {
             return response()->json(['message' => 'Invalid currency code.'], 422);
         }
 
@@ -66,7 +65,7 @@ class CurrencyController extends Controller
 
         $cached = app('cache')->store('database')->get($key);
 
-        if (!$cached) {
+        if (! $cached) {
             $currency = Currency::findOrFail($id);
             $apiKey = config('services.exchange_rate.key');
             $baseCurrency = 'USD';
@@ -92,12 +91,12 @@ class CurrencyController extends Controller
         $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
 
         $response = Http::get($url);
-        if (!$response->ok()) {
+        if (! $response->ok()) {
             return response()->json(['message' => 'Failed to fetch exchange rate.'], 500);
         }
 
         $rate = $response['conversion_rates'][$request->code] ?? null;
-        if (!$rate) {
+        if (! $rate) {
             return response()->json(['message' => 'Invalid currency code.'], 422);
         }
 
@@ -165,6 +164,7 @@ class CurrencyController extends Controller
         }
         $columns = ['id', 'name', 'code', 'iso_code', 'rate', 'created_at', 'updated_at'];
         $headings = ['ID', 'Name', 'Code', 'ISO Code', 'Rate', 'Created At', 'Updated At'];
+
         return Excel::download(new Export($currencies, $columns, $headings), 'currencies.xlsx');
     }
 
@@ -184,11 +184,12 @@ class CurrencyController extends Controller
             'iso_code' => 'ISO Code',
             'rate' => 'Exchange Rate',
             'created_at' => 'Created At',
-            'updated_at' => 'Updated At'
+            'updated_at' => 'Updated At',
         ];
         $data = $currencies->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Currencies.pdf');
     }
 
@@ -221,12 +222,19 @@ class CurrencyController extends Controller
             function ($row) {
                 $errors = [];
 
-                if (empty($row['name'])) $errors[] = 'Missing name';
-                if (empty($row['code'])) $errors[] = 'Missing code';
-                if (empty($row['iso_code'])) $errors[] = 'Missing ISO code';
-                elseif (!is_numeric($row['iso_code'])) $errors[] = 'ISO code must be numeric';
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
+                }
+                if (empty($row['code'])) {
+                    $errors[] = 'Missing code';
+                }
+                if (empty($row['iso_code'])) {
+                    $errors[] = 'Missing ISO code';
+                } elseif (! is_numeric($row['iso_code'])) {
+                    $errors[] = 'ISO code must be numeric';
+                }
 
-                if (!isset($row['rate']) || !is_numeric($row['rate'])) {
+                if (! isset($row['rate']) || ! is_numeric($row['rate'])) {
                     $errors[] = 'Rate must be numeric';
                 }
 
@@ -246,8 +254,9 @@ class CurrencyController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -256,12 +265,12 @@ class CurrencyController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_currencies");
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_currencies');
 
         return response()->json([
             'success' => true,

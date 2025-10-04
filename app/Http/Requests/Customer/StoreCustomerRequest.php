@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Customer;
 
-use Illuminate\Foundation\Http\FormRequest;
-use App\Models\Salesman;
-use App\Models\PaymentTerm;
 use App\Models\PaymentMethod;
+use App\Models\PaymentTerm;
+use App\Models\Salesman;
+use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCustomerRequest extends FormRequest
 {
@@ -49,11 +49,11 @@ class StoreCustomerRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $salesman = Salesman::find($value);
-                        if ($salesman && !$salesman->active) {
+                        if ($salesman && ! $salesman->active) {
                             $fail('The selected collector is inactive and cannot be assigned to a customer.');
                         }
                     }
-                }
+                },
             ],
             'supervisor_id' => [
                 'nullable',
@@ -61,11 +61,11 @@ class StoreCustomerRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $salesman = Salesman::find($value);
-                        if ($salesman && !$salesman->active) {
+                        if ($salesman && ! $salesman->active) {
                             $fail('The selected supervisor is inactive and cannot be assigned to a customer.');
                         }
                     }
-                }
+                },
             ],
             'manager_id' => [
                 'nullable',
@@ -73,11 +73,11 @@ class StoreCustomerRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $salesman = Salesman::find($value);
-                        if ($salesman && !$salesman->active) {
+                        if ($salesman && ! $salesman->active) {
                             $fail('The selected manager is inactive and cannot be assigned to a customer.');
                         }
                     }
-                }
+                },
             ],
 
             // Payment relationships with active validation
@@ -87,11 +87,11 @@ class StoreCustomerRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $paymentTerm = PaymentTerm::find($value);
-                        if ($paymentTerm && !$paymentTerm->active) {
+                        if ($paymentTerm && ! $paymentTerm->active) {
                             $fail('The selected payment term is inactive and cannot be assigned to a customer.');
                         }
                     }
-                }
+                },
             ],
             'selected_payment_method' => [
                 'nullable',
@@ -99,11 +99,11 @@ class StoreCustomerRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $paymentMethod = PaymentMethod::find($value);
-                        if ($paymentMethod && !$paymentMethod->active) {
+                        if ($paymentMethod && ! $paymentMethod->active) {
                             $fail('The selected payment method is inactive and cannot be assigned to a customer.');
                         }
                     }
-                }
+                },
             ],
             'allow_credit' => 'nullable|boolean',
             'accept_cheques' => 'nullable|boolean',
@@ -129,7 +129,7 @@ class StoreCustomerRequest extends FormRequest
                     if ($value && $taxable === false) {
                         $fail('Taxed from date cannot be set when customer is not taxable.');
                     }
-                }
+                },
             ],
             'taxed_till_date' => [
                 'nullable',
@@ -140,7 +140,7 @@ class StoreCustomerRequest extends FormRequest
                     if ($value && $taxable === false) {
                         $fail('Taxed till date cannot be set when customer is not taxable.');
                     }
-                }
+                },
             ],
             'subjected_to_tax' => [
                 'nullable',
@@ -150,7 +150,7 @@ class StoreCustomerRequest extends FormRequest
                     if ($value && $taxable === false) {
                         $fail('Subjected to tax cannot be set when customer is not taxable.');
                     }
-                }
+                },
             ],
             'added_tax' => [
                 'nullable',
@@ -166,7 +166,7 @@ class StoreCustomerRequest extends FormRequest
                     if ($value && $subjectedToTax === false) {
                         $fail('Added tax cannot be set when customer is not subjected to tax.');
                     }
-                }
+                },
             ],
             'exempted' => [
                 'nullable',
@@ -176,7 +176,7 @@ class StoreCustomerRequest extends FormRequest
                     if ($value && $taxable === false) {
                         $fail('Tax exemption cannot be set when customer is not taxable.');
                     }
-                }
+                },
             ],
             'exempted_from' => [
                 'nullable',
@@ -191,7 +191,7 @@ class StoreCustomerRequest extends FormRequest
                     if ($value && $exempted === false) {
                         $fail('Exemption reason cannot be set when customer is not exempted.');
                     }
-                }
+                },
             ],
             'exemption_reference' => [
                 'nullable',
@@ -206,7 +206,7 @@ class StoreCustomerRequest extends FormRequest
                     if ($value && $exempted === false) {
                         $fail('Exemption reference cannot be set when customer is not exempted.');
                     }
-                }
+                },
             ],
             'exempted_from_date' => [
                 'nullable',
@@ -220,7 +220,7 @@ class StoreCustomerRequest extends FormRequest
                     if ($value && $exempted === false) {
                         $fail('Exemption start date cannot be set when customer is not exempted.');
                     }
-                }
+                },
             ],
             'exempted_till_date' => [
                 'nullable',
@@ -235,7 +235,7 @@ class StoreCustomerRequest extends FormRequest
                     if ($value && $exempted === false) {
                         $fail('Exemption end date cannot be set when customer is not exempted.');
                     }
-                }
+                },
             ],
 
             // Status flags
@@ -324,20 +324,20 @@ class StoreCustomerRequest extends FormRequest
         return [
             'first_name.required' => 'First name is required.',
             'last_name.required' => 'Last name is required.',
-            
+
             // Billing address messages
             'billing_country_id.exists' => 'Selected billing country does not exist.',
             'billing_city_id.exists' => 'Selected billing city does not exist.',
             'billing_district_id.exists' => 'Selected billing district does not exist.',
             'billing_zone_id.exists' => 'Selected billing zone does not exist.',
-            
+
             // Shipping addresses messages
             'shipping_addresses.*.address_line1.required' => 'Address line 1 is required for each shipping address.',
             'shipping_addresses.*.country_id.exists' => 'Selected country does not exist.',
             'shipping_addresses.*.city_id.exists' => 'Selected city does not exist.',
             'shipping_addresses.*.district_id.exists' => 'Selected district does not exist.',
             'shipping_addresses.*.zone_id.exists' => 'Selected zone does not exist.',
-            
+
             // Credit limits messages
             'credit_limits.*.numeric' => 'Credit limit must be a number.',
             'credit_limits.*.min' => 'Credit limit must be at least 0.',

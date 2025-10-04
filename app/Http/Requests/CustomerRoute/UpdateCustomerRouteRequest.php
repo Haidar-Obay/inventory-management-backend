@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\CustomerRoute;
 
-use Illuminate\Foundation\Http\FormRequest;
 use App\Models\Salesman;
+use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateCustomerRouteRequest extends FormRequest
 {
@@ -30,11 +30,11 @@ class UpdateCustomerRouteRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $salesman = Salesman::find($value);
-                        if ($salesman && !$salesman->active) {
+                        if ($salesman && ! $salesman->active) {
                             $fail('The selected salesman is inactive and cannot be assigned to a customer route.');
                         }
                     }
-                }
+                },
             ],
             'frequency' => 'sometimes|required|in:weekly,biweekly,monthly',
             'day_value' => [
@@ -66,8 +66,6 @@ class UpdateCustomerRouteRequest extends FormRequest
 
     /**
      * Get custom messages for validator errors.
-     *
-     * @return array
      */
     public function messages(): array
     {
@@ -87,8 +85,6 @@ class UpdateCustomerRouteRequest extends FormRequest
 
     /**
      * Get custom attributes for validator errors.
-     *
-     * @return array
      */
     public function attributes(): array
     {

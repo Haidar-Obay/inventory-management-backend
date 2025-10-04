@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DistributionChannel;
-use App\Http\Requests\DistributionChannel\StoreDistributionChannelRequest;
-use App\Http\Requests\DistributionChannel\UpdateDistributionChannelRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\DistributionChannel\StoreDistributionChannelRequest;
+use App\Http\Requests\DistributionChannel\UpdateDistributionChannelRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\DistributionChannel;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DistributionChannelController extends Controller
 {
@@ -22,7 +22,7 @@ class DistributionChannelController extends Controller
 
         $distributionChannels = app('cache')->store('database')->get($key);
 
-        if (!$distributionChannels) {
+        if (! $distributionChannels) {
             $distributionChannels = DistributionChannel::with('parent')->get();
             app('cache')->store('database')->forever($key, $distributionChannels);
         }
@@ -52,6 +52,7 @@ class DistributionChannelController extends Controller
         $tenantId = tenant('id');
         $distributionChannel = DistributionChannel::create($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_distribution_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Distribution channel created successfully.',
@@ -63,13 +64,15 @@ class DistributionChannelController extends Controller
     {
         try {
             $distributionChannel = DistributionChannel::findOrFail($id);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Distribution channel fetched successfully.',
                 'data' => $distributionChannel,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching distribution channel: ' . $e->getMessage());
+            Log::error('Error fetching distribution channel: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Distribution channel not found',
@@ -95,6 +98,7 @@ class DistributionChannelController extends Controller
         $tenantId = tenant('id');
         $distributionChannel->update($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_distribution_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Distribution channel updated successfully.',
@@ -113,6 +117,7 @@ class DistributionChannelController extends Controller
         }
         $distributionChannel->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_distribution_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Distribution channel deleted successfully.',
@@ -124,7 +129,7 @@ class DistributionChannelController extends Controller
         $tenantId = tenant('id');
         $ids = $request->input('ids');
 
-        if (!$ids || !is_array($ids)) {
+        if (! $ids || ! is_array($ids)) {
             return response()->json([
                 'status' => false,
                 'message' => 'No distribution channels selected for deletion',
@@ -141,13 +146,14 @@ class DistributionChannelController extends Controller
                     ], 422);
                 }
                 $distributionChannel->delete();
-                Cache::forget("distribution_channels_" . tenant('id'));
-                Cache::forget("distribution_channel_{$distributionChannel->id}_" . tenant('id'));
+                Cache::forget('distribution_channels_'.tenant('id'));
+                Cache::forget("distribution_channel_{$distributionChannel->id}_".tenant('id'));
             }
 
             return response()->json(null, 204);
         } catch (\Exception $e) {
-            Log::error('Error in bulk delete: ' . $e->getMessage());
+            Log::error('Error in bulk delete: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to delete distribution channels',
@@ -165,7 +171,7 @@ class DistributionChannelController extends Controller
                 'distribution_channels.name',
                 'parent.code as parent_code',
                 'distribution_channels.created_at',
-                'distribution_channels.updated_at'
+                'distribution_channels.updated_at',
             ]);
 
         $collection = $distributionChannels->get();
@@ -193,7 +199,7 @@ class DistributionChannelController extends Controller
                 'distribution_channels.name',
                 'parent.code as parent_code',
                 'distribution_channels.created_at',
-                'distribution_channels.updated_at'
+                'distribution_channels.updated_at',
             ])
             ->get();
 
@@ -216,6 +222,7 @@ class DistributionChannelController extends Controller
         $data = $distributionChannels->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('DistributionChannels.pdf');
     }
 
@@ -245,10 +252,14 @@ class DistributionChannelController extends Controller
 
         try {
             $import = new DynamicExcelImport(
-                DistributionChannel::class, 
-                ['code', 'name'], 
+                DistributionChannel::class,
+                ['code', 'name'],
                 function ($row) use ($mapping) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $errors = [];
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
@@ -260,29 +271,34 @@ class DistributionChannelController extends Controller
                         $errors[] = 'Name is required';
                     }
                     // Validate parent distribution channel code if provided
-                    if (!empty($row[$subKey])) {
+                    if (! empty($row[$subKey])) {
                         $parentChannel = DistributionChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subKey])])->first();
-                        if (!$parentChannel) {
+                        if (! $parentChannel) {
                             $errors[] = "Parent distribution channel with code '{$row[$subKey]}' not found";
                         }
                     }
+
                     return $errors;
-                }, 
+                },
                 function ($row) use ($mapping) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $subDistributionOfId = null;
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                     $subKey = $mapping ? array_search('sub_distribution_of', $mapping) : 'sub_distribution_of';
-                    
+
                     // If sub_distribution_of is provided, resolve the code to ID
-                    if (!empty($row[$subKey])) {
+                    if (! empty($row[$subKey])) {
                         $parentChannel = DistributionChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subKey])])->first();
                         if ($parentChannel) {
                             $subDistributionOfId = $parentChannel->id;
                         }
                     }
-                    
+
                     return [
                         'code' => $row[$codeKey] ?? null,
                         'name' => $row[$nameKey] ?? null,
@@ -291,12 +307,13 @@ class DistributionChannelController extends Controller
                 },
                 $mapping ? false : true
             );
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -305,11 +322,11 @@ class DistributionChannelController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
-            
+
             app('cache')->store('database')->forget("tenant_{$tenantId}_distribution_channels");
 
             $imported = $import->getImportedCount();
@@ -339,12 +356,10 @@ class DistributionChannelController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Import failed: ' . $e->getMessage(),
+                'message' => 'Import failed: '.$e->getMessage(),
             ], 422);
         }
     }
-
-    
 
     public function getSubDistributionChannels($distributionChannelId)
     {

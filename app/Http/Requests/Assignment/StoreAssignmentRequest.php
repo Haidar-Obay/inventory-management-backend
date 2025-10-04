@@ -26,7 +26,7 @@ class StoreAssignmentRequest extends FormRequest
                             $fail('Cannot assign assets to users with owner or admin roles.');
                         }
                     }
-                }
+                },
             ],
             'start_at' => 'required|date',
             'end_at' => 'nullable|date|after:start_at',

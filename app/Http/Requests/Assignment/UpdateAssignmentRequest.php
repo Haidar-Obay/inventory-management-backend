@@ -28,7 +28,7 @@ class UpdateAssignmentRequest extends FormRequest
                             }
                         }
                     }
-                }
+                },
             ],
             'start_at' => 'sometimes|date',
             'end_at' => 'nullable|date|after:start_at',

@@ -32,5 +32,3 @@ class ServiceAdvancedPricing extends Model
         return $this->belongsTo(Specialist::class);
     }
 }
-
-

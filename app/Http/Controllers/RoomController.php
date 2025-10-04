@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Room;
-use App\Http\Requests\Room\StoreRoomRequest;
-use App\Http\Requests\Room\UpdateRoomRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Room\StoreRoomRequest;
+use App\Http\Requests\Room\UpdateRoomRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\Room;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Facades\Excel;
 
 class RoomController extends Controller
 {
@@ -22,7 +21,7 @@ class RoomController extends Controller
 
         $rooms = app('cache')->store('database')->get($key);
 
-        if (!$rooms) {
+        if (! $rooms) {
             $rooms = Room::orderBy('name')->get();
 
             app('cache')->store('database')->forever($key, $rooms);
@@ -38,7 +37,7 @@ class RoomController extends Controller
     public function store(StoreRoomRequest $request)
     {
         $validated = $request->validated();
-        
+
         $room = Room::create($validated);
 
         $tenantId = tenant('id');
@@ -58,7 +57,7 @@ class RoomController extends Controller
 
         $cachedRoom = app('cache')->store('database')->get($key);
 
-        if (!$cachedRoom) {
+        if (! $cachedRoom) {
             $cachedRoom = $room;
 
             app('cache')->store('database')->forever($key, $cachedRoom);
@@ -74,13 +73,13 @@ class RoomController extends Controller
     public function update(UpdateRoomRequest $request, Room $room)
     {
         $validated = $request->validated();
-        
+
         // Handle unique validation for name field
         if (isset($validated['name'])) {
             $validator = Validator::make(['name' => $validated['name']], [
-                'name' => 'unique:rooms,name,' . $room->id,
+                'name' => 'unique:rooms,name,'.$room->id,
             ]);
-            
+
             if ($validator->fails()) {
                 return response()->json([
                     'status' => false,
@@ -89,7 +88,7 @@ class RoomController extends Controller
                 ], 422);
             }
         }
-        
+
         $room->update($validated);
 
         $tenantId = tenant('id');
@@ -177,8 +176,9 @@ class RoomController extends Controller
         ];
         $data = $rooms->toArray();
 
-        $pdfService = new ExportPDF();
+        $pdfService = new ExportPDF;
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Rooms.pdf');
     }
 
@@ -232,8 +232,9 @@ class RoomController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -242,12 +243,12 @@ class RoomController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_rooms');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_rooms');
 
         return response()->json([
             'success' => true,

@@ -2,22 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
 use App\Http\Requests\StoreConnectionRequest;
 use App\Http\Requests\UpdateConnectionRequest;
+use App\Imports\DynamicExcelImport;
 use App\Models\Connection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class ConnectionController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
         $query = Connection::query()->with('type:id,name');
-        if ($request->filled('type_id')) $query->where('type_id', $request->integer('type_id'));
+        if ($request->filled('type_id')) {
+            $query->where('type_id', $request->integer('type_id'));
+        }
+
         return response()->json($query->orderBy('name')->paginate());
     }
 
@@ -25,7 +28,7 @@ class ConnectionController extends Controller
     {
         $row = Connection::create($request->validated());
         $row->load('type:id,name');
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Connection created successfully.',
@@ -36,7 +39,7 @@ class ConnectionController extends Controller
     public function show(Connection $connection): JsonResponse
     {
         $connection->load('type:id,name');
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Connection details fetched successfully.',
@@ -48,7 +51,7 @@ class ConnectionController extends Controller
     {
         $connection->update($request->validated());
         $connection->load('type:id,name');
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Connection updated successfully.',
@@ -59,6 +62,7 @@ class ConnectionController extends Controller
     public function destroy(Connection $connection): JsonResponse
     {
         $connection->delete();
+
         return response()->json(['message' => 'Deleted']);
     }
 
@@ -74,6 +78,7 @@ class ConnectionController extends Controller
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
         return response()->json(['message' => 'Bulk delete completed.', 'deleted_count' => $deleted, 'skipped' => $skipped]);
     }
 
@@ -81,20 +86,26 @@ class ConnectionController extends Controller
     {
         $query = Connection::query();
         $collection = $query->get();
-        if ($collection->isEmpty()) return response()->json(['message' => 'No connections found.'], 404);
-        $columns = ['id','name','type_id','created_at','updated_at'];
-        $headings = ['ID','Name','Type ID','Created At','Updated At'];
-        $fileName = 'connections' . '.xlsx';
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No connections found.'], 404);
+        }
+        $columns = ['id', 'name', 'type_id', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Name', 'Type ID', 'Created At', 'Updated At'];
+        $fileName = 'connections'.'.xlsx';
+
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $rows = Connection::select('id','name','type_id')->get();
-        if ($rows->isEmpty()) return response()->json(['message' => 'No connections found.'], 404);
+        $rows = Connection::select('id', 'name', 'type_id')->get();
+        if ($rows->isEmpty()) {
+            return response()->json(['message' => 'No connections found.'], 404);
+        }
         $title = 'Connections';
         $headers = ['id' => 'ID', 'name' => 'Name', 'type_id' => 'Type ID', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
+
         return $pdf->download('Connections.pdf');
     }
 
@@ -103,11 +114,16 @@ class ConnectionController extends Controller
         $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv']);
         $import = new DynamicExcelImport(
             Connection::class,
-            ['name','type_id'],
+            ['name', 'type_id'],
             function ($row) {
                 $errors = [];
-                if (empty($row['name'])) $errors[] = 'Missing name';
-                if (empty($row['type_id'])) $errors[] = 'Missing type_id';
+                if (empty($row['name'])) {
+                    $errors[] = 'Missing name';
+                }
+                if (empty($row['type_id'])) {
+                    $errors[] = 'Missing type_id';
+                }
+
                 return $errors;
             },
             function ($row) {
@@ -118,6 +134,7 @@ class ConnectionController extends Controller
             }
         );
         Excel::import($import, $request->file('file'));
+
         return response()->json([
             'success' => true,
             'rows_imported' => $import->getImportedCount(),
@@ -126,5 +143,3 @@ class ConnectionController extends Controller
         ]);
     }
 }
-
-

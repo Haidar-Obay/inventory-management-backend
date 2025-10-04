@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Category;
-use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use App\Models\Category;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CategoryController extends Controller
 {
@@ -18,7 +18,7 @@ class CategoryController extends Controller
 
         $categories = app('cache')->store('database')->get($key);
 
-        if (!$categories) {
+        if (! $categories) {
             $categories = Category::with('parentCategory')->get();
             app('cache')->store('database')->forever($key, $categories);
         }
@@ -85,7 +85,7 @@ class CategoryController extends Controller
     public function update(Request $request, Category $category)
     {
         $request->validate([
-            'code' => 'required|string|unique:categories,code,' . $category->id,
+            'code' => 'required|string|unique:categories,code,'.$category->id,
             'name' => 'required|string',
             'subcategory_of' => 'nullable|exists:categories,id',
             'active' => 'boolean',
@@ -150,7 +150,7 @@ class CategoryController extends Controller
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:categories,id'
+            'ids.*' => 'exists:categories,id',
         ]);
 
         // Check for categories with subcategories
@@ -161,7 +161,7 @@ class CategoryController extends Controller
         if ($categoriesWithSubcategories->isNotEmpty()) {
             return response()->json([
                 'message' => 'Some categories have subcategories and cannot be deleted',
-                'categories_with_subcategories' => $categoriesWithSubcategories
+                'categories_with_subcategories' => $categoriesWithSubcategories,
             ], 422);
         }
 
@@ -192,7 +192,8 @@ class CategoryController extends Controller
         $columns = ['id', 'code', 'name', 'subcategory_of', 'active', 'created_at', 'updated_at'];
         $headings = ['ID', 'Code', 'Name', 'Subcategory Of', 'Active', 'Created At', 'Updated At'];
 
-        $fileName = 'categories_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'categories_'.date('Y-m-d_H-i-s').'.xlsx';
+
         return Excel::download(new Export($categories, $columns, $headings), $fileName);
     }
 
@@ -217,12 +218,13 @@ class CategoryController extends Controller
             'subcategory_of' => 'Subcategory Of',
             'active' => 'Active',
             'created_at' => 'Created At',
-            'updated_at' => 'Updated At'
+            'updated_at' => 'Updated At',
         ];
-        
-        $pdfService = new ExportPDF();
+
+        $pdfService = new ExportPDF;
         $pdf = $pdfService->generatePdf($title, $headers, $categories->toArray());
-        return $pdf->download('categories_' . date('Y-m-d_H-i-s') . '.pdf');
+
+        return $pdf->download('categories_'.date('Y-m-d_H-i-s').'.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -253,42 +255,54 @@ class CategoryController extends Controller
                 Category::class,
                 $fields,
                 function ($row) use ($mapping) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $errors = [];
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                     $subcategoryKey = $mapping ? array_search('subcategory_of', $mapping) : 'subcategory_of';
-                    
-                    if (($row[$codeKey] ?? '') === '') $errors[] = 'Missing code';
-                    if (($row[$nameKey] ?? '') === '') $errors[] = 'Missing name';
-                    
+
+                    if (($row[$codeKey] ?? '') === '') {
+                        $errors[] = 'Missing code';
+                    }
+                    if (($row[$nameKey] ?? '') === '') {
+                        $errors[] = 'Missing name';
+                    }
+
                     // Validate parent category code if provided
-                    if (!empty($row[$subcategoryKey])) {
+                    if (! empty($row[$subcategoryKey])) {
                         $parentCategory = Category::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subcategoryKey])])->first();
-                        if (!$parentCategory) {
+                        if (! $parentCategory) {
                             $errors[] = "Parent category with code '{$row[$subcategoryKey]}' not found";
                         }
                     }
-                    
+
                     return $errors;
                 },
                 function ($row) use ($mapping) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $subcategoryOf = null;
-                    
+
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                     $subcategoryKey = $mapping ? array_search('subcategory_of', $mapping) : 'subcategory_of';
                     $activeKey = $mapping ? array_search('active', $mapping) : 'active';
-                    
+
                     // If subcategory_of is provided and not empty, look up the parent category by code
-                    if (!empty($row[$subcategoryKey])) {
+                    if (! empty($row[$subcategoryKey])) {
                         $parentCategory = Category::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subcategoryKey])])->first();
                         if ($parentCategory) {
                             $subcategoryOf = $parentCategory->id;
                         }
                     }
-                    
+
                     return [
                         'code' => $row[$codeKey] ?? null,
                         'name' => $row[$nameKey] ?? null,
@@ -298,12 +312,13 @@ class CategoryController extends Controller
                 },
                 $mapping ? false : true // Disable header validation when mapping provided
             );
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -312,8 +327,8 @@ class CategoryController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
 
@@ -349,7 +364,7 @@ class CategoryController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Error importing categories: ' . $e->getMessage(),
+                'message' => 'Error importing categories: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -358,17 +373,17 @@ class CategoryController extends Controller
     {
         // Only get top-level categories (not subcategories)
         $categories = Category::whereNull('subcategory_of')
-                ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
-                ->orderBy('name')
-                ->get()
-                ->map(function ($category) {
-                    return [
-                        'id' => $category->id,
-                        'name' => $category->name,
-                        'created_at' => $category->created_at,
-                        'updated_at' => $category->updated_at,
-                    ];
-                });
+            ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'created_at' => $category->created_at,
+                    'updated_at' => $category->updated_at,
+                ];
+            });
 
         return response()->json([
             'status' => true,

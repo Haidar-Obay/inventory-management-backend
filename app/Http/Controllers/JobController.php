@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Job;
-use App\Http\Requests\Job\StoreJobRequest;
-use App\Http\Requests\Job\UpdateJobRequest;
-use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Job\StoreJobRequest;
+use App\Http\Requests\Job\UpdateJobRequest;
 use App\Imports\DynamicExcelImport;
-use Illuminate\Database\QueryException;
+use App\Models\Job;
 use App\Models\Project;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class JobController extends Controller
 {
@@ -22,7 +22,7 @@ class JobController extends Controller
 
         $jobs = app('cache')->store('database')->get($key);
 
-        if (!$jobs) {
+        if (! $jobs) {
             $jobs = Job::with('project')->orderBy('created_at', 'desc')->get();
             app('cache')->store('database')->forever($key, $jobs);
         }
@@ -55,7 +55,7 @@ class JobController extends Controller
 
         $cachedJob = app('cache')->store('database')->get($key);
 
-        if (!$cachedJob) {
+        if (! $cachedJob) {
             $cachedJob = $job->load('project');
             app('cache')->store('database')->forever($key, $cachedJob);
         }
@@ -134,9 +134,9 @@ class JobController extends Controller
             'projects.name as project_name',
             'projects_jobs.start_date',
             'projects_jobs.expected_date',
-            'projects_jobs.end_date'
+            'projects_jobs.end_date',
         ])
-        ->join('projects', 'projects_jobs.project_id', '=', 'projects.id');
+            ->join('projects', 'projects_jobs.project_id', '=', 'projects.id');
 
         if ($jobs->count() === 0) {
             return response()->json(['message' => 'No jobs found.'], 404);
@@ -169,11 +169,12 @@ class JobController extends Controller
             'expected_date' => 'Expected Date',
             'end_date' => 'End Date',
             'created_at' => 'Created At',
-            'updated_at' => 'Updated At'
+            'updated_at' => 'Updated At',
         ];
         $data = $jobs->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Jobs.pdf');
     }
 
@@ -204,18 +205,45 @@ class JobController extends Controller
             Job::class,
             ['code', 'description', 'project_id', 'start_date', 'expected_date', 'end_date'],
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
 
                 // Helper to validate date inputs
                 $isValidDate = function ($value) {
-                    if ($value === null || $value === '') { return false; }
+                    if ($value === null || $value === '') {
+                        return false;
+                    }
                     // Excel serial number
-                    if (is_numeric($value)) { return true; }
+                    if (is_numeric($value)) {
+                        return true;
+                    }
+
                     // Common formats m/d/Y or mm/dd/YYYY
-                    try { \Carbon\Carbon::createFromFormat('n/j/Y', (string)$value); return true; } catch (\Throwable $e) {}
-                    try { \Carbon\Carbon::createFromFormat('m/d/Y', (string)$value); return true; } catch (\Throwable $e) {}
-                    try { \Carbon\Carbon::parse((string)$value); return true; } catch (\Throwable $e) {}
+                    try {
+                        \Carbon\Carbon::createFromFormat('n/j/Y', (string) $value);
+
+                        return true;
+                    } catch (\Throwable $e) {
+                    }
+
+                    try {
+                        \Carbon\Carbon::createFromFormat('m/d/Y', (string) $value);
+
+                        return true;
+                    } catch (\Throwable $e) {
+                    }
+
+                    try {
+                        \Carbon\Carbon::parse((string) $value);
+
+                        return true;
+                    } catch (\Throwable $e) {
+                    }
+
                     return false;
                 };
 
@@ -233,39 +261,55 @@ class JobController extends Controller
                     $errors[] = 'Missing project';
                 } else {
                     $projectId = $row[$projectKey];
-                    if (!Project::where('id', $projectId)->exists()) {
+                    if (! Project::where('id', $projectId)->exists()) {
                         $errors[] = "Invalid project_id: {$projectId} not found";
                     }
                 }
-                if ((($row[$startKey] ?? '') === '') || !$isValidDate($row[$startKey])) {
+                if ((($row[$startKey] ?? '') === '') || ! $isValidDate($row[$startKey])) {
                     $errors[] = 'Invalid start_date (use m/d/Y or Excel date)';
                 }
-                if ((($row[$expectedKey] ?? '') === '') || !$isValidDate($row[$expectedKey])) {
+                if ((($row[$expectedKey] ?? '') === '') || ! $isValidDate($row[$expectedKey])) {
                     $errors[] = 'Invalid expected_date (use m/d/Y or Excel date)';
                 }
-                if ((($row[$endKey] ?? '') !== '') && !$isValidDate($row[$endKey])) {
+                if ((($row[$endKey] ?? '') !== '') && ! $isValidDate($row[$endKey])) {
                     $errors[] = 'Invalid end_date (use m/d/Y or Excel date)';
                 }
 
                 return $errors;
             },
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
 
                 $parseDate = function ($value) {
-                    if ($value === null || $value === '') { return null; }
+                    if ($value === null || $value === '') {
+                        return;
+                    }
                     // Excel serial number
                     if (is_numeric($value)) {
                         try {
-                            $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$value);
+                            $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $value);
+
                             return \Carbon\Carbon::instance($dt)->format('Y-m-d');
-                        } catch (\Throwable $e) { /* fall through */ }
+                        } catch (\Throwable $e) { /* fall through */
+                        }
                     }
                     $tryFormats = ['n/j/Y', 'm/d/Y', 'Y-m-d'];
                     foreach ($tryFormats as $fmt) {
-                        try { return \Carbon\Carbon::createFromFormat($fmt, (string)$value)->format('Y-m-d'); } catch (\Throwable $e) {}
+                        try {
+                            return \Carbon\Carbon::createFromFormat($fmt, (string) $value)->format('Y-m-d');
+                        } catch (\Throwable $e) {
+                        }
                     }
-                    try { return \Carbon\Carbon::parse((string)$value)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
+
+                    try {
+                        return \Carbon\Carbon::parse((string) $value)->format('Y-m-d');
+                    } catch (\Throwable $e) {
+                        return;
+                    }
                 };
 
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
@@ -296,6 +340,7 @@ class JobController extends Controller
             if (str_contains($message, 'SQLSTATE[23503]') || str_contains(strtolower($message), 'foreign key')) {
                 $readable = 'Import failed: One or more rows reference a project that does not exist. Please verify project_id values.';
             }
+
             return response()->json([
                 'status' => false,
                 'message' => $readable,
@@ -308,8 +353,9 @@ class JobController extends Controller
         }
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -318,12 +364,12 @@ class JobController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_jobs');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_jobs');
 
         $imported = $import->getImportedCount();
         $skippedCount = $import->getSkippedCount();
@@ -358,7 +404,7 @@ class JobController extends Controller
 
         $jobs = app('cache')->store('database')->get($key);
 
-        if (!$jobs) {
+        if (! $jobs) {
             $jobs = Job::where('project_id', $projectId)->get();
             app('cache')->store('database')->forever($key, $jobs);
         }

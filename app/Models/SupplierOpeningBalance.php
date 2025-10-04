@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 
 class SupplierOpeningBalance extends Model
 {
@@ -16,7 +16,7 @@ class SupplierOpeningBalance extends Model
         'opening_amount',
         'opening_date',
         'notes',
-        'is_active'
+        'is_active',
     ];
 
     protected $casts = [

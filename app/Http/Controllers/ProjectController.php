@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Project;
-use App\Http\Requests\Project\StoreProjectRequest;
-use App\Http\Requests\Project\UpdateProjectRequest;
-use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Project\StoreProjectRequest;
+use App\Http\Requests\Project\UpdateProjectRequest;
 use App\Imports\DynamicExcelImport;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Database\QueryException;
 use App\Models\Customer;
+use App\Models\Project;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ProjectController extends Controller
 {
@@ -23,7 +23,7 @@ class ProjectController extends Controller
 
         $projects = app('cache')->store('database')->get($key);
 
-        if (!$projects) {
+        if (! $projects) {
             $projects = Project::with('customer')->get();
 
             app('cache')->store('database')->forever($key, $projects);
@@ -41,6 +41,7 @@ class ProjectController extends Controller
         $tenantId = tenant('id');
         $project = Project::create($request->validated());
         app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+
         return response()->json([
             'status' => true,
             'message' => 'Project created successfully.',
@@ -51,7 +52,7 @@ class ProjectController extends Controller
     public function show(Project $project)
     {
         $project->load(['customer', 'jobs']);
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Project details fetched successfully.',
@@ -64,6 +65,7 @@ class ProjectController extends Controller
         $tenantId = tenant('id');
         $project->update($request->validated());
         app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+
         return response()->json([
             'status' => true,
             'message' => 'Project updated successfully.',
@@ -83,9 +85,10 @@ class ProjectController extends Controller
 
         $project->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+
         return response()->json([
             'status' => true,
-            'message' => 'Project deleted successfully.'
+            'message' => 'Project deleted successfully.',
         ]);
     }
 
@@ -102,12 +105,13 @@ class ProjectController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Some projects have associated jobs and cannot be deleted',
-                'projects' => $projectsWithJobs
+                'projects' => $projectsWithJobs,
             ]);
         }
 
         Project::whereIn('id', $ids)->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
+
         return response()->json([
             'status' => true,
             'message' => 'Projects deleted successfully.',
@@ -124,7 +128,7 @@ class ProjectController extends Controller
                 DB::raw("CONCAT(customers.first_name, ' ', customers.last_name) as customer_name"),
                 'projects.start_date',
                 'projects.end_date',
-                'projects.expected_date'
+                'projects.expected_date',
             ]);
 
         $collection = $projects->get();
@@ -168,6 +172,7 @@ class ProjectController extends Controller
         $data = $projects->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Projects.pdf');
     }
 
@@ -200,35 +205,60 @@ class ProjectController extends Controller
                 Project::class,
                 ['name', 'start_date', 'end_date', 'expected_date', 'customer_id'],
                 function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $errors = [];
-                    if (($row['name'] ?? '') === '') $errors[] = 'Missing name';
-                    if (($row['customer_id'] ?? '') === '') $errors[] = 'Missing customer_id';
+                    if (($row['name'] ?? '') === '') {
+                        $errors[] = 'Missing name';
+                    }
+                    if (($row['customer_id'] ?? '') === '') {
+                        $errors[] = 'Missing customer_id';
+                    }
                     // Validate foreign keys in a readable way so rows are skipped instead of causing SQL errors
                     if (($row['customer_id'] ?? '') !== '') {
                         $customerId = $row['customer_id'];
-                        if (!Customer::where('id', $customerId)->exists()) {
+                        if (! Customer::where('id', $customerId)->exists()) {
                             $errors[] = "Invalid customer_id: {$customerId} not found";
                         }
                     }
+
                     return $errors;
                 },
                 function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
 
                     $parseDate = function ($value) {
-                        if ($value === null || $value === '') { return null; }
+                        if ($value === null || $value === '') {
+                            return;
+                        }
                         if (is_numeric($value)) {
                             try {
-                                $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$value);
+                                $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $value);
+
                                 return \Carbon\Carbon::instance($dt)->format('Y-m-d');
-                            } catch (\Throwable $e) {}
+                            } catch (\Throwable $e) {
+                            }
                         }
                         $tryFormats = ['n/j/Y', 'm/d/Y', 'Y-m-d'];
                         foreach ($tryFormats as $fmt) {
-                            try { return \Carbon\Carbon::createFromFormat($fmt, (string)$value)->format('Y-m-d'); } catch (\Throwable $e) {}
+                            try {
+                                return \Carbon\Carbon::createFromFormat($fmt, (string) $value)->format('Y-m-d');
+                            } catch (\Throwable $e) {
+                            }
                         }
-                        try { return \Carbon\Carbon::parse((string)$value)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
+
+                        try {
+                            return \Carbon\Carbon::parse((string) $value)->format('Y-m-d');
+                        } catch (\Throwable $e) {
+                            return;
+                        }
                     };
 
                     return [
@@ -243,12 +273,13 @@ class ProjectController extends Controller
                 },
                 true // Enable header validation
             );
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -257,11 +288,11 @@ class ProjectController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
-            
+
             app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
 
             $imported = $import->getImportedCount();
@@ -296,6 +327,7 @@ class ProjectController extends Controller
             if (str_contains($message, 'SQLSTATE[23503]') || str_contains(strtolower($message), 'foreign key')) {
                 $readable = 'Import failed: One or more rows reference a customer that does not exist. Please verify customer_id values.';
             }
+
             return response()->json([
                 'status' => false,
                 'message' => $readable,
@@ -308,8 +340,6 @@ class ProjectController extends Controller
         }
     }
 
-    
-
     public function getCustomerProjects($customerId)
     {
         $tenantId = tenant('id');
@@ -317,7 +347,7 @@ class ProjectController extends Controller
 
         $projects = app('cache')->store('database')->get($cacheKey);
 
-        if (!$projects) {
+        if (! $projects) {
             $projects = Project::where('customer_id', $customerId)->get();
             app('cache')->store('database')->forever($cacheKey, $projects);
         }

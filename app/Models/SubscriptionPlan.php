@@ -18,14 +18,14 @@ class SubscriptionPlan extends Model
         'max_currencies',
         'max_users',
         'max_customers',
-        'is_default'
+        'is_default',
     ];
 
     protected $casts = [
         'features' => 'array',
         'is_active' => 'boolean',
         'is_default' => 'boolean',
-        'price' => 'decimal:2'
+        'price' => 'decimal:2',
     ];
 
     public function tenants(): HasMany

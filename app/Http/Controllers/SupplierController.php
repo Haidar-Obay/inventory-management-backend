@@ -2,28 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{
-    Supplier,
-    Address,
-    PaymentTerm,
-    PaymentMethod,
-    Currency,
-    Trade,
-    SupplierGroup,
-    BusinessType
-};
-use App\Http\Requests\Supplier\{
-    StoreSupplierRequest,
-    UpdateSupplierRequest
-};
-use App\Models\SupplierAttachment;
-use App\Services\OpeningBalanceService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Supplier\StoreSupplierRequest;
+use App\Http\Requests\Supplier\UpdateSupplierRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\Address;
+use App\Models\Currency;
+use App\Models\Supplier;
+use App\Services\OpeningBalanceService;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SupplierController extends Controller
 {
@@ -64,7 +53,7 @@ class SupplierController extends Controller
                 'supplier_group' => $supplier->supplierGroup ? [
                     'id' => $supplier->supplierGroup->id,
                     'name' => $supplier->supplierGroup->name,
-                    'code' => $supplier->supplierGroup->code
+                    'code' => $supplier->supplierGroup->code,
                 ] : null,
                 'opening_balances' => $supplier->openingBalances->map(function ($openingBalance) {
                     return [
@@ -75,18 +64,18 @@ class SupplierController extends Controller
                         'opening_amount' => $openingBalance->opening_amount,
                         'opening_date' => $openingBalance->opening_date,
                         'notes' => $openingBalance->notes,
-                        'is_active' => $openingBalance->is_active
+                        'is_active' => $openingBalance->is_active,
                     ];
                 }),
                 'created_at' => $supplier->created_at,
-                'updated_at' => $supplier->updated_at
+                'updated_at' => $supplier->updated_at,
             ];
         });
 
         return response()->json([
             'status' => 'success',
             'message' => 'Suppliers retrieved successfully',
-            'data' => $transformedData
+            'data' => $transformedData,
         ]);
     }
 
@@ -160,20 +149,20 @@ class SupplierController extends Controller
                 'currency:id,code,name',
                 'addresses',
                 'contacts',
-                'attachments'
+                'attachments',
             ]);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Supplier created successfully',
-                'data' => $supplier
+                'data' => $supplier,
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to create supplier',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -218,7 +207,7 @@ class SupplierController extends Controller
             'creditLimits.currency:id,code,name,iso_code',
             // Cheque limits with currency
             'chequeLimits:id,currency_id,max_cheques,used_cheques,available_cheques,notes,is_active',
-            'chequeLimits.currency:id,code,name,iso_code'
+            'chequeLimits.currency:id,code,name,iso_code',
         ]);
 
         // Transform the response to include all supplier data comprehensively
@@ -258,46 +247,46 @@ class SupplierController extends Controller
             'notes' => $supplier->notes,
             'created_at' => $supplier->created_at,
             'updated_at' => $supplier->updated_at,
-            
+
             // Related data with full info
             'supplier_group' => $supplier->supplierGroup ? [
                 'id' => $supplier->supplierGroup->id,
                 'name' => $supplier->supplierGroup->name,
                 'code' => $supplier->supplierGroup->code,
-                'active' => $supplier->supplierGroup->active
+                'active' => $supplier->supplierGroup->active,
             ] : null,
             'trade' => $supplier->trade ? [
                 'id' => $supplier->trade->id,
                 'name' => $supplier->trade->name,
                 'code' => $supplier->trade->code,
-                'active' => $supplier->trade->active
+                'active' => $supplier->trade->active,
             ] : null,
             'business_type' => $supplier->businessType ? [
                 'id' => $supplier->businessType->id,
                 'name' => $supplier->businessType->name,
                 'code' => $supplier->businessType->code,
-                'active' => $supplier->businessType->active
+                'active' => $supplier->businessType->active,
             ] : null,
             'payment_term' => $supplier->paymentTerm ? [
                 'id' => $supplier->paymentTerm->id,
                 'code' => $supplier->paymentTerm->code,
                 'name' => $supplier->paymentTerm->name,
-                'active' => $supplier->paymentTerm->active
+                'active' => $supplier->paymentTerm->active,
             ] : null,
             'payment_method' => $supplier->paymentMethod ? [
                 'id' => $supplier->paymentMethod->id,
                 'code' => $supplier->paymentMethod->code,
                 'name' => $supplier->paymentMethod->name,
-                'active' => $supplier->paymentMethod->active
+                'active' => $supplier->paymentMethod->active,
             ] : null,
             'currency' => $supplier->currency ? [
                 'id' => $supplier->currency->id,
                 'code' => $supplier->currency->code,
                 'name' => $supplier->currency->name,
                 'iso_code' => $supplier->currency->iso_code,
-                'active' => $supplier->currency->active
+                'active' => $supplier->currency->active,
             ] : null,
-            
+
             // Addresses with full details including location hierarchy
             'addresses' => $supplier->addresses->map(function ($address) {
                 return [
@@ -316,24 +305,24 @@ class SupplierController extends Controller
                     'zip_code' => $address->zip_code,
                     'country' => $address->country ? [
                         'id' => $address->country->id,
-                        'name' => $address->country->name
+                        'name' => $address->country->name,
                     ] : null,
                     'city' => $address->city ? [
                         'id' => $address->city->id,
-                        'name' => $address->city->name
+                        'name' => $address->city->name,
                     ] : null,
                     'district' => $address->district ? [
                         'id' => $address->district->id,
-                        'name' => $address->district->name
+                        'name' => $address->district->name,
                     ] : null,
                     'zone' => $address->zone ? [
                         'id' => $address->zone->id,
-                        'name' => $address->zone->name
+                        'name' => $address->zone->name,
                     ] : null,
-                    'pivot' => $address->pivot
+                    'pivot' => $address->pivot,
                 ];
             }),
-            
+
             // Billing addresses with full details
             'billing_addresses' => $supplier->billingAddresses->map(function ($address) {
                 return [
@@ -352,24 +341,24 @@ class SupplierController extends Controller
                     'zip_code' => $address->zip_code,
                     'country' => $address->country ? [
                         'id' => $address->country->id,
-                        'name' => $address->country->name
+                        'name' => $address->country->name,
                     ] : null,
                     'city' => $address->city ? [
                         'id' => $address->city->id,
-                        'name' => $address->city->name
+                        'name' => $address->city->name,
                     ] : null,
                     'district' => $address->district ? [
                         'id' => $address->district->id,
-                        'name' => $address->district->name
+                        'name' => $address->district->name,
                     ] : null,
                     'zone' => $address->zone ? [
                         'id' => $address->zone->id,
-                        'name' => $address->zone->name
+                        'name' => $address->zone->name,
                     ] : null,
-                    'pivot' => $address->pivot
+                    'pivot' => $address->pivot,
                 ];
             }),
-            
+
             // Shipping addresses with full details
             'shipping_addresses' => $supplier->shippingAddresses->map(function ($address) {
                 return [
@@ -388,24 +377,24 @@ class SupplierController extends Controller
                     'zip_code' => $address->zip_code,
                     'country' => $address->country ? [
                         'id' => $address->country->id,
-                        'name' => $address->country->name
+                        'name' => $address->country->name,
                     ] : null,
                     'city' => $address->city ? [
                         'id' => $address->city->id,
-                        'name' => $address->city->name
+                        'name' => $address->city->name,
                     ] : null,
                     'district' => $address->district ? [
                         'id' => $address->district->id,
-                        'name' => $address->district->name
+                        'name' => $address->district->name,
                     ] : null,
                     'zone' => $address->zone ? [
                         'id' => $address->zone->id,
-                        'name' => $address->zone->name
+                        'name' => $address->zone->name,
                     ] : null,
-                    'pivot' => $address->pivot
+                    'pivot' => $address->pivot,
                 ];
             }),
-            
+
             // Primary billing address with full details
             'primary_billing_address' => $supplier->primaryBillingAddress->first() ? [
                 'id' => $supplier->primaryBillingAddress->first()->id,
@@ -423,23 +412,23 @@ class SupplierController extends Controller
                 'zip_code' => $supplier->primaryBillingAddress->first()->zip_code,
                 'country' => $supplier->primaryBillingAddress->first()->country ? [
                     'id' => $supplier->primaryBillingAddress->first()->country->id,
-                    'name' => $supplier->primaryBillingAddress->first()->country->name
+                    'name' => $supplier->primaryBillingAddress->first()->country->name,
                 ] : null,
                 'city' => $supplier->primaryBillingAddress->first()->city ? [
                     'id' => $supplier->primaryBillingAddress->first()->city->id,
-                    'name' => $supplier->primaryBillingAddress->first()->city->name
+                    'name' => $supplier->primaryBillingAddress->first()->city->name,
                 ] : null,
                 'district' => $supplier->primaryBillingAddress->first()->district ? [
                     'id' => $supplier->primaryBillingAddress->first()->district->id,
-                    'name' => $supplier->primaryBillingAddress->first()->district->name
+                    'name' => $supplier->primaryBillingAddress->first()->district->name,
                 ] : null,
                 'zone' => $supplier->primaryBillingAddress->first()->zone ? [
                     'id' => $supplier->primaryBillingAddress->first()->zone->id,
-                    'name' => $supplier->primaryBillingAddress->first()->zone->name
+                    'name' => $supplier->primaryBillingAddress->first()->zone->name,
                 ] : null,
-                'pivot' => $supplier->primaryBillingAddress->first()->pivot
+                'pivot' => $supplier->primaryBillingAddress->first()->pivot,
             ] : null,
-            
+
             // Primary shipping address with full details
             'primary_shipping_address' => $supplier->primaryShippingAddress->first() ? [
                 'id' => $supplier->primaryShippingAddress->first()->id,
@@ -457,23 +446,23 @@ class SupplierController extends Controller
                 'zip_code' => $supplier->primaryShippingAddress->first()->zip_code,
                 'country' => $supplier->primaryShippingAddress->first()->country ? [
                     'id' => $supplier->primaryShippingAddress->first()->country->id,
-                    'name' => $supplier->primaryShippingAddress->first()->country->name
+                    'name' => $supplier->primaryShippingAddress->first()->country->name,
                 ] : null,
                 'city' => $supplier->primaryShippingAddress->first()->city ? [
                     'id' => $supplier->primaryShippingAddress->first()->city->id,
-                    'name' => $supplier->primaryShippingAddress->first()->city->name
+                    'name' => $supplier->primaryShippingAddress->first()->city->name,
                 ] : null,
                 'district' => $supplier->primaryShippingAddress->first()->district ? [
                     'id' => $supplier->primaryShippingAddress->first()->district->id,
-                    'name' => $supplier->primaryShippingAddress->first()->district->name
+                    'name' => $supplier->primaryShippingAddress->first()->district->name,
                 ] : null,
                 'zone' => $supplier->primaryShippingAddress->first()->zone ? [
                     'id' => $supplier->primaryShippingAddress->first()->zone->id,
-                    'name' => $supplier->primaryShippingAddress->first()->zone->name
+                    'name' => $supplier->primaryShippingAddress->first()->zone->name,
                 ] : null,
-                'pivot' => $supplier->primaryShippingAddress->first()->pivot
+                'pivot' => $supplier->primaryShippingAddress->first()->pivot,
             ] : null,
-            
+
             // Primary contact with full details
             'primary_contact' => $supplier->primaryContact ? [
                 'id' => $supplier->primaryContact->id,
@@ -483,9 +472,9 @@ class SupplierController extends Controller
                 'mobile' => $supplier->primaryContact->mobile,
                 'position' => $supplier->primaryContact->position,
                 'extension' => $supplier->primaryContact->extension,
-                'is_primary' => $supplier->primaryContact->is_primary
+                'is_primary' => $supplier->primaryContact->is_primary,
             ] : null,
-            
+
             // All contacts with full details
             'contacts' => $supplier->contacts->map(function ($contact) {
                 return [
@@ -496,10 +485,10 @@ class SupplierController extends Controller
                     'mobile' => $contact->mobile,
                     'position' => $contact->position,
                     'extension' => $contact->extension,
-                    'is_primary' => $contact->is_primary
+                    'is_primary' => $contact->is_primary,
                 ];
             }),
-            
+
             // Attachments with full details
             'attachments' => $supplier->attachments->map(function ($attachment) {
                 return [
@@ -510,10 +499,10 @@ class SupplierController extends Controller
                     'file_size' => $attachment->file_size,
                     'description' => $attachment->description,
                     'category' => $attachment->category,
-                    'is_public' => $attachment->is_public
+                    'is_public' => $attachment->is_public,
                 ];
             }),
-            
+
             // Opening balances with currency info
             'opening_balances' => $supplier->openingBalances->map(function ($openingBalance) {
                 return [
@@ -528,7 +517,7 @@ class SupplierController extends Controller
                     'is_active' => $openingBalance->is_active,
                 ];
             }),
-            
+
             // Credit limits with currency info
             'credit_limits' => $supplier->creditLimits->map(function ($creditLimit) {
                 return [
@@ -544,7 +533,7 @@ class SupplierController extends Controller
                     'is_active' => $creditLimit->is_active,
                 ];
             }),
-            
+
             // Cheque limits with currency info
             'cheque_limits' => $supplier->chequeLimits->map(function ($chequeLimit) {
                 return [
@@ -565,7 +554,7 @@ class SupplierController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Supplier retrieved successfully',
-            'data' => $transformedData
+            'data' => $transformedData,
         ]);
     }
 
@@ -639,20 +628,20 @@ class SupplierController extends Controller
                 'currency:id,code,name',
                 'addresses',
                 'contacts',
-                'attachments'
+                'attachments',
             ]);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Supplier updated successfully',
-                'data' => $supplier
+                'data' => $supplier,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update supplier',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -665,20 +654,20 @@ class SupplierController extends Controller
             $supplier->contacts()->delete();
             $supplier->attachments()->delete();
             $supplier->openingBalances()->delete();
-            
+
             // Delete the supplier
             $supplier->delete();
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Supplier deleted successfully'
+                'message' => 'Supplier deleted successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to delete supplier',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -687,7 +676,7 @@ class SupplierController extends Controller
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:suppliers,id'
+            'ids.*' => 'exists:suppliers,id',
         ]);
 
         try {
@@ -703,14 +692,14 @@ class SupplierController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Suppliers deleted successfully'
+                'message' => 'Suppliers deleted successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to delete suppliers',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -724,7 +713,7 @@ class SupplierController extends Controller
                 'businessType:id,name',
                 'paymentTerm:id,code',
                 'paymentMethod:id,code',
-                'currency:id,code,name'
+                'currency:id,code,name',
             ]);
 
             if ($suppliers->count() === 0) {
@@ -732,15 +721,15 @@ class SupplierController extends Controller
             }
 
             $columns = [
-                'id', 'title', 'first_name', 'middle_name', 'last_name', 'display_name', 
-                'company_name', 'phone1', 'phone2', 'phone3', 'file_number', 'barcode', 
-                'search_terms', 'indicator', 'opening_amount', 'opening_date', 'credit_limit', 
-                'payment_day', 'track_payment', 'settlement_method', 'accept_cheques', 
-                'max_cheques', 'taxable', 'taxed_from_date', 'taxed_till_date', 
-                'subjected_to_tax', 'added_tax', 'is_foreign', 'active', 'add_message', 
-                'message', 'notes', 'created_at', 'updated_at'
+                'id', 'title', 'first_name', 'middle_name', 'last_name', 'display_name',
+                'company_name', 'phone1', 'phone2', 'phone3', 'file_number', 'barcode',
+                'search_terms', 'indicator', 'opening_amount', 'opening_date', 'credit_limit',
+                'payment_day', 'track_payment', 'settlement_method', 'accept_cheques',
+                'max_cheques', 'taxable', 'taxed_from_date', 'taxed_till_date',
+                'subjected_to_tax', 'added_tax', 'is_foreign', 'active', 'add_message',
+                'message', 'notes', 'created_at', 'updated_at',
             ];
-            
+
             $headings = [
                 'ID', 'Title', 'First Name', 'Middle Name', 'Last Name', 'Display Name',
                 'Company Name', 'Phone 1', 'Phone 2', 'Phone 3', 'File Number', 'Barcode',
@@ -748,7 +737,7 @@ class SupplierController extends Controller
                 'Payment Day', 'Track Payment', 'Settlement Method', 'Accept Cheques',
                 'Max Cheques', 'Taxable', 'Taxed From Date', 'Taxed Till Date',
                 'Subjected to Tax', 'Added Tax', 'Is Foreign', 'Active', 'Add Message',
-                'Message', 'Notes', 'Created At', 'Updated At'
+                'Message', 'Notes', 'Created At', 'Updated At',
             ];
 
             return Excel::download(new Export($suppliers, $columns, $headings), 'suppliers.xlsx');
@@ -757,7 +746,7 @@ class SupplierController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to export suppliers',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -771,7 +760,7 @@ class SupplierController extends Controller
                 'businessType:id,name',
                 'paymentTerm:id,code',
                 'paymentMethod:id,code',
-                'currency:id,code,name'
+                'currency:id,code,name',
             ])->get();
 
             $data = $suppliers->map(function ($supplier) {
@@ -815,7 +804,7 @@ class SupplierController extends Controller
                     'Message' => $supplier->message,
                     'Notes' => $supplier->notes,
                     'Created At' => $supplier->created_at,
-                    'Updated At' => $supplier->updated_at
+                    'Updated At' => $supplier->updated_at,
                 ];
             });
 
@@ -860,17 +849,18 @@ class SupplierController extends Controller
                 'Message' => 'Message',
                 'Notes' => 'Notes',
                 'Created At' => 'Created At',
-                'Updated At' => 'Updated At'
+                'Updated At' => 'Updated At',
             ];
-            
+
             $pdf = $pdfService->generatePdf($title, $headers, $data->toArray());
+
             return $pdf->download('suppliers.pdf');
 
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to export suppliers',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -935,30 +925,65 @@ class SupplierController extends Controller
                     'active',
                     'add_message',
                     'message',
-                    'contacts_id'
+                    'contacts_id',
                 ],
                 function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $errors = [];
-                    if (($row['first_name'] ?? '') === '') $errors[] = 'Missing first_name';
-                    if (($row['last_name'] ?? '') === '') $errors[] = 'Missing last_name';
-                    if (($row['phone1'] ?? '') === '') $errors[] = 'Missing phone1';
+                    if (($row['first_name'] ?? '') === '') {
+                        $errors[] = 'Missing first_name';
+                    }
+                    if (($row['last_name'] ?? '') === '') {
+                        $errors[] = 'Missing last_name';
+                    }
+                    if (($row['phone1'] ?? '') === '') {
+                        $errors[] = 'Missing phone1';
+                    }
                     // Validate foreign keys as numeric if present
-                    foreach (['trade_id','supplier_group_id','business_type_id','currency_id','payment_term_id','payment_method_id','contacts_id'] as $fk) {
-                        if (isset($row[$fk]) && $row[$fk] !== '' && !is_numeric($row[$fk])) {
+                    foreach (['trade_id', 'supplier_group_id', 'business_type_id', 'currency_id', 'payment_term_id', 'payment_method_id', 'contacts_id'] as $fk) {
+                        if (isset($row[$fk]) && $row[$fk] !== '' && ! is_numeric($row[$fk])) {
                             $errors[] = "Invalid $fk: must be numeric ID";
                         }
                     }
+
                     return $errors;
                 },
                 function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $parseDate = function ($value) {
-                        if ($value === null || $value === '') { return null; }
-                        if (is_numeric($value)) { try { $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$value); return \Carbon\Carbon::instance($dt)->format('Y-m-d'); } catch (\Throwable $e) {} }
-                        foreach (['n/j/Y','m/d/Y','Y-m-d'] as $fmt) { try { return \Carbon\Carbon::createFromFormat($fmt, (string)$value)->format('Y-m-d'); } catch (\Throwable $e) {} }
-                        try { return \Carbon\Carbon::parse((string)$value)->format('Y-m-d'); } catch (\Throwable $e) { return null; }
+                        if ($value === null || $value === '') {
+                            return;
+                        }
+                        if (is_numeric($value)) {
+                            try {
+                                $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $value);
+
+                                return \Carbon\Carbon::instance($dt)->format('Y-m-d');
+                            } catch (\Throwable $e) {
+                            }
+                        }
+                        foreach (['n/j/Y', 'm/d/Y', 'Y-m-d'] as $fmt) {
+                            try {
+                                return \Carbon\Carbon::createFromFormat($fmt, (string) $value)->format('Y-m-d');
+                            } catch (\Throwable $e) {
+                            }
+                        }
+
+                        try {
+                            return \Carbon\Carbon::parse((string) $value)->format('Y-m-d');
+                        } catch (\Throwable $e) {
+                            return;
+                        }
                     };
+
                     return [
                         'title' => $row['title'] ?? null,
                         'first_name' => $row['first_name'] ?? null,
@@ -995,7 +1020,7 @@ class SupplierController extends Controller
                         'added_tax' => $row['added_tax'] ?? null,
                         'catalog' => $row['catalog'] ?? null,
                         'is_foreign' => $row['is_foreign'] ?? null,
-                        'active' => isset($row['active']) ? (bool)$row['active'] : true,
+                        'active' => isset($row['active']) ? (bool) $row['active'] : true,
                         'add_message' => $row['add_message'] ?? null,
                         'message' => $row['message'] ?? null,
                         'contacts_id' => $row['contacts_id'] ?? null,
@@ -1004,12 +1029,13 @@ class SupplierController extends Controller
                 true, // Enable header validation
                 $request->input('type') === 'fresh' // Skip duplicate check when fresh
             );
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -1018,8 +1044,8 @@ class SupplierController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
 
@@ -1050,7 +1076,8 @@ class SupplierController extends Controller
 
         } catch (\Exception $e) {
             // Log the error for debugging
-            \Log::error('Supplier import failed: ' . $e->getMessage(), ['exception' => $e]);
+            \Log::error('Supplier import failed: '.$e->getMessage(), ['exception' => $e]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Import failed due to invalid data. Please check your file for invalid or missing references (e.g., payment method, etc.).',
@@ -1068,21 +1095,21 @@ class SupplierController extends Controller
                 ->map(function ($supplier) {
                     return [
                         'id' => $supplier->id,
-                        'name' => $supplier->display_name ?: $supplier->company_name ?: $supplier->getFullNameAttribute()
+                        'name' => $supplier->display_name ?: $supplier->company_name ?: $supplier->getFullNameAttribute(),
                     ];
                 });
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Supplier names retrieved successfully',
-                'data' => $suppliers
+                'data' => $suppliers,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve supplier names',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -1108,7 +1135,7 @@ class SupplierController extends Controller
         $supplier->addresses()->attach($address->id, [
             'address_type' => 'billing',
             'is_primary' => true,
-            'address_name' => 'Primary Billing Address'
+            'address_name' => 'Primary Billing Address',
         ]);
     }
 
@@ -1133,7 +1160,7 @@ class SupplierController extends Controller
             $supplier->addresses()->attach($address->id, [
                 'address_type' => 'shipping',
                 'is_primary' => $shippingAddress['is_primary'] ?? false,
-                'address_name' => $shippingAddress['address_name'] ?? 'Shipping Address'
+                'address_name' => $shippingAddress['address_name'] ?? 'Shipping Address',
             ]);
         }
     }
@@ -1163,7 +1190,7 @@ class SupplierController extends Controller
             $file = $attachmentData['file'];
             $fileName = $file->getClientOriginalName();
             $filePath = $file->store('supplier-attachments', 'public');
-            
+
             $supplier->attachments()->create([
                 'file_name' => $fileName,
                 'file_path' => $filePath,

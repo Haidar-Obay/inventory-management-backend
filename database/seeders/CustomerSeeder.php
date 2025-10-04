@@ -2,30 +2,27 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Customer;
-use App\Models\CustomerGroup;
-use App\Models\Salesman;
-use App\Models\PaymentTerm;
-use App\Models\PaymentMethod;
 use App\Models\Address;
-use App\Models\CustomerContact;
-use App\Models\CustomerAttachment;
-use App\Models\CustomerCreditLimit;
-use App\Models\CustomerChequeLimit;
-use App\Models\CustomerOpeningBalance;
-use App\Models\Country;
-use App\Models\Zone;
-use App\Models\City;
-use App\Models\District;
-use App\Models\Currency;
-use App\Models\Trade;
-use App\Models\CompanyCode;
 use App\Models\BusinessType;
-use App\Models\SalesChannel;
+use App\Models\City;
+use App\Models\CompanyCode;
+use App\Models\Country;
+use App\Models\Currency;
+use App\Models\Customer;
+use App\Models\CustomerAttachment;
+use App\Models\CustomerContact;
+use App\Models\CustomerGroup;
 use App\Models\DistributionChannel;
+use App\Models\District;
 use App\Models\MediaChannel;
+use App\Models\PaymentMethod;
+use App\Models\PaymentTerm;
+use App\Models\SalesChannel;
+use App\Models\Salesman;
+use App\Models\Trade;
+use App\Models\Zone;
 use Faker\Factory as Faker;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Arr;
 
 class CustomerSeeder extends Seeder
@@ -57,7 +54,7 @@ class CustomerSeeder extends Seeder
                 'is_collector' => true,
                 'fix_commission' => 0.00,
                 'commission_by_item' => 0.00,
-                'active' => true
+                'active' => true,
             ]
         );
 
@@ -67,7 +64,7 @@ class CustomerSeeder extends Seeder
             [
                 'name' => 'Net 30 Days',
                 'nb_days' => 30,
-                'active' => true
+                'active' => true,
             ]
         );
 
@@ -78,7 +75,7 @@ class CustomerSeeder extends Seeder
                 'name' => 'Cash',
                 'is_credit_card' => false,
                 'is_online_payment' => false,
-                'active' => true
+                'active' => true,
             ]
         );
 
@@ -94,7 +91,7 @@ class CustomerSeeder extends Seeder
             [
                 'name' => 'US Dollar',
                 'iso_code' => 'USD',
-                'rate' => 1.0000
+                'rate' => 1.0000,
             ]
         );
 
@@ -103,7 +100,7 @@ class CustomerSeeder extends Seeder
             [
                 'name' => 'Euro',
                 'iso_code' => 'EUR',
-                'rate' => 0.8500
+                'rate' => 0.8500,
             ]
         );
 
@@ -155,7 +152,7 @@ class CustomerSeeder extends Seeder
                 'file_number' => $faker->unique()->numerify('FN####'),
                 'bar_code' => $faker->unique()->ean13(),
                 'search_terms' => json_encode($faker->words(3)),
-                
+
                 // Business info
                 'trade_id' => $trade->id,
                 'company_code_id' => $companyCode->id,
@@ -166,22 +163,22 @@ class CustomerSeeder extends Seeder
                 'media_channel_id' => $mediaChannel->id,
                 'indicator' => Arr::random(['A', 'B', 'C', 'D']),
                 'risk_category' => Arr::random(['Low', 'Medium', 'High']),
-                
+
                 // Salesmen
                 'salesman_id' => $salesman->id,
                 'collector_id' => $salesman->id,
                 'supervisor_id' => $salesman->id,
                 'manager_id' => $salesman->id,
-                
+
                 // Payment
                 'payment_term_id' => $paymentTerm->id,
                 'payment_method_id' => $paymentMethod->id,
                 'allow_credit' => $faker->boolean(),
                 'accept_cheques' => $faker->boolean(),
-                'payment_day' => (string)rand(1, 30),
+                'payment_day' => (string) rand(1, 30),
                 'track_payment' => Arr::random(['yes', 'no']),
                 'settlement_method' => Arr::random(['FIFO', 'Manual']),
-                
+
                 // Pricing
                 'price_choice' => Arr::random(['price1', 'price2', 'price3', 'price4', 'price5', 'price6', 'last_invoice_price']),
                 'price_list' => Arr::random(['standard', 'premium', 'wholesale']),
@@ -189,7 +186,7 @@ class CustomerSeeder extends Seeder
                 'discount_class' => Arr::random(['Silver', 'Gold', 'Platinum']),
                 'markup_percentage' => $faker->randomFloat(2, 0, 10),
                 'markdown_percentage' => $faker->randomFloat(2, 0, 10),
-                
+
                 // Tax - Updated structure
                 'taxable' => $faker->boolean(),
                 'taxed_from_date' => $faker->optional()->date(),
@@ -201,7 +198,7 @@ class CustomerSeeder extends Seeder
                 'exemption_reference' => $faker->optional()->word(),
                 'exempted_from_date' => $faker->optional()->date(),
                 'exempted_till_date' => $faker->optional()->date(),
-                
+
                 // Status
                 'active' => true,
                 'black_listed' => $faker->boolean(5),
@@ -211,14 +208,14 @@ class CustomerSeeder extends Seeder
                 'free_delivery_charge' => $faker->boolean(10),
                 'print_invoice_language' => Arr::random(['English', 'Arabic']),
                 'send_invoice' => Arr::random(['email', 'sms', 'whatsapp', 'all']),
-                
+
                 // Messaging - Updated field names
                 'showMessageField' => $faker->boolean(30),
                 'message' => $faker->optional()->sentence(),
-                
+
                 // Primary contact (set below)
                 'contacts_id' => null,
-                
+
                 // Notes
                 'notes' => $faker->optional()->sentence(),
             ]);
@@ -258,8 +255,8 @@ class CustomerSeeder extends Seeder
                 'address_line1' => $faker->streetAddress(),
                 'address_line2' => $faker->optional()->secondaryAddress(),
                 'building' => $faker->optional()->buildingNumber(),
-                'block' => $faker->optional()->randomLetter() . $faker->numberBetween(1, 10),
-                'floor' => $faker->optional()->numberBetween(1, 20) . 'th Floor',
+                'block' => $faker->optional()->randomLetter().$faker->numberBetween(1, 10),
+                'floor' => $faker->optional()->numberBetween(1, 20).'th Floor',
                 'side' => Arr::random(['North', 'South', 'East', 'West']),
                 'appartment' => $faker->optional()->numberBetween(1, 999),
                 'zip_code' => $faker->postcode(),
@@ -282,8 +279,8 @@ class CustomerSeeder extends Seeder
                 'address_line1' => $faker->streetAddress(),
                 'address_line2' => $faker->optional()->secondaryAddress(),
                 'building' => $faker->optional()->buildingNumber(),
-                'block' => $faker->optional()->randomLetter() . $faker->numberBetween(1, 10),
-                'floor' => $faker->optional()->numberBetween(1, 20) . 'th Floor',
+                'block' => $faker->optional()->randomLetter().$faker->numberBetween(1, 10),
+                'floor' => $faker->optional()->numberBetween(1, 20).'th Floor',
                 'side' => Arr::random(['North', 'South', 'East', 'West']),
                 'appartment' => $faker->optional()->numberBetween(1, 999),
                 'zip_code' => $faker->postcode(),
@@ -307,8 +304,8 @@ class CustomerSeeder extends Seeder
                     'address_line1' => $faker->streetAddress(),
                     'address_line2' => $faker->optional()->secondaryAddress(),
                     'building' => $faker->optional()->buildingNumber(),
-                    'block' => $faker->optional()->randomLetter() . $faker->numberBetween(1, 10),
-                    'floor' => $faker->optional()->numberBetween(1, 20) . 'th Floor',
+                    'block' => $faker->optional()->randomLetter().$faker->numberBetween(1, 10),
+                    'floor' => $faker->optional()->numberBetween(1, 20).'th Floor',
                     'side' => Arr::random(['North', 'South', 'East', 'West']),
                     'appartment' => $faker->optional()->numberBetween(1, 999),
                     'zip_code' => $faker->postcode(),

@@ -4,22 +4,25 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
 class Item extends Model implements Auditable
 {
-    use HasFactory, AuditableTrait;
+    use AuditableTrait, HasFactory;
 
     protected $guarded = ['id'];
+
     protected $table = 'items';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     protected $fillable = [
         'code',
         'name',
-        'price'
+        'price',
     ];
 
     protected $casts = [
@@ -40,6 +43,6 @@ class Item extends Model implements Auditable
     public function customerMasterLists()
     {
         return $this->belongsToMany(CustomerMasterList::class, 'customer_master_list_item')
-                    ->withTimestamps();
+            ->withTimestamps();
     }
-} 
+}

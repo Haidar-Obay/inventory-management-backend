@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ProductLine;
-use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use App\Models\ProductLine;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ProductLineController extends Controller
 {
@@ -18,7 +18,7 @@ class ProductLineController extends Controller
 
         $productLines = app('cache')->store('database')->get($key);
 
-        if (!$productLines) {
+        if (! $productLines) {
             $productLines = ProductLine::get();
             app('cache')->store('database')->forever($key, $productLines);
         }
@@ -63,7 +63,7 @@ class ProductLineController extends Controller
     public function update(Request $request, ProductLine $productLine)
     {
         $request->validate([
-            'code' => 'required|string|unique:product_lines,code,' . $productLine->id,
+            'code' => 'required|string|unique:product_lines,code,'.$productLine->id,
             'name' => 'required|string',
             'active' => 'boolean',
         ]);
@@ -99,7 +99,7 @@ class ProductLineController extends Controller
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:product_lines,id'
+            'ids.*' => 'exists:product_lines,id',
         ]);
 
         ProductLine::whereIn('id', $request->ids)->delete();
@@ -129,7 +129,8 @@ class ProductLineController extends Controller
         $columns = ['id', 'code', 'name', 'active', 'created_at', 'updated_at'];
         $headings = ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At'];
 
-        $fileName = 'product_lines' . '.xlsx';
+        $fileName = 'product_lines'.'.xlsx';
+
         return Excel::download(new Export($productLines, $columns, $headings), $fileName);
     }
 
@@ -151,13 +152,13 @@ class ProductLineController extends Controller
             'name' => 'Name',
             'active' => 'Active',
             'created_at' => 'Created At',
-            'updated_at' => 'Updated At'
+            'updated_at' => 'Updated At',
         ];
 
         $data = $productLines->toArray();
         $pdf = $pdfService->generatePdf($title, $headers, $data);
-        
-        return $pdf->download('product_lines' . '.pdf');
+
+        return $pdf->download('product_lines'.'.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -188,19 +189,33 @@ class ProductLineController extends Controller
                 ProductLine::class,
                 $fields,
                 function ($row) use ($mapping) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $errors = [];
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
-                    if (($row[$codeKey] ?? '') === '') $errors[] = 'Missing code';
-                    if (($row[$nameKey] ?? '') === '') $errors[] = 'Missing name';
+                    if (($row[$codeKey] ?? '') === '') {
+                        $errors[] = 'Missing code';
+                    }
+                    if (($row[$nameKey] ?? '') === '') {
+                        $errors[] = 'Missing name';
+                    }
+
                     return $errors;
                 },
                 function ($row) use ($mapping) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                     $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+
                     return [
                         'code' => $row[$codeKey] ?? null,
                         'name' => $row[$nameKey] ?? null,
@@ -209,12 +224,13 @@ class ProductLineController extends Controller
                 },
                 $mapping ? false : true // Disable header validation when mapping provided
             );
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -223,8 +239,8 @@ class ProductLineController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
 
@@ -259,7 +275,7 @@ class ProductLineController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Error importing product lines: ' . $e->getMessage(),
+                'message' => 'Error importing product lines: '.$e->getMessage(),
             ], 500);
         }
     }

@@ -2,14 +2,12 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use App\Models\Country;
-use App\Models\Zone;
 use App\Models\City;
+use App\Models\Country;
 use App\Models\District;
+use App\Models\Zone;
 use Faker\Factory as Faker;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Seeder;
 
 class LocationSeeder extends Seeder
 {
@@ -38,7 +36,7 @@ class LocationSeeder extends Seeder
         $zoneCount = 20;
         for ($i = 0; $i < $zoneCount; $i++) {
             Zone::create([
-                'name' => $faker->unique()->city() . ' Zone',
+                'name' => $faker->unique()->city().' Zone',
             ]);
         }
 

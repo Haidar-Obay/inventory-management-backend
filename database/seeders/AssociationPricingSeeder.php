@@ -24,5 +24,3 @@ class AssociationPricingSeeder extends Seeder
         }
     }
 }
-
-

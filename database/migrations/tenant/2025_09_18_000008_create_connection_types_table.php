@@ -20,5 +20,3 @@ return new class extends Migration
         Schema::dropIfExists('connection_types');
     }
 };
-
-

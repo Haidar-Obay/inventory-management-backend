@@ -4,9 +4,12 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -26,8 +29,18 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'   # adjust to your Laravel version
-          extensions: mbstring, bcmath, pdo_pgsql
+          php-version: '8.2'
+          extensions: mbstring, bcmath, pdo_pgsql, dom, fileinfo, gd, intl, zip, redis
+          coverage: xdebug
+
+      - name: Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-
 
       - name: Install dependencies
         run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
@@ -46,6 +59,10 @@ jobs:
           echo "DB_DATABASE=inventory_system" >> .env
           echo "DB_USERNAME=postgres" >> .env
           echo "DB_PASSWORD=2004" >> .env
+          echo "CACHE_DRIVER=array" >> .env
+          echo "SESSION_DRIVER=array" >> .env
+          echo "QUEUE_CONNECTION=sync" >> .env
+          echo "MAIL_MAILER=array" >> .env
 
       - name: Generate app key
         run: php artisan key:generate
@@ -62,3 +79,259 @@ jobs:
           DB_USERNAME: postgres
           DB_PASSWORD: 2004
         run: php artisan config:clear && php artisan migrate --force --no-interaction
+
+      - name: Run database seeders
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: inventory_system
+          DB_USERNAME: postgres
+          DB_PASSWORD: 2004
+        run: php artisan db:seed --force --no-interaction
+
+      - name: Run tests with coverage
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: inventory_system
+          DB_USERNAME: postgres
+          DB_PASSWORD: 2004
+        run: php artisan test --coverage --coverage-clover=coverage.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, bcmath, dom, fileinfo, gd, intl, zip
+
+      - name: Cache Composer packages
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
+
+      - name: Run Laravel Pint (Code Style)
+        run: ./vendor/bin/pint --test
+
+      - name: Run PHPStan (Static Analysis)
+        run: |
+          if [ -f ./vendor/bin/phpstan ]; then
+            ./vendor/bin/phpstan analyse --memory-limit=2G
+          else
+            echo "PHPStan not installed, skipping static analysis"
+          fi
+
+      - name: Run PHP CS Fixer (Alternative Code Style)
+        run: |
+          if [ -f ./vendor/bin/php-cs-fixer ]; then
+            ./vendor/bin/php-cs-fixer fix --dry-run --diff --verbose
+          else
+            echo "PHP CS Fixer not installed, skipping"
+          fi
+
+      - name: Check for security vulnerabilities
+        run: composer audit
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Check for unused dependencies
+        run: |
+          if [ -f ./vendor/bin/composer-unused ]; then
+            ./vendor/bin/composer-unused
+          else
+            echo "composer-unused not installed, skipping dependency check"
+          fi
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
+
+      - name: Run PHP Security Checker
+        run: |
+          if [ -f ./vendor/bin/security-checker ]; then
+            ./vendor/bin/security-checker security:check
+          else
+            echo "Security checker not installed, skipping"
+          fi
+
+      - name: Run Enlightn Security Checker
+        run: |
+          if [ -f ./vendor/bin/enlightn ]; then
+            ./vendor/bin/enlightn security:check
+          else
+            echo "Enlightn not installed, skipping"
+          fi
+
+  performance:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: inventory_system
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: 2004
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, bcmath, pdo_pgsql
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
+
+      - name: Copy .env example
+        run: cp .env.example .env
+
+      - name: Configure environment for PostgreSQL
+        run: |
+          echo "APP_ENV=testing" >> .env
+          echo "APP_DEBUG=false" >> .env
+          echo "DB_CONNECTION=pgsql" >> .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "DB_DATABASE=inventory_system" >> .env
+          echo "DB_USERNAME=postgres" >> .env
+          echo "DB_PASSWORD=2004" >> .env
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Run database migrations
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: inventory_system
+          DB_USERNAME: postgres
+          DB_PASSWORD: 2004
+        run: php artisan migrate --force --no-interaction
+
+      - name: Run performance tests
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: inventory_system
+          DB_USERNAME: postgres
+          DB_PASSWORD: 2004
+        run: |
+          if [ -d "./tests/Performance" ]; then
+            php artisan test tests/Performance
+          else
+            echo "No performance tests found, skipping"
+          fi
+
+      - name: Check application performance
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          echo "Application optimized for performance"
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test, code-quality, security]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: inventory_system
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: 2004
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, bcmath, pdo_pgsql, dom, fileinfo, gd, intl, zip
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader --no-dev
+
+      - name: Copy .env example
+        run: cp .env.example .env
+
+      - name: Configure environment for PostgreSQL
+        run: |
+          echo "APP_ENV=production" >> .env
+          echo "APP_DEBUG=false" >> .env
+          echo "DB_CONNECTION=pgsql" >> .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "DB_DATABASE=inventory_system" >> .env
+          echo "DB_USERNAME=postgres" >> .env
+          echo "DB_PASSWORD=2004" >> .env
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Run database migrations
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: inventory_system
+          DB_USERNAME: postgres
+          DB_PASSWORD: 2004
+        run: php artisan config:clear && php artisan migrate --force --no-interaction
+
+      - name: Optimize application
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          php artisan event:cache
+
+      - name: Verify build
+        run: |
+          php artisan --version
+          php artisan config:show
+          echo "Build completed successfully"

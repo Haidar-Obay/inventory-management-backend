@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::create('customers', function (Blueprint $table) {
@@ -19,7 +20,7 @@ return new class extends Migration {
             $table->string('phone1');
             $table->string('phone2')->nullable();
             $table->string('phone3')->nullable();
-          
+
             // $table->string('email')->nullable();
             // $table->string('website')->nullable();
 
@@ -28,7 +29,7 @@ return new class extends Migration {
             $table->string('bar_code')->nullable();
             $table->json('search_terms')->nullable()->comment('JSON array of search keywords for customer lookup');
 
-            //Category
+            // Category
             $table->foreignId('trade_id')->nullable()->constrained('trades');
             $table->foreignId('company_code_id')->nullable()->constrained('company_codes');
             $table->foreignId('customer_group_id')->nullable()->constrained('customer_groups');
@@ -39,15 +40,13 @@ return new class extends Migration {
             $table->enum('indicator', ['A', 'B', 'C', 'D'])->nullable();
             $table->enum('risk_category', ['Low', 'Medium', 'High'])->nullable();
 
-
-            //salesmen
+            // salesmen
             $table->foreignId('salesman_id')->nullable()->constrained('salesmen');
             $table->foreignId('collector_id')->nullable()->constrained('salesmen');
             $table->foreignId('supervisor_id')->nullable()->constrained('salesmen');
             $table->foreignId('manager_id')->nullable()->constrained('salesmen');
 
-
-            //payment terms
+            // payment terms
             $table->foreignId('payment_term_id')->nullable()->constrained('payment_terms');
             $table->foreignId('payment_method_id')->nullable()->constrained('payment_methods');
             $table->boolean('allow_credit')->default(false);
@@ -56,9 +55,8 @@ return new class extends Migration {
             $table->enum('track_payment', ['yes', 'no'])->default('no');
             $table->enum('settlement_method', ['FIFO', 'Manual'])->nullable();
 
-
-            //pricing
-            $table->enum('price_choice', ['price1', 'price2', 'price3', 'price4', 'price5', 'price6','last_invoice_price'])->nullable();
+            // pricing
+            $table->enum('price_choice', ['price1', 'price2', 'price3', 'price4', 'price5', 'price6', 'last_invoice_price'])->nullable();
             $table->string('price_list')->nullable();
             // $table->decimal('discount_by_item', 8, 2)->nullable()->comment('Discount percentage applied per item');
             $table->decimal('global_discount', 8, 2)->nullable()->comment('Global discount percentage applied to entire order');
@@ -66,8 +64,7 @@ return new class extends Migration {
             $table->decimal('markup_percentage', 8, 2)->nullable()->comment('Markup percentage applied to cost price');
             $table->decimal('markdown_percentage', 8, 2)->nullable()->comment('Markdown percentage applied to selling price');
 
-
-            //tax
+            // tax
             $table->boolean('taxable')->nullable()->default(false);
             $table->date('taxed_from_date')->nullable()->comment('Date from which customer is taxable');
             $table->date('taxed_till_date')->nullable()->comment('Date until which customer is taxable');
@@ -79,8 +76,7 @@ return new class extends Migration {
             $table->date('exempted_from_date')->nullable()->comment('Tax exemption start date');
             $table->date('exempted_till_date')->nullable()->comment('Tax exemption end date');
 
-
-            //more details
+            // more details
             $table->boolean('active')->default(true);
             $table->boolean('black_listed')->default(false);
             $table->boolean('one_time_account')->default(true);
@@ -88,7 +84,7 @@ return new class extends Migration {
             $table->boolean('pos_customer')->default(false);
             $table->boolean('free_delivery_charge')->default(false);
             $table->enum('print_invoice_language', ['English', 'Arabic'])->default('English');
-            $table->enum('send_invoice',['email', 'sms', 'whatsapp' ,'all'])->default('email');
+            $table->enum('send_invoice', ['email', 'sms', 'whatsapp', 'all'])->default('email');
 
             // Message functionality
             $table->boolean('showMessageField')->default(false)->comment('Whether to include custom message on invoice');
@@ -101,6 +97,7 @@ return new class extends Migration {
             $table->timestamps();
         });
     }
+
     public function down(): void
     {
         Schema::dropIfExists('customers');

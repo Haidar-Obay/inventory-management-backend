@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 use App\Models\AdjustmentType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class AdjustmentTypeController extends Controller
 {
@@ -26,7 +26,7 @@ class AdjustmentTypeController extends Controller
     {
         $validated = $request->validate(AdjustmentType::$rules);
         $adjustmentType = AdjustmentType::create($validated);
-        Cache::forget("adjustment_types_" . tenant('id'));
+        Cache::forget('adjustment_types_'.tenant('id'));
 
         return response()->json($adjustmentType, 201);
     }
@@ -44,13 +44,13 @@ class AdjustmentTypeController extends Controller
     public function update(Request $request, AdjustmentType $adjustmentType)
     {
         $rules = AdjustmentType::$rules;
-        $rules['code'] = 'required|string|max:50|unique:adjustment_types,code,' . $adjustmentType->id;
+        $rules['code'] = 'required|string|max:50|unique:adjustment_types,code,'.$adjustmentType->id;
 
         $validated = $request->validate($rules);
         $adjustmentType->update($validated);
 
-        Cache::forget("adjustment_types_" . tenant('id'));
-        Cache::forget("adjustment_type_{$adjustmentType->id}_" . tenant('id'));
+        Cache::forget('adjustment_types_'.tenant('id'));
+        Cache::forget("adjustment_type_{$adjustmentType->id}_".tenant('id'));
 
         return response()->json($adjustmentType);
     }
@@ -61,8 +61,8 @@ class AdjustmentTypeController extends Controller
         // For example, check if the adjustment type is being used in any transactions
 
         $adjustmentType->delete();
-        Cache::forget("adjustment_types_" . tenant('id'));
-        Cache::forget("adjustment_type_{$adjustmentType->id}_" . tenant('id'));
+        Cache::forget('adjustment_types_'.tenant('id'));
+        Cache::forget("adjustment_type_{$adjustmentType->id}_".tenant('id'));
 
         return response()->json(null, 204);
     }
@@ -71,7 +71,7 @@ class AdjustmentTypeController extends Controller
     {
         $ids = $request->input('ids');
 
-        if (!$ids || !is_array($ids)) {
+        if (! $ids || ! is_array($ids)) {
             return response()->json(['message' => 'No adjustment types selected'], 400);
         }
 
@@ -79,7 +79,7 @@ class AdjustmentTypeController extends Controller
         // For example, check if any of the adjustment types are being used in transactions
 
         AdjustmentType::whereIn('id', $ids)->delete();
-        Cache::forget("adjustment_types_" . tenant('id'));
+        Cache::forget('adjustment_types_'.tenant('id'));
 
         return response()->json(['message' => 'Adjustment types deleted successfully']);
     }
@@ -94,8 +94,9 @@ class AdjustmentTypeController extends Controller
 
         $columns = ['id', 'code', 'name', 'active', 'created_at', 'updated_at'];
         $headings = ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At'];
-        
-        $fileName = 'adjustment_types_' . '.xlsx';
+
+        $fileName = 'adjustment_types_'.'.xlsx';
+
         return Excel::download(new Export($adjustmentTypes, $columns, $headings), $fileName);
     }
 
@@ -108,13 +109,14 @@ class AdjustmentTypeController extends Controller
         }
 
         $adjustmentTypes = AdjustmentType::select('id', 'code', 'name', 'active', 'created_at', 'updated_at')->get();
-        
+
         $title = 'Adjustment Types Report';
         $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'active' => 'Active', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
-        
-        $pdfService = new ExportPDF();
+
+        $pdfService = new ExportPDF;
         $pdf = $pdfService->generatePdf($title, $headers, $adjustmentTypes->toArray());
-        return $pdf->download('adjustment_types_' . '.pdf');
+
+        return $pdf->download('adjustment_types_'.'.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -147,14 +149,20 @@ class AdjustmentTypeController extends Controller
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                     $activeKey = $mapping ? array_search('active', $mapping) : 'active';
-                    if (empty($row[$codeKey])) $errors[] = 'Missing code';
-                    if (empty($row[$nameKey])) $errors[] = 'Missing name';
+                    if (empty($row[$codeKey])) {
+                        $errors[] = 'Missing code';
+                    }
+                    if (empty($row[$nameKey])) {
+                        $errors[] = 'Missing name';
+                    }
+
                     return $errors;
                 },
                 function ($row) use ($mapping) {
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                     $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+
                     return [
                         'code' => $row[$codeKey] ?? null,
                         'name' => $row[$nameKey] ?? null,
@@ -163,12 +171,13 @@ class AdjustmentTypeController extends Controller
                 },
                 true // Enable header validation
             );
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -177,12 +186,12 @@ class AdjustmentTypeController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
-            
-            Cache::forget("adjustment_types_" . tenant('id'));
+
+            Cache::forget('adjustment_types_'.tenant('id'));
 
             return response()->json([
                 'success' => true,
@@ -192,7 +201,7 @@ class AdjustmentTypeController extends Controller
                 'skipped_rows' => $import->getSkippedRows(),
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error importing adjustment types: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Error importing adjustment types: '.$e->getMessage()], 500);
         }
     }
 

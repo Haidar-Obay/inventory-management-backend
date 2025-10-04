@@ -3,22 +3,19 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AuditController;
-use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
 // use App\Http\Controllers\TenantAuthController;
+use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\TenantController;
-use App\Http\Controllers\TenantUserManagementController;
+use App\Http\Controllers\TenantSubscriptionController;
 use App\Http\Controllers\UserManagementController;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\Auth\ForgotPasswordController;
-use App\Http\Controllers\Auth\ResetPasswordController;
-use App\Http\Controllers\SubscriptionPlanController;
-use App\Http\Controllers\TenantSubscriptionController;
-
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,7 +23,7 @@ use App\Http\Controllers\TenantSubscriptionController;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/user', fn(Request $request) => $request->user())
+Route::get('/user', fn (Request $request) => $request->user())
     ->middleware('auth:sanctum');
 
 // Simple ping endpoint for CI/testing
@@ -39,16 +36,14 @@ Route::get('/user', fn(Request $request) => $request->user())
 foreach (config('tenancy.central_domains') as $domain) {
     Route::domain($domain)->middleware('api')->group(function () {
         // Central root
-        Route::get('/', fn() => response()->json([
+        Route::get('/', fn () => response()->json([
             'message' => 'This is your central application.',
         ]));
 
-
-        //getting tenant by name
+        // getting tenant by name
         Route::get('tenant/get-tenant-by-name/{name}', [TenantController::class, 'getTenantByName']);
-        //log audit
+        // log audit
         Route::get('audits', [AuditController::class, 'index']);
-
 
         // Tenant CRUD
         Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
@@ -85,7 +80,6 @@ foreach (config('tenancy.central_domains') as $domain) {
         // Auth & User Management
         Route::post('/login', [AuthController::class, 'login']);
 
-
         // User Management
 
         Route::middleware(['auth:sanctum'])->group(function () {
@@ -98,9 +92,6 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::delete('/delete-user/{id}', [UserManagementController::class, 'deleteUser']);
             Route::delete('/bulk-delete-users', [UserManagementController::class, 'bulkDeleteUsers']);
         });
-
-
-
 
         // Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
         //     $user = User::find($id);
@@ -120,21 +111,16 @@ foreach (config('tenancy.central_domains') as $domain) {
         //     return response()->json(['message' => 'Email verified successfully']);
         // })->middleware(['signed'])->name('verification.verify');
 
-
-
         // Resend email verification link - commented out
         // Route::post('/email/resend', function (Request $request) {
         //     $request->user()->sendEmailVerificationNotification();
         //     return response()->json(['message' => 'Verification link sent!']);
         // })->middleware(['auth:sanctum'])->name('verification.resend');
 
-
-        //reset password
+        // reset password
 
         Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
         Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
-
-        
 
     });
     Route::get('/health', function () {

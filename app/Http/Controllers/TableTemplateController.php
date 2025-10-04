@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\TableTemplate;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class TableTemplateController extends Controller
@@ -31,7 +31,7 @@ class TableTemplateController extends Controller
             ->where('id', $templateId)
             ->first();
 
-        if (!$template) {
+        if (! $template) {
             return response()->json(['message' => 'Template not found'], 404);
         }
 
@@ -63,7 +63,7 @@ class TableTemplateController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 400);
         }
 
@@ -93,8 +93,8 @@ class TableTemplateController extends Controller
             'mediaChannels',
             'businessTypes',
             'customerMasterLists',
-        ]; // Add your valid tables heree 
-        if (!in_array($tableName, $validTables)) {
+        ]; // Add your valid tables heree
+        if (! in_array($tableName, $validTables)) {
             return response()->json(['message' => 'Invalid table name'], 400);
         }
 
@@ -106,7 +106,7 @@ class TableTemplateController extends Controller
         if ($existingTemplate) {
             return response()->json([
                 'message' => 'A template with this name already exists for this table.',
-                'errors' => ['name' => ['A template with this name already exists for this table.']]
+                'errors' => ['name' => ['A template with this name already exists for this table.']],
             ], 409);
         }
 
@@ -137,7 +137,7 @@ class TableTemplateController extends Controller
             ->where('id', $templateId)
             ->first();
 
-        if (!$template) {
+        if (! $template) {
             return response()->json(['message' => 'Template not found'], 404);
         }
 
@@ -145,7 +145,7 @@ class TableTemplateController extends Controller
         if ($template->is_default) {
             if ($request->input('name') !== $template->name) {
                 return response()->json([
-                    'message' => 'Cannot rename the default template.'
+                    'message' => 'Cannot rename the default template.',
                 ], 403);
             }
         }
@@ -170,7 +170,7 @@ class TableTemplateController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 400);
         }
 
@@ -183,7 +183,7 @@ class TableTemplateController extends Controller
         if ($existingTemplate) {
             return response()->json([
                 'message' => 'A template with this name already exists for this table.',
-                'errors' => ['name' => ['A template with this name already exists for this table.']]
+                'errors' => ['name' => ['A template with this name already exists for this table.']],
             ], 409);
         }
 
@@ -213,14 +213,14 @@ class TableTemplateController extends Controller
             ->where('id', $templateId)
             ->first();
 
-        if (!$template) {
+        if (! $template) {
             return response()->json(['message' => 'Template not found'], 404);
         }
 
         // Prevent deleting the default template (only if is_default is true)
         if ($template->is_default) {
             return response()->json([
-                'message' => 'Cannot delete the default template.'
+                'message' => 'Cannot delete the default template.',
             ], 403);
         }
 

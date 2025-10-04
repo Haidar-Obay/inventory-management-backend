@@ -22,5 +22,3 @@ class StoreReferrerServiceCommissionRequest extends FormRequest
         ];
     }
 }
-
-

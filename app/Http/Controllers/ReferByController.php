@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ReferBy;
-use App\Http\Requests\ReferBy\StoreReferByRequest;
-use App\Http\Requests\ReferBy\UpdateReferByRequest;
-use Illuminate\Http\JsonResponse;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\ReferBy\StoreReferByRequest;
+use App\Http\Requests\ReferBy\UpdateReferByRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\ReferBy;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReferByController extends Controller
 {
@@ -21,7 +21,7 @@ class ReferByController extends Controller
 
         $referBies = app('cache')->store('database')->get($key);
 
-        if (!$referBies) {
+        if (! $referBies) {
             $referBies = ReferBy::paginate(10);
             app('cache')->store('database')->forever($key, $referBies);
         }
@@ -37,7 +37,7 @@ class ReferByController extends Controller
     {
         $referBy = ReferBy::create($request->validated());
 
-        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_refer_bies");
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_refer_bies');
 
         return response()->json([
             'message' => 'Refer By created successfully.',
@@ -52,7 +52,7 @@ class ReferByController extends Controller
 
         $cached = app('cache')->store('database')->get($key);
 
-        if (!$cached) {
+        if (! $cached) {
             $cached = $referBy;
             app('cache')->store('database')->forever($key, $cached);
         }
@@ -148,6 +148,7 @@ class ReferByController extends Controller
         $data = $referBies->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('ReferByReport.pdf');
     }
 
@@ -187,16 +188,16 @@ class ReferByController extends Controller
                 }
 
                 foreach (['phone1', 'phone2'] as $phoneField) {
-                    if (!empty($row[$phoneField]) && !preg_match('/^\d+$/', $row[$phoneField])) {
+                    if (! empty($row[$phoneField]) && ! preg_match('/^\d+$/', $row[$phoneField])) {
                         $errors[] = "$phoneField must contain only numbers";
                     }
                 }
 
-                if (!empty($row['email']) && !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
+                if (! empty($row['email']) && ! filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
                     $errors[] = 'Invalid email format';
                 }
 
-                if (!empty($row['fix_commission']) && !is_numeric($row['fix_commission'])) {
+                if (! empty($row['fix_commission']) && ! is_numeric($row['fix_commission'])) {
                     $errors[] = 'Fix commission must be numeric';
                 }
 
@@ -218,8 +219,9 @@ class ReferByController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -228,12 +230,12 @@ class ReferByController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_refer_bies");
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_refer_bies');
 
         return response()->json([
             'success' => true,

@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\CacheHelper;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
-use App\Helpers\CacheHelper;
 
 class UserManagementController extends Controller
 {
@@ -20,7 +20,7 @@ class UserManagementController extends Controller
     protected function getCacheKey($suffix, $id = null)
     {
         $prefix = tenancy()->initialized
-            ? 'tenant_' . tenant('id')
+            ? 'tenant_'.tenant('id')
             : 'central';
 
         return $id ? "{$prefix}_{$suffix}_{$id}" : "{$prefix}_{$suffix}";
@@ -32,11 +32,11 @@ class UserManagementController extends Controller
     protected function userHasRole(User $user, string $roleName): bool
     {
         // Roles are tenant-scoped. If tenancy isn't initialized or tables don't exist, treat as no role.
-        if (!tenancy()->initialized) {
+        if (! tenancy()->initialized) {
             return false;
         }
 
-        if (!Schema::hasTable('roles') || !Schema::hasTable('user_roles')) {
+        if (! Schema::hasTable('roles') || ! Schema::hasTable('user_roles')) {
             return false;
         }
 
@@ -45,7 +45,7 @@ class UserManagementController extends Controller
 
     public function registerUser(Request $request)
     {
-        
+
         // $email = $request->email;
         // $url = "https://apilayer.net/api/check?access_key=774df7c6873b3b081fb76f9e71580f93&email={$email}&smtp=1&format=1";
         // $response = Http::get($url);
@@ -131,7 +131,7 @@ class UserManagementController extends Controller
         $cacheKey = $this->getCacheKey('users');
         $users = CacheHelper::cacheInContext($cacheKey);
 
-        if (!$users) {
+        if (! $users) {
             $users = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by')
                 ->orderBy('created_at', 'desc')->with(['roles', 'creator'])
                 ->get();
@@ -150,7 +150,7 @@ class UserManagementController extends Controller
         $cacheKey = $this->getCacheKey('central_users');
         $users = CacheHelper::cacheInContext($cacheKey);
 
-        if (!$users) {
+        if (! $users) {
             $users = User::select('id', 'name', 'email', 'active', 'created_at')
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -169,7 +169,7 @@ class UserManagementController extends Controller
         $cacheKey = $this->getCacheKey('assignable_users');
         $users = CacheHelper::cacheInContext($cacheKey);
 
-        if (!$users) {
+        if (! $users) {
             $users = User::select('id', 'name', 'email', 'active')
                 ->with(['roles:id,name'])
                 ->whereDoesntHave('roles', function ($query) {
@@ -193,17 +193,17 @@ class UserManagementController extends Controller
         // $this->authorizeRoles(['admin', 'owner']);
 
         // Validate ID parameter
-        if (!$id || $id === 'undefined' || !is_numeric($id)) {
+        if (! $id || $id === 'undefined' || ! is_numeric($id)) {
             return response()->json(['message' => 'Invalid user ID provided.'], 400);
         }
 
         $cacheKey = $this->getCacheKey('user', $id);
         $user = CacheHelper::cacheInContext($cacheKey);
 
-        if (!$user) {
+        if (! $user) {
             $user = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by')->with(['roles', 'creator'])->find($id);
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json(['message' => 'User not found.'], 404);
             }
 
@@ -223,7 +223,7 @@ class UserManagementController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
@@ -240,42 +240,42 @@ class UserManagementController extends Controller
         $authUser = $this->authorizeRoles(['admin', 'owner']);
 
         // Validate ID parameter
-        if (!$id || $id === 'undefined' || !is_numeric($id)) {
+        if (! $id || $id === 'undefined' || ! is_numeric($id)) {
             return response()->json(['message' => 'Invalid user ID provided.'], 400);
         }
 
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
 
         // Prevent non-Owner from updating an Owner user
         $authIsOwner = $this->userHasRole($authUser, 'Owner');
         $targetIsOwner = $this->userHasRole($user, 'Owner');
-        if ($targetIsOwner && !$authIsOwner) {
+        if ($targetIsOwner && ! $authIsOwner) {
             return response()->json(['message' => 'You are not allowed to modify an Owner user.'], 403);
         }
 
         // Check if user has password in database
-        $hasPassword = !empty($user->password);
-        
+        $hasPassword = ! empty($user->password);
+
         // Build validation rules based on whether user has password
         $validationRules = [
             'name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|email|unique:users,email,' . $id,
+            'email' => 'sometimes|email|unique:users,email,'.$id,
             'active' => 'sometimes|boolean',
         ];
-        
+
         // If user doesn't have password, make it required
-        if (!$hasPassword) {
+        if (! $hasPassword) {
             $validationRules['password'] = 'required|confirmed|min:6';
         } else {
             $validationRules['password'] = 'sometimes|confirmed|min:6';
         }
 
         $validated = $request->validate($validationRules, [
-            'password.required' => 'Password is required when user is active'
+            'password.required' => 'Password is required when user is active',
         ]);
 
         $updateData = [];
@@ -305,15 +305,15 @@ class UserManagementController extends Controller
 
             // Only load roles if we're in a tenant context
             $freshUser = tenancy()->initialized ? $user->fresh(['roles']) : $user->fresh();
-            
+
             return response()->json([
                 'message' => 'User updated successfully.',
-                'user' => $freshUser
+                'user' => $freshUser,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to update user.',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -321,7 +321,7 @@ class UserManagementController extends Controller
     public function deleteUser($id)
     {
         // Validate ID parameter
-        if (!$id || $id === 'undefined' || !is_numeric($id)) {
+        if (! $id || $id === 'undefined' || ! is_numeric($id)) {
             return response()->json(['message' => 'Invalid user ID provided.'], 400);
         }
 
@@ -333,14 +333,14 @@ class UserManagementController extends Controller
 
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
 
         // Prevent non-Owner from deleting an Owner user
         $authIsOwner = $this->userHasRole($authUser, 'Owner');
         $targetIsOwner = $this->userHasRole($user, 'Owner');
-        if ($targetIsOwner && !$authIsOwner) {
+        if ($targetIsOwner && ! $authIsOwner) {
             return response()->json(['message' => 'You are not allowed to modify an Owner user.'], 403);
         }
 
@@ -373,13 +373,15 @@ class UserManagementController extends Controller
         foreach ($request->ids as $id) {
             if ($authUser->id == $id) {
                 $skipped[] = ['id' => $id, 'reason' => 'Cannot delete the currently authenticated user.'];
+
                 continue;
             }
 
             // Skip deleting Owner user if auth user is not Owner
             $target = User::find($id);
-            if ($target && $this->userHasRole($target, 'Owner') && !$this->userHasRole($authUser, 'Owner')) {
+            if ($target && $this->userHasRole($target, 'Owner') && ! $this->userHasRole($authUser, 'Owner')) {
                 $skipped[] = ['id' => $id, 'reason' => 'You are not allowed to modify an Owner user.'];
+
                 continue;
             }
 
@@ -406,7 +408,7 @@ class UserManagementController extends Controller
     public function toggleUserStatus(Request $request, $id)
     {
         // Validate ID parameter
-        if (!$id || $id === 'undefined' || !is_numeric($id)) {
+        if (! $id || $id === 'undefined' || ! is_numeric($id)) {
             return response()->json(['message' => 'Invalid user ID provided.'], 400);
         }
 
@@ -418,21 +420,21 @@ class UserManagementController extends Controller
 
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
 
         // Prevent non-Owner from toggling an Owner user's status
         $authIsOwner = $this->userHasRole($authUser, 'Owner');
         $targetIsOwner = $this->userHasRole($user, 'Owner');
-        if ($targetIsOwner && !$authIsOwner) {
+        if ($targetIsOwner && ! $authIsOwner) {
             return response()->json(['message' => 'You are not allowed to modify an Owner user.'], 403);
         }
 
         // Note: Role-based authorization now handled by middleware/permissions
 
         // If activating user (from false to true)
-        if (!$user->active) {
+        if (! $user->active) {
             // Check if user already has email and password
             if ($user->email && $user->password) {
                 // User has credentials, activate instantly
@@ -443,14 +445,14 @@ class UserManagementController extends Controller
                 }
             } else {
                 // User needs email and password, require them
-                if (!$request->has('email') || !$request->has('password')) {
+                if (! $request->has('email') || ! $request->has('password')) {
                     return response()->json([
-                        'message' => 'Add an email and password for the user and try again'
+                        'message' => 'Add an email and password for the user and try again',
                     ], 422);
                 }
 
                 $validated = $request->validate([
-                    'email' => 'required|email|unique:users,email,' . $id,
+                    'email' => 'required|email|unique:users,email,'.$id,
                     'password' => 'required|confirmed|min:6',
                 ]);
 
@@ -478,15 +480,15 @@ class UserManagementController extends Controller
         CacheHelper::cacheInContext($this->getCacheKey('user', $id), null);
 
         $action = $user->active ? 'activated' : 'deactivated';
-        
+
         return response()->json([
             'message' => "User {$action} successfully.",
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'active' => $user->active
-            ]
+                'active' => $user->active,
+            ],
         ]);
     }
 }
