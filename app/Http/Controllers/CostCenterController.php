@@ -391,7 +391,7 @@ class CostCenterController extends Controller
     public function getNames()
     {
         $costCenters = CostCenter::whereNull('sub_cost_center_of')
-            ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
+            ->select('id', 'name', 'created_at', 'updated_at')
             ->orderBy('name')
             ->get()
             ->map(function ($costCenter) {

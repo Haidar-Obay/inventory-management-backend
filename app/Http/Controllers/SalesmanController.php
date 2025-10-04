@@ -301,7 +301,7 @@ class SalesmanController extends Controller
 
         if (! $salesmen) {
             $salesmen = Salesman::where('active', true)
-                ->select('id', 'code', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
+                ->select('id', 'code', 'name', 'created_at', 'updated_at')
                 ->orderBy('name')
                 ->get()
                 ->map(function ($salesman) {

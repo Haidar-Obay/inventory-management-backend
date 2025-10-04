@@ -376,7 +376,7 @@ class DistributionChannelController extends Controller
     public function getNames()
     {
         $distributionChannels = DistributionChannel::whereNull('sub_distribution_of')
-            ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
+            ->select('id', 'name', 'created_at', 'updated_at')
             ->orderBy('name')
             ->get()
             ->map(function ($distributionChannel) {

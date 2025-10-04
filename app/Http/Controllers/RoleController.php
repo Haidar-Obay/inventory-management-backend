@@ -194,7 +194,7 @@ class RoleController extends Controller
 
             // Return role with permissions and pivot flags
             $role->load(['permissions' => function ($q) {
-                $q->select('permissions.id', 'permissions.resource_key', 'permissions.resource_label', 'created_at', 'updated_at', 'created_at', 'updated_at');
+                $q->select('permissions.id', 'permissions.resource_key', 'permissions.resource_label', 'permissions.created_at', 'permissions.updated_at');
             }]);
 
             $transformed = [

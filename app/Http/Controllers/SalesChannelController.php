@@ -363,7 +363,7 @@ class SalesChannelController extends Controller
     public function getNames()
     {
         $salesChannels = SalesChannel::whereNull('sub_sales_of')
-            ->select('id', 'name', 'created_at', 'updated_at', 'created_at', 'updated_at')
+            ->select('id', 'name', 'created_at', 'updated_at')
             ->orderBy('name')
             ->get()
             ->map(function ($salesChannel) {
