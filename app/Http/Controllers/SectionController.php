@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Section;
-use App\Http\Requests\Section\StoreSectionRequest;
-use App\Http\Requests\Section\UpdateSectionRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Section\StoreSectionRequest;
+use App\Http\Requests\Section\UpdateSectionRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\Section;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SectionController extends Controller
 {
@@ -22,7 +21,7 @@ class SectionController extends Controller
 
         $sections = app('cache')->store('database')->get($key);
 
-        if (!$sections) {
+        if (! $sections) {
             $sections = Section::with(['room:id,name,location'])->ordered()->get();
 
             app('cache')->store('database')->forever($key, $sections);
@@ -38,7 +37,7 @@ class SectionController extends Controller
     public function store(StoreSectionRequest $request)
     {
         $validated = $request->validated();
-        
+
         $section = Section::create($validated);
 
         $tenantId = tenant('id');
@@ -58,7 +57,7 @@ class SectionController extends Controller
 
         $cachedSection = app('cache')->store('database')->get($key);
 
-        if (!$cachedSection) {
+        if (! $cachedSection) {
             $cachedSection = $section->load(['room:id,name,location', 'assets:id,name,type,status']);
 
             app('cache')->store('database')->forever($key, $cachedSection);
@@ -74,13 +73,13 @@ class SectionController extends Controller
     public function update(UpdateSectionRequest $request, Section $section)
     {
         $validated = $request->validated();
-        
+
         // Handle unique validation for name field within the same room
         if (isset($validated['name'])) {
             $validator = Validator::make(['name' => $validated['name']], [
-                'name' => 'unique:sections,name,' . $section->id . ',id,room_id,' . $section->room_id,
+                'name' => 'unique:sections,name,'.$section->id.',id,room_id,'.$section->room_id,
             ]);
-            
+
             if ($validator->fails()) {
                 return response()->json([
                     'status' => false,
@@ -89,7 +88,7 @@ class SectionController extends Controller
                 ], 422);
             }
         }
-        
+
         $section->update($validated);
 
         $tenantId = tenant('id');
@@ -181,8 +180,9 @@ class SectionController extends Controller
         ];
         $data = $sections->toArray();
 
-        $pdfService = new ExportPDF();
+        $pdfService = new ExportPDF;
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Sections.pdf');
     }
 
@@ -237,8 +237,9 @@ class SectionController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -247,12 +248,12 @@ class SectionController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_sections');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_sections');
 
         return response()->json([
             'status' => true,
@@ -272,7 +273,7 @@ class SectionController extends Controller
 
         $sections = app('cache')->store('database')->get($key);
 
-        if (!$sections) {
+        if (! $sections) {
             $sections = Section::with(['room:id,name,location'])
                 ->byRoom($roomId)
                 ->ordered()

@@ -21,5 +21,3 @@ class UpdateAssociationServicePriceRequest extends FormRequest
         ];
     }
 }
-
-

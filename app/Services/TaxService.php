@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Customer;
-use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Support\Facades\DB;
 
 class TaxService
 {
@@ -218,7 +218,7 @@ class TaxService
     {
         $shouldApplyTax = $this->shouldApplyTax($customer);
 
-        if (!$shouldApplyTax) {
+        if (! $shouldApplyTax) {
             return [
                 'should_apply_tax' => false,
                 'tax_amount' => 0,

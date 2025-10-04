@@ -17,7 +17,7 @@ class ServiceSeeder extends Seeder
 
         // Get a service category
         $imagingCategory = ServiceCategory::where('name', 'Imaging Services')->first();
-        
+
         $service = Service::firstOrCreate([
             'name' => 'MRI Brain Scan',
         ], [
@@ -45,10 +45,8 @@ class ServiceSeeder extends Seeder
 
         // Attach specialists
         $specialists = Specialist::pluck('id')->take(2)->all();
-        if (!empty($specialists)) {
+        if (! empty($specialists)) {
             $service->specialists()->syncWithoutDetaching($specialists);
         }
     }
 }
-
-

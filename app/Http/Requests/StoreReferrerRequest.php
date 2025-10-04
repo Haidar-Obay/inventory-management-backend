@@ -24,5 +24,3 @@ class StoreReferrerRequest extends FormRequest
         ];
     }
 }
-
-

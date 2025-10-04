@@ -3,16 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 use OwenIt\Auditing\Auditable;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
+
 class User extends Authenticatable implements AuditableContract
 {
-
-    use HasApiTokens, HasFactory, Notifiable, Auditable;
+    use Auditable, HasApiTokens, HasFactory, Notifiable;
 
     /** @use HasFactory<\Database\Factories\UserFactory> */
 

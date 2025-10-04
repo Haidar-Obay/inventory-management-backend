@@ -4,16 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
 class Department extends Model implements Auditable
 {
-    use HasFactory, AuditableTrait;
+    use AuditableTrait, HasFactory;
 
     protected $guarded = ['id'];
+
     protected $table = 'departments';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     protected $casts = [
@@ -42,7 +45,7 @@ class Department extends Model implements Auditable
 
     public function isSubDepartment()
     {
-        return !is_null($this->sub_department_of);
+        return ! is_null($this->sub_department_of);
     }
 
     public function hasSubDepartments()

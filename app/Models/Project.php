@@ -4,16 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
 class Project extends Model implements Auditable
 {
-    use HasFactory, AuditableTrait;
+    use AuditableTrait, HasFactory;
 
     protected $guarded = ['id'];
+
     protected $table = 'projects';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     protected $casts = [
@@ -21,6 +24,7 @@ class Project extends Model implements Auditable
         'end_date' => 'date',
         'expected_date' => 'date',
     ];
+
     // Relationship with Customer
     public function customer()
     {
@@ -35,21 +39,22 @@ class Project extends Model implements Auditable
     // Helper method to check if project is completed
     public function isCompleted()
     {
-        return !is_null($this->end_date);
+        return ! is_null($this->end_date);
     }
 
     // Helper method to check if project is overdue
     public function isOverdue()
     {
-        return !$this->isCompleted() && $this->expected_date->isPast();
+        return ! $this->isCompleted() && $this->expected_date->isPast();
     }
 
     // Helper method to get project duration in days
     public function getDuration()
     {
-        if (!$this->isCompleted()) {
-            return null;
+        if (! $this->isCompleted()) {
+            return;
         }
+
         return $this->start_date->diffInDays($this->end_date);
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Item;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateItemRequest extends FormRequest
 {
@@ -32,4 +31,4 @@ class UpdateItemRequest extends FormRequest
             'price.min' => 'The price cannot be negative.',
         ];
     }
-} 
+}

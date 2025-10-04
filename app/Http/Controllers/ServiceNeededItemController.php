@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreServiceNeededItemRequest;
+use App\Exports\Export;
+use App\Exports\ExportPDF;
 use App\Http\Requests\UpdateServiceNeededItemRequest;
+use App\Imports\DynamicExcelImport;
 use App\Models\Service;
 use App\Models\ServiceNeededItem;
 use Illuminate\Http\JsonResponse;
@@ -11,9 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class ServiceNeededItemController extends Controller
 {
@@ -26,6 +25,7 @@ class ServiceNeededItemController extends Controller
         if ($request->filled('asset_id')) {
             $query->where('asset_id', $request->integer('asset_id'));
         }
+
         return response()->json($query->orderByDesc('id')->paginate());
     }
 
@@ -48,23 +48,27 @@ class ServiceNeededItemController extends Controller
             $errors = [];
 
             DB::beginTransaction();
+
             try {
                 foreach ($payload as $index => $row) {
                     $validator = Validator::make($row, $rules);
                     if ($validator->fails()) {
                         $errors[] = ['index' => $index, 'errors' => $validator->errors()];
+
                         continue;
                     }
                     $created[] = ServiceNeededItem::create($validator->validated())
                         ->load(['service:id,name', 'asset:id,name']);
                 }
-                if (!empty($errors) && empty($created)) {
+                if (! empty($errors) && empty($created)) {
                     DB::rollBack();
+
                     return response()->json(['success' => false, 'errors' => $errors], 422);
                 }
                 DB::commit();
             } catch (\Throwable $e) {
                 DB::rollBack();
+
                 throw $e;
             }
 
@@ -87,6 +91,7 @@ class ServiceNeededItemController extends Controller
         ]);
         $validator->validate();
         $item = ServiceNeededItem::create($validator->validated());
+
         return response()->json($item->load(['service:id,name', 'asset:id,name']), 201);
     }
 
@@ -98,12 +103,14 @@ class ServiceNeededItemController extends Controller
     public function update(UpdateServiceNeededItemRequest $request, ServiceNeededItem $serviceNeededItem): JsonResponse
     {
         $serviceNeededItem->update($request->validated());
+
         return response()->json($serviceNeededItem->load(['service:id,name', 'asset:id,name']));
     }
 
     public function destroy(ServiceNeededItem $serviceNeededItem): JsonResponse
     {
         $serviceNeededItem->delete();
+
         return response()->json(['message' => 'Deleted']);
     }
 
@@ -114,6 +121,7 @@ class ServiceNeededItemController extends Controller
             ->where('service_id', $service->id)
             ->orderByDesc('id')
             ->get();
+
         return response()->json($items);
     }
 
@@ -152,13 +160,14 @@ class ServiceNeededItemController extends Controller
         }
 
         $columns = [
-            'id', 'service_id', 'asset_id', 'description', 'unit', 'qty', 'notes_multiline', 'created_at', 'updated_at'
+            'id', 'service_id', 'asset_id', 'description', 'unit', 'qty', 'notes_multiline', 'created_at', 'updated_at',
         ];
         $headings = [
-            'ID', 'Service ID', 'Asset ID', 'Description', 'Unit', 'Quantity', 'Notes', 'Created At', 'Updated At'
+            'ID', 'Service ID', 'Asset ID', 'Description', 'Unit', 'Quantity', 'Notes', 'Created At', 'Updated At',
         ];
 
-        $fileName = 'service_needed_items_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'service_needed_items_'.date('Y-m-d_H-i-s').'.xlsx';
+
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
@@ -178,6 +187,7 @@ class ServiceNeededItemController extends Controller
             'qty' => 'Quantity',
         ];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
+
         return $pdf->download('ServiceNeededItems.pdf');
     }
 
@@ -192,9 +202,16 @@ class ServiceNeededItemController extends Controller
             ['service_id', 'asset_id', 'description', 'unit', 'qty', 'notes_multiline'],
             function ($row) {
                 $errors = [];
-                if (empty($row['service_id'])) $errors[] = 'Missing service_id';
-                if (empty($row['asset_id'])) $errors[] = 'Missing asset_id';
-                if (isset($row['qty']) && !is_numeric($row['qty'])) $errors[] = 'qty must be numeric';
+                if (empty($row['service_id'])) {
+                    $errors[] = 'Missing service_id';
+                }
+                if (empty($row['asset_id'])) {
+                    $errors[] = 'Missing asset_id';
+                }
+                if (isset($row['qty']) && ! is_numeric($row['qty'])) {
+                    $errors[] = 'qty must be numeric';
+                }
+
                 return $errors;
             },
             function ($row) {
@@ -219,5 +236,3 @@ class ServiceNeededItemController extends Controller
         ]);
     }
 }
-
-

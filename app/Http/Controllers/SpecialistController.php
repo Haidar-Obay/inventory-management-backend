@@ -24,6 +24,7 @@ class SpecialistController extends Controller
             });
         }
         $specialists = $query->orderBy('name')->paginate();
+
         return response()->json($specialists);
     }
 
@@ -31,12 +32,13 @@ class SpecialistController extends Controller
     {
         $data = $request->validated();
         $specialist = Specialist::create(['name' => $data['name']]);
-        if (!empty($data['speciality_ids'])) {
+        if (! empty($data['speciality_ids'])) {
             $specialist->specialities()->sync($data['speciality_ids']);
         }
-        if (!empty($data['asset_ids'])) {
+        if (! empty($data['asset_ids'])) {
             $specialist->assets()->sync($data['asset_ids']);
         }
+
         return response()->json($specialist->load(['specialities:id,name', 'assets:id,name']), 201);
     }
 
@@ -55,12 +57,14 @@ class SpecialistController extends Controller
         if (array_key_exists('asset_ids', $data)) {
             $specialist->assets()->sync($data['asset_ids'] ?? []);
         }
+
         return response()->json($specialist->load(['specialities:id,name', 'assets:id,name']));
     }
 
     public function destroy(Specialist $specialist): JsonResponse
     {
         $specialist->delete();
+
         return response()->json(['message' => 'Deleted']);
     }
 
@@ -71,6 +75,7 @@ class SpecialistController extends Controller
             'ids.*' => ['integer', 'exists:specialities,id'],
         ]);
         $specialist->specialities()->syncWithoutDetaching($validated['ids']);
+
         return response()->json($specialist->load('specialities'));
     }
 
@@ -81,6 +86,7 @@ class SpecialistController extends Controller
             'ids.*' => ['integer', 'exists:specialities,id'],
         ]);
         $specialist->specialities()->detach($validated['ids']);
+
         return response()->json($specialist->load('specialities'));
     }
 
@@ -91,6 +97,7 @@ class SpecialistController extends Controller
             'ids.*' => ['integer', 'exists:assets,id'],
         ]);
         $specialist->assets()->syncWithoutDetaching($validated['ids']);
+
         return response()->json($specialist->load('assets'));
     }
 
@@ -101,13 +108,23 @@ class SpecialistController extends Controller
             'ids.*' => ['integer', 'exists:assets,id'],
         ]);
         $specialist->assets()->detach($validated['ids']);
+
         return response()->json($specialist->load('assets'));
     }
 
-    public function exportExcell() { /* implement if needed later */ }
-    public function exportPdf() { /* implement if needed later */ }
-    public function importFromExcel() { /* implement if needed later */ }
-    public function bulkDelete() { /* implement if needed later */ }
+    public function exportExcell()
+    { /* implement if needed later */
+    }
+
+    public function exportPdf()
+    { /* implement if needed later */
+    }
+
+    public function importFromExcel()
+    { /* implement if needed later */
+    }
+
+    public function bulkDelete()
+    { /* implement if needed later */
+    }
 }
-
-

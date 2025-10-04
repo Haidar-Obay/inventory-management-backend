@@ -2,11 +2,11 @@
 
 namespace App\Http\Requests\Customer;
 
+use App\Models\PaymentMethod;
+use App\Models\PaymentTerm;
+use App\Models\Salesman;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use App\Models\Salesman;
-use App\Models\PaymentTerm;
-use App\Models\PaymentMethod;
 
 class UpdateCustomerRequest extends FormRequest
 {
@@ -78,11 +78,11 @@ class UpdateCustomerRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $salesman = Salesman::find($value);
-                        if ($salesman && !$salesman->active) {
+                        if ($salesman && ! $salesman->active) {
                             $fail('The selected collector is inactive and cannot be assigned to a customer.');
                         }
                     }
-                }
+                },
             ],
             'supervisor_id' => [
                 'sometimes',
@@ -91,11 +91,11 @@ class UpdateCustomerRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $salesman = Salesman::find($value);
-                        if ($salesman && !$salesman->active) {
+                        if ($salesman && ! $salesman->active) {
                             $fail('The selected supervisor is inactive and cannot be assigned to a customer.');
                         }
                     }
-                }
+                },
             ],
             'manager_id' => [
                 'sometimes',
@@ -104,11 +104,11 @@ class UpdateCustomerRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $salesman = Salesman::find($value);
-                        if ($salesman && !$salesman->active) {
+                        if ($salesman && ! $salesman->active) {
                             $fail('The selected manager is inactive and cannot be assigned to a customer.');
                         }
                     }
-                }
+                },
             ],
 
             // Payment relationships with active validation
@@ -119,11 +119,11 @@ class UpdateCustomerRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $paymentTerm = PaymentTerm::find($value);
-                        if ($paymentTerm && !$paymentTerm->active) {
+                        if ($paymentTerm && ! $paymentTerm->active) {
                             $fail('The selected payment term is inactive and cannot be assigned to a customer.');
                         }
                     }
-                }
+                },
             ],
             'selected_payment_method' => [
                 'sometimes',
@@ -132,11 +132,11 @@ class UpdateCustomerRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     if ($value) {
                         $paymentMethod = PaymentMethod::find($value);
-                        if ($paymentMethod && !$paymentMethod->active) {
+                        if ($paymentMethod && ! $paymentMethod->active) {
                             $fail('The selected payment method is inactive and cannot be assigned to a customer.');
                         }
                     }
-                }
+                },
             ],
             'allow_credit' => 'sometimes|nullable|boolean',
             'accept_cheques' => 'sometimes|nullable|boolean',
@@ -163,7 +163,7 @@ class UpdateCustomerRequest extends FormRequest
                     if ($value && $taxable === false) {
                         $fail('Taxed from date cannot be set when customer is not taxable.');
                     }
-                }
+                },
             ],
             'taxed_till_date' => [
                 'sometimes',
@@ -175,7 +175,7 @@ class UpdateCustomerRequest extends FormRequest
                     if ($value && $taxable === false) {
                         $fail('Taxed till date cannot be set when customer is not taxable.');
                     }
-                }
+                },
             ],
             'subjected_to_tax' => [
                 'sometimes',
@@ -186,7 +186,7 @@ class UpdateCustomerRequest extends FormRequest
                     if ($value && $taxable === false) {
                         $fail('Subjected to tax cannot be set when customer is not taxable.');
                     }
-                }
+                },
             ],
             'added_tax' => [
                 'sometimes',
@@ -203,7 +203,7 @@ class UpdateCustomerRequest extends FormRequest
                     if ($value && $subjectedToTax === false) {
                         $fail('Added tax cannot be set when customer is not subjected to tax.');
                     }
-                }
+                },
             ],
             'exempted' => [
                 'sometimes',
@@ -214,7 +214,7 @@ class UpdateCustomerRequest extends FormRequest
                     if ($value && $taxable === false) {
                         $fail('Tax exemption cannot be set when customer is not taxable.');
                     }
-                }
+                },
             ],
             'exempted_from' => [
                 'sometimes',
@@ -230,7 +230,7 @@ class UpdateCustomerRequest extends FormRequest
                     if ($value && $exempted === false) {
                         $fail('Exemption reason cannot be set when customer is not exempted.');
                     }
-                }
+                },
             ],
             'exemption_reference' => [
                 'sometimes',
@@ -246,7 +246,7 @@ class UpdateCustomerRequest extends FormRequest
                     if ($value && $exempted === false) {
                         $fail('Exemption reference cannot be set when customer is not exempted.');
                     }
-                }
+                },
             ],
             'exempted_from_date' => [
                 'sometimes',
@@ -261,7 +261,7 @@ class UpdateCustomerRequest extends FormRequest
                     if ($value && $exempted === false) {
                         $fail('Exemption start date cannot be set when customer is not exempted.');
                     }
-                }
+                },
             ],
             'exempted_till_date' => [
                 'sometimes',
@@ -277,7 +277,7 @@ class UpdateCustomerRequest extends FormRequest
                     if ($value && $exempted === false) {
                         $fail('Exemption end date cannot be set when customer is not exempted.');
                     }
-                }
+                },
             ],
 
             // Status flags
@@ -402,7 +402,7 @@ class UpdateCustomerRequest extends FormRequest
             'addresses.min' => 'At least one address must be provided.',
             'addresses.*.address_type.in' => 'Address type must be billing, shipping, or both.',
             'addresses.*.address_line1.required' => 'Address line 1 is required for each address.',
-            
+
             // Credit limits messages
             'credit_limits.*.currency_id.required' => 'Currency is required for each credit limit.',
             'credit_limits.*.currency_id.exists' => 'Selected currency does not exist.',

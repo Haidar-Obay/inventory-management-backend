@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\TransportationChannel;
-use App\Http\Requests\TransportationChannel\StoreTransportationChannelRequest;
-use App\Http\Requests\TransportationChannel\UpdateTransportationChannelRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\TransportationChannel\StoreTransportationChannelRequest;
+use App\Http\Requests\TransportationChannel\UpdateTransportationChannelRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\TransportationChannel;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class TransportationChannelController extends Controller
 {
@@ -22,7 +22,7 @@ class TransportationChannelController extends Controller
 
         $transportationChannels = app('cache')->store('database')->get($key);
 
-        if (!$transportationChannels) {
+        if (! $transportationChannels) {
             $transportationChannels = TransportationChannel::with('parent')->get();
             app('cache')->store('database')->forever($key, $transportationChannels);
         }
@@ -52,6 +52,7 @@ class TransportationChannelController extends Controller
         $tenantId = tenant('id');
         $transportationChannel = TransportationChannel::create($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_transportation_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Transportation channel created successfully.',
@@ -63,13 +64,15 @@ class TransportationChannelController extends Controller
     {
         try {
             $transportationChannel = TransportationChannel::findOrFail($id);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Transportation channel fetched successfully.',
                 'data' => $transportationChannel,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching transportation channel: ' . $e->getMessage());
+            Log::error('Error fetching transportation channel: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Transportation channel not found',
@@ -95,6 +98,7 @@ class TransportationChannelController extends Controller
         $tenantId = tenant('id');
         $transportationChannel->update($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_transportation_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Transportation channel updated successfully.',
@@ -113,6 +117,7 @@ class TransportationChannelController extends Controller
         }
         $transportationChannel->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_transportation_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Transportation channel deleted successfully.',
@@ -124,7 +129,7 @@ class TransportationChannelController extends Controller
         $tenantId = tenant('id');
         $ids = $request->input('ids');
 
-        if (!$ids || !is_array($ids)) {
+        if (! $ids || ! is_array($ids)) {
             return response()->json([
                 'status' => false,
                 'message' => 'No transportation channels selected for deletion',
@@ -141,13 +146,14 @@ class TransportationChannelController extends Controller
                     ], 422);
                 }
                 $transportationChannel->delete();
-                Cache::forget("transportation_channels_" . tenant('id'));
-                Cache::forget("transportation_channel_{$transportationChannel->id}_" . tenant('id'));
+                Cache::forget('transportation_channels_'.tenant('id'));
+                Cache::forget("transportation_channel_{$transportationChannel->id}_".tenant('id'));
             }
 
             return response()->json(null, 204);
         } catch (\Exception $e) {
-            Log::error('Error in bulk delete: ' . $e->getMessage());
+            Log::error('Error in bulk delete: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to delete transportation channels',
@@ -216,6 +222,7 @@ class TransportationChannelController extends Controller
         $data = $transportationChannels->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('TransportationChannels.pdf');
     }
 
@@ -250,14 +257,19 @@ class TransportationChannelController extends Controller
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                     $subKey = $mapping ? array_search('sub_transportation_of', $mapping) : 'sub_transportation_of';
-                    if (empty($row[$codeKey])) $errors[] = 'Code is required';
-                    if (empty($row[$nameKey])) $errors[] = 'Name is required';
-                    if (!empty($row[$subKey])) {
+                    if (empty($row[$codeKey])) {
+                        $errors[] = 'Code is required';
+                    }
+                    if (empty($row[$nameKey])) {
+                        $errors[] = 'Name is required';
+                    }
+                    if (! empty($row[$subKey])) {
                         $parentChannel = TransportationChannel::where('code', $row[$subKey])->first();
-                        if (!$parentChannel) {
+                        if (! $parentChannel) {
                             $errors[] = "Parent transportation channel with code '{$row[$subKey]}' not found";
                         }
                     }
+
                     return $errors;
                 },
                 function ($row) use ($mapping) {
@@ -265,12 +277,13 @@ class TransportationChannelController extends Controller
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                     $subKey = $mapping ? array_search('sub_transportation_of', $mapping) : 'sub_transportation_of';
                     $subTransportationOfId = null;
-                    if (!empty($row[$subKey])) {
+                    if (! empty($row[$subKey])) {
                         $parentChannel = TransportationChannel::where('code', $row[$subKey])->first();
                         if ($parentChannel) {
                             $subTransportationOfId = $parentChannel->id;
                         }
                     }
+
                     return [
                         'code' => $row[$codeKey] ?? null,
                         'name' => $row[$nameKey] ?? null,
@@ -281,8 +294,9 @@ class TransportationChannelController extends Controller
             );
             Excel::import($import, $request->file('file'));
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'status' => false,
                     'message' => 'Invalid Excel file headers',
@@ -291,11 +305,12 @@ class TransportationChannelController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
             app('cache')->store('database')->forget("tenant_{$tenantId}_transportation_channels");
+
             return response()->json([
                 'status' => true,
                 'message' => 'Import successful',
@@ -306,11 +321,10 @@ class TransportationChannelController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Import failed: ' . $e->getMessage(),
+                'message' => 'Import failed: '.$e->getMessage(),
             ], 422);
         }
     }
-
 
     public function getSubTransportationChannels($transportationChannelId)
     {
@@ -333,7 +347,7 @@ class TransportationChannelController extends Controller
             ->map(function ($transportationChannel) {
                 return [
                     'id' => $transportationChannel->id,
-                    'name' => $transportationChannel->name
+                    'name' => $transportationChannel->name,
                 ];
             });
 

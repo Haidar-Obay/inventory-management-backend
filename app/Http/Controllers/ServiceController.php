@@ -2,22 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreServiceRequest;
-use App\Http\Requests\UpdateServiceRequest;
-use App\Models\Service;
-use App\Models\ServiceCategory;
-use App\Models\ServiceAdvancedPricing;
-use App\Models\ServiceNeededItem;
-use App\Models\AssociationServicePrice;
-use App\Models\ReferrerServiceCommission;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\StoreServiceRequest;
+use App\Http\Requests\UpdateServiceRequest;
 use App\Imports\DynamicExcelImport;
-use Illuminate\Support\Facades\Storage;
+use App\Models\AssociationServicePrice;
+use App\Models\ReferrerServiceCommission;
+use App\Models\Service;
+use App\Models\ServiceAdvancedPricing;
+use App\Models\ServiceNeededItem;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ServiceController extends Controller
 {
@@ -48,6 +47,7 @@ class ServiceController extends Controller
         $services->getCollection()->transform(function ($service) {
             return $service->makeHidden(['service_category_id', 'department_id', 'sub_department_id', 'image']);
         });
+
         return response()->json($services);
     }
 
@@ -62,21 +62,21 @@ class ServiceController extends Controller
         if (request()->hasFile('image')) {
             $path = Storage::disk('public')->putFile('services', request()->file('image'));
             $data['image'] = Storage::url($path);
-        } elseif (!empty($data['image']) && is_string($data['image'])) {
+        } elseif (! empty($data['image']) && is_string($data['image'])) {
             $imageString = $data['image'];
             if (str_starts_with($imageString, 'data:image')) {
                 // Decode base64 data URL and store as file
                 [$_meta, $base64Data] = explode(',', $imageString, 2);
                 $binary = base64_decode($base64Data, true);
                 if ($binary !== false) {
-                    $filename = 'services/' . uniqid('svc_', true) . '.png';
+                    $filename = 'services/'.uniqid('svc_', true).'.png';
                     Storage::disk('public')->put($filename, $binary);
                     $data['image'] = Storage::url($filename);
                 } else {
                     // If decode fails, drop the image to avoid oversized string insert
                     unset($data['image']);
                 }
-            } else if (filter_var($imageString, FILTER_VALIDATE_URL)) {
+            } elseif (filter_var($imageString, FILTER_VALIDATE_URL)) {
                 // Keep as-is if it is a valid URL
                 $data['image'] = $imageString;
             } else {
@@ -86,11 +86,11 @@ class ServiceController extends Controller
         }
 
         $service = Service::create($data);
-        if (!empty($specialistIds)) {
+        if (! empty($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
         $service->load(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Service created successfully.',
@@ -106,7 +106,6 @@ class ServiceController extends Controller
             'subDepartment:id,name',
             'specialists:id,name',
         ]);
-
 
         // Attach advanced pricing (with specialist)
         $advancedPricings = ServiceAdvancedPricing::with('specialist:id,name')
@@ -157,15 +156,15 @@ class ServiceController extends Controller
                 [$_meta, $base64Data] = explode(',', $imageString, 2);
                 $binary = base64_decode($base64Data, true);
                 if ($binary !== false) {
-                    $filename = 'services/' . uniqid('svc_', true) . '.png';
+                    $filename = 'services/'.uniqid('svc_', true).'.png';
                     Storage::disk('public')->put($filename, $binary);
                     $data['image'] = Storage::url($filename);
                 } else {
                     unset($data['image']);
                 }
-            } else if (!empty($imageString) && filter_var($imageString, FILTER_VALIDATE_URL)) {
+            } elseif (! empty($imageString) && filter_var($imageString, FILTER_VALIDATE_URL)) {
                 $data['image'] = $imageString;
-            } else if ($imageString === null || $imageString === '') {
+            } elseif ($imageString === null || $imageString === '') {
                 // Explicitly clearing image
                 $data['image'] = null;
             } else {
@@ -178,7 +177,7 @@ class ServiceController extends Controller
             $service->specialists()->sync($specialistIds);
         }
         $service->load(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Service updated successfully.',
@@ -189,6 +188,7 @@ class ServiceController extends Controller
     public function destroy(Service $service): JsonResponse
     {
         $service->delete();
+
         return response()->json(['message' => 'Deleted']);
     }
 
@@ -240,10 +240,11 @@ class ServiceController extends Controller
             'Price Calculated by Hour', 'Hour Price', 'Estimated Cost',
             'Service Color', 'Service Sex', 'Active',
             'Department', 'Sub Department', 'Specialists',
-            'Created At', 'Updated At'
+            'Created At', 'Updated At',
         ];
 
-        $fileName = 'services_' . '.xlsx';
+        $fileName = 'services_'.'.xlsx';
+
         return Excel::download(new Export($services, $columns, $headings), $fileName);
     }
 
@@ -260,7 +261,7 @@ class ServiceController extends Controller
                 'id', 'name', 'service_category_id', 'cnss_code', 'result_after_days', 'needs_specialist',
                 'duration_minutes', 'normal_price', 'vip_price', 'price_in_group', 'event_pricing',
                 'price_calculated_by_hour', 'hour_price', 'estimated_cost', 'service_color', 'service_sex',
-                'active', 'department_id', 'sub_department_id', 'created_at', 'updated_at'
+                'active', 'department_id', 'sub_department_id', 'created_at', 'updated_at',
             ]);
 
         if ($services->isEmpty()) {
@@ -325,7 +326,8 @@ class ServiceController extends Controller
         })->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
-        return $pdf->download('services_' . '.pdf');
+
+        return $pdf->download('services_'.'.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -373,28 +375,39 @@ class ServiceController extends Controller
                     'active',
                 ],
                 function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $errors = [];
 
                     if (empty($row['name'])) {
                         $errors[] = 'Missing name';
                     }
 
-                    if (!empty($row['needs_specialist']) && empty($row['specialist_id'])) {
+                    if (! empty($row['needs_specialist']) && empty($row['specialist_id'])) {
                         $errors[] = 'specialist_id required when needs_specialist is true';
                     }
 
-                    if (!empty($row['price_calculated_by_hour']) && (empty($row['hour_price']) || !is_numeric($row['hour_price']))) {
+                    if (! empty($row['price_calculated_by_hour']) && (empty($row['hour_price']) || ! is_numeric($row['hour_price']))) {
                         $errors[] = 'hour_price required and numeric when price_calculated_by_hour is true';
                     }
 
                     return $errors;
                 },
                 function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $toBool = function ($val) {
-                        if (is_bool($val)) return $val;
+                        if (is_bool($val)) {
+                            return $val;
+                        }
                         $val = strtolower((string) $val);
+
                         return in_array($val, ['1', 'true', 'yes', 'y']);
                     };
 
@@ -428,8 +441,9 @@ class ServiceController extends Controller
             Excel::import($import, $request->file('file'));
 
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -438,8 +452,8 @@ class ServiceController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
 
@@ -469,7 +483,8 @@ class ServiceController extends Controller
                 'header_validation' => $import->getHeaderValidationResult(),
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
-            Log::error('Import failed: ' . $e->getMessage(), ['exception' => $e]);
+            Log::error('Import failed: '.$e->getMessage(), ['exception' => $e]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Import failed due to invalid data. Please check your file for invalid or missing references.',
@@ -503,5 +518,3 @@ class ServiceController extends Controller
         ]);
     }
 }
-
-

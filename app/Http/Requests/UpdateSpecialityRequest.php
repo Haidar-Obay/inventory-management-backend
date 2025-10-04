@@ -15,10 +15,9 @@ class UpdateSpecialityRequest extends FormRequest
     {
         $routeSpeciality = request()->route('speciality');
         $id = is_object($routeSpeciality) ? ($routeSpeciality->id ?? null) : $routeSpeciality;
+
         return [
-            'name' => ['required', 'string', 'max:255', 'unique:specialities,name,' . $id],
+            'name' => ['required', 'string', 'max:255', 'unique:specialities,name,'.$id],
         ];
     }
 }
-
-

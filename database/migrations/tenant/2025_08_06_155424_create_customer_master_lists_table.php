@@ -18,7 +18,7 @@ return new class extends Migration
             $table->date('valid_from');
             $table->date('valid_till');
             $table->timestamps();
-            
+
             // Add indexes for better performance
             $table->index(['valid_from', 'valid_till']);
         });

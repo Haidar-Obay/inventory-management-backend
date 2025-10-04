@@ -25,5 +25,3 @@ return new class extends Migration
         Schema::dropIfExists('association_service_prices');
     }
 };
-
-

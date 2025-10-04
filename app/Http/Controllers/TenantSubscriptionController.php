@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Tenant;
 use App\Models\SubscriptionPlan;
+use App\Models\Tenant;
 use App\Services\SubscriptionService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class TenantSubscriptionController extends Controller
@@ -27,19 +27,19 @@ class TenantSubscriptionController extends Controller
         return response()->json([
             'tenant_id' => $tenant->id,
             'tenant_name' => $tenant->name,
-            'subscription' => $subscriptionInfo
+            'subscription' => $subscriptionInfo,
         ]);
     }
 
     public function upgradeTenantPlan(Request $request, $tenantId): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'subscription_plan_id' => 'required|exists:subscription_plans,id'
+            'subscription_plan_id' => 'required|exists:subscription_plans,id',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -53,11 +53,11 @@ class TenantSubscriptionController extends Controller
                 'message' => 'Tenant plan upgraded successfully',
                 'tenant_id' => $tenant->id,
                 'new_plan' => $newPlan->name,
-                'subscription_info' => $this->subscriptionService->getTenantSubscriptionInfo($tenant)
+                'subscription_info' => $this->subscriptionService->getTenantSubscriptionInfo($tenant),
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to upgrade tenant plan: ' . $e->getMessage()
+                'error' => 'Failed to upgrade tenant plan: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -72,11 +72,11 @@ class TenantSubscriptionController extends Controller
             return response()->json([
                 'message' => 'Tenant subscription cancelled successfully',
                 'tenant_id' => $tenant->id,
-                'subscription_status' => 'cancelled'
+                'subscription_status' => 'cancelled',
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to cancel tenant subscription: ' . $e->getMessage()
+                'error' => 'Failed to cancel tenant subscription: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -87,15 +87,15 @@ class TenantSubscriptionController extends Controller
 
         if ($tenant->subscription_status !== 'cancelled') {
             return response()->json([
-                'error' => 'Subscription is not cancelled'
+                'error' => 'Subscription is not cancelled',
             ], 400);
         }
 
         try {
             $plan = $tenant->subscriptionPlan;
-            if (!$plan) {
+            if (! $plan) {
                 return response()->json([
-                    'error' => 'No subscription plan found for tenant'
+                    'error' => 'No subscription plan found for tenant',
                 ], 400);
             }
 
@@ -104,11 +104,11 @@ class TenantSubscriptionController extends Controller
             return response()->json([
                 'message' => 'Tenant subscription reactivated successfully',
                 'tenant_id' => $tenant->id,
-                'subscription_info' => $this->subscriptionService->getTenantSubscriptionInfo($tenant)
+                'subscription_info' => $this->subscriptionService->getTenantSubscriptionInfo($tenant),
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to reactivate tenant subscription: ' . $e->getMessage()
+                'error' => 'Failed to reactivate tenant subscription: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -121,11 +121,11 @@ class TenantSubscriptionController extends Controller
             return response()->json([
                 'message' => 'Expired subscriptions check completed',
                 'updated_count' => $result['updated_count'],
-                'errors' => $result['errors']
+                'errors' => $result['errors'],
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to check expired subscriptions: ' . $e->getMessage()
+                'error' => 'Failed to check expired subscriptions: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -139,12 +139,12 @@ class TenantSubscriptionController extends Controller
                 'tenant_id' => $tenant->id,
                 'tenant_name' => $tenant->name,
                 'tenant_email' => $tenant->email,
-                'subscription' => $this->subscriptionService->getTenantSubscriptionInfo($tenant)
+                'subscription' => $this->subscriptionService->getTenantSubscriptionInfo($tenant),
             ];
         });
 
         return response()->json([
-            'tenants_subscriptions' => $subscriptions
+            'tenants_subscriptions' => $subscriptions,
         ]);
     }
 }

@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\CustomerChequeLimit;
-use App\Models\Currency;
-use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Support\Facades\DB;
 
 class ChequeLimitService
 {
@@ -15,7 +15,7 @@ class ChequeLimitService
      */
     public function canAcceptCheques(Customer $customer, int $count, int $currencyId): array
     {
-        if (!$customer->accept_cheque) {
+        if (! $customer->accept_cheque) {
             return [
                 'can_accept' => false,
                 'reason' => 'Customer does not accept cheques',
@@ -26,7 +26,7 @@ class ChequeLimitService
 
         $chequeLimit = $customer->getChequeLimitForCurrency($currencyId);
 
-        if (!$chequeLimit) {
+        if (! $chequeLimit) {
             return [
                 'can_accept' => false,
                 'reason' => 'No cheque limit set for this currency',
@@ -55,7 +55,7 @@ class ChequeLimitService
     {
         $check = $this->canAcceptCheques($customer, $count, $currencyId);
 
-        if (!$check['can_accept']) {
+        if (! $check['can_accept']) {
             throw new Exception($check['reason']);
         }
 
@@ -81,7 +81,7 @@ class ChequeLimitService
     /**
      * Set cheque limit for a customer in a specific currency
      */
-    public function setChequeLimit(Customer $customer, int $currencyId, int $maxCheques, string $notes = null): CustomerChequeLimit
+    public function setChequeLimit(Customer $customer, int $currencyId, int $maxCheques, ?string $notes = null): CustomerChequeLimit
     {
         // Validate currency exists
         $currency = Currency::findOrFail($currencyId);
@@ -191,11 +191,11 @@ class ChequeLimitService
     {
         $errors = [];
 
-        if (!isset($data['currency_id']) || !Currency::find($data['currency_id'])) {
+        if (! isset($data['currency_id']) || ! Currency::find($data['currency_id'])) {
             $errors[] = 'Invalid currency selected';
         }
 
-        if (!isset($data['max_cheques']) || $data['max_cheques'] < 0) {
+        if (! isset($data['max_cheques']) || $data['max_cheques'] < 0) {
             $errors[] = 'Max cheques must be a non-negative number';
         }
 
@@ -210,12 +210,12 @@ class ChequeLimitService
         $customers = Customer::where('accept_cheque', true)
             ->whereHas('chequeLimits', function ($query) {
                 $query->where('used_cheques', '>', 'max_cheques')
-                      ->where('is_active', true);
+                    ->where('is_active', true);
             })
             ->with(['chequeLimits' => function ($query) {
                 $query->where('used_cheques', '>', 'max_cheques')
-                      ->where('is_active', true)
-                      ->with('currency');
+                    ->where('is_active', true)
+                    ->with('currency');
             }])
             ->get();
 
@@ -241,7 +241,7 @@ class ChequeLimitService
     {
         $check = $this->canAcceptCheques($customer, $chequeCount, $currencyId);
 
-        if (!$check['can_accept']) {
+        if (! $check['can_accept']) {
             return [
                 'success' => false,
                 'message' => $check['reason'],
@@ -266,7 +266,7 @@ class ChequeLimitService
         } catch (Exception $e) {
             return [
                 'success' => false,
-                'message' => 'Failed to process cheque payment: ' . $e->getMessage(),
+                'message' => 'Failed to process cheque payment: '.$e->getMessage(),
                 'data' => null,
             ];
         }
@@ -280,14 +280,14 @@ class ChequeLimitService
         $customers = Customer::where('accept_cheque', true)
             ->whereHas('chequeLimits', function ($query) {
                 $query->whereRaw('(used_cheques * 100.0 / max_cheques) >= 80')
-                      ->where('is_active', true)
-                      ->where('max_cheques', '>', 0);
+                    ->where('is_active', true)
+                    ->where('max_cheques', '>', 0);
             })
             ->with(['chequeLimits' => function ($query) {
                 $query->whereRaw('(used_cheques * 100.0 / max_cheques) >= 80')
-                      ->where('is_active', true)
-                      ->where('max_cheques', '>', 0)
-                      ->with('currency');
+                    ->where('is_active', true)
+                    ->where('max_cheques', '>', 0)
+                    ->with('currency');
             }])
             ->get();
 

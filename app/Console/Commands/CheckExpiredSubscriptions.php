@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 class CheckExpiredSubscriptions extends Command
 {
     protected $signature = 'subscriptions:check-expired';
+
     protected $description = 'Check and update expired tenant subscriptions';
 
     protected $subscriptionService;
@@ -31,7 +32,7 @@ class CheckExpiredSubscriptions extends Command
                 $this->info('No expired subscriptions found.');
             }
 
-            if (!empty($result['errors'])) {
+            if (! empty($result['errors'])) {
                 $this->warn('Some errors occurred:');
                 foreach ($result['errors'] as $error) {
                     $this->error($error);
@@ -40,7 +41,8 @@ class CheckExpiredSubscriptions extends Command
 
             $this->info('Subscription check completed successfully.');
         } catch (\Exception $e) {
-            $this->error('Failed to check expired subscriptions: ' . $e->getMessage());
+            $this->error('Failed to check expired subscriptions: '.$e->getMessage());
+
             return 1;
         }
 

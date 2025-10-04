@@ -29,9 +29,9 @@ return [
         'guards' => [
             'web',
             'api',
-            'sanctum'
+            'sanctum',
         ],
-       'resolver' => OwenIt\Auditing\Resolvers\UserResolver::class,
+        'resolver' => OwenIt\Auditing\Resolvers\UserResolver::class,
     ],
 
     /*
@@ -103,7 +103,7 @@ return [
     */
 
     'empty_values' => true,
-'allowed_empty_values' => [
+    'allowed_empty_values' => [
         'retrieved',
     ],
 

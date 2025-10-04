@@ -248,6 +248,7 @@ class CustomerTaxController extends Controller
         $errors = [];
 
         DB::beginTransaction();
+
         try {
             foreach ($request->customers as $index => $customerData) {
                 $customer = Customer::find($customerData['customer_id']);
@@ -275,8 +276,9 @@ class CustomerTaxController extends Controller
                 }
             }
 
-            if (!empty($errors)) {
+            if (! empty($errors)) {
                 DB::rollBack();
+
                 return response()->json([
                     'status' => false,
                     'message' => 'Some tax exemptions could not be set.',
@@ -294,6 +296,7 @@ class CustomerTaxController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to set tax exemptions.',

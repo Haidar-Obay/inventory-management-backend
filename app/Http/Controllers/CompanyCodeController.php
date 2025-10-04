@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 use App\Models\CompanyCode;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class CompanyCodeController extends Controller
 {
@@ -19,7 +19,7 @@ class CompanyCodeController extends Controller
 
         $companyCodes = app('cache')->store('database')->get($key);
 
-        if (!$companyCodes) {
+        if (! $companyCodes) {
             $companyCodes = CompanyCode::orderBy('name')->get();
             app('cache')->store('database')->forever($key, $companyCodes);
         }
@@ -57,7 +57,7 @@ class CompanyCodeController extends Controller
 
         $cachedCompanyCode = app('cache')->store('database')->get($key);
 
-        if (!$cachedCompanyCode) {
+        if (! $cachedCompanyCode) {
             $cachedCompanyCode = $companyCode;
             app('cache')->store('database')->forever($key, $cachedCompanyCode);
         }
@@ -165,6 +165,7 @@ class CompanyCodeController extends Controller
         $data = $companyCodes->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('CompanyCodes.pdf');
     }
 
@@ -195,20 +196,33 @@ class CompanyCodeController extends Controller
             CompanyCode::class,
             $fields,
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
 
-                if (($row[$codeKey] ?? '') === '') { $errors[] = 'Missing code'; }
-                if (($row[$nameKey] ?? '') === '') { $errors[] = 'Missing name'; }
+                if (($row[$codeKey] ?? '') === '') {
+                    $errors[] = 'Missing code';
+                }
+                if (($row[$nameKey] ?? '') === '') {
+                    $errors[] = 'Missing name';
+                }
 
                 return $errors;
             },
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+
                 return [
                     'code' => $row[$codeKey] ?? null,
                     'name' => $row[$nameKey] ?? null,
@@ -220,8 +234,9 @@ class CompanyCodeController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -230,12 +245,12 @@ class CompanyCodeController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_company_codes');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_company_codes');
 
         $imported = $import->getImportedCount();
         $skippedCount = $import->getSkippedCount();

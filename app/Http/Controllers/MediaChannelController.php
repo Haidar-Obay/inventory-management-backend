@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\MediaChannel;
-use App\Http\Requests\MediaChannel\StoreMediaChannelRequest;
-use App\Http\Requests\MediaChannel\UpdateMediaChannelRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\MediaChannel\StoreMediaChannelRequest;
+use App\Http\Requests\MediaChannel\UpdateMediaChannelRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\MediaChannel;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class MediaChannelController extends Controller
 {
@@ -22,7 +22,7 @@ class MediaChannelController extends Controller
 
         $mediaChannels = app('cache')->store('database')->get($key);
 
-        if (!$mediaChannels) {
+        if (! $mediaChannels) {
             $mediaChannels = MediaChannel::with('parent')->get();
             app('cache')->store('database')->forever($key, $mediaChannels);
         }
@@ -52,6 +52,7 @@ class MediaChannelController extends Controller
         $tenantId = tenant('id');
         $mediaChannel = MediaChannel::create($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_media_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Media channel created successfully.',
@@ -63,13 +64,15 @@ class MediaChannelController extends Controller
     {
         try {
             $mediaChannel = MediaChannel::findOrFail($id);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Media channel fetched successfully.',
                 'data' => $mediaChannel,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching media channel: ' . $e->getMessage());
+            Log::error('Error fetching media channel: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Media channel not found',
@@ -95,6 +98,7 @@ class MediaChannelController extends Controller
         $tenantId = tenant('id');
         $mediaChannel->update($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_media_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Media channel updated successfully.',
@@ -113,6 +117,7 @@ class MediaChannelController extends Controller
         }
         $mediaChannel->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_media_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Media channel deleted successfully.',
@@ -124,7 +129,7 @@ class MediaChannelController extends Controller
         $tenantId = tenant('id');
         $ids = $request->input('ids');
 
-        if (!$ids || !is_array($ids)) {
+        if (! $ids || ! is_array($ids)) {
             return response()->json([
                 'status' => false,
                 'message' => 'No media channels selected for deletion',
@@ -141,13 +146,14 @@ class MediaChannelController extends Controller
                     ], 422);
                 }
                 $mediaChannel->delete();
-                Cache::forget("media_channels_" . tenant('id'));
-                Cache::forget("media_channel_{$mediaChannel->id}_" . tenant('id'));
+                Cache::forget('media_channels_'.tenant('id'));
+                Cache::forget("media_channel_{$mediaChannel->id}_".tenant('id'));
             }
 
             return response()->json(null, 204);
         } catch (\Exception $e) {
-            Log::error('Error in bulk delete: ' . $e->getMessage());
+            Log::error('Error in bulk delete: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to delete media channels',
@@ -165,7 +171,7 @@ class MediaChannelController extends Controller
                 'media_channels.name',
                 'parent.code as parent_code',
                 'media_channels.created_at',
-                'media_channels.updated_at'
+                'media_channels.updated_at',
             ]);
 
         $collection = $mediaChannels->get();
@@ -193,7 +199,7 @@ class MediaChannelController extends Controller
                 'media_channels.name',
                 'parent.code as parent_code',
                 'media_channels.created_at',
-                'media_channels.updated_at'
+                'media_channels.updated_at',
             ])
             ->get();
 
@@ -216,6 +222,7 @@ class MediaChannelController extends Controller
         $data = $mediaChannels->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('MediaChannels.pdf');
     }
 
@@ -248,33 +255,48 @@ class MediaChannelController extends Controller
             if ($request->boolean('clear_existing')) {
                 MediaChannel::truncate();
             }
-            
+
             // First pass: Import all media channels without parent relationships
             $import = new DynamicExcelImport(MediaChannel::class, ['code', 'name'], function ($row) use ($mapping) {
                 // Normalize inputs
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
-                if ((($row[$codeKey] ?? '') === '')) { $errors[] = 'Code is required'; }
-                if ((($row[$nameKey] ?? '') === '')) { $errors[] = 'Name is required'; }
+                if ((($row[$codeKey] ?? '') === '')) {
+                    $errors[] = 'Code is required';
+                }
+                if ((($row[$nameKey] ?? '') === '')) {
+                    $errors[] = 'Name is required';
+                }
+
                 return $errors;
             }, function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+
                 return [
                     'code' => $row[$codeKey] ?? null,
                     'name' => $row[$nameKey] ?? null,
                     'sub_media_of' => null,
                 ];
             }, $mapping ? false : true);
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'status' => false,
                     'message' => 'Invalid Excel file headers',
@@ -283,14 +305,14 @@ class MediaChannelController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
 
             // Second pass: Update parent relationships
             $this->updateParentRelationships($request->file('file'), $mapping);
-            
+
             app('cache')->store('database')->forget("tenant_{$tenantId}_media_channels");
 
             $imported = $import->getImportedCount();
@@ -320,55 +342,56 @@ class MediaChannelController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Import failed: ' . $e->getMessage(),
+                'message' => 'Import failed: '.$e->getMessage(),
             ], 422);
         }
     }
 
     private function updateParentRelationships($file, $mapping = null)
     {
-        $data = Excel::toArray(new \stdClass(), $file);
+        $data = Excel::toArray(new \stdClass, $file);
         $rows = $data[0] ?? [];
         $errors = [];
-        
+
         // Skip header row
         array_shift($rows);
-        
+
         foreach ($rows as $index => $row) {
             $codeKey = $mapping ? array_search('code', $mapping) : 'code';
             $parentKey = $mapping ? array_search('sub_media_of', $mapping) : 'sub_media_of';
             if (empty($row[$codeKey]) || empty($row[$parentKey])) {
                 continue;
             }
-            
+
             $mediaChannel = MediaChannel::where('code', $row[$codeKey])->first();
             $parentChannel = MediaChannel::where('code', $row[$parentKey])->first();
-            
-            if (!$mediaChannel) {
-                $errors[] = "Row " . ($index + 2) . ": Media channel with code '{$row[$codeKey]}' not found";
+
+            if (! $mediaChannel) {
+                $errors[] = 'Row '.($index + 2).": Media channel with code '{$row[$codeKey]}' not found";
+
                 continue;
             }
-            
-            if (!$parentChannel) {
-                $errors[] = "Row " . ($index + 2) . ": Parent media channel with code '{$row[$parentKey]}' not found";
+
+            if (! $parentChannel) {
+                $errors[] = 'Row '.($index + 2).": Parent media channel with code '{$row[$parentKey]}' not found";
+
                 continue;
             }
-            
+
             // Check if the parent media channel is not itself a sub-media channel
             if ($parentChannel->sub_media_of) {
-                $errors[] = "Row " . ($index + 2) . ": Cannot create sub-media channel under another sub-media channel '{$row['sub_media_of']}'";
+                $errors[] = 'Row '.($index + 2).": Cannot create sub-media channel under another sub-media channel '{$row['sub_media_of']}'";
+
                 continue;
             }
-            
+
             $mediaChannel->update(['sub_media_of' => $parentChannel->id]);
         }
-        
-        if (!empty($errors)) {
+
+        if (! empty($errors)) {
             Log::warning('Media channel import parent relationship errors', ['errors' => $errors]);
         }
     }
-
-    
 
     public function getSubMediaChannels($mediaChannelId)
     {

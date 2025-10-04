@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Permission;
-use App\Http\Requests\Permission\StorePermissionRequest;
-use App\Http\Requests\Permission\UpdatePermissionRequest;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Permission\StorePermissionRequest;
+use App\Http\Requests\Permission\UpdatePermissionRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\Permission;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PermissionController extends Controller
 {
@@ -25,11 +25,11 @@ class PermissionController extends Controller
 
             $permissions = app('cache')->store('database')->get($key);
 
-            if (!$permissions) {
+            if (! $permissions) {
                 $query = Permission::with('roles');
 
                 // Search functionality
-                if ($request->has('search') && !empty($request->search)) {
+                if ($request->has('search') && ! empty($request->search)) {
                     $query->search($request->search);
                 }
 
@@ -53,13 +53,13 @@ class PermissionController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Permissions retrieved successfully',
-                'data' => $permissions
+                'data' => $permissions,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve permissions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -78,13 +78,13 @@ class PermissionController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Permission created successfully',
-                'data' => $permission
+                'data' => $permission,
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to create permission',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -100,7 +100,7 @@ class PermissionController extends Controller
 
             $cachedPermission = app('cache')->store('database')->get($key);
 
-            if (!$cachedPermission) {
+            if (! $cachedPermission) {
                 $permission->load('roles');
 
                 $transformedData = [
@@ -125,13 +125,13 @@ class PermissionController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Permission retrieved successfully',
-                'data' => $cachedPermission
+                'data' => $cachedPermission,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve permission',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -151,13 +151,13 @@ class PermissionController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Permission updated successfully',
-                'data' => $permission
+                'data' => $permission,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update permission',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -184,13 +184,13 @@ class PermissionController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Permission deleted successfully'
+                'message' => 'Permission deleted successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to delete permission',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -203,17 +203,17 @@ class PermissionController extends Controller
         try {
             $permissions = Permission::with('roles');
             $columns = ['id', 'resource_key', 'resource_label',
-            'created_at',
-            'updated_at'];
+                'created_at',
+                'updated_at'];
             $headings = ['ID', 'Resource Key', 'Resource Label',
-            'Created At', 'Updated At'];
+                'Created At', 'Updated At'];
 
             return Excel::download(new Export($permissions, $columns, $headings), 'permissions.xlsx');
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to export permissions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -235,12 +235,13 @@ class PermissionController extends Controller
             $data = $permissions->toArray();
 
             $pdf = app(ExportPDF::class)->generatePdf($title, $headers, $data);
+
             return $pdf->download('Permissions.pdf');
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to export permissions to PDF',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -294,7 +295,7 @@ class PermissionController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to import permissions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -307,7 +308,7 @@ class PermissionController extends Controller
         try {
             $request->validate([
                 'permission_ids' => 'required|array',
-                'permission_ids.*' => 'exists:permissions,id'
+                'permission_ids.*' => 'exists:permissions,id',
             ]);
 
             $permissionIds = $request->input('permission_ids');
@@ -315,12 +316,13 @@ class PermissionController extends Controller
             $errors = [];
 
             $tenantId = tenant('id');
-            
+
             foreach ($permissionIds as $permissionId) {
                 $permission = Permission::find($permissionId);
-                
+
                 if ($permission->roles()->count() > 0) {
                     $errors[] = "Cannot delete permission '{$permission->resource_key}' - it has roles assigned to it.";
+
                     continue;
                 }
 
@@ -337,10 +339,10 @@ class PermissionController extends Controller
                 'data' => [
                     'deleted_count' => $deletedCount,
                     'total_requested' => count($permissionIds),
-                ]
+                ],
             ];
 
-            if (!empty($errors)) {
+            if (! empty($errors)) {
                 $response['warnings'] = $errors;
             }
 
@@ -349,7 +351,7 @@ class PermissionController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to bulk delete permissions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

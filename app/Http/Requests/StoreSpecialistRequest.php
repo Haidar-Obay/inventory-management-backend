@@ -22,5 +22,3 @@ class StoreSpecialistRequest extends FormRequest
         ];
     }
 }
-
-

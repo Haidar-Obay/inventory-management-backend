@@ -19,5 +19,3 @@ class AssociationContact extends Model
         return $this->belongsTo(Association::class);
     }
 }
-
-

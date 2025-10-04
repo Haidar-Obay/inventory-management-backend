@@ -23,5 +23,3 @@ class UpdateServiceNeededItemRequest extends FormRequest
         ];
     }
 }
-
-

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class PermissionService
@@ -21,7 +20,7 @@ class PermissionService
             default => null,
         };
 
-        if (!$actionFlag) {
+        if (! $actionFlag) {
             return false;
         }
 
@@ -40,6 +39,7 @@ class PermissionService
                 ->exists();
 
             app('cache')->store('database')->put($cacheKey, $result, now()->addSeconds(60));
+
             return $result;
         }
 

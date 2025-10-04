@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Item;
-use Illuminate\Http\Request;
-use App\Http\Requests\Item\StoreItemRequest;
-use App\Http\Requests\Item\UpdateItemRequest;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Item\StoreItemRequest;
+use App\Http\Requests\Item\UpdateItemRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\Item;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ItemController extends Controller
 {
@@ -20,7 +20,7 @@ class ItemController extends Controller
 
         $items = app('cache')->store('database')->get($key);
 
-        if (!$items) {
+        if (! $items) {
             $items = Item::orderBy('name')->get();
             app('cache')->store('database')->forever($key, $items);
         }
@@ -39,7 +39,7 @@ class ItemController extends Controller
 
         $cachedItem = app('cache')->store('database')->get($key);
 
-        if (!$cachedItem) {
+        if (! $cachedItem) {
             $cachedItem = $item;
             app('cache')->store('database')->forever($key, $cachedItem);
         }
@@ -138,7 +138,8 @@ class ItemController extends Controller
         $columns = ['id', 'code', 'name', 'price', 'created_at', 'updated_at'];
         $headings = ['ID', 'Code', 'Name', 'Price', 'Created At', 'Updated At'];
 
-        $fileName = 'items' . '.xlsx';
+        $fileName = 'items'.'.xlsx';
+
         return Excel::download(new Export($items, $columns, $headings), $fileName);
     }
 
@@ -158,6 +159,7 @@ class ItemController extends Controller
         $data = $items->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Items.pdf');
     }
 
@@ -188,7 +190,11 @@ class ItemController extends Controller
             Item::class,
             ['code', 'name', 'price'],
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
 
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
@@ -202,17 +208,22 @@ class ItemController extends Controller
                     $errors[] = 'Missing name';
                 }
                 $priceVal = $row[$priceKey] ?? null;
-                if ($priceVal === '' || $priceVal === null || !is_numeric($priceVal)) {
+                if ($priceVal === '' || $priceVal === null || ! is_numeric($priceVal)) {
                     $errors[] = 'Invalid price';
                 }
 
                 return $errors;
             },
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $priceKey = $mapping ? array_search('price', $mapping) : 'price';
+
                 return [
                     'code' => $row[$codeKey] ?? null,
                     'name' => $row[$nameKey] ?? null,
@@ -225,8 +236,9 @@ class ItemController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -235,8 +247,8 @@ class ItemController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
@@ -276,7 +288,7 @@ class ItemController extends Controller
 
         $items = app('cache')->store('database')->get($key);
 
-        if (!$items) {
+        if (! $items) {
             $items = Item::select('id', 'code', 'name')
                 ->orderBy('name')
                 ->get()
@@ -299,4 +311,4 @@ class ItemController extends Controller
             'data' => $items,
         ]);
     }
-} 
+}

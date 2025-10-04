@@ -11,5 +11,3 @@ class ConnectionType extends Model
 
     protected $fillable = ['name'];
 }
-
-

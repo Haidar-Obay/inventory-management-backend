@@ -28,8 +28,8 @@ class CustomerContactController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('position', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('position', 'like', "%{$search}%");
             });
         }
 
@@ -167,14 +167,14 @@ class CustomerContactController extends Controller
     public function setPrimaryContact(Request $request, Customer $customer): JsonResponse
     {
         $request->validate([
-            'contact_id' => 'required|exists:customer_contacts,id'
+            'contact_id' => 'required|exists:customer_contacts,id',
         ]);
 
         try {
             // Verify the contact belongs to this customer
             $contact = CustomerContact::where('id', $request->contact_id)
-                                    ->where('customer_id', $customer->id)
-                                    ->firstOrFail();
+                ->where('customer_id', $customer->id)
+                ->firstOrFail();
 
             $customer->setPrimaryContact($contact->id);
 

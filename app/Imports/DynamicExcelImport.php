@@ -3,30 +3,39 @@
 namespace App\Imports;
 
 use App\Helpers\MigrationHeaderExtractor;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use Illuminate\Support\Facades\Log;
-use Maatwebsite\Excel\Concerns\ToModel;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
-use Maatwebsite\Excel\Concerns\WithValidation;
-use Maatwebsite\Excel\Concerns\WithStartRow;
+use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithValidation;
 use Maatwebsite\Excel\Events\BeforeImport;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
-class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithValidation, WithEvents
+class DynamicExcelImport implements SkipsEmptyRows, ToModel, WithEvents, WithHeadingRow, WithValidation
 {
     private int $currentRow = 1;
+
     private int $imported = 0;
+
     private array $skipped = [];
+
     private bool $headerValidated = false;
+
     private array $headerValidationResult = [];
+
     private bool $headersAreValid = true;
 
     private string $modelClass;
+
     private array $requiredFields;
+
     private \Closure $validator;
+
     private \Closure $mapper;
+
     private bool $validateHeaders;
+
     private bool $skipDuplicateCheck;
 
     public function __construct(string $modelClass, array $requiredFields, \Closure $validator, \Closure $mapper, bool $validateHeaders = true, bool $skipDuplicateCheck = false)
@@ -44,19 +53,20 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
         $this->currentRow++;
 
         // If headers are invalid, skip all rows
-        if (!$this->headersAreValid) {
-            return null;
+        if (! $this->headersAreValid) {
+            return;
         }
 
         // Collect validation errors from controller-defined validator
         $errors = call_user_func($this->validator, $row);
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             $this->skipped[] = [
                 'row' => $this->currentRow,
                 'reasons' => $errors,
             ];
-            return null;
+
+            return;
         }
 
         $modelData = call_user_func($this->mapper, $row);
@@ -74,10 +84,10 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
                 }
             }
         }
-        
+
         // Check if record already exists based on unique fields (unless explicitly disabled)
         $existingRecord = $this->skipDuplicateCheck ? null : $this->findExistingRecord($modelData);
-        
+
         if ($existingRecord) {
             // Log the duplicate detection for debugging
             Log::info('Duplicate record detected during import', [
@@ -86,18 +96,20 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
                 'existingRecord' => [
                     'id' => $existingRecord->id,
                     'code' => $existingRecord->code ?? 'N/A',
-                    'name' => $existingRecord->name ?? 'N/A'
-                ]
+                    'name' => $existingRecord->name ?? 'N/A',
+                ],
             ]);
-            
+
             $this->skipped[] = [
                 'row' => $this->currentRow,
                 'reasons' => ['Record already exists'],
             ];
-            return null;
+
+            return;
         }
 
         $this->imported++;
+
         return new $this->modelClass($modelData);
     }
 
@@ -116,11 +128,8 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
         return $this->skipped;
     }
 
-
     /**
      * Get header validation result
-     *
-     * @return array
      */
     public function getHeaderValidationResult(): array
     {
@@ -129,8 +138,6 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
 
     /**
      * Check if headers are valid
-     *
-     * @return bool
      */
     public function areHeadersValid(): bool
     {
@@ -139,8 +146,6 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
 
     /**
      * Get validation rules for headers
-     *
-     * @return array
      */
     public function rules(): array
     {
@@ -149,8 +154,6 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
 
     /**
      * Register events
-     *
-     * @return array
      */
     public function registerEvents(): array
     {
@@ -166,52 +169,49 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
     /**
      * Find existing record based on unique fields
      *
-     * @param array $modelData
      * @return mixed
      */
     public function findExistingRecord(array $modelData)
     {
         try {
-            $model = new $this->modelClass();
+            $model = new $this->modelClass;
             $table = $model->getTable();
-            
+
             // Get unique fields from the model's fillable attributes and database constraints
             $uniqueFields = $this->getUniqueFields($table);
-            
+
             if (empty($uniqueFields)) {
-                return null;
+                return;
             }
-            
+
             $query = $model->newQuery();
-            
+
             foreach ($uniqueFields as $field) {
                 if (isset($modelData[$field]) && $modelData[$field] !== null && $modelData[$field] !== '') {
                     $value = $modelData[$field];
                     if (is_string($value)) {
                         // Case-insensitive, trimmed comparison for strings (portable across DBs)
-                        $query->whereRaw('LOWER(TRIM(' . $field . ')) = ?', [mb_strtolower(trim($value))]);
+                        $query->whereRaw('LOWER(TRIM('.$field.')) = ?', [mb_strtolower(trim($value))]);
                     } else {
                         $query->where($field, $value);
                     }
                 }
             }
-            
+
             return $query->first();
         } catch (\Exception $e) {
             // If there's any error in the query, return null to avoid false positives
-            Log::warning('Error in findExistingRecord: ' . $e->getMessage(), [
+            Log::warning('Error in findExistingRecord: '.$e->getMessage(), [
                 'modelData' => $modelData,
-                'modelClass' => $this->modelClass
+                'modelClass' => $this->modelClass,
             ]);
-            return null;
+
+            return;
         }
     }
-    
+
     /**
      * Get unique fields for a table
-     *
-     * @param string $table
-     * @return array
      */
     private function getUniqueFields(string $table): array
     {
@@ -253,15 +253,12 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
             'business_types' => ['code'],
             'transaction_series' => ['code'],
         ];
-        
+
         return $uniqueFieldsMap[$table] ?? [];
     }
 
     /**
      * Validate headers before import starts
-     *
-     * @param BeforeImport $event
-     * @return void
      */
     private function validateHeadersBeforeImport(BeforeImport $event): void
     {
@@ -279,8 +276,9 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
                 'matches' => [],
                 'excel_headers' => [],
                 'expected_headers' => [],
-                'error' => 'No data found in Excel file'
+                'error' => 'No data found in Excel file',
             ];
+
             return;
         }
 
@@ -290,13 +288,13 @@ class DynamicExcelImport implements ToModel, WithHeadingRow, SkipsEmptyRows, Wit
         for ($colIndex = 1; $colIndex <= $highestColumnIndex; $colIndex++) {
             $cellValue = $worksheet->getCellByColumnAndRow($colIndex, 1)->getValue();
             if ($cellValue !== null && $cellValue !== '') {
-                $excelHeaders[] = trim((string)$cellValue);
+                $excelHeaders[] = trim((string) $cellValue);
             }
         }
 
         // Get expected headers from migration
         $expectedHeaders = MigrationHeaderExtractor::getExpectedHeadersForModel($this->modelClass);
-        
+
         // Compare headers: require only the fields the controller marked as required
         $this->headerValidationResult = MigrationHeaderExtractor::compareHeaders($excelHeaders, $expectedHeaders, $this->requiredFields);
         $this->headersAreValid = $this->headerValidationResult['valid'];

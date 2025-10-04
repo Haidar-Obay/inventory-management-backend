@@ -10,8 +10,11 @@ class District extends Model implements Auditable
     use \OwenIt\Auditing\Auditable;
 
     protected $guarded = ['id'];
+
     protected $table = 'districts';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     public function addresses()

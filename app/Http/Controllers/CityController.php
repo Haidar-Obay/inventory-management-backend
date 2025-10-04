@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\City;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Auth;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use App\Models\City;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CityController extends Controller
 {
@@ -20,7 +19,7 @@ class CityController extends Controller
 
         $cities = app('cache')->store('database')->get($key);
 
-        if (!$cities) {
+        if (! $cities) {
             $cities = City::withCount('addresses')
                 ->orderBy('name')
                 ->get();
@@ -60,7 +59,7 @@ class CityController extends Controller
 
         $cachedCity = app('cache')->store('database')->get($key);
 
-        if (!$cachedCity) {
+        if (! $cachedCity) {
             $city->loadCount('addresses');
             $cachedCity = $city;
 
@@ -173,6 +172,7 @@ class CityController extends Controller
         $data = $cities->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Cities.pdf');
     }
 
@@ -203,7 +203,11 @@ class CityController extends Controller
             City::class,
             ['name'],
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
 
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
@@ -216,8 +220,13 @@ class CityController extends Controller
                 return $errors;
             },
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+
                 return [
                     'name' => $row[$nameKey] ?? null,
                 ];
@@ -228,8 +237,9 @@ class CityController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -238,12 +248,12 @@ class CityController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_cities');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_cities');
 
         $imported = $import->getImportedCount();
         $skippedCount = $import->getSkippedCount();
@@ -278,7 +288,7 @@ class CityController extends Controller
 
         $cities = app('cache')->store('database')->get($key);
 
-        if (!$cities) {
+        if (! $cities) {
             $cities = City::where('country_id', $countryId)
                 ->withCount('addresses')
                 ->orderBy('name')
@@ -301,7 +311,7 @@ class CityController extends Controller
 
         $cities = app('cache')->store('database')->get($key);
 
-        if (!$cities) {
+        if (! $cities) {
             $cities = City::where('province_id', $provinceId)
                 ->withCount('addresses')
                 ->with(['country', 'districts'])

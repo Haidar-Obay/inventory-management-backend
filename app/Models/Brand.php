@@ -10,8 +10,11 @@ class Brand extends Model implements Auditable
     use \OwenIt\Auditing\Auditable;
 
     protected $guarded = ['id'];
+
     protected $table = 'brands';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     protected $casts = [

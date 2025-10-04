@@ -42,7 +42,7 @@ class CustomerContact extends Model
      */
     public function getFullNameAttribute(): string
     {
-        return trim($this->title . ' ' . $this->name);
+        return trim($this->title.' '.$this->name);
     }
 
     /**
@@ -58,7 +58,7 @@ class CustomerContact extends Model
      */
     public function hasPhone(): bool
     {
-        return !empty($this->mobile) || !empty($this->work_phone);
+        return ! empty($this->mobile) || ! empty($this->work_phone);
     }
 
     /**

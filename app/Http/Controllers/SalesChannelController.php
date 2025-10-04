@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SalesChannel;
-use App\Http\Requests\SalesChannel\StoreSalesChannelRequest;
-use App\Http\Requests\SalesChannel\UpdateSalesChannelRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\SalesChannel\StoreSalesChannelRequest;
+use App\Http\Requests\SalesChannel\UpdateSalesChannelRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\SalesChannel;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SalesChannelController extends Controller
 {
@@ -22,7 +22,7 @@ class SalesChannelController extends Controller
 
         $salesChannels = app('cache')->store('database')->get($key);
 
-        if (!$salesChannels) {
+        if (! $salesChannels) {
             $salesChannels = SalesChannel::with('parent')->get();
             app('cache')->store('database')->forever($key, $salesChannels);
         }
@@ -52,6 +52,7 @@ class SalesChannelController extends Controller
         $tenantId = tenant('id');
         $salesChannel = SalesChannel::create($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_sales_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Sales channel created successfully.',
@@ -63,13 +64,15 @@ class SalesChannelController extends Controller
     {
         try {
             $salesChannel = SalesChannel::findOrFail($id);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Sales channel fetched successfully.',
                 'data' => $salesChannel,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching sales channel: ' . $e->getMessage());
+            Log::error('Error fetching sales channel: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Sales channel not found',
@@ -95,6 +98,7 @@ class SalesChannelController extends Controller
         $tenantId = tenant('id');
         $salesChannel->update($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_sales_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Sales channel updated successfully.',
@@ -113,6 +117,7 @@ class SalesChannelController extends Controller
         }
         $salesChannel->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_sales_channels");
+
         return response()->json([
             'status' => true,
             'message' => 'Sales channel deleted successfully.',
@@ -124,7 +129,7 @@ class SalesChannelController extends Controller
         $tenantId = tenant('id');
         $ids = $request->input('ids');
 
-        if (!$ids || !is_array($ids)) {
+        if (! $ids || ! is_array($ids)) {
             return response()->json([
                 'status' => false,
                 'message' => 'No sales channels selected for deletion',
@@ -141,13 +146,14 @@ class SalesChannelController extends Controller
                     ], 422);
                 }
                 $salesChannel->delete();
-                Cache::forget("sales_channels_" . tenant('id'));
-                Cache::forget("sales_channel_{$salesChannel->id}_" . tenant('id'));
+                Cache::forget('sales_channels_'.tenant('id'));
+                Cache::forget("sales_channel_{$salesChannel->id}_".tenant('id'));
             }
 
             return response()->json(null, 204);
         } catch (\Exception $e) {
-            Log::error('Error in bulk delete: ' . $e->getMessage());
+            Log::error('Error in bulk delete: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to delete sales channels',
@@ -210,6 +216,7 @@ class SalesChannelController extends Controller
         $data = $salesChannels->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('SalesChannels.pdf');
     }
 
@@ -239,36 +246,49 @@ class SalesChannelController extends Controller
 
         try {
             $import = new DynamicExcelImport(SalesChannel::class, ['code', 'name'], function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $subKey = $mapping ? array_search('sub_sales_of', $mapping) : 'sub_sales_of';
-                if ((($row[$codeKey] ?? '') === '')) { $errors[] = 'Code is required'; }
-                if ((($row[$nameKey] ?? '') === '')) { $errors[] = 'Name is required'; }
+                if ((($row[$codeKey] ?? '') === '')) {
+                    $errors[] = 'Code is required';
+                }
+                if ((($row[$nameKey] ?? '') === '')) {
+                    $errors[] = 'Name is required';
+                }
                 // Validate parent sales channel code if provided
-                if (!empty($row[$subKey])) {
+                if (! empty($row[$subKey])) {
                     $parentChannel = SalesChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subKey])])->first();
-                    if (!$parentChannel) {
+                    if (! $parentChannel) {
                         $errors[] = "Parent sales channel with code '{$row[$subKey]}' not found";
                     }
                 }
+
                 return $errors;
             }, function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $subSalesOfId = null;
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $subKey = $mapping ? array_search('sub_sales_of', $mapping) : 'sub_sales_of';
-                
+
                 // If sub_sales_of is provided, resolve the code to ID
-                if (!empty($row[$subKey])) {
+                if (! empty($row[$subKey])) {
                     $parentChannel = SalesChannel::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subKey])])->first();
                     if ($parentChannel) {
                         $subSalesOfId = $parentChannel->id;
                     }
                 }
-                
+
                 return [
                     'code' => $row[$codeKey] ?? null,
                     'name' => $row[$nameKey] ?? null,
@@ -276,10 +296,11 @@ class SalesChannelController extends Controller
                 ];
             }, $mapping ? false : true);
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'status' => false,
                     'message' => 'Invalid Excel file headers',
@@ -288,11 +309,11 @@ class SalesChannelController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
-            
+
             app('cache')->store('database')->forget("tenant_{$tenantId}_sales_channels");
 
             $imported = $import->getImportedCount();
@@ -322,12 +343,10 @@ class SalesChannelController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Import failed: ' . $e->getMessage(),
+                'message' => 'Import failed: '.$e->getMessage(),
             ], 422);
         }
     }
-
-    
 
     public function getSubSalesChannels($salesChannelId)
     {

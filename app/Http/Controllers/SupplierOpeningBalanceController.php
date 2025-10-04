@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Supplier;
-use App\Models\SupplierOpeningBalance;
 use App\Models\Currency;
+use App\Models\Supplier;
 use App\Services\OpeningBalanceService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -37,12 +36,12 @@ class SupplierOpeningBalanceController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $openingBalances,
-                'message' => 'Opening balances retrieved successfully'
+                'message' => 'Opening balances retrieved successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retrieve opening balances: ' . $e->getMessage()
+                'message' => 'Failed to retrieve opening balances: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -61,12 +60,12 @@ class SupplierOpeningBalanceController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $openingBalance,
-                'message' => 'Opening balance retrieved successfully'
+                'message' => 'Opening balance retrieved successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retrieve opening balance: ' . $e->getMessage()
+                'message' => 'Failed to retrieve opening balance: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -90,7 +89,7 @@ class SupplierOpeningBalanceController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -98,7 +97,7 @@ class SupplierOpeningBalanceController extends Controller
             if ($this->openingBalanceService->hasOpeningBalanceForCurrency($supplier, $request->currency_id)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Opening balance already exists for this currency'
+                    'message' => 'Opening balance already exists for this currency',
                 ], 409);
             }
 
@@ -115,13 +114,13 @@ class SupplierOpeningBalanceController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $openingBalance,
-                'message' => 'Opening balance created successfully'
+                'message' => 'Opening balance created successfully',
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create opening balance: ' . $e->getMessage()
+                'message' => 'Failed to create opening balance: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -146,7 +145,7 @@ class SupplierOpeningBalanceController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -154,7 +153,7 @@ class SupplierOpeningBalanceController extends Controller
                 'opening_amount',
                 'opening_date',
                 'notes',
-                'is_active'
+                'is_active',
             ]));
 
             $openingBalance->load('currency');
@@ -162,13 +161,13 @@ class SupplierOpeningBalanceController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $openingBalance,
-                'message' => 'Opening balance updated successfully'
+                'message' => 'Opening balance updated successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update opening balance: ' . $e->getMessage()
+                'message' => 'Failed to update opening balance: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -186,13 +185,13 @@ class SupplierOpeningBalanceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Opening balance removed successfully'
+                'message' => 'Opening balance removed successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to remove opening balance: ' . $e->getMessage()
+                'message' => 'Failed to remove opening balance: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -214,13 +213,13 @@ class SupplierOpeningBalanceController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $availableCurrencies,
-                'message' => 'Available currencies retrieved successfully'
+                'message' => 'Available currencies retrieved successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retrieve available currencies: ' . $e->getMessage()
+                'message' => 'Failed to retrieve available currencies: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -245,7 +244,7 @@ class SupplierOpeningBalanceController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -256,9 +255,10 @@ class SupplierOpeningBalanceController extends Controller
                 // Check if opening balance already exists for this currency
                 if ($this->openingBalanceService->hasOpeningBalanceForCurrency($supplier, $openingBalanceData['currency_id'])) {
                     DB::rollBack();
+
                     return response()->json([
                         'success' => false,
-                        'message' => 'Opening balance already exists for currency ID: ' . $openingBalanceData['currency_id']
+                        'message' => 'Opening balance already exists for currency ID: '.$openingBalanceData['currency_id'],
                     ], 409);
                 }
 
@@ -279,14 +279,15 @@ class SupplierOpeningBalanceController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $createdBalances,
-                'message' => 'Opening balances created successfully'
+                'message' => 'Opening balances created successfully',
             ], 201);
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create opening balances: ' . $e->getMessage()
+                'message' => 'Failed to create opening balances: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -304,15 +305,15 @@ class SupplierOpeningBalanceController extends Controller
                 'success' => true,
                 'data' => [
                     'currency_id' => $currencyId,
-                    'exists' => $exists
+                    'exists' => $exists,
                 ],
-                'message' => $exists ? 'Opening balance exists for this currency' : 'No opening balance for this currency'
+                'message' => $exists ? 'Opening balance exists for this currency' : 'No opening balance for this currency',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to check currency: ' . $e->getMessage()
+                'message' => 'Failed to check currency: '.$e->getMessage(),
             ], 500);
         }
     }

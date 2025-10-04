@@ -8,9 +8,7 @@ use Illuminate\Http\Request;
 
 class PricingController extends Controller
 {
-    public function __construct(private PricingService $pricingService)
-    {
-    }
+    public function __construct(private PricingService $pricingService) {}
 
     public function resolvePrice(Request $request): JsonResponse
     {
@@ -26,7 +24,7 @@ class PricingController extends Controller
         ]);
 
         $context = $request->only([
-            'service_id', 'association_id', 'referrer_id', 'category_name', 'specialist_id', 'service_type', 'hours', 'is_event'
+            'service_id', 'association_id', 'referrer_id', 'category_name', 'specialist_id', 'service_type', 'hours', 'is_event',
         ]);
 
         $result = $this->pricingService->resolvePrice($context);

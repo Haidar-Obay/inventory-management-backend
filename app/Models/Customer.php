@@ -4,13 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use OwenIt\Auditing\Contracts\Auditable;
+
 class Customer extends Model implements Auditable
 {
-
-     use \OwenIt\Auditing\Auditable;
+    use \OwenIt\Auditing\Auditable;
 
     protected $table = 'customers';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     protected $guarded = ['id'];
@@ -38,7 +40,6 @@ class Customer extends Model implements Auditable
         'markdown_percentage' => 'decimal:2',
         'search_terms' => 'array',
     ];
-
 
     // public function projects()
     // {
@@ -147,42 +148,42 @@ class Customer extends Model implements Auditable
     public function addresses()
     {
         return $this->belongsToMany(Address::class, 'customer_addresses')
-                    ->withPivot(['address_type', 'is_primary', 'address_name', 'notes'])
-                    ->withTimestamps();
+            ->withPivot(['address_type', 'is_primary', 'address_name', 'notes'])
+            ->withTimestamps();
     }
 
     public function billingAddresses()
     {
         return $this->belongsToMany(Address::class, 'customer_addresses')
-                    ->wherePivot('address_type', 'billing')
-                    ->withPivot(['is_primary', 'address_name', 'notes'])
-                    ->withTimestamps();
+            ->wherePivot('address_type', 'billing')
+            ->withPivot(['is_primary', 'address_name', 'notes'])
+            ->withTimestamps();
     }
 
     public function shippingAddresses()
     {
         return $this->belongsToMany(Address::class, 'customer_addresses')
-                    ->wherePivot('address_type', 'shipping')
-                    ->withPivot(['is_primary', 'address_name', 'notes'])
-                    ->withTimestamps();
+            ->wherePivot('address_type', 'shipping')
+            ->withPivot(['is_primary', 'address_name', 'notes'])
+            ->withTimestamps();
     }
 
     public function primaryBillingAddress()
     {
         return $this->belongsToMany(Address::class, 'customer_addresses')
-                    ->wherePivot('address_type', 'billing')
-                    ->wherePivot('is_primary', true)
-                    ->withPivot(['address_name', 'notes'])
-                    ->withTimestamps();
+            ->wherePivot('address_type', 'billing')
+            ->wherePivot('is_primary', true)
+            ->withPivot(['address_name', 'notes'])
+            ->withTimestamps();
     }
 
     public function primaryShippingAddress()
     {
         return $this->belongsToMany(Address::class, 'customer_addresses')
-                    ->wherePivot('address_type', 'shipping')
-                    ->wherePivot('is_primary', true)
-                    ->withPivot(['address_name', 'notes'])
-                    ->withTimestamps();
+            ->wherePivot('address_type', 'shipping')
+            ->wherePivot('is_primary', true)
+            ->withPivot(['address_name', 'notes'])
+            ->withTimestamps();
     }
 
     // Legacy methods for backward compatibility (if needed)
@@ -228,27 +229,27 @@ class Customer extends Model implements Auditable
     public function getCreditLimitForCurrency($currencyId)
     {
         // Only return credit limit if currency is in opening balances
-        if (!$this->hasOpeningBalanceForCurrency($currencyId)) {
-            return null;
+        if (! $this->hasOpeningBalanceForCurrency($currencyId)) {
+            return;
         }
 
         return $this->creditLimits()
-                    ->where('currency_id', $currencyId)
-                    ->active()
-                    ->first();
+            ->where('currency_id', $currencyId)
+            ->active()
+            ->first();
     }
 
     public function hasCreditLimitForCurrency($currencyId)
     {
         // Only return true if currency is in opening balances AND has credit limit
-        if (!$this->hasOpeningBalanceForCurrency($currencyId)) {
+        if (! $this->hasOpeningBalanceForCurrency($currencyId)) {
             return false;
         }
 
         return $this->creditLimits()
-                    ->where('currency_id', $currencyId)
-                    ->active()
-                    ->exists();
+            ->where('currency_id', $currencyId)
+            ->active()
+            ->exists();
     }
 
     public function getTotalCreditLimit($currencyId = null)
@@ -286,13 +287,13 @@ class Customer extends Model implements Auditable
 
     public function canExceedCreditLimit($amount, $currencyId)
     {
-        if (!$this->allow_credit) {
+        if (! $this->allow_credit) {
             return false;
         }
 
         $creditLimit = $this->getCreditLimitForCurrency($currencyId);
 
-        if (!$creditLimit) {
+        if (! $creditLimit) {
             return false;
         }
 
@@ -303,8 +304,8 @@ class Customer extends Model implements Auditable
     public function setCreditLimit($currencyId, $amount, $notes = null)
     {
         // Only allow setting credit limit if currency is in opening balances
-        if (!$this->hasOpeningBalanceForCurrency($currencyId)) {
-            throw new \Exception("Cannot set credit limit for currency that is not in opening balances");
+        if (! $this->hasOpeningBalanceForCurrency($currencyId)) {
+            throw new \Exception('Cannot set credit limit for currency that is not in opening balances');
         }
 
         $creditLimit = $this->getCreditLimitForCurrency($currencyId);
@@ -382,27 +383,27 @@ class Customer extends Model implements Auditable
     public function getChequeLimitForCurrency($currencyId)
     {
         // Only return cheque limit if currency is in opening balances
-        if (!$this->hasOpeningBalanceForCurrency($currencyId)) {
-            return null;
+        if (! $this->hasOpeningBalanceForCurrency($currencyId)) {
+            return;
         }
 
         return $this->chequeLimits()
-                    ->where('currency_id', $currencyId)
-                    ->active()
-                    ->first();
+            ->where('currency_id', $currencyId)
+            ->active()
+            ->first();
     }
 
     public function hasChequeLimitForCurrency($currencyId)
     {
         // Only return true if currency is in opening balances AND has cheque limit
-        if (!$this->hasOpeningBalanceForCurrency($currencyId)) {
+        if (! $this->hasOpeningBalanceForCurrency($currencyId)) {
             return false;
         }
 
         return $this->chequeLimits()
-                    ->where('currency_id', $currencyId)
-                    ->active()
-                    ->exists();
+            ->where('currency_id', $currencyId)
+            ->active()
+            ->exists();
     }
 
     public function getTotalMaxCheques($currencyId = null)
@@ -440,13 +441,13 @@ class Customer extends Model implements Auditable
 
     public function canAcceptCheque($currencyId, $count = 1)
     {
-        if (!$this->accept_cheques) {
+        if (! $this->accept_cheques) {
             return false;
         }
 
         $chequeLimit = $this->getChequeLimitForCurrency($currencyId);
 
-        if (!$chequeLimit) {
+        if (! $chequeLimit) {
             return false;
         }
 
@@ -457,8 +458,8 @@ class Customer extends Model implements Auditable
     public function setChequeLimit($currencyId, $maxCheques, $notes = null)
     {
         // Only allow setting cheque limit if currency is in opening balances
-        if (!$this->hasOpeningBalanceForCurrency($currencyId)) {
-            throw new \Exception("Cannot set cheque limit for currency that is not in opening balances");
+        if (! $this->hasOpeningBalanceForCurrency($currencyId)) {
+            throw new \Exception('Cannot set cheque limit for currency that is not in opening balances');
         }
 
         $chequeLimit = $this->getChequeLimitForCurrency($currencyId);
@@ -536,7 +537,7 @@ class Customer extends Model implements Auditable
     // Tax-related helper methods
     public function isCurrentlyTaxable()
     {
-        if (!$this->taxable) {
+        if (! $this->taxable) {
             return false;
         }
 
@@ -556,7 +557,7 @@ class Customer extends Model implements Auditable
 
     public function isCurrentlyExempted()
     {
-        if (!$this->exempted) {
+        if (! $this->exempted) {
             return false;
         }
 
@@ -589,11 +590,11 @@ class Customer extends Model implements Auditable
 
     public function getExemptionStatus()
     {
-        if (!$this->exempted) {
+        if (! $this->exempted) {
             return 'not_exempted';
         }
 
-        if (!$this->isCurrentlyExempted()) {
+        if (! $this->isCurrentlyExempted()) {
             return 'exemption_expired';
         }
 
@@ -602,12 +603,12 @@ class Customer extends Model implements Auditable
 
     public function getExemptionDaysRemaining()
     {
-        if (!$this->isCurrentlyExempted()) {
+        if (! $this->isCurrentlyExempted()) {
             return 0;
         }
 
-        if (!$this->exempted_till_date) {
-            return null; // No end date specified (permanent exemption)
+        if (! $this->exempted_till_date) {
+            return; // No end date specified (permanent exemption)
         }
 
         return now()->diffInDays($this->exempted_till_date, false);
@@ -626,7 +627,7 @@ class Customer extends Model implements Auditable
 
     public function getTaxInfo()
     {
-        if (!$this->shouldApplyTax()) {
+        if (! $this->shouldApplyTax()) {
             return [
                 'should_apply_tax' => false,
                 'added_tax' => 0,
@@ -654,7 +655,7 @@ class Customer extends Model implements Auditable
      */
     public function calculateTaxAmount($amount)
     {
-        if (!$this->shouldApplyTax()) {
+        if (! $this->shouldApplyTax()) {
             return 0;
         }
 
@@ -667,6 +668,7 @@ class Customer extends Model implements Auditable
     public function calculateTotalWithTax($amount)
     {
         $taxAmount = $this->calculateTaxAmount($amount);
+
         return $amount + $taxAmount;
     }
 
@@ -713,34 +715,34 @@ class Customer extends Model implements Auditable
     public function getOpeningBalanceForCurrency($currencyId)
     {
         return $this->openingBalances()
-                    ->where('currency_id', $currencyId)
-                    ->active()
-                    ->first();
+            ->where('currency_id', $currencyId)
+            ->active()
+            ->first();
     }
 
     public function hasOpeningBalanceForCurrency($currencyId)
     {
         return $this->openingBalances()
-                    ->where('currency_id', $currencyId)
-                    ->active()
-                    ->exists();
+            ->where('currency_id', $currencyId)
+            ->active()
+            ->exists();
     }
 
     public function getOpeningCurrencies()
     {
         return $this->openingBalances()
-                    ->with('currency')
-                    ->active()
-                    ->get()
-                    ->pluck('currency');
+            ->with('currency')
+            ->active()
+            ->get()
+            ->pluck('currency');
     }
 
     public function getOpeningCurrencyIds()
     {
         return $this->openingBalances()
-                    ->active()
-                    ->pluck('currency_id')
-                    ->toArray();
+            ->active()
+            ->pluck('currency_id')
+            ->toArray();
     }
 
     public function getTotalOpeningBalance($currencyId = null)
@@ -833,7 +835,7 @@ class Customer extends Model implements Auditable
     // Message functionality helper methods
     public function hasInvoiceMessage()
     {
-        return $this->showMessageField && !empty($this->message);
+        return $this->showMessageField && ! empty($this->message);
     }
 
     public function getInvoiceMessage()
@@ -870,16 +872,17 @@ class Customer extends Model implements Auditable
 
     public function hasPrimaryContact()
     {
-        return !is_null($this->contacts_id);
+        return ! is_null($this->contacts_id);
     }
 
     public function getPrimaryContactInfo()
     {
-        if (!$this->hasPrimaryContact()) {
-            return null;
+        if (! $this->hasPrimaryContact()) {
+            return;
         }
 
         $contact = $this->primaryContact;
+
         return [
             'id' => $contact->id,
             'name' => $contact->getFullNameAttribute(),
@@ -896,6 +899,7 @@ class Customer extends Model implements Auditable
         if ($category) {
             $query->byCategory($category);
         }
+
         return $query->get();
     }
 
@@ -929,7 +933,7 @@ class Customer extends Model implements Auditable
             $unit++;
         }
 
-        return round($size, 2) . ' ' . $units[$unit];
+        return round($size, 2).' '.$units[$unit];
     }
 
     public function hasAttachments()

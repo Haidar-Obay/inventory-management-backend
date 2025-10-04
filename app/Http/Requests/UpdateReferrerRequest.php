@@ -16,6 +16,7 @@ class UpdateReferrerRequest extends FormRequest
     {
         $routeModel = request()->route('referrer');
         $id = is_object($routeModel) ? ($routeModel->id ?? null) : $routeModel;
+
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('referrers', 'name')->ignore($id)],
             'address' => ['nullable', 'string', 'max:255'],
@@ -27,5 +28,3 @@ class UpdateReferrerRequest extends FormRequest
         ];
     }
 }
-
-

@@ -11,7 +11,7 @@ class AssociationContactSeeder extends Seeder
     public function run(): void
     {
         $association = Association::first();
-        if (!$association) {
+        if (! $association) {
             return;
         }
 
@@ -32,5 +32,3 @@ class AssociationContactSeeder extends Seeder
         ]);
     }
 }
-
-

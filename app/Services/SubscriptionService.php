@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Tenant;
 use App\Models\SubscriptionPlan;
-use Carbon\Carbon;
+use App\Models\Tenant;
 use Illuminate\Support\Facades\DB;
 
 class SubscriptionService
@@ -22,15 +21,17 @@ class SubscriptionService
                 'subscription_start_date' => $startDate,
                 'subscription_end_date' => $endDate,
                 'subscription_status' => $isTrial ? 'trial' : 'active',
-                'auto_renew' => !$isTrial,
+                'auto_renew' => ! $isTrial,
                 'last_billing_date' => $startDate,
                 'next_billing_date' => $endDate,
             ]);
 
             DB::commit();
+
             return true;
         } catch (\Exception $e) {
             DB::rollBack();
+
             throw $e;
         }
     }
@@ -54,9 +55,11 @@ class SubscriptionService
             ]);
 
             DB::commit();
+
             return true;
         } catch (\Exception $e) {
             DB::rollBack();
+
             throw $e;
         }
     }
@@ -92,13 +95,13 @@ class SubscriptionService
                 ]);
                 $updated++;
             } catch (\Exception $e) {
-                $errors[] = "Failed to update tenant {$tenant->id}: " . $e->getMessage();
+                $errors[] = "Failed to update tenant {$tenant->id}: ".$e->getMessage();
             }
         }
 
         return [
             'updated_count' => $updated,
-            'errors' => $errors
+            'errors' => $errors,
         ];
     }
 
@@ -125,25 +128,28 @@ class SubscriptionService
                 'currencies' => $this->getCurrentCurrencyCount($tenant),
                 'users' => $this->getCurrentUserCount($tenant),
                 'customers' => $this->getCurrentCustomerCount($tenant),
-            ]
+            ],
         ];
     }
 
     private function getCurrentCurrencyCount(Tenant $tenant): int
     {
         tenancy()->initialize($tenant);
+
         return \App\Models\Currency::count();
     }
 
     private function getCurrentUserCount(Tenant $tenant): int
     {
         tenancy()->initialize($tenant);
+
         return \App\Models\User::count();
     }
 
     private function getCurrentCustomerCount(Tenant $tenant): int
     {
         tenancy()->initialize($tenant);
+
         return \App\Models\Customer::count();
     }
 

@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 use App\Models\SupplierGroup;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class SupplierGroupController extends Controller
 {
@@ -19,7 +19,7 @@ class SupplierGroupController extends Controller
 
         $supplierGroups = app('cache')->store('database')->get($key);
 
-        if (!$supplierGroups) {
+        if (! $supplierGroups) {
             $supplierGroups = SupplierGroup::orderBy('name')->get();
 
             app('cache')->store('database')->forever($key, $supplierGroups);
@@ -59,7 +59,7 @@ class SupplierGroupController extends Controller
 
         $cachedSupplierGroup = app('cache')->store('database')->get($key);
 
-        if (!$cachedSupplierGroup) {
+        if (! $cachedSupplierGroup) {
             $cachedSupplierGroup = $supplierGroup;
 
             app('cache')->store('database')->forever($key, $cachedSupplierGroup);
@@ -103,7 +103,7 @@ class SupplierGroupController extends Controller
         if ($supplierGroup->suppliers()->exists()) {
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete supplier group with associated suppliers'
+                'message' => 'Cannot delete supplier group with associated suppliers',
             ], 422);
         }
 
@@ -123,7 +123,7 @@ class SupplierGroupController extends Controller
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:supplier_groups,id'
+            'ids.*' => 'exists:supplier_groups,id',
         ]);
 
         $tenantId = tenant('id');
@@ -139,7 +139,7 @@ class SupplierGroupController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Some supplier groups have associated suppliers and cannot be deleted',
-                'groups_with_suppliers' => $groupsWithSuppliers
+                'groups_with_suppliers' => $groupsWithSuppliers,
             ], 422);
         }
 
@@ -197,6 +197,7 @@ class SupplierGroupController extends Controller
         $data = $supplierGroups->toArray();
 
         $pdf = app(ExportPDF::class)->generatePdf($title, $headers, $data);
+
         return $pdf->download('SupplierGroups.pdf');
     }
 
@@ -224,38 +225,48 @@ class SupplierGroupController extends Controller
         $mapping = $request->input('mapping');
 
         try {
-        $import = new DynamicExcelImport(
-            SupplierGroup::class,
-            ['code', 'name'],
-            function ($row) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
-                $errors = [];
+            $import = new DynamicExcelImport(
+                SupplierGroup::class,
+                ['code', 'name'],
+                function ($row) {
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
+                    $errors = [];
 
-                if (($row['code'] ?? '') === '') {
-                    $errors[] = 'Missing code';
-                }
-                if (($row['name'] ?? '') === '') {
-                    $errors[] = 'Missing name';
-                }
+                    if (($row['code'] ?? '') === '') {
+                        $errors[] = 'Missing code';
+                    }
+                    if (($row['name'] ?? '') === '') {
+                        $errors[] = 'Missing name';
+                    }
 
-                return $errors;
-            },
-            function ($row) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
-                return [
-                    'code' => $row['code'] ?? null,
-                    'name' => $row['name'] ?? null,
-                    'active' => $row['active'] ?? true,
-                ];
-            },
-            true // Enable header validation
-        );
+                    return $errors;
+                },
+                function ($row) {
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
+
+                    return [
+                        'code' => $row['code'] ?? null,
+                        'name' => $row['name'] ?? null,
+                        'active' => $row['active'] ?? true,
+                    ];
+                },
+                true // Enable header validation
+            );
 
             Excel::import($import, $request->file('file'));
 
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -264,12 +275,12 @@ class SupplierGroupController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
 
-            app('cache')->store('database')->forget('tenant_' . tenant('id') . '_supplier_groups');
+            app('cache')->store('database')->forget('tenant_'.tenant('id').'_supplier_groups');
 
             $imported = $import->getImportedCount();
             $skippedCount = $import->getSkippedCount();
@@ -298,7 +309,7 @@ class SupplierGroupController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Error importing supplier groups: ' . $e->getMessage()
+                'message' => 'Error importing supplier groups: '.$e->getMessage(),
             ], 500);
         }
     }

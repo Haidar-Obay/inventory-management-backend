@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 use App\Models\Zone;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class ZoneController extends Controller
 {
@@ -19,7 +19,7 @@ class ZoneController extends Controller
 
         $zones = app('cache')->store('database')->get($key);
 
-        if (!$zones) {
+        if (! $zones) {
             $zones = Zone::withCount('addresses')
                 ->orderBy('name')
                 ->get();
@@ -59,7 +59,7 @@ class ZoneController extends Controller
 
         $cached = app('cache')->store('database')->get($key);
 
-        if (!$cached) {
+        if (! $cached) {
             $zone->loadCount('addresses');
             app('cache')->store('database')->forever($key, $zone);
             $cached = $zone;
@@ -79,7 +79,7 @@ class ZoneController extends Controller
                 'sometimes',
                 'string',
                 'max:255',
-                Rule::unique('zones', 'name')->ignore($zone->id)
+                Rule::unique('zones', 'name')->ignore($zone->id),
             ],
         ]);
 
@@ -148,6 +148,7 @@ class ZoneController extends Controller
         }
         $columns = ['id', 'name', 'created_at', 'updated_at'];
         $headings = ['ID', 'Name', 'Created At', 'Updated At'];
+
         return Excel::download(new Export($Zone, $columns, $headings), 'zones.xlsx');
     }
 
@@ -164,6 +165,7 @@ class ZoneController extends Controller
         $data = $zones->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Zones.pdf');
     }
 
@@ -194,7 +196,11 @@ class ZoneController extends Controller
             Zone::class,
             $fields,
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
 
@@ -207,8 +213,13 @@ class ZoneController extends Controller
                 return $errors;
             },
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
+
                 return ['name' => $row[$nameKey] ?? null];
             },
             $mapping ? false : true // Disable header validation when mapping provided
@@ -217,8 +228,9 @@ class ZoneController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -227,12 +239,12 @@ class ZoneController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget("tenant_" . tenant('id') . "_zones");
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_zones');
 
         $imported = $import->getImportedCount();
         $skippedCount = $import->getSkippedCount();

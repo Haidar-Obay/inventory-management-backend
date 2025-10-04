@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\CustomerCreditLimit;
-use App\Models\Currency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -33,7 +33,7 @@ class CustomerCreditLimitController extends Controller
                 'exists:currencies,id',
                 Rule::unique('customer_credit_limits')
                     ->where('customer_id', $customer->id)
-                    ->where('currency_id', $request->currency_id)
+                    ->where('currency_id', $request->currency_id),
             ],
             'credit_limit' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
@@ -146,6 +146,7 @@ class CustomerCreditLimitController extends Controller
         $errors = [];
 
         DB::beginTransaction();
+
         try {
             foreach ($request->credit_limits as $index => $creditLimitData) {
                 // Check if credit limit already exists for this currency
@@ -157,8 +158,9 @@ class CustomerCreditLimitController extends Controller
                     $errors[] = [
                         'index' => $index,
                         'currency_id' => $creditLimitData['currency_id'],
-                        'message' => 'Credit limit already exists for this currency.'
+                        'message' => 'Credit limit already exists for this currency.',
                     ];
+
                     continue;
                 }
 
@@ -175,8 +177,9 @@ class CustomerCreditLimitController extends Controller
                 $results[] = $creditLimit;
             }
 
-            if (!empty($errors)) {
+            if (! empty($errors)) {
                 DB::rollBack();
+
                 return response()->json([
                     'status' => false,
                     'message' => 'Some credit limits could not be created.',
@@ -194,6 +197,7 @@ class CustomerCreditLimitController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to create credit limits.',

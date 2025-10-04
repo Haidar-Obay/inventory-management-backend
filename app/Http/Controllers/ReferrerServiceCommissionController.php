@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
 use App\Http\Requests\UpdateReferrerServiceCommissionRequest;
+use App\Imports\DynamicExcelImport;
 use App\Models\Referrer;
 use App\Models\ReferrerServiceCommission;
 use App\Models\Service;
@@ -11,17 +14,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class ReferrerServiceCommissionController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
         $query = ReferrerServiceCommission::query()->with(['referrer:id,name', 'service:id,name']);
-        if ($request->filled('referrer_id')) $query->where('referrer_id', $request->integer('referrer_id'));
-        if ($request->filled('service_id')) $query->where('service_id', $request->integer('service_id'));
+        if ($request->filled('referrer_id')) {
+            $query->where('referrer_id', $request->integer('referrer_id'));
+        }
+        if ($request->filled('service_id')) {
+            $query->where('service_id', $request->integer('service_id'));
+        }
+
         return response()->json($query->orderByDesc('id')->paginate());
     }
 
@@ -41,25 +46,30 @@ class ReferrerServiceCommissionController extends Controller
             $created = [];
             $errors = [];
             DB::beginTransaction();
+
             try {
                 foreach ($payload as $index => $row) {
                     $validator = Validator::make($row, $rules);
                     if ($validator->fails()) {
                         $errors[] = ['index' => $index, 'errors' => $validator->errors()];
+
                         continue;
                     }
                     $created[] = ReferrerServiceCommission::create($validator->validated())
                         ->load(['referrer:id,name', 'service:id,name']);
                 }
-                if (!empty($errors) && empty($created)) {
+                if (! empty($errors) && empty($created)) {
                     DB::rollBack();
+
                     return response()->json(['success' => false, 'errors' => $errors], 422);
                 }
                 DB::commit();
             } catch (\Throwable $e) {
                 DB::rollBack();
+
                 throw $e;
             }
+
             return response()->json([
                 'success' => true,
                 'created_count' => count($created),
@@ -79,7 +89,7 @@ class ReferrerServiceCommissionController extends Controller
         $validator->validate();
         $row = ReferrerServiceCommission::create($validator->validated());
         $row->load(['referrer:id,name', 'service:id,name']);
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Referrer service commission created successfully.',
@@ -90,7 +100,7 @@ class ReferrerServiceCommissionController extends Controller
     public function show(ReferrerServiceCommission $referrerServiceCommission): JsonResponse
     {
         $referrerServiceCommission->load(['referrer:id,name', 'service:id,name']);
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Referrer service commission details fetched successfully.',
@@ -102,7 +112,7 @@ class ReferrerServiceCommissionController extends Controller
     {
         $referrerServiceCommission->update($request->validated());
         $referrerServiceCommission->load(['referrer:id,name', 'service:id,name']);
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Referrer service commission updated successfully.',
@@ -113,6 +123,7 @@ class ReferrerServiceCommissionController extends Controller
     public function destroy(ReferrerServiceCommission $referrerServiceCommission): JsonResponse
     {
         $referrerServiceCommission->delete();
+
         return response()->json(['message' => 'Deleted']);
     }
 
@@ -122,6 +133,7 @@ class ReferrerServiceCommissionController extends Controller
             ->where('referrer_id', $referrer->id)
             ->orderByDesc('id')
             ->get();
+
         return response()->json($rows);
     }
 
@@ -131,6 +143,7 @@ class ReferrerServiceCommissionController extends Controller
             ->where('service_id', $service->id)
             ->orderByDesc('id')
             ->get();
+
         return response()->json($rows);
     }
 
@@ -146,6 +159,7 @@ class ReferrerServiceCommissionController extends Controller
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
         return response()->json(['message' => 'Bulk delete completed.', 'deleted_count' => $deleted, 'skipped' => $skipped]);
     }
 
@@ -153,17 +167,22 @@ class ReferrerServiceCommissionController extends Controller
     {
         $query = ReferrerServiceCommission::query();
         $collection = $query->get();
-        if ($collection->isEmpty()) return response()->json(['message' => 'No rows found.'], 404);
-        $columns = ['id','referrer_id','service_id','price_override','discount_override','commission_percent','created_at','updated_at'];
-        $headings = ['ID','Referrer ID','Service ID','Price Override','Discount Override','Commission %','Created At','Updated At'];
-        $fileName = 'referrer_service_commissions' . '.xlsx';
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No rows found.'], 404);
+        }
+        $columns = ['id', 'referrer_id', 'service_id', 'price_override', 'discount_override', 'commission_percent', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Referrer ID', 'Service ID', 'Price Override', 'Discount Override', 'Commission %', 'Created At', 'Updated At'];
+        $fileName = 'referrer_service_commissions'.'.xlsx';
+
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $rows = ReferrerServiceCommission::select('id','referrer_id','service_id','price_override','discount_override','commission_percent')->get();
-        if ($rows->isEmpty()) return response()->json(['message' => 'No rows found.'], 404);
+        $rows = ReferrerServiceCommission::select('id', 'referrer_id', 'service_id', 'price_override', 'discount_override', 'commission_percent')->get();
+        if ($rows->isEmpty()) {
+            return response()->json(['message' => 'No rows found.'], 404);
+        }
         $title = 'Referrer Service Commissions';
         $headers = [
             'id' => 'ID',
@@ -175,6 +194,7 @@ class ReferrerServiceCommissionController extends Controller
             'created_at' => 'Created At',
             'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
+
         return $pdf->download('ReferrerServiceCommissions.pdf');
     }
 
@@ -183,14 +203,25 @@ class ReferrerServiceCommissionController extends Controller
         $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv']);
         $import = new DynamicExcelImport(
             ReferrerServiceCommission::class,
-            ['referrer_id','service_id','price_override','discount_override','commission_percent'],
+            ['referrer_id', 'service_id', 'price_override', 'discount_override', 'commission_percent'],
             function ($row) {
                 $errors = [];
-                if (empty($row['referrer_id'])) $errors[] = 'Missing referrer_id';
-                if (empty($row['service_id'])) $errors[] = 'Missing service_id';
-                if (isset($row['price_override']) && !is_numeric($row['price_override'])) $errors[] = 'price_override must be numeric';
-                if (isset($row['discount_override']) && !is_numeric($row['discount_override'])) $errors[] = 'discount_override must be numeric';
-                if (isset($row['commission_percent']) && !is_numeric($row['commission_percent'])) $errors[] = 'commission_percent must be numeric';
+                if (empty($row['referrer_id'])) {
+                    $errors[] = 'Missing referrer_id';
+                }
+                if (empty($row['service_id'])) {
+                    $errors[] = 'Missing service_id';
+                }
+                if (isset($row['price_override']) && ! is_numeric($row['price_override'])) {
+                    $errors[] = 'price_override must be numeric';
+                }
+                if (isset($row['discount_override']) && ! is_numeric($row['discount_override'])) {
+                    $errors[] = 'discount_override must be numeric';
+                }
+                if (isset($row['commission_percent']) && ! is_numeric($row['commission_percent'])) {
+                    $errors[] = 'commission_percent must be numeric';
+                }
+
                 return $errors;
             },
             function ($row) {
@@ -204,6 +235,7 @@ class ReferrerServiceCommissionController extends Controller
             }
         );
         Excel::import($import, $request->file('file'));
+
         return response()->json([
             'success' => true,
             'rows_imported' => $import->getImportedCount(),
@@ -212,5 +244,3 @@ class ReferrerServiceCommissionController extends Controller
         ]);
     }
 }
-
-

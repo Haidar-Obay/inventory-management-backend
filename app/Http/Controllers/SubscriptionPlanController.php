@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SubscriptionPlan;
 use App\Models\Currency;
-use Illuminate\Http\Request;
+use App\Models\SubscriptionPlan;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 
@@ -19,7 +19,7 @@ class SubscriptionPlanController extends Controller
         });
 
         return response()->json([
-            'plans' => $plans
+            'plans' => $plans,
         ]);
     }
 
@@ -28,7 +28,7 @@ class SubscriptionPlanController extends Controller
         $plan = SubscriptionPlan::findOrFail($id);
 
         return response()->json([
-            'plan' => $plan
+            'plan' => $plan,
         ]);
     }
 
@@ -44,12 +44,12 @@ class SubscriptionPlanController extends Controller
             'max_users' => 'nullable|integer|min:1',
             'max_customers' => 'nullable|integer|min:1',
             'features' => 'nullable|array',
-            'is_default' => 'boolean'
+            'is_default' => 'boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -59,7 +59,7 @@ class SubscriptionPlanController extends Controller
 
         return response()->json([
             'message' => 'Subscription plan created successfully',
-            'plan' => $plan
+            'plan' => $plan,
         ], 201);
     }
 
@@ -69,7 +69,7 @@ class SubscriptionPlanController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
-            'code' => 'sometimes|required|string|max:50|unique:subscription_plans,code,' . $id,
+            'code' => 'sometimes|required|string|max:50|unique:subscription_plans,code,'.$id,
             'description' => 'nullable|string',
             'price' => 'sometimes|required|numeric|min:0',
             'billing_cycle' => 'sometimes|required|in:monthly,yearly',
@@ -77,12 +77,12 @@ class SubscriptionPlanController extends Controller
             'max_users' => 'nullable|integer|min:1',
             'max_customers' => 'nullable|integer|min:1',
             'features' => 'nullable|array',
-            'is_default' => 'boolean'
+            'is_default' => 'boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -92,7 +92,7 @@ class SubscriptionPlanController extends Controller
 
         return response()->json([
             'message' => 'Subscription plan updated successfully',
-            'plan' => $plan
+            'plan' => $plan,
         ]);
     }
 
@@ -103,7 +103,7 @@ class SubscriptionPlanController extends Controller
         // Check if plan is being used by any tenants
         if ($plan->tenants()->exists()) {
             return response()->json([
-                'message' => 'Cannot delete plan. It is currently being used by tenants.'
+                'message' => 'Cannot delete plan. It is currently being used by tenants.',
             ], 422);
         }
 
@@ -112,7 +112,7 @@ class SubscriptionPlanController extends Controller
         Cache::forget('subscription_plans_all');
 
         return response()->json([
-            'message' => 'Subscription plan deleted successfully'
+            'message' => 'Subscription plan deleted successfully',
         ]);
     }
 
@@ -123,21 +123,21 @@ class SubscriptionPlanController extends Controller
     {
         try {
             $tenant = tenant();
-            
-            if (!$tenant) {
+
+            if (! $tenant) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Tenant not found'
+                    'message' => 'Tenant not found',
                 ], 404);
             }
 
             // Check if tenant has active subscription
-            if (!$tenant->hasActiveSubscription()) {
+            if (! $tenant->hasActiveSubscription()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Your subscription has expired. Please renew to continue using the service.',
                     'subscription_status' => $tenant->subscription_status,
-                    'can_add_multiple_currencies' => false
+                    'can_add_multiple_currencies' => false,
                 ], 403);
             }
 
@@ -162,15 +162,15 @@ class SubscriptionPlanController extends Controller
                         'start_date' => $tenant->subscription_start_date?->format('Y-m-d'),
                         'end_date' => $tenant->subscription_end_date?->format('Y-m-d'),
                         'auto_renew' => $tenant->auto_renew,
-                        'is_expired' => $tenant->isSubscriptionExpired()
-                    ]
+                        'is_expired' => $tenant->isSubscriptionExpired(),
+                    ],
                 ],
-                'message' => 'Subscription status checked successfully'
+                'message' => 'Subscription status checked successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to check subscription status: ' . $e->getMessage()
+                'message' => 'Failed to check subscription status: '.$e->getMessage(),
             ], 500);
         }
     }

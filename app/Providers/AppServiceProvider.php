@@ -2,10 +2,10 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Auth\Notifications\ResetPassword;
-use OwenIt\Auditing\Models\Audit;
 use App\Observers\AuditObserver;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\ServiceProvider;
+use OwenIt\Auditing\Models\Audit;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -24,12 +24,10 @@ class AppServiceProvider extends ServiceProvider
     {
         Audit::observe(AuditObserver::class);
 
-        
         ResetPassword::createUrlUsing(function ($user, string $token) {
             // Replace this with your frontend URL
-            return 'https://frontend-app.com/reset-password?token=' . $token . '&email=' . urlencode($user->email);
+            return 'https://frontend-app.com/reset-password?token='.$token.'&email='.urlencode($user->email);
         });
-       
-    }
-    }
 
+    }
+}

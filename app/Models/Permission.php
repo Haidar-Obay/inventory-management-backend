@@ -27,8 +27,8 @@ class Permission extends Model
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'role_permissions')
-                    ->withPivot(['can_view', 'can_add', 'can_edit', 'can_delete'])
-                    ->withTimestamps();
+            ->withPivot(['can_view', 'can_add', 'can_edit', 'can_delete'])
+            ->withTimestamps();
     }
 
     /**
@@ -46,7 +46,7 @@ class Permission extends Model
     {
         return $query->where(function ($q) use ($search) {
             $q->where('resource_key', 'like', "%{$search}%")
-              ->orWhere('resource_label', 'like', "%{$search}%");
+                ->orWhere('resource_label', 'like', "%{$search}%");
         });
     }
 }

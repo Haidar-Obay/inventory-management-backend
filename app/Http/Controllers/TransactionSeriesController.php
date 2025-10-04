@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\TransactionSeries;
+use App\Exports\Export;
+use App\Exports\ExportPDF;
 use App\Http\Requests\TransactionSeries\StoreTransactionSeriesRequest;
 use App\Http\Requests\TransactionSeries\UpdateTransactionSeriesRequest;
+use App\Imports\DynamicExcelImport;
+use App\Models\TransactionSeries;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class TransactionSeriesController extends Controller
 {
@@ -27,10 +27,10 @@ class TransactionSeriesController extends Controller
     public function store(StoreTransactionSeriesRequest $request)
     {
         $transactionSeries = TransactionSeries::create($request->validated());
-        Cache::forget("transaction_series_" . tenant('id'));
+        Cache::forget('transaction_series_'.tenant('id'));
 
         $transactionSeries->load(['companyCode', 'trade']);
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Transaction series created successfully.',
@@ -45,9 +45,10 @@ class TransactionSeriesController extends Controller
 
         $cached = Cache::remember($cacheKey, 3600, function () use ($transactionSeries) {
             $transactionSeries->load(['companyCode', 'trade']);
+
             return $transactionSeries;
         });
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Transaction series details fetched successfully.',
@@ -58,11 +59,11 @@ class TransactionSeriesController extends Controller
     public function update(UpdateTransactionSeriesRequest $request, TransactionSeries $transactionSeries)
     {
         $transactionSeries->update($request->validated());
-        Cache::forget("transaction_series_" . tenant('id'));
-        Cache::forget("transaction_series_{$transactionSeries->id}_" . tenant('id'));
+        Cache::forget('transaction_series_'.tenant('id'));
+        Cache::forget("transaction_series_{$transactionSeries->id}_".tenant('id'));
 
         $transactionSeries->load(['companyCode', 'trade']);
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Transaction series updated successfully.',
@@ -73,8 +74,8 @@ class TransactionSeriesController extends Controller
     public function destroy(TransactionSeries $transactionSeries)
     {
         $transactionSeries->delete();
-        Cache::forget("transaction_series_" . tenant('id'));
-        Cache::forget("transaction_series_{$transactionSeries->id}_" . tenant('id'));
+        Cache::forget('transaction_series_'.tenant('id'));
+        Cache::forget("transaction_series_{$transactionSeries->id}_".tenant('id'));
 
         return response()->json(null, 204);
     }
@@ -83,12 +84,12 @@ class TransactionSeriesController extends Controller
     {
         $ids = $request->input('ids');
 
-        if (!$ids || !is_array($ids)) {
+        if (! $ids || ! is_array($ids)) {
             return response()->json(['message' => 'No transaction series selected'], 400);
         }
 
         TransactionSeries::whereIn('id', $ids)->delete();
-        Cache::forget("transaction_series_" . tenant('id'));
+        Cache::forget('transaction_series_'.tenant('id'));
 
         return response()->json(['message' => 'Transaction series deleted successfully']);
     }
@@ -128,10 +129,12 @@ class TransactionSeriesController extends Controller
             foreach ($columns as $column) {
                 $mapped[$column] = data_get($row, $column);
             }
+
             return $mapped;
         })->toArray();
 
-        $pdf = (new ExportPDF())->generatePdf('Transaction Series', $headers, $data);
+        $pdf = (new ExportPDF)->generatePdf('Transaction Series', $headers, $data);
+
         return $pdf->download('transaction_series.pdf');
     }
 
@@ -164,10 +167,19 @@ class TransactionSeriesController extends Controller
                 ['code', 'name', 'company_code_id', 'trade_id', 'active'],
                 function ($row) {
                     $errors = [];
-                    if (empty($row['code'])) $errors[] = 'Missing code';
-                    if (empty($row['name'])) $errors[] = 'Missing name';
-                    if (empty($row['company_code_id'])) $errors[] = 'Missing company_code_id';
-                    if (empty($row['trade_id'])) $errors[] = 'Missing trade_id';
+                    if (empty($row['code'])) {
+                        $errors[] = 'Missing code';
+                    }
+                    if (empty($row['name'])) {
+                        $errors[] = 'Missing name';
+                    }
+                    if (empty($row['company_code_id'])) {
+                        $errors[] = 'Missing company_code_id';
+                    }
+                    if (empty($row['trade_id'])) {
+                        $errors[] = 'Missing trade_id';
+                    }
+
                     return $errors;
                 },
                 function ($row) {
@@ -181,12 +193,13 @@ class TransactionSeriesController extends Controller
                 },
                 true // Enable header validation
             );
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -195,12 +208,13 @@ class TransactionSeriesController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
-            
-            Cache::forget("transaction_series_" . tenant('id'));
+
+            Cache::forget('transaction_series_'.tenant('id'));
+
             return response()->json([
                 'message' => 'Import successful',
                 'rows_imported' => $import->getImportedCount(),
@@ -208,7 +222,7 @@ class TransactionSeriesController extends Controller
                 'skipped_rows' => $import->getSkippedRows(),
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Import failed: ' . $e->getMessage()], 422);
+            return response()->json(['message' => 'Import failed: '.$e->getMessage()], 422);
         }
     }
 

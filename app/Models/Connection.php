@@ -17,5 +17,3 @@ class Connection extends Model
         return $this->belongsTo(ConnectionType::class, 'type_id');
     }
 }
-
-

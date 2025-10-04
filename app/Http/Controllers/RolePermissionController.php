@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Role;
 use App\Models\Permission;
-use App\Models\RolePermission;
-use Illuminate\Http\Request;
+use App\Models\Role;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class RolePermissionController extends Controller
 {
@@ -36,14 +35,14 @@ class RolePermissionController extends Controller
                 'data' => [
                     'role_id' => $role->id,
                     'role_name' => $role->name,
-                    'permissions' => $permissions
-                ]
+                    'permissions' => $permissions,
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve role permissions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -66,16 +65,16 @@ class RolePermissionController extends Controller
             $permissionsData = $request->input('permissions');
             // Enforce: Admin cannot edit Owner or Admin roles
             $authUser = $request->user();
-            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && in_array($role->name, ['Owner','Admin'])) {
+            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && in_array($role->name, ['Owner', 'Admin'])) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Admins cannot modify Owner/Admin role permissions.'
+                    'message' => 'Admins cannot modify Owner/Admin role permissions.',
                 ], 403);
             }
-            
+
             // Clear existing permissions for this role
             $role->permissions()->detach();
-            
+
             // Attach new permissions with granular access
             foreach ($permissionsData as $permissionData) {
                 $role->permissions()->attach($permissionData['permission_id'], [
@@ -105,14 +104,14 @@ class RolePermissionController extends Controller
                             'can_edit' => $permission->pivot->can_edit,
                             'can_delete' => $permission->pivot->can_delete,
                         ];
-                    })
-                ]
+                    }),
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to assign permissions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -132,10 +131,10 @@ class RolePermissionController extends Controller
 
             // Enforce: Admin cannot edit Owner or Admin roles
             $authUser = $request->user();
-            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && in_array($role->name, ['Owner','Admin'])) {
+            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && in_array($role->name, ['Owner', 'Admin'])) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Admins cannot modify Owner/Admin role permissions.'
+                    'message' => 'Admins cannot modify Owner/Admin role permissions.',
                 ], 403);
             }
 
@@ -160,14 +159,14 @@ class RolePermissionController extends Controller
                         'can_add' => $request->input('can_add', false),
                         'can_edit' => $request->input('can_edit', false),
                         'can_delete' => $request->input('can_delete', false),
-                    ]
-                ]
+                    ],
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update permission',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -190,14 +189,14 @@ class RolePermissionController extends Controller
                         'id' => $permission->id,
                         'resource_key' => $permission->resource_key,
                         'resource_label' => $permission->resource_label,
-                    ]
-                ]
+                    ],
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to remove permission',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -229,14 +228,14 @@ class RolePermissionController extends Controller
                     'permission_id' => $permission->id,
                     'resource_key' => $permission->resource_key,
                     'resource_label' => $permission->resource_label,
-                    'roles' => $roles
-                ]
+                    'roles' => $roles,
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve permission roles',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -254,10 +253,10 @@ class RolePermissionController extends Controller
 
             $resourceKey = $request->input('resource_key');
             $action = $request->input('action');
-            
+
             $permission = $role->permissions()->where('resource_key', $resourceKey)->first();
-            
-            if (!$permission) {
+
+            if (! $permission) {
                 return response()->json([
                     'status' => 'success',
                     'message' => 'Permission check completed',
@@ -266,8 +265,8 @@ class RolePermissionController extends Controller
                         'role_name' => $role->name,
                         'resource_key' => $resourceKey,
                         'action' => $action,
-                        'has_permission' => false
-                    ]
+                        'has_permission' => false,
+                    ],
                 ]);
             }
 
@@ -275,15 +274,19 @@ class RolePermissionController extends Controller
             switch ($action) {
                 case 'view':
                     $hasPermission = $permission->pivot->can_view;
+
                     break;
                 case 'add':
                     $hasPermission = $permission->pivot->can_add;
+
                     break;
                 case 'edit':
                     $hasPermission = $permission->pivot->can_edit;
+
                     break;
                 case 'delete':
                     $hasPermission = $permission->pivot->can_delete;
+
                     break;
             }
 
@@ -295,14 +298,14 @@ class RolePermissionController extends Controller
                     'role_name' => $role->name,
                     'resource_key' => $resourceKey,
                     'action' => $action,
-                    'has_permission' => $hasPermission
-                ]
+                    'has_permission' => $hasPermission,
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to check permission',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

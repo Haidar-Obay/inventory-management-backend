@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreAssociationServicePriceRequest;
+use App\Exports\Export;
+use App\Exports\ExportPDF;
 use App\Http\Requests\UpdateAssociationServicePriceRequest;
+use App\Imports\DynamicExcelImport;
 use App\Models\Association;
 use App\Models\AssociationServicePrice;
 use App\Models\Service;
@@ -12,17 +14,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class AssociationServicePriceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
         $query = AssociationServicePrice::query()->with(['association:id,name', 'service:id,name']);
-        if ($request->filled('association_id')) $query->where('association_id', $request->integer('association_id'));
-        if ($request->filled('service_id')) $query->where('service_id', $request->integer('service_id'));
+        if ($request->filled('association_id')) {
+            $query->where('association_id', $request->integer('association_id'));
+        }
+        if ($request->filled('service_id')) {
+            $query->where('service_id', $request->integer('service_id'));
+        }
+
         return response()->json($query->orderByDesc('id')->paginate());
     }
 
@@ -40,25 +44,30 @@ class AssociationServicePriceController extends Controller
             $created = [];
             $errors = [];
             DB::beginTransaction();
+
             try {
                 foreach ($payload as $index => $row) {
                     $validator = Validator::make($row, $rules);
                     if ($validator->fails()) {
                         $errors[] = ['index' => $index, 'errors' => $validator->errors()];
+
                         continue;
                     }
                     $created[] = AssociationServicePrice::create($validator->validated())
                         ->load(['association:id,name', 'service:id,name']);
                 }
-                if (!empty($errors) && empty($created)) {
+                if (! empty($errors) && empty($created)) {
                     DB::rollBack();
+
                     return response()->json(['success' => false, 'errors' => $errors], 422);
                 }
                 DB::commit();
             } catch (\Throwable $e) {
                 DB::rollBack();
+
                 throw $e;
             }
+
             return response()->json(['success' => true, 'created_count' => count($created), 'errors' => $errors, 'data' => $created], 201);
         }
 
@@ -70,6 +79,7 @@ class AssociationServicePriceController extends Controller
         ]);
         $validator->validate();
         $row = AssociationServicePrice::create($validator->validated());
+
         return response()->json($row->load(['association:id,name', 'service:id,name']), 201);
     }
 
@@ -81,12 +91,14 @@ class AssociationServicePriceController extends Controller
     public function update(UpdateAssociationServicePriceRequest $request, AssociationServicePrice $associationServicePrice): JsonResponse
     {
         $associationServicePrice->update($request->validated());
+
         return response()->json($associationServicePrice->load(['association:id,name', 'service:id,name']));
     }
 
     public function destroy(AssociationServicePrice $associationServicePrice): JsonResponse
     {
         $associationServicePrice->delete();
+
         return response()->json(['message' => 'Deleted']);
     }
 
@@ -96,6 +108,7 @@ class AssociationServicePriceController extends Controller
             ->where('association_id', $association->id)
             ->orderByDesc('id')
             ->get();
+
         return response()->json($rows);
     }
 
@@ -105,6 +118,7 @@ class AssociationServicePriceController extends Controller
             ->where('service_id', $service->id)
             ->orderByDesc('id')
             ->get();
+
         return response()->json($rows);
     }
 
@@ -120,6 +134,7 @@ class AssociationServicePriceController extends Controller
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
         return response()->json(['message' => 'Bulk delete completed.', 'deleted_count' => $deleted, 'skipped' => $skipped]);
     }
 
@@ -127,17 +142,22 @@ class AssociationServicePriceController extends Controller
     {
         $query = AssociationServicePrice::query();
         $collection = $query->get();
-        if ($collection->isEmpty()) return response()->json(['message' => 'No rows found.'], 404);
-        $columns = ['id','association_id','service_id','price','discount','created_at','updated_at'];
-        $headings = ['ID','Association ID','Service ID','Price','Discount','Created At','Updated At'];
-        $fileName = 'association_service_prices_' . '.xlsx';
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No rows found.'], 404);
+        }
+        $columns = ['id', 'association_id', 'service_id', 'price', 'discount', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Association ID', 'Service ID', 'Price', 'Discount', 'Created At', 'Updated At'];
+        $fileName = 'association_service_prices_'.'.xlsx';
+
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $rows = AssociationServicePrice::select('id','association_id','service_id','price','discount')->get();
-        if ($rows->isEmpty()) return response()->json(['message' => 'No rows found.'], 404);
+        $rows = AssociationServicePrice::select('id', 'association_id', 'service_id', 'price', 'discount')->get();
+        if ($rows->isEmpty()) {
+            return response()->json(['message' => 'No rows found.'], 404);
+        }
         $title = 'Association Service Prices';
         $headers = [
             'id' => 'ID',
@@ -148,6 +168,7 @@ class AssociationServicePriceController extends Controller
             'created_at' => 'Created At',
             'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
+
         return $pdf->download('AssociationServicePrices.pdf');
     }
 
@@ -156,13 +177,22 @@ class AssociationServicePriceController extends Controller
         $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv']);
         $import = new DynamicExcelImport(
             AssociationServicePrice::class,
-            ['association_id','service_id','price','discount'],
+            ['association_id', 'service_id', 'price', 'discount'],
             function ($row) {
                 $errors = [];
-                if (empty($row['association_id'])) $errors[] = 'Missing association_id';
-                if (empty($row['service_id'])) $errors[] = 'Missing service_id';
-                if (isset($row['price']) && !is_numeric($row['price'])) $errors[] = 'price must be numeric';
-                if (isset($row['discount']) && !is_numeric($row['discount'])) $errors[] = 'discount must be numeric';
+                if (empty($row['association_id'])) {
+                    $errors[] = 'Missing association_id';
+                }
+                if (empty($row['service_id'])) {
+                    $errors[] = 'Missing service_id';
+                }
+                if (isset($row['price']) && ! is_numeric($row['price'])) {
+                    $errors[] = 'price must be numeric';
+                }
+                if (isset($row['discount']) && ! is_numeric($row['discount'])) {
+                    $errors[] = 'discount must be numeric';
+                }
+
                 return $errors;
             },
             function ($row) {
@@ -175,6 +205,7 @@ class AssociationServicePriceController extends Controller
             }
         );
         Excel::import($import, $request->file('file'));
+
         return response()->json([
             'success' => true,
             'rows_imported' => $import->getImportedCount(),
@@ -183,5 +214,3 @@ class AssociationServicePriceController extends Controller
         ]);
     }
 }
-
-

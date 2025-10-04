@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 use App\Models\BusinessType;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class BusinessTypeController extends Controller
 {
@@ -57,7 +57,7 @@ class BusinessTypeController extends Controller
 
         $cachedBusinessType = app('cache')->store('database')->get($key);
 
-        if (!$cachedBusinessType) {
+        if (! $cachedBusinessType) {
             $cachedBusinessType = $businessType;
             app('cache')->store('database')->forever($key, $cachedBusinessType);
         }
@@ -152,7 +152,8 @@ class BusinessTypeController extends Controller
         $columns = ['id', 'code', 'name', 'created_at', 'updated_at'];
         $headings = ['ID', 'Code', 'Name', 'Created At', 'Updated At'];
 
-        $fileName = 'business_types_' . '.xlsx';
+        $fileName = 'business_types_'.'.xlsx';
+
         return Excel::download(new Export($businessTypes, $columns, $headings), $fileName);
     }
 
@@ -172,6 +173,7 @@ class BusinessTypeController extends Controller
         $data = $businessTypes->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('BusinessTypes.pdf');
     }
 
@@ -202,7 +204,11 @@ class BusinessTypeController extends Controller
             BusinessType::class,
             ['code', 'name'],
             function ($row) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
                 if (($row['code'] ?? '') === '') {
                     $errors[] = 'Missing code';
@@ -214,7 +220,12 @@ class BusinessTypeController extends Controller
                 return $errors;
             },
             function ($row) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
+
                 return [
                     'code' => $row['code'] ?? null,
                     'name' => $row['name'] ?? null,
@@ -226,8 +237,9 @@ class BusinessTypeController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -236,8 +248,8 @@ class BusinessTypeController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 

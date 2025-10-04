@@ -10,8 +10,11 @@ class CustomerChequeLimit extends Model implements Auditable
     use \OwenIt\Auditing\Auditable;
 
     protected $guarded = ['id'];
+
     protected $table = 'customer_cheque_limits';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     protected $casts = [
@@ -60,6 +63,7 @@ class CustomerChequeLimit extends Model implements Auditable
         if ($this->max_cheques == 0) {
             return 0;
         }
+
         return ($this->used_cheques / $this->max_cheques) * 100;
     }
 

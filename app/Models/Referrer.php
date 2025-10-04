@@ -18,5 +18,3 @@ class Referrer extends Model
         'commission_percent' => 'decimal:2',
     ];
 }
-
-

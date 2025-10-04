@@ -23,5 +23,3 @@ class Speciality extends Model
             ->withTimestamps();
     }
 }
-
-

@@ -24,10 +24,10 @@ class UpdatePermissionRequest extends FormRequest
     {
         return [
             'resource_key' => [
-                'required', 
-                'string', 
-                'max:100', 
-                Rule::unique('permissions', 'resource_key')->ignore($this->route('permission'))
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('permissions', 'resource_key')->ignore($this->route('permission')),
             ],
             'resource_label' => ['required', 'string', 'max:150'],
         ];
