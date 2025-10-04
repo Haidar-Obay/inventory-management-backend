@@ -300,7 +300,7 @@ jobs:
           extensions: mbstring, bcmath, pdo_pgsql, dom, fileinfo, gd, intl, zip
 
       - name: Install dependencies
-        run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader --no-dev
+        run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
 
       - name: Copy .env example
         run: cp .env.example .env
@@ -318,6 +318,15 @@ jobs:
 
       - name: Generate app key
         run: php artisan key:generate
+
+      - name: Wait for database
+        run: |
+          echo "Waiting for database to be ready..."
+          until pg_isready -h 127.0.0.1 -p 5432 -U postgres; do
+            echo "Database is unavailable - sleeping"
+            sleep 2
+          done
+          echo "Database is ready!"
 
       - name: Run database migrations
         env:
