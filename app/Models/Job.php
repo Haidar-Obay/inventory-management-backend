@@ -4,16 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
 class Job extends Model implements Auditable
 {
-    use HasFactory, AuditableTrait;
+    use AuditableTrait, HasFactory;
 
     protected $guarded = ['id'];
+
     protected $table = 'projects_jobs';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     protected $casts = [
@@ -29,19 +32,20 @@ class Job extends Model implements Auditable
 
     public function isCompleted()
     {
-        return !is_null($this->end_date);
+        return ! is_null($this->end_date);
     }
 
     public function isOverdue()
     {
-        return !$this->isCompleted() && $this->expected_date->isPast();
+        return ! $this->isCompleted() && $this->expected_date->isPast();
     }
 
     public function getDuration()
     {
-        if (!$this->isCompleted()) {
-            return null;
+        if (! $this->isCompleted()) {
+            return;
         }
+
         return $this->start_date->diffInDays($this->end_date);
     }
 

@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Observers;
+
 use App\Events\AuditCreated;
 use OwenIt\Auditing\Models\Audit;
 
@@ -13,6 +14,7 @@ class AuditObserver
     {
         event(new AuditCreated($audit));
     }
+
     /**
      * Handle the Audit "updated" event.
      */

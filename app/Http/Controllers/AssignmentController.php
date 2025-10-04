@@ -2,16 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Assignment;
-use App\Http\Requests\Assignment\StoreAssignmentRequest;
-use App\Http\Requests\Assignment\UpdateAssignmentRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Assignment\StoreAssignmentRequest;
+use App\Http\Requests\Assignment\UpdateAssignmentRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\Assignment;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AssignmentController extends Controller
 {
@@ -22,12 +20,12 @@ class AssignmentController extends Controller
 
         $assignments = app('cache')->store('database')->get($key);
 
-        if (!$assignments) {
+        if (! $assignments) {
             $assignments = Assignment::with([
                 'asset:id,name,type,status,section_id',
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
-                'user:id,name,email'
+                'user:id,name,email',
             ])->orderBy('start_at', 'desc')->get();
 
             app('cache')->store('database')->forever($key, $assignments);
@@ -43,7 +41,7 @@ class AssignmentController extends Controller
     public function store(StoreAssignmentRequest $request)
     {
         $validated = $request->validated();
-        
+
         // Check for overlapping assignments
         $overlapping = Assignment::overlapping(
             $validated['asset_id'],
@@ -57,7 +55,7 @@ class AssignmentController extends Controller
                 'message' => 'This asset is already assigned during the specified time period.',
             ], 422);
         }
-        
+
         $assignment = Assignment::create($validated);
 
         $tenantId = tenant('id');
@@ -70,7 +68,7 @@ class AssignmentController extends Controller
                 'asset:id,name,type,status,section_id',
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
-                'user:id,name,email'
+                'user:id,name,email',
             ]),
         ], 201);
     }
@@ -82,12 +80,12 @@ class AssignmentController extends Controller
 
         $cachedAssignment = app('cache')->store('database')->get($key);
 
-        if (!$cachedAssignment) {
+        if (! $cachedAssignment) {
             $cachedAssignment = $assignment->load([
                 'asset:id,name,type,status,section_id',
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
-                'user:id,name,email'
+                'user:id,name,email',
             ]);
 
             app('cache')->store('database')->forever($key, $cachedAssignment);
@@ -103,7 +101,7 @@ class AssignmentController extends Controller
     public function update(UpdateAssignmentRequest $request, Assignment $assignment)
     {
         $validated = $request->validated();
-        
+
         // Check for overlapping assignments (excluding current assignment)
         if (isset($validated['asset_id']) || isset($validated['start_at']) || isset($validated['end_at'])) {
             $assetId = $validated['asset_id'] ?? $assignment->asset_id;
@@ -124,7 +122,7 @@ class AssignmentController extends Controller
                 ], 422);
             }
         }
-        
+
         $assignment->update($validated);
 
         $tenantId = tenant('id');
@@ -138,7 +136,7 @@ class AssignmentController extends Controller
                 'asset:id,name,type,status,section_id',
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
-                'user:id,name,email'
+                'user:id,name,email',
             ]),
         ]);
     }
@@ -195,7 +193,7 @@ class AssignmentController extends Controller
             'asset:id,name,type,status,section_id',
             'asset.section:id,name,room_id',
             'asset.section.room:id,name,location',
-            'user:id,name,email'
+            'user:id,name,email',
         ])->orderBy('start_at', 'desc');
         $collection = $assignments->get();
 
@@ -215,7 +213,7 @@ class AssignmentController extends Controller
             'asset:id,name,type,status,section_id',
             'asset.section:id,name,room_id',
             'asset.section.room:id,name,location',
-            'user:id,name,email'
+            'user:id,name,email',
         ])->select('id', 'asset_id', 'user_id', 'start_at', 'end_at', 'status', 'notes')->get();
 
         if ($assignments->isEmpty()) {
@@ -234,8 +232,9 @@ class AssignmentController extends Controller
         ];
         $data = $assignments->toArray();
 
-        $pdfService = new ExportPDF();
+        $pdfService = new ExportPDF;
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Assignments.pdf');
     }
 
@@ -290,6 +289,7 @@ class AssignmentController extends Controller
                 $endAtKey = $mapping ? array_search('end_at', $mapping) : 'end_at';
                 $statusKey = $mapping ? array_search('status', $mapping) : 'status';
                 $notesKey = $mapping ? array_search('notes', $mapping) : 'notes';
+
                 return [
                     'asset_id' => $row[$assetIdKey] ?? null,
                     'user_id' => $row[$userIdKey] ?? null,
@@ -305,8 +305,9 @@ class AssignmentController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -315,12 +316,12 @@ class AssignmentController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_assignments');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_assignments');
 
         return response()->json([
             'status' => true,
@@ -340,13 +341,13 @@ class AssignmentController extends Controller
 
         $assignments = app('cache')->store('database')->get($key);
 
-        if (!$assignments) {
+        if (! $assignments) {
             $assignments = Assignment::byAsset($assetId)
                 ->with([
                     'asset:id,name,type,status,section_id',
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
-                    'user:id,name,email'
+                    'user:id,name,email',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();
@@ -368,13 +369,13 @@ class AssignmentController extends Controller
 
         $assignments = app('cache')->store('database')->get($key);
 
-        if (!$assignments) {
+        if (! $assignments) {
             $assignments = Assignment::byUser($userId)
                 ->with([
                     'asset:id,name,type,status,section_id',
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
-                    'user:id,name,email'
+                    'user:id,name,email',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();
@@ -396,13 +397,13 @@ class AssignmentController extends Controller
 
         $assignments = app('cache')->store('database')->get($key);
 
-        if (!$assignments) {
+        if (! $assignments) {
             $assignments = Assignment::active()
                 ->with([
                     'asset:id,name,type,status,section_id',
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
-                    'user:id,name,email'
+                    'user:id,name,email',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();

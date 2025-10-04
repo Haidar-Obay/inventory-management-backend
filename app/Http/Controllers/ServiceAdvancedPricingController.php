@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreServiceAdvancedPricingRequest;
+use App\Exports\Export;
+use App\Exports\ExportPDF;
 use App\Http\Requests\UpdateServiceAdvancedPricingRequest;
+use App\Imports\DynamicExcelImport;
 use App\Models\Service;
 use App\Models\ServiceAdvancedPricing;
 use Illuminate\Http\JsonResponse;
@@ -11,17 +13,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class ServiceAdvancedPricingController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
         $query = ServiceAdvancedPricing::query()->with(['service:id,name', 'specialist:id,name']);
-        if ($request->filled('service_id')) $query->where('service_id', $request->integer('service_id'));
-        if ($request->filled('specialist_id')) $query->where('specialist_id', $request->integer('specialist_id'));
+        if ($request->filled('service_id')) {
+            $query->where('service_id', $request->integer('service_id'));
+        }
+        if ($request->filled('specialist_id')) {
+            $query->where('specialist_id', $request->integer('specialist_id'));
+        }
+
         return response()->json($query->orderByDesc('id')->paginate());
     }
 
@@ -39,25 +43,30 @@ class ServiceAdvancedPricingController extends Controller
             $created = [];
             $errors = [];
             DB::beginTransaction();
+
             try {
                 foreach ($payload as $index => $row) {
                     $validator = Validator::make($row, $rules);
                     if ($validator->fails()) {
                         $errors[] = ['index' => $index, 'errors' => $validator->errors()];
+
                         continue;
                     }
                     $created[] = ServiceAdvancedPricing::create($validator->validated())
                         ->load(['service:id,name', 'specialist:id,name']);
                 }
-                if (!empty($errors) && empty($created)) {
+                if (! empty($errors) && empty($created)) {
                     DB::rollBack();
+
                     return response()->json(['success' => false, 'errors' => $errors], 422);
                 }
                 DB::commit();
             } catch (\Throwable $e) {
                 DB::rollBack();
+
                 throw $e;
             }
+
             return response()->json(['success' => true, 'created_count' => count($created), 'errors' => $errors, 'data' => $created], 201);
         }
 
@@ -69,6 +78,7 @@ class ServiceAdvancedPricingController extends Controller
         ]);
         $validator->validate();
         $pricing = ServiceAdvancedPricing::create($validator->validated());
+
         return response()->json($pricing->load(['service:id,name', 'specialist:id,name']), 201);
     }
 
@@ -80,12 +90,14 @@ class ServiceAdvancedPricingController extends Controller
     public function update(UpdateServiceAdvancedPricingRequest $request, ServiceAdvancedPricing $serviceAdvancedPricing): JsonResponse
     {
         $serviceAdvancedPricing->update($request->validated());
+
         return response()->json($serviceAdvancedPricing->load(['service:id,name', 'specialist:id,name']));
     }
 
     public function destroy(ServiceAdvancedPricing $serviceAdvancedPricing): JsonResponse
     {
         $serviceAdvancedPricing->delete();
+
         return response()->json(['message' => 'Deleted']);
     }
 
@@ -95,6 +107,7 @@ class ServiceAdvancedPricingController extends Controller
             ->where('service_id', $service->id)
             ->orderByDesc('id')
             ->get();
+
         return response()->json($rows);
     }
 
@@ -113,6 +126,7 @@ class ServiceAdvancedPricingController extends Controller
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
+
         return response()->json([
             'message' => 'Bulk delete completed.',
             'deleted_count' => $deleted,
@@ -124,18 +138,23 @@ class ServiceAdvancedPricingController extends Controller
     {
         $query = ServiceAdvancedPricing::query();
         $collection = $query->get();
-        if ($collection->isEmpty()) return response()->json(['message' => 'No rows found.'], 404);
+        if ($collection->isEmpty()) {
+            return response()->json(['message' => 'No rows found.'], 404);
+        }
 
         $columns = ['id', 'service_id', 'specialist_id', 'price_on_site', 'price_on_call', 'created_at', 'updated_at'];
         $headings = ['ID', 'Service ID', 'Specialist ID', 'Price On Site', 'Price On Call', 'Created At', 'Updated At'];
-        $fileName = 'service_advanced_pricings_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'service_advanced_pricings_'.date('Y-m-d_H-i-s').'.xlsx';
+
         return Excel::download(new Export($query, $columns, $headings), $fileName);
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
         $rows = ServiceAdvancedPricing::select('id', 'service_id', 'specialist_id', 'price_on_site', 'price_on_call')->get();
-        if ($rows->isEmpty()) return response()->json(['message' => 'No rows found.'], 404);
+        if ($rows->isEmpty()) {
+            return response()->json(['message' => 'No rows found.'], 404);
+        }
         $title = 'Service Advanced Pricing';
         $headers = [
             'id' => 'ID',
@@ -146,6 +165,7 @@ class ServiceAdvancedPricingController extends Controller
             'created_at' => 'Created At',
             'updated_at' => 'Updated At'];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
+
         return $pdf->download('ServiceAdvancedPricing.pdf');
     }
 
@@ -158,10 +178,19 @@ class ServiceAdvancedPricingController extends Controller
             ['service_id', 'specialist_id', 'price_on_site', 'price_on_call'],
             function ($row) {
                 $errors = [];
-                if (empty($row['service_id'])) $errors[] = 'Missing service_id';
-                if (empty($row['specialist_id'])) $errors[] = 'Missing specialist_id';
-                if (isset($row['price_on_site']) && !is_numeric($row['price_on_site'])) $errors[] = 'price_on_site must be numeric';
-                if (isset($row['price_on_call']) && !is_numeric($row['price_on_call'])) $errors[] = 'price_on_call must be numeric';
+                if (empty($row['service_id'])) {
+                    $errors[] = 'Missing service_id';
+                }
+                if (empty($row['specialist_id'])) {
+                    $errors[] = 'Missing specialist_id';
+                }
+                if (isset($row['price_on_site']) && ! is_numeric($row['price_on_site'])) {
+                    $errors[] = 'price_on_site must be numeric';
+                }
+                if (isset($row['price_on_call']) && ! is_numeric($row['price_on_call'])) {
+                    $errors[] = 'price_on_call must be numeric';
+                }
+
                 return $errors;
             },
             function ($row) {
@@ -184,5 +213,3 @@ class ServiceAdvancedPricingController extends Controller
         ]);
     }
 }
-
-

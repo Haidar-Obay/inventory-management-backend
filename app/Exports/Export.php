@@ -2,19 +2,19 @@
 
 namespace App\Exports;
 
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Arr;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithMapping;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
 
-
-class Export implements FromCollection, WithHeadings, ShouldAutoSize, WithMapping
+class Export implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping
 {
     protected $query;
+
     protected $columns;
+
     protected $headings;
 
     public function __construct(Builder $query, array $columns, array $headings)
@@ -42,6 +42,7 @@ class Export implements FromCollection, WithHeadings, ShouldAutoSize, WithMappin
             $value = data_get($row, $column);
             $mapped[] = $this->formatValue($value);
         }
+
         return $mapped;
     }
 
@@ -70,6 +71,7 @@ class Export implements FromCollection, WithHeadings, ShouldAutoSize, WithMappin
         if (is_array($value) || is_object($value)) {
             return json_encode($value, JSON_UNESCAPED_UNICODE);
         }
-        return (string)$value;
+
+        return (string) $value;
     }
 }

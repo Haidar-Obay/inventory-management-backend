@@ -12,7 +12,7 @@ class CreateTenantsTable extends Migration
     {
         Schema::create('tenants', function (Blueprint $table) {
             $table->string('id')->primary();
-            $table->string('name')->nullable(); 
+            $table->string('name')->nullable();
             $table->string('email')->nullable();
             $table->json('data')->nullable();
             $table->foreignId('subscription_plan_id')->nullable()->constrained('subscription_plans');
@@ -37,7 +37,7 @@ class CreateTenantsTable extends Migration
                 'subscription_status',
                 'auto_renew',
                 'last_billing_date',
-                'next_billing_date'
+                'next_billing_date',
             ]);
         });
     }

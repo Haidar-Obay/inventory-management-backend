@@ -21,5 +21,3 @@ class StoreAssociationServicePriceRequest extends FormRequest
         ];
     }
 }
-
-

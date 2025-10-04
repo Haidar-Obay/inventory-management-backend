@@ -18,7 +18,7 @@ return new class extends Migration
             $table->decimal('price', 10, 2);
             $table->decimal('discount', 5, 2)->default(0.00);
             $table->timestamps();
-            
+
             // Ensure unique combination of customer master list and item
             $table->unique(['customer_master_list_id', 'item_id'], 'unique_master_list_item');
         });

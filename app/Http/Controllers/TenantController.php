@@ -2,19 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ExportPDF;
 use App\Http\Requests\Tenant\StoreTenantRequest;
 use App\Http\Requests\Tenant\UpdateTenantRequest;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\TenantCreated;
-use App\Exports\ExportPDF;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
-use Stancl\Tenancy\Facades\Tenancy;
 
 class TenantController extends Controller
 {
@@ -26,14 +24,14 @@ class TenantController extends Controller
 
     public function getAllTenants()
     {
-        if (!$this->isAuthorized()) {
+        if (! $this->isAuthorized()) {
             return response()->json(['message' => 'Only owner or admins can perform this operation'], 403);
         }
 
         $cacheKey = 'central_tenants_all';
         $tenants = tenancy()->central(fn () => Cache::store('database')->get($cacheKey));
 
-        if (!$tenants) {
+        if (! $tenants) {
             $tenants = Tenant::all()->map(function ($tenant) {
                 tenancy()->initialize($tenant);
                 $owner = User::first(); // Note: Owner identification now via roles table
@@ -52,12 +50,12 @@ class TenantController extends Controller
             tenancy()->central(fn () => Cache::store('database')->forever($cacheKey, $tenants));
         }
 
-        return response()->json(["clients" => $tenants]);
+        return response()->json(['clients' => $tenants]);
     }
 
     public function store(StoreTenantRequest $request)
     {
-        if (!$this->isAuthorized()) {
+        if (! $this->isAuthorized()) {
             return response()->json(['message' => 'Only owner or admins can perform this operation'], 403);
         }
 
@@ -68,10 +66,10 @@ class TenantController extends Controller
                 $subscriptionPlan = \App\Models\SubscriptionPlan::where('id', $request->input('subscription_plan_id'))
                     ->where('is_active', true)
                     ->first();
-                
-                if (!$subscriptionPlan) {
+
+                if (! $subscriptionPlan) {
                     return response()->json([
-                        'error' => 'Selected subscription plan not found or inactive.'
+                        'error' => 'Selected subscription plan not found or inactive.',
                     ], 422);
                 }
             } else {
@@ -80,9 +78,9 @@ class TenantController extends Controller
                     ->where('is_active', true)
                     ->first();
 
-                if (!$subscriptionPlan) {
+                if (! $subscriptionPlan) {
                     return response()->json([
-                        'error' => 'No subscription plan specified and no default plan found. Please create a default plan or specify a plan.'
+                        'error' => 'No subscription plan specified and no default plan found. Please create a default plan or specify a plan.',
                     ], 500);
                 }
             }
@@ -107,7 +105,7 @@ class TenantController extends Controller
             } else {
                 // If no end date specified, add 30 days from start date
                 $startDate = $tenantData['subscription_start_date'];
-                $tenantData['subscription_end_date'] = is_string($startDate) 
+                $tenantData['subscription_end_date'] = is_string($startDate)
                     ? \Carbon\Carbon::parse($startDate)->addDays(30)
                     : $startDate->addDays(30);
             }
@@ -139,7 +137,7 @@ class TenantController extends Controller
             $tenant = Tenant::create($tenantData);
 
             $tenant->domains()->create([
-                'domain' => "{$request->input('domain')}." . env('CENTRAL_DOMAIN'),
+                'domain' => "{$request->input('domain')}.".env('CENTRAL_DOMAIN'),
             ]);
 
             tenancy()->initialize($tenant);
@@ -163,7 +161,7 @@ class TenantController extends Controller
             return response()->json([
                 'message' => 'Tenant and owner created successfully!',
                 'tenant_id' => $tenant->id,
-                'domain' => "{$request->input('domain')}." . env('CENTRAL_DOMAIN'),
+                'domain' => "{$request->input('domain')}.".env('CENTRAL_DOMAIN'),
                 'email' => $tenant->email,
                 'name' => $tenant->name,
                 'owner' => $user->name,
@@ -178,14 +176,14 @@ class TenantController extends Controller
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to create tenant: ' . $e->getMessage(),
+                'error' => 'Failed to create tenant: '.$e->getMessage(),
             ], 500);
         }
     }
 
     public function deleteTenant($id)
     {
-        if (!$this->isAuthorized()) {
+        if (! $this->isAuthorized()) {
             return response()->json(['message' => 'Only owner or admins can perform this operation'], 403);
         }
 
@@ -197,13 +195,13 @@ class TenantController extends Controller
 
             return response()->json(['message' => 'Tenant deleted successfully']);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to delete tenant: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to delete tenant: '.$e->getMessage()], 500);
         }
     }
 
     public function bulkDeleteTenants(Request $request)
     {
-        if (!$this->isAuthorized()) {
+        if (! $this->isAuthorized()) {
             return response()->json(['message' => 'Only owner or admins can perform this operation'], 403);
         }
 
@@ -219,6 +217,7 @@ class TenantController extends Controller
             try {
                 if (tenant('id') === $id) {
                     $skipped[] = ['id' => $id, 'reason' => 'Cannot delete the tenant currently in use.'];
+
                     continue;
                 }
 
@@ -243,7 +242,7 @@ class TenantController extends Controller
 
     public function getTenant($id)
     {
-        if (!$this->isAuthorized()) {
+        if (! $this->isAuthorized()) {
             return response()->json(['message' => 'Only owner or admins can perform this operation'], 403);
         }
 
@@ -251,9 +250,9 @@ class TenantController extends Controller
 
         $tenant = tenancy()->central(fn () => Cache::store('database')->get($cacheKey));
 
-        if (!$tenant) {
+        if (! $tenant) {
             $model = Tenant::with(['domains', 'subscriptionPlan'])->find($id);
-            if (!$model) {
+            if (! $model) {
                 return response()->json(['message' => 'Tenant not found'], 404);
             }
 
@@ -288,7 +287,7 @@ class TenantController extends Controller
 
     public function updateTenant(UpdateTenantRequest $request, $id)
     {
-        if (!$this->isAuthorized()) {
+        if (! $this->isAuthorized()) {
             return response()->json(['message' => 'Only owner or admins can perform this operation'], 403);
         }
 
@@ -302,7 +301,7 @@ class TenantController extends Controller
 
             if ($request->filled('domain')) {
                 $tenant->domains()->update([
-                    'domain' => "{$request->input('domain')}." . env('CENTRAL_DOMAIN'),
+                    'domain' => "{$request->input('domain')}.".env('CENTRAL_DOMAIN'),
                 ]);
             }
 
@@ -313,7 +312,7 @@ class TenantController extends Controller
             }
 
             tenancy()->central(function () use ($id) {
-                Cache::store('database')->forget("central_tenants_all");
+                Cache::store('database')->forget('central_tenants_all');
                 Cache::store('database')->forget("central_tenant_show_{$id}");
             });
 
@@ -329,13 +328,13 @@ class TenantController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to update tenant: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to update tenant: '.$e->getMessage()], 500);
         }
     }
 
     public function exportExcell()
     {
-        if (!$this->isAuthorized()) {
+        if (! $this->isAuthorized()) {
             return response()->json(['message' => 'Access denied. Only owner or admin can view tenants.'], 403);
         }
 
@@ -343,7 +342,7 @@ class TenantController extends Controller
             ->leftJoin('domains', 'tenants.id', '=', 'domains.tenant_id')
             ->select(['tenants.id', 'tenants.name', 'tenants.email', 'domains.domain', 'tenants.created_at', 'tenants.updated_at']);
 
-        if (!$query->exists()) {
+        if (! $query->exists()) {
             return response()->json(['message' => 'No Tenant found.'], 404);
         }
 
@@ -382,22 +381,22 @@ class TenantController extends Controller
         return $pdf->download('Tenant_Report.pdf');
     }
 
-    //getting tenant by name
+    // getting tenant by name
     public function getTenantByName($name)
     {
 
         $tenant = Tenant::with(['domains', 'subscriptionPlan'])->where('id', $name)->first();
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json([
-                'message' => "{$name} not found. Check the name and try again."
+                'message' => "{$name} not found. Check the name and try again.",
             ], 404);
         }
+
         return response()->json([
             'message' => 'Tenant found',
             'tenant' => $name,
             'subscription_end_date' => $tenant->subscription_end_date
         ]);
     }
-
 }

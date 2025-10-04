@@ -21,7 +21,7 @@ class AuthController extends Controller
             $credentials['email'] = strtolower(trim($credentials['email']));
         }
 
-        if (!Auth::attempt($credentials)) {
+        if (! Auth::attempt($credentials)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 

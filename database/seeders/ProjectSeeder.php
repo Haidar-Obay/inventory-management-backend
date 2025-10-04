@@ -2,11 +2,11 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Project;
 use App\Models\Customer;
+use App\Models\Project;
 use Carbon\Carbon;
 use Faker\Factory as Faker;
+use Illuminate\Database\Seeder;
 
 class ProjectSeeder extends Seeder
 {
@@ -22,6 +22,7 @@ class ProjectSeeder extends Seeder
 
         if (empty($customerIds)) {
             $this->command->info('No customers found. Please run CustomerSeeder first.');
+
             return;
         }
 
@@ -32,7 +33,7 @@ class ProjectSeeder extends Seeder
             $endDate = rand(0, 1) ? $expectedDate->copy()->addDays(rand(-10, 10)) : null;
 
             Project::create([
-                'name' => $faker->words(3, true) . ' Project',
+                'name' => $faker->words(3, true).' Project',
                 'customer_id' => $faker->randomElement($customerIds),
                 'start_date' => $startDate,
                 'expected_date' => $expectedDate,

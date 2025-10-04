@@ -2,17 +2,17 @@
 
 namespace App\Models;
 
-use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use OwenIt\Auditing\Contracts\Auditable;
 use Stancl\Tenancy\Contracts\TenantWithDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDomains;
-use OwenIt\Auditing\Contracts\Auditable;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
 
-class Tenant extends BaseTenant implements TenantWithDatabase, Auditable
+class Tenant extends BaseTenant implements Auditable, TenantWithDatabase
 {
-    use \OwenIt\Auditing\Auditable;
     use HasDatabase, HasDomains;
+    use \OwenIt\Auditing\Auditable;
 
     protected $fillable = [
         'id',
@@ -24,7 +24,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase, Auditable
         'subscription_status',
         'auto_renew',
         'last_billing_date',
-        'next_billing_date'
+        'next_billing_date',
     ];
 
     protected $casts = [
@@ -32,7 +32,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase, Auditable
         'subscription_end_date' => 'date',
         'last_billing_date' => 'datetime',
         'next_billing_date' => 'datetime',
-        'auto_renew' => 'boolean'
+        'auto_renew' => 'boolean',
     ];
 
     public function users()
@@ -65,7 +65,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase, Auditable
 
     public function canAddCurrency(int $currentCount = 0): bool
     {
-        if (!$this->subscriptionPlan) {
+        if (! $this->subscriptionPlan) {
             return false;
         }
 
@@ -74,7 +74,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase, Auditable
 
     public function canAddUser(int $currentCount = 0): bool
     {
-        if (!$this->subscriptionPlan) {
+        if (! $this->subscriptionPlan) {
             return false;
         }
 
@@ -83,7 +83,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase, Auditable
 
     public function canAddCustomer(int $currentCount = 0): bool
     {
-        if (!$this->subscriptionPlan) {
+        if (! $this->subscriptionPlan) {
             return false;
         }
 

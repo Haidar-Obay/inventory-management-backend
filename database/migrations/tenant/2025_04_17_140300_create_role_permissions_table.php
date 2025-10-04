@@ -23,7 +23,7 @@ return new class extends Migration
 
             $table->foreign('role_id')->references('id')->on('roles')->onDelete('cascade');
             $table->foreign('permission_id')->references('id')->on('permissions')->onDelete('cascade');
-            
+
             $table->unique(['role_id', 'permission_id']);
         });
     }

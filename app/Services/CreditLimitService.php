@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\CustomerCreditLimit;
-use App\Models\Currency;
-use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Support\Facades\DB;
 
 class CreditLimitService
 {
@@ -15,7 +15,7 @@ class CreditLimitService
      */
     public function canMakePurchase(Customer $customer, float $amount, int $currencyId): array
     {
-        if (!$customer->allow_credit) {
+        if (! $customer->allow_credit) {
             return [
                 'can_purchase' => false,
                 'reason' => 'Customer does not have credit enabled',
@@ -26,7 +26,7 @@ class CreditLimitService
 
         $creditLimit = $customer->getCreditLimitForCurrency($currencyId);
 
-        if (!$creditLimit) {
+        if (! $creditLimit) {
             return [
                 'can_purchase' => false,
                 'reason' => 'No credit limit set for this currency',
@@ -55,7 +55,7 @@ class CreditLimitService
     {
         $check = $this->canMakePurchase($customer, $amount, $currencyId);
 
-        if (!$check['can_purchase']) {
+        if (! $check['can_purchase']) {
             throw new Exception($check['reason']);
         }
 
@@ -81,7 +81,7 @@ class CreditLimitService
     /**
      * Set credit limit for a customer in a specific currency
      */
-    public function setCreditLimit(Customer $customer, int $currencyId, float $amount, string $notes = null): CustomerCreditLimit
+    public function setCreditLimit(Customer $customer, int $currencyId, float $amount, ?string $notes = null): CustomerCreditLimit
     {
         // Validate currency exists
         $currency = Currency::findOrFail($currencyId);
@@ -190,11 +190,11 @@ class CreditLimitService
     {
         $errors = [];
 
-        if (!isset($data['currency_id']) || !Currency::find($data['currency_id'])) {
+        if (! isset($data['currency_id']) || ! Currency::find($data['currency_id'])) {
             $errors[] = 'Invalid currency selected';
         }
 
-        if (!isset($data['credit_limit']) || $data['credit_limit'] < 0) {
+        if (! isset($data['credit_limit']) || $data['credit_limit'] < 0) {
             $errors[] = 'Credit limit must be a positive number';
         }
 
@@ -209,12 +209,12 @@ class CreditLimitService
         $customers = Customer::where('allow_credit', true)
             ->whereHas('creditLimits', function ($query) {
                 $query->where('used_credit', '>', 'credit_limit')
-                      ->where('is_active', true);
+                    ->where('is_active', true);
             })
             ->with(['creditLimits' => function ($query) {
                 $query->where('used_credit', '>', 'credit_limit')
-                      ->where('is_active', true)
-                      ->with('currency');
+                    ->where('is_active', true)
+                    ->with('currency');
             }])
             ->get();
 

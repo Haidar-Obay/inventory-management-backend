@@ -16,10 +16,9 @@ class UpdateConnectionTypeRequest extends FormRequest
     {
         $routeModel = request()->route('connection_type');
         $id = is_object($routeModel) ? ($routeModel->id ?? null) : $routeModel;
+
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('connection_types', 'name')->ignore($id)],
         ];
     }
 }
-
-

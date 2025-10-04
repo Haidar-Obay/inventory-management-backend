@@ -14,7 +14,7 @@ class UpdateJobRequest extends FormRequest
     public function rules()
     {
         return [
-            'code' => 'required|string|max:255|unique:projects_jobs,code,' . $this->route('job')->id,
+            'code' => 'required|string|max:255|unique:projects_jobs,code,'.$this->route('job')->id,
             'description' => 'required|string|max:255',
             'project_id' => 'required|exists:projects,id',
             'start_date' => 'required|date',

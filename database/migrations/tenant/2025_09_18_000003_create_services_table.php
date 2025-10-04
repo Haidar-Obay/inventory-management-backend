@@ -24,7 +24,6 @@ return new class extends Migration
             $table->integer('result_after_days')->nullable();
 
             $table->boolean('needs_specialist')->default(false);
-           
 
             $table->integer('duration_minutes')->nullable();
 
@@ -55,5 +54,3 @@ return new class extends Migration
         Schema::dropIfExists('services');
     }
 };
-
-

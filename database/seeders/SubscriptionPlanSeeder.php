@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\SubscriptionPlan;
+use Illuminate\Database\Seeder;
 
 class SubscriptionPlanSeeder extends Seeder
 {
@@ -31,8 +31,8 @@ class SubscriptionPlanSeeder extends Seeder
                 'advanced_reporting' => false,
                 'priority_support' => false,
                 'api_access' => false,
-                'custom_integrations' => false
-            ]
+                'custom_integrations' => false,
+            ],
         ]);
 
         // Create Prime Plan
@@ -61,8 +61,8 @@ class SubscriptionPlanSeeder extends Seeder
                 'advanced_analytics' => true,
                 'custom_branding' => true,
                 'data_export' => true,
-                'backup_restore' => true
-            ]
+                'backup_restore' => true,
+            ],
         ]);
     }
 }

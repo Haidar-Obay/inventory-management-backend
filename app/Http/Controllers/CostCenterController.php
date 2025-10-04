@@ -2,17 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CostCenter;
-use App\Http\Requests\CostCenter\StoreCostCenterRequest;
-use App\Http\Requests\CostCenter\UpdateCostCenterRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\CostCenter\StoreCostCenterRequest;
+use App\Http\Requests\CostCenter\UpdateCostCenterRequest;
 use App\Imports\DynamicExcelImport;
-use Illuminate\Support\Facades\Validator;
+use App\Models\CostCenter;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CostCenterController extends Controller
 {
@@ -23,7 +22,7 @@ class CostCenterController extends Controller
 
         $costCenters = app('cache')->store('database')->get($key);
 
-        if (!$costCenters) {
+        if (! $costCenters) {
             $costCenters = CostCenter::with('parent')->get();
             app('cache')->store('database')->forever($key, $costCenters);
         }
@@ -53,6 +52,7 @@ class CostCenterController extends Controller
         $tenantId = tenant('id');
         $costCenter = CostCenter::create($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
+
         return response()->json([
             'status' => true,
             'message' => 'Cost center created successfully.',
@@ -64,13 +64,15 @@ class CostCenterController extends Controller
     {
         try {
             $costCenter = CostCenter::findOrFail($id);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Cost center fetched successfully.',
                 'data' => $costCenter,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching cost center: ' . $e->getMessage());
+            Log::error('Error fetching cost center: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Cost center not found',
@@ -96,6 +98,7 @@ class CostCenterController extends Controller
         $tenantId = tenant('id');
         $costCenter->update($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
+
         return response()->json([
             'status' => true,
             'message' => 'Cost center updated successfully.',
@@ -114,6 +117,7 @@ class CostCenterController extends Controller
         }
         $costCenter->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
+
         return response()->json([
             'status' => true,
             'message' => 'Cost center deleted successfully.',
@@ -124,7 +128,7 @@ class CostCenterController extends Controller
     {
         $ids = $request->input('ids');
 
-        if (!$ids || !is_array($ids)) {
+        if (! $ids || ! is_array($ids)) {
             return response()->json([
                 'status' => false,
                 'message' => 'No cost centers selected for deletion',
@@ -141,13 +145,14 @@ class CostCenterController extends Controller
                     ], 422);
                 }
                 $costCenter->delete();
-                Cache::forget("cost_centers_" . tenant('id'));
-                Cache::forget("cost_center_{$costCenter->id}_" . tenant('id'));
+                Cache::forget('cost_centers_'.tenant('id'));
+                Cache::forget("cost_center_{$costCenter->id}_".tenant('id'));
             }
 
             return response()->json(null, 204);
         } catch (\Exception $e) {
-            Log::error('Error in bulk delete: ' . $e->getMessage());
+            Log::error('Error in bulk delete: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to delete cost centers',
@@ -166,7 +171,7 @@ class CostCenterController extends Controller
                 'parent.code as parent_code',
                 'cost_centers.active',
                 'cost_centers.created_at',
-                'cost_centers.updated_at'
+                'cost_centers.updated_at',
             ]);
 
         $collection = $costCenters->get();
@@ -209,6 +214,7 @@ class CostCenterController extends Controller
         $data = $costCenters->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Cost_Centers.pdf');
     }
 
@@ -238,27 +244,41 @@ class CostCenterController extends Controller
                 CostCenter::class,
                 ['code', 'name'],
                 function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $errors = [];
-                    if (($row['code'] ?? '') === '') { $errors[] = 'Code is required'; }
-                    if (($row['name'] ?? '') === '') { $errors[] = 'Name is required'; }
-                    if (!empty($row['sub_cost_center_of'])) {
+                    if (($row['code'] ?? '') === '') {
+                        $errors[] = 'Code is required';
+                    }
+                    if (($row['name'] ?? '') === '') {
+                        $errors[] = 'Name is required';
+                    }
+                    if (! empty($row['sub_cost_center_of'])) {
                         $parent = CostCenter::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_cost_center_of'])])->first();
-                        if (!$parent) {
+                        if (! $parent) {
                             $errors[] = "Parent cost center with code '{$row['sub_cost_center_of']}' not found";
                         }
                     }
+
                     return $errors;
                 },
                 function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $subCostCenterOfId = null;
-                    if (!empty($row['sub_cost_center_of'])) {
+                    if (! empty($row['sub_cost_center_of'])) {
                         $parent = CostCenter::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_cost_center_of'])])->first();
                         if ($parent) {
                             $subCostCenterOfId = $parent->id;
                         }
                     }
+
                     return [
                         'code' => $row['code'] ?? null,
                         'name' => $row['name'] ?? null,
@@ -270,8 +290,9 @@ class CostCenterController extends Controller
 
             Excel::import($import, $request->file('file'));
 
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -280,8 +301,8 @@ class CostCenterController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
 
@@ -314,12 +335,10 @@ class CostCenterController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Import failed: ' . $e->getMessage(),
+                'message' => 'Import failed: '.$e->getMessage(),
             ], 422);
         }
     }
-
-    
 
     public function getSubCostCenters($costCenterId)
     {
@@ -337,7 +356,7 @@ class CostCenterController extends Controller
     {
         if ($currentId && $parentId == $currentId) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'sub_cost_center_of' => ['A cost center cannot be a sub-cost center of itself']
+                'sub_cost_center_of' => ['A cost center cannot be a sub-cost center of itself'],
             ]);
         }
 
@@ -347,13 +366,13 @@ class CostCenterController extends Controller
                 $ancestors = $this->getAncestors($parent);
                 if (in_array($currentId, $ancestors)) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'sub_cost_center_of' => ['Circular reference detected in cost center hierarchy']
+                        'sub_cost_center_of' => ['Circular reference detected in cost center hierarchy'],
                     ]);
                 }
             }
         } catch (\Exception $e) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'sub_cost_center_of' => ['An error occurred while validating the cost center hierarchy']
+                'sub_cost_center_of' => ['An error occurred while validating the cost center hierarchy'],
             ]);
         }
     }
@@ -371,18 +390,18 @@ class CostCenterController extends Controller
 
     public function getNames()
     {
-            $costCenters = CostCenter::whereNull('sub_cost_center_of')
-                ->select('id', 'name', 'created_at', 'updated_at')
-                ->orderBy('name')
-                ->get()
-                ->map(function ($costCenter) {
-                    return [
-                        'id' => $costCenter->id,
-                        'name' => $costCenter->name,
-                        'created_at' => $costCenter->created_at,
-                        'updated_at' => $costCenter->updated_at,
-                    ];
-                });
+        $costCenters = CostCenter::whereNull('sub_cost_center_of')
+            ->select('id', 'name', 'created_at', 'updated_at')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($costCenter) {
+                return [
+                    'id' => $costCenter->id,
+                    'name' => $costCenter->name,
+                    'created_at' => $costCenter->created_at,
+                    'updated_at' => $costCenter->updated_at,
+                ];
+            });
 
         return response()->json([
             'status' => true,

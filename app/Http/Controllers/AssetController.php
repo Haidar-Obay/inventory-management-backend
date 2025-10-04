@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Asset;
-use App\Http\Requests\Asset\StoreAssetRequest;
-use App\Http\Requests\Asset\UpdateAssetRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Asset\StoreAssetRequest;
+use App\Http\Requests\Asset\UpdateAssetRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\Asset;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AssetController extends Controller
 {
@@ -22,7 +21,7 @@ class AssetController extends Controller
 
         $assets = app('cache')->store('database')->get($key);
 
-        if (!$assets) {
+        if (! $assets) {
             $assets = Asset::with(['section:id,name,room_id', 'section.room:id,name,location'])->orderBy('name')->get();
 
             app('cache')->store('database')->forever($key, $assets);
@@ -38,7 +37,7 @@ class AssetController extends Controller
     public function store(StoreAssetRequest $request)
     {
         $validated = $request->validated();
-        
+
         $asset = Asset::create($validated);
 
         $tenantId = tenant('id');
@@ -58,11 +57,11 @@ class AssetController extends Controller
 
         $cachedAsset = app('cache')->store('database')->get($key);
 
-        if (!$cachedAsset) {
+        if (! $cachedAsset) {
             $cachedAsset = $asset->load([
-                'section:id,name,room_id', 
+                'section:id,name,room_id',
                 'section.room:id,name,location',
-                'assignments:id,user_id,start_at,end_at,status'
+                'assignments:id,user_id,start_at,end_at,status',
             ]);
 
             app('cache')->store('database')->forever($key, $cachedAsset);
@@ -78,13 +77,13 @@ class AssetController extends Controller
     public function update(UpdateAssetRequest $request, Asset $asset)
     {
         $validated = $request->validated();
-        
+
         // Handle unique validation for name field within the same section
         if (isset($validated['name'])) {
             $validator = Validator::make(['name' => $validated['name']], [
-                'name' => 'unique:assets,name,' . $asset->id . ',id,section_id,' . $asset->section_id,
+                'name' => 'unique:assets,name,'.$asset->id.',id,section_id,'.$asset->section_id,
             ]);
-            
+
             if ($validator->fails()) {
                 return response()->json([
                     'status' => false,
@@ -93,7 +92,7 @@ class AssetController extends Controller
                 ], 422);
             }
         }
-        
+
         $asset->update($validated);
 
         $tenantId = tenant('id');
@@ -190,8 +189,9 @@ class AssetController extends Controller
         ];
         $data = $assets->toArray();
 
-        $pdfService = new ExportPDF();
+        $pdfService = new ExportPDF;
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Assets.pdf');
     }
 
@@ -244,6 +244,7 @@ class AssetController extends Controller
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $typeKey = $mapping ? array_search('type', $mapping) : 'type';
                 $statusKey = $mapping ? array_search('status', $mapping) : 'status';
+
                 return [
                     'section_id' => $row[$sectionIdKey] ?? null,
                     'name' => $row[$nameKey] ?? null,
@@ -257,8 +258,9 @@ class AssetController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -267,12 +269,12 @@ class AssetController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_assets');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_assets');
 
         return response()->json([
             'status' => true,
@@ -292,7 +294,7 @@ class AssetController extends Controller
 
         $assets = app('cache')->store('database')->get($key);
 
-        if (!$assets) {
+        if (! $assets) {
             $assets = Asset::with(['section:id,name,room_id', 'section.room:id,name,location'])
                 ->where('section_id', $sectionId)
                 ->orderBy('name')
@@ -315,7 +317,7 @@ class AssetController extends Controller
 
         $assets = app('cache')->store('database')->get($key);
 
-        if (!$assets) {
+        if (! $assets) {
             $assets = Asset::available()
                 ->with(['section:id,name,room_id', 'section.room:id,name,location'])
                 ->orderBy('name')

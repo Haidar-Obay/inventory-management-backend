@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
 class CustomerAttachment extends Model implements Auditable
 {
@@ -18,7 +18,7 @@ class CustomerAttachment extends Model implements Auditable
         'file_size',
         'description',
         'category',
-        'is_public'
+        'is_public',
     ];
 
     protected $casts = [
@@ -36,7 +36,7 @@ class CustomerAttachment extends Model implements Auditable
      */
     public function getFormattedFileSizeAttribute()
     {
-        if (!$this->file_size) {
+        if (! $this->file_size) {
             return 'Unknown';
         }
 
@@ -49,7 +49,7 @@ class CustomerAttachment extends Model implements Auditable
             $unit++;
         }
 
-        return round($size, 2) . ' ' . $units[$unit];
+        return round($size, 2).' '.$units[$unit];
     }
 
     /**
@@ -78,7 +78,7 @@ class CustomerAttachment extends Model implements Auditable
             'application/msword',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 

@@ -14,7 +14,7 @@ class SectionSeeder extends Seeder
     public function run(): void
     {
         $rooms = Room::all();
-        
+
         foreach ($rooms as $room) {
             // Create 2 sections for each room
             for ($i = 1; $i <= 2; $i++) {

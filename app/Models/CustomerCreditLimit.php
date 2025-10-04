@@ -10,8 +10,11 @@ class CustomerCreditLimit extends Model implements Auditable
     use \OwenIt\Auditing\Auditable;
 
     protected $guarded = ['id'];
+
     protected $table = 'customer_credit_limits';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     protected $casts = [
@@ -60,6 +63,7 @@ class CustomerCreditLimit extends Model implements Auditable
         if ($this->credit_limit == 0) {
             return 0;
         }
+
         return ($this->used_credit / $this->credit_limit) * 100;
     }
 

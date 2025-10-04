@@ -31,4 +31,4 @@ class StoreItemRequest extends FormRequest
             'price.min' => 'The price cannot be negative.',
         ];
     }
-} 
+}

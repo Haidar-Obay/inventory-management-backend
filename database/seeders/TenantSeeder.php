@@ -2,12 +2,12 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
+use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Models\SubscriptionPlan;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 
 class TenantSeeder extends Seeder
 {
@@ -34,7 +34,7 @@ class TenantSeeder extends Seeder
             'next_billing_date' => $endDate,
         ]);
         $tenant->domains()->create([
-            'domain' => 'hadishokor.' . env('CENTRAL_DOMAIN'),
+            'domain' => 'hadishokor.'.env('CENTRAL_DOMAIN'),
         ]);
         tenancy()->initialize($tenant);
         \App\Jobs\CreateDefaultTableTemplates::dispatchSync();

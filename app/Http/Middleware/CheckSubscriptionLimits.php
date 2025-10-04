@@ -2,33 +2,33 @@
 
 namespace App\Http\Middleware;
 
-use Closure;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use App\Models\Currency;
-use App\Models\User;
 use App\Models\Customer;
+use App\Models\User;
+use Closure;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class CheckSubscriptionLimits
 {
-    public function handle(Request $request, Closure $next, string $resource = null): JsonResponse|Closure
+    public function handle(Request $request, Closure $next, ?string $resource = null): JsonResponse|Closure
     {
         $tenant = tenant();
 
-        if (!$tenant) {
+        if (! $tenant) {
             return response()->json(['message' => 'Tenant not found'], 404);
         }
 
         // Check if tenant has active subscription
-        if (!$tenant->hasActiveSubscription()) {
+        if (! $tenant->hasActiveSubscription()) {
             return response()->json([
                 'message' => 'Your subscription has expired. Please renew to continue using the service.',
-                'subscription_status' => $tenant->subscription_status
+                'subscription_status' => $tenant->subscription_status,
             ], 403);
         }
 
         // If no specific resource check is requested, continue
-        if (!$resource) {
+        if (! $resource) {
             return $next($request);
         }
 
@@ -38,21 +38,24 @@ class CheckSubscriptionLimits
         switch ($resource) {
             case 'currency':
                 // Only enforce currency limit on POST (create) requests
-                if (!$request->isMethod('post')) {
+                if (! $request->isMethod('post')) {
                     return $next($request);
                 }
                 $currentCount = Currency::count();
                 $canAdd = $tenant->canAddCurrency($currentCount);
+
                 break;
 
             case 'user':
                 $currentCount = User::count();
                 $canAdd = $tenant->canAddUser($currentCount);
+
                 break;
 
             case 'customer':
                 $currentCount = Customer::count();
                 $canAdd = $tenant->canAddCustomer($currentCount);
+
                 break;
 
             case 'opening_balance':
@@ -72,13 +75,14 @@ class CheckSubscriptionLimits
                 } else {
                     $canAdd = true;
                 }
+
                 break;
 
             default:
                 return $next($request);
         }
 
-        if (!$canAdd) {
+        if (! $canAdd) {
             $planName = $tenant->subscriptionPlan?->name ?? 'Unknown Plan';
             $maxLimit = $tenant->subscriptionPlan?->{"max_{$resource}s"} ?? 0;
 
@@ -87,7 +91,7 @@ class CheckSubscriptionLimits
                 'current_count' => $currentCount,
                 'max_limit' => $maxLimit,
                 'plan_name' => $planName,
-                'upgrade_required' => true
+                'upgrade_required' => true,
             ], 403);
         }
 

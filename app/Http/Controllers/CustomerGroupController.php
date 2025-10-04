@@ -2,15 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Auth;
-use App\Models\CustomerGroup;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
-use Illuminate\Support\Facades\Cache;
+use App\Models\CustomerGroup;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CustomerGroupController extends Controller
 {
@@ -21,7 +18,7 @@ class CustomerGroupController extends Controller
 
         $customerGroups = app('cache')->store('database')->get($key);
 
-        if (!$customerGroups) {
+        if (! $customerGroups) {
             $customerGroups = CustomerGroup::all();
 
             app('cache')->store('database')->forever($key, $customerGroups);
@@ -39,6 +36,7 @@ class CustomerGroupController extends Controller
         $tenantId = tenant('id');
         $customerGroup = CustomerGroup::create($request->all());
         app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
+
         return response()->json([
             'status' => true,
             'message' => 'Customer group created successfully.',
@@ -49,7 +47,7 @@ class CustomerGroupController extends Controller
     public function show(CustomerGroup $customerGroup)
     {
         $customerGroup->load('customers');
-        
+
         return response()->json([
             'status' => true,
             'message' => 'Customer group details fetched successfully.',
@@ -101,7 +99,7 @@ class CustomerGroupController extends Controller
             return response()->json([
                 'status' => false,
                 'message' => 'Some customer groups have associated customers and cannot be deleted',
-                'groups_with_customers' => $groupsWithCustomers
+                'groups_with_customers' => $groupsWithCustomers,
             ], 400);
         }
 
@@ -129,7 +127,8 @@ class CustomerGroupController extends Controller
         $columns = ['id', 'code', 'name', 'active', 'created_at', 'updated_at'];
         $headings = ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At'];
 
-        $fileName = 'customer_groups' . '.xlsx';
+        $fileName = 'customer_groups'.'.xlsx';
+
         return Excel::download(new Export($customerGroups, $columns, $headings), $fileName);
     }
 
@@ -151,13 +150,13 @@ class CustomerGroupController extends Controller
             'name' => 'Name',
             'active' => 'Active',
             'created_at' => 'Created At',
-            'updated_at' => 'Updated At'
+            'updated_at' => 'Updated At',
         ];
 
         $data = $customerGroups->toArray();
         $pdf = $pdfService->generatePdf($title, $headers, $data);
-        
-        return $pdf->download('customer_groups' . '.pdf');
+
+        return $pdf->download('customer_groups'.'.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -191,8 +190,8 @@ class CustomerGroupController extends Controller
                 function ($row) {
                     $errors = [];
 
-                    $code = isset($row['code']) ? trim((string)$row['code']) : '';
-                    $name = isset($row['name']) ? trim((string)$row['name']) : '';
+                    $code = isset($row['code']) ? trim((string) $row['code']) : '';
+                    $name = isset($row['name']) ? trim((string) $row['name']) : '';
 
                     if ($code === '') {
                         $errors[] = 'Missing code';
@@ -207,9 +206,9 @@ class CustomerGroupController extends Controller
                     return $errors;
                 },
                 function ($row) {
-                    $code = trim((string)($row['code'] ?? ''));
-                    $name = trim((string)($row['name'] ?? ''));
-                    $active = isset($row['active']) ? (bool)$row['active'] : false;
+                    $code = trim((string) ($row['code'] ?? ''));
+                    $name = trim((string) ($row['name'] ?? ''));
+                    $active = isset($row['active']) ? (bool) $row['active'] : false;
 
                     return [
                         'code' => $code,
@@ -222,8 +221,9 @@ class CustomerGroupController extends Controller
             Excel::import($import, $request->file('file'));
 
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -232,8 +232,8 @@ class CustomerGroupController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
 
@@ -266,7 +266,7 @@ class CustomerGroupController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Error importing customer groups: ' . $e->getMessage(),
+                'message' => 'Error importing customer groups: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -278,7 +278,7 @@ class CustomerGroupController extends Controller
 
         $customerGroups = app('cache')->store('database')->get($key);
 
-        if (!$customerGroups) {
+        if (! $customerGroups) {
             $customerGroups = CustomerGroup::where('active', true)
                 ->select('id', 'code', 'name', 'created_at', 'updated_at')
                 ->orderBy('name')

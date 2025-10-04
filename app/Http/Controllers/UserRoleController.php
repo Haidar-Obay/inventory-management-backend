@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Role;
-use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 
 class UserRoleController extends Controller
 {
@@ -18,36 +17,36 @@ class UserRoleController extends Controller
         try {
             $request->validate([
                 'role_ids' => 'required|array',
-                'role_ids.*' => 'exists:roles,id'
+                'role_ids.*' => 'exists:roles,id',
             ]);
 
             $roleIds = $request->input('role_ids');
-            
+
             // Check if trying to assign Owner role
             $ownerRole = Role::whereIn('id', $roleIds)->where('name', 'Owner')->first();
             if ($ownerRole) {
                 // Check if there's already an owner
-                $existingOwner = User::whereHas('roles', function($query) {
+                $existingOwner = User::whereHas('roles', function ($query) {
                     $query->where('name', 'Owner');
                 })->first();
-                
+
                 if ($existingOwner && $existingOwner->id !== $user->id) {
                     return response()->json([
                         'status' => 'error',
-                        'message' => 'Only one user can have the Owner role.'
+                        'message' => 'Only one user can have the Owner role.',
                     ], 422);
                 }
             }
-            
+
             // Enforce: Admin cannot assign Admin or Owner roles
             $authUser = $request->user();
-            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && Role::whereIn('id', $roleIds)->whereIn('name', ['Admin','Owner'])->exists()) {
+            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && Role::whereIn('id', $roleIds)->whereIn('name', ['Admin', 'Owner'])->exists()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Admins cannot assign Admin or Owner roles.'
+                    'message' => 'Admins cannot assign Admin or Owner roles.',
                 ], 403);
             }
-            
+
             // Sync roles (this will replace existing roles)
             $user->roles()->sync($roleIds);
 
@@ -64,16 +63,16 @@ class UserRoleController extends Controller
                         return [
                             'id' => $role->id,
                             'name' => $role->name,
-                            'description' => $role->description
+                            'description' => $role->description,
                         ];
-                    })
-                ]
+                    }),
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to assign roles',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -86,19 +85,19 @@ class UserRoleController extends Controller
         try {
             $request->validate([
                 'role_ids' => 'required|array',
-                'role_ids.*' => 'exists:roles,id'
+                'role_ids.*' => 'exists:roles,id',
             ]);
 
             $roleIds = $request->input('role_ids');
             // Enforce: Admin cannot remove Admin or Owner roles
             $authUser = $request->user();
-            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && Role::whereIn('id', $roleIds)->whereIn('name', ['Admin','Owner'])->exists()) {
+            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && Role::whereIn('id', $roleIds)->whereIn('name', ['Admin', 'Owner'])->exists()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Admins cannot modify Admin or Owner roles.'
+                    'message' => 'Admins cannot modify Admin or Owner roles.',
                 ], 403);
             }
-            
+
             // Detach specified roles
             $user->roles()->detach($roleIds);
 
@@ -115,16 +114,16 @@ class UserRoleController extends Controller
                         return [
                             'id' => $role->id,
                             'name' => $role->name,
-                            'description' => $role->description
+                            'description' => $role->description,
                         ];
-                    })
-                ]
+                    }),
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to remove roles',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -149,16 +148,16 @@ class UserRoleController extends Controller
                             'id' => $role->id,
                             'name' => $role->name,
                             'description' => $role->description,
-                            'active' => $role->active
+                            'active' => $role->active,
                         ];
-                    })
-                ]
+                    }),
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve user roles',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -182,16 +181,16 @@ class UserRoleController extends Controller
                             'id' => $user->id,
                             'name' => $user->name,
                             'email' => $user->email,
-                            'created_at' => $user->created_at
+                            'created_at' => $user->created_at,
                         ];
-                    })
-                ]
+                    }),
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve role users',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -203,7 +202,7 @@ class UserRoleController extends Controller
     {
         try {
             $request->validate([
-                'role_name' => 'required|string|exists:roles,name'
+                'role_name' => 'required|string|exists:roles,name',
             ]);
 
             $roleName = $request->input('role_name');
@@ -216,14 +215,14 @@ class UserRoleController extends Controller
                     'user_id' => $user->id,
                     'user_name' => $user->name,
                     'role_name' => $roleName,
-                    'has_role' => $hasRole
-                ]
+                    'has_role' => $hasRole,
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to check user role',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

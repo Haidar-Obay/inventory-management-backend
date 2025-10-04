@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class WarehouseController extends Controller
 {
@@ -27,9 +27,9 @@ class WarehouseController extends Controller
         $validated = $request->validate(Warehouse::$rules);
 
         // Check if the parent warehouse exists and is not inactive
-        if (!empty($validated['sub_warehouse_of'])) {
+        if (! empty($validated['sub_warehouse_of'])) {
             $parentWarehouse = Warehouse::find($validated['sub_warehouse_of']);
-            if (!$parentWarehouse) {
+            if (! $parentWarehouse) {
                 return response()->json(['message' => 'Parent warehouse not found'], 404);
             }
             if ($parentWarehouse->is_inactive) {
@@ -38,7 +38,7 @@ class WarehouseController extends Controller
         }
 
         $warehouse = Warehouse::create($validated);
-        Cache::forget("warehouses_" . tenant('id'));
+        Cache::forget('warehouses_'.tenant('id'));
 
         return response()->json($warehouse, 201);
     }
@@ -56,14 +56,14 @@ class WarehouseController extends Controller
     public function update(Request $request, Warehouse $warehouse)
     {
         $rules = Warehouse::$rules;
-        $rules['code'] = 'required|string|max:50|unique:warehouses,code,' . $warehouse->id;
+        $rules['code'] = 'required|string|max:50|unique:warehouses,code,'.$warehouse->id;
 
         $validated = $request->validate($rules);
 
         // Check if trying to set a sub-warehouse as parent
-        if (!empty($validated['sub_warehouse_of'])) {
+        if (! empty($validated['sub_warehouse_of'])) {
             $parentWarehouse = Warehouse::find($validated['sub_warehouse_of']);
-            if (!$parentWarehouse) {
+            if (! $parentWarehouse) {
                 return response()->json(['message' => 'Parent warehouse not found'], 404);
             }
             if ($parentWarehouse->is_inactive) {
@@ -76,8 +76,8 @@ class WarehouseController extends Controller
 
         $warehouse->update($validated);
 
-        Cache::forget("warehouses_" . tenant('id'));
-        Cache::forget("warehouse_{$warehouse->id}_" . tenant('id'));
+        Cache::forget('warehouses_'.tenant('id'));
+        Cache::forget("warehouse_{$warehouse->id}_".tenant('id'));
 
         return response()->json($warehouse);
     }
@@ -90,8 +90,8 @@ class WarehouseController extends Controller
         }
 
         $warehouse->delete();
-        Cache::forget("warehouses_" . tenant('id'));
-        Cache::forget("warehouse_{$warehouse->id}_" . tenant('id'));
+        Cache::forget('warehouses_'.tenant('id'));
+        Cache::forget("warehouse_{$warehouse->id}_".tenant('id'));
 
         return response()->json(null, 204);
     }
@@ -100,7 +100,7 @@ class WarehouseController extends Controller
     {
         $ids = $request->input('ids');
 
-        if (!$ids || !is_array($ids)) {
+        if (! $ids || ! is_array($ids)) {
             return response()->json(['message' => 'No warehouses selected'], 400);
         }
 
@@ -113,12 +113,12 @@ class WarehouseController extends Controller
             }
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             return response()->json(['message' => 'Some warehouses could not be deleted', 'errors' => $errors], 422);
         }
 
         Warehouse::whereIn('id', $ids)->delete();
-        Cache::forget("warehouses_" . tenant('id'));
+        Cache::forget('warehouses_'.tenant('id'));
 
         return response()->json(['message' => 'Warehouses deleted successfully']);
     }
@@ -131,7 +131,8 @@ class WarehouseController extends Controller
             return response()->json(['message' => 'No warehouses to export'], 404);
         }
 
-        $fileName = 'warehouses_' . date('Y-m-d_H-i-s') . '.xlsx';
+        $fileName = 'warehouses_'.date('Y-m-d_H-i-s').'.xlsx';
+
         return Excel::download(new Export($warehouses, ['id', 'name', 'location', 'active', 'created_at', 'updated_at'], ['ID', 'Name', 'Location', 'Active', 'Created At', 'Updated At']), $fileName);
     }
 
@@ -143,7 +144,8 @@ class WarehouseController extends Controller
             return response()->json(['message' => 'No warehouses to export'], 404);
         }
 
-        $fileName = 'warehouses_' . date('Y-m-d_H-i-s') . '.pdf';
+        $fileName = 'warehouses_'.date('Y-m-d_H-i-s').'.pdf';
+
         return Excel::download(new ExportPDF($warehousecontroller, ['id', 'code', 'name', 'active', 'created_at', 'updated_at'], ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At']), $fileName);
     }
 
@@ -177,7 +179,10 @@ class WarehouseController extends Controller
                 function ($row) use ($mapping) {
                     $errors = [];
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
-                    if (empty($row[$nameKey])) $errors[] = 'Missing name';
+                    if (empty($row[$nameKey])) {
+                        $errors[] = 'Missing name';
+                    }
+
                     return $errors;
                 },
                 function ($row) use ($mapping) {
@@ -186,6 +191,7 @@ class WarehouseController extends Controller
                     $cityKey = $mapping ? array_search('city', $mapping) : 'city';
                     $countryKey = $mapping ? array_search('country', $mapping) : 'country';
                     $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+
                     return [
                         'name' => $row[$nameKey] ?? null,
                         'address' => $row[$addressKey] ?? null,
@@ -196,12 +202,13 @@ class WarehouseController extends Controller
                 },
                 true // Enable header validation
             );
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -210,12 +217,12 @@ class WarehouseController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
-            
-            Cache::forget("warehouses_" . tenant('id'));
+
+            Cache::forget('warehouses_'.tenant('id'));
 
             return response()->json([
                 'message' => 'Warehouses imported successfully',
@@ -224,7 +231,7 @@ class WarehouseController extends Controller
                 'skipped_rows' => $import->getSkippedRows(),
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error importing warehouses: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Error importing warehouses: '.$e->getMessage()], 500);
         }
     }
 }

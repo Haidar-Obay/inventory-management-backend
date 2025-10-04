@@ -18,5 +18,3 @@ class StoreConnectionTypeRequest extends FormRequest
         ];
     }
 }
-
-

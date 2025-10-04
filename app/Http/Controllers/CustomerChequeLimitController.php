@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\CustomerChequeLimit;
-use App\Models\Currency;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -33,7 +33,7 @@ class CustomerChequeLimitController extends Controller
                 'exists:currencies,id',
                 Rule::unique('customer_cheque_limits')
                     ->where('customer_id', $customer->id)
-                    ->where('currency_id', $request->currency_id)
+                    ->where('currency_id', $request->currency_id),
             ],
             'max_cheques' => 'required|integer|min:0',
             'notes' => 'nullable|string',
@@ -154,6 +154,7 @@ class CustomerChequeLimitController extends Controller
         $errors = [];
 
         DB::beginTransaction();
+
         try {
             foreach ($request->cheque_limits as $index => $chequeLimitData) {
                 // Check if cheque limit already exists for this currency
@@ -165,8 +166,9 @@ class CustomerChequeLimitController extends Controller
                     $errors[] = [
                         'index' => $index,
                         'currency_id' => $chequeLimitData['currency_id'],
-                        'message' => 'Cheque limit already exists for this currency.'
+                        'message' => 'Cheque limit already exists for this currency.',
                     ];
+
                     continue;
                 }
 
@@ -183,8 +185,9 @@ class CustomerChequeLimitController extends Controller
                 $results[] = $chequeLimit;
             }
 
-            if (!empty($errors)) {
+            if (! empty($errors)) {
                 DB::rollBack();
+
                 return response()->json([
                     'status' => false,
                     'message' => 'Some cheque limits could not be created.',
@@ -202,6 +205,7 @@ class CustomerChequeLimitController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to create cheque limits.',

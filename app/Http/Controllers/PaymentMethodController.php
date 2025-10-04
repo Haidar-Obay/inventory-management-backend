@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PaymentMethod;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use App\Models\PaymentMethod;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PaymentMethodController extends Controller
 {
@@ -19,7 +18,7 @@ class PaymentMethodController extends Controller
 
         $paymentMethods = app('cache')->store('database')->get($key);
 
-        if (!$paymentMethods) {
+        if (! $paymentMethods) {
             $paymentMethods = PaymentMethod::orderBy('id')->get();
             app('cache')->store('database')->forever($key, $paymentMethods);
         }
@@ -58,7 +57,7 @@ class PaymentMethodController extends Controller
         $key = "tenant_{$tenantId}_payment_method_{$paymentMethod->id}";
 
         $cached = app('cache')->store('database')->get($key);
-        if (!$cached) {
+        if (! $cached) {
             $cached = $paymentMethod;
             app('cache')->store('database')->forever($key, $cached);
         }
@@ -73,8 +72,8 @@ class PaymentMethodController extends Controller
     public function update(Request $request, PaymentMethod $paymentMethod)
     {
         $validated = $request->validate([
-            'code' => 'required|string|max:50|unique:payment_methods,code,' . $paymentMethod->id,
-            'name' => 'required|string|max:255|unique:payment_methods,name,' . $paymentMethod->id,
+            'code' => 'required|string|max:50|unique:payment_methods,code,'.$paymentMethod->id,
+            'name' => 'required|string|max:255|unique:payment_methods,name,'.$paymentMethod->id,
             'is_credit_card' => 'required|boolean',
             'is_online_payment' => 'required|boolean',
             'active' => 'required|boolean',
@@ -125,7 +124,7 @@ class PaymentMethodController extends Controller
 
         foreach ($request->ids as $id) {
             $method = PaymentMethod::find($id);
-            if ($method && !$method->customers()->exists()) {
+            if ($method && ! $method->customers()->exists()) {
                 $method->delete();
                 $deleted++;
                 app('cache')->store('database')->forget("tenant_{$tenantId}_payment_method_{$id}");
@@ -157,6 +156,7 @@ class PaymentMethodController extends Controller
             'updated_at'];
         $headings = ['ID', 'Code', 'Name', 'Is Credit Card', 'Is Online Payment', 'Active',
             'Created At', 'Updated At'];
+
         return Excel::download(new Export($paymentMethods, $columns, $headings), 'payment_methods.xlsx');
     }
 
@@ -179,6 +179,7 @@ class PaymentMethodController extends Controller
         ];
         $data = $paymentMethods->toArray();
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('PaymentMethods.pdf');
     }
 
@@ -209,7 +210,11 @@ class PaymentMethodController extends Controller
             PaymentMethod::class,
             ['code', 'name', 'is_credit_card', 'is_online_payment', 'active'],
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
@@ -222,24 +227,30 @@ class PaymentMethodController extends Controller
                 if ((($row[$nameKey] ?? '') === '')) {
                     $errors[] = 'Missing name';
                 }
-                if (!isset($row[$creditKey])) {
+                if (! isset($row[$creditKey])) {
                     $errors[] = 'Missing is_credit_card';
                 }
+
                 return $errors;
             },
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $creditKey = $mapping ? array_search('is_credit_card', $mapping) : 'is_credit_card';
                 $onlineKey = $mapping ? array_search('is_online_payment', $mapping) : 'is_online_payment';
                 $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+
                 return [
                     'code' => $row[$codeKey] ?? null,
                     'name' => $row[$nameKey] ?? null,
-                    'is_credit_card' => isset($row[$creditKey]) ? (bool)$row[$creditKey] : false,
-                    'is_online_payment' => isset($row[$onlineKey]) ? (bool)$row[$onlineKey] : false,
-                    'active' => isset($row[$activeKey]) ? (bool)$row[$activeKey] : true,
+                    'is_credit_card' => isset($row[$creditKey]) ? (bool) $row[$creditKey] : false,
+                    'is_online_payment' => isset($row[$onlineKey]) ? (bool) $row[$onlineKey] : false,
+                    'active' => isset($row[$activeKey]) ? (bool) $row[$activeKey] : true,
                 ];
             },
             $mapping ? false : true // Disable header validation when mapping provided
@@ -248,8 +259,9 @@ class PaymentMethodController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -258,12 +270,12 @@ class PaymentMethodController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_payment_methods');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_payment_methods');
 
         $imported = $import->getImportedCount();
         $skippedCount = $import->getSkippedCount();
@@ -291,4 +303,3 @@ class PaymentMethodController extends Controller
         ]);
     }
 }
-

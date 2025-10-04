@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 use App\Models\Brand;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class BrandController extends Controller
 {
@@ -19,7 +19,7 @@ class BrandController extends Controller
 
         $brands = app('cache')->store('database')->get($key);
 
-        if (!$brands) {
+        if (! $brands) {
             $brands = Brand::with(['parentBrand', 'subbrands'])
                 ->orderBy('name')
                 ->get();
@@ -72,7 +72,7 @@ class BrandController extends Controller
 
         $cachedBrand = app('cache')->store('database')->get($key);
 
-        if (!$cachedBrand) {
+        if (! $cachedBrand) {
             $brand->load(['parentBrand', 'subbrands']);
             $cachedBrand = $brand;
             app('cache')->store('database')->forever($key, $cachedBrand);
@@ -169,6 +169,7 @@ class BrandController extends Controller
                 $brand = Brand::find($id);
                 if ($brand->subbrands()->exists()) {
                     $skipped[] = ['id' => $id, 'reason' => 'Brand has subbrands'];
+
                     continue;
                 }
                 $deleted += $brand->delete();
@@ -217,6 +218,7 @@ class BrandController extends Controller
         $data = $brands->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Brands.pdf');
     }
 
@@ -247,23 +249,36 @@ class BrandController extends Controller
             Brand::class,
             $fields,
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
-                if (($row[$codeKey] ?? '') === '') { $errors[] = 'Missing code'; }
-                if (($row[$nameKey] ?? '') === '') { $errors[] = 'Missing name'; }
+                if (($row[$codeKey] ?? '') === '') {
+                    $errors[] = 'Missing code';
+                }
+                if (($row[$nameKey] ?? '') === '') {
+                    $errors[] = 'Missing name';
+                }
                 $subBrandKey = $mapping ? array_search('sub_brand_of', $mapping) : 'sub_brand_of';
-                if (!empty($row[$subBrandKey])) {
+                if (! empty($row[$subBrandKey])) {
                     $parentBrand = Brand::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subBrandKey])])->first();
-                    if (!$parentBrand) {
+                    if (! $parentBrand) {
                         $errors[] = 'Parent brand not found';
                     }
                 }
+
                 return $errors;
             },
             function ($row) use ($mapping) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $subBrandKey = $mapping ? array_search('sub_brand_of', $mapping) : 'sub_brand_of';
@@ -272,12 +287,13 @@ class BrandController extends Controller
                     'name' => $row[$nameKey] ?? null,
                     'active' => boolval($row['active'] ?? false),
                 ];
-                if (!empty($row[$subBrandKey])) {
+                if (! empty($row[$subBrandKey])) {
                     $parentBrand = Brand::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subBrandKey])])->first();
                     if ($parentBrand) {
                         $data['sub_brand_of'] = $parentBrand->id;
                     }
                 }
+
                 return $data;
             },
             $mapping ? false : true // Disable header validation when mapping provided
@@ -286,8 +302,9 @@ class BrandController extends Controller
         Excel::import($import, $request->file('file'));
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -296,12 +313,12 @@ class BrandController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_' . tenant('id') . '_brands');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_brands');
 
         $imported = $import->getImportedCount();
         $skippedCount = $import->getSkippedCount();

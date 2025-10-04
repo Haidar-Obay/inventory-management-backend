@@ -7,10 +7,10 @@ use App\Http\Requests\CustomerRoute\UpdateCustomerRouteRequest;
 use App\Models\Customer;
 use App\Models\CustomerRoute;
 use App\Models\Salesman;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class CustomerRouteController extends Controller
 {
@@ -92,6 +92,7 @@ class CustomerRouteController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create customer route.',
@@ -132,6 +133,7 @@ class CustomerRouteController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update customer route.',
@@ -210,7 +212,7 @@ class CustomerRouteController extends Controller
             ->with('customer')
             ->active()
             ->get()
-            ->filter(function ($route) use ($today) {
+            ->filter(function ($route) {
                 return $route->isVisitDayToday();
             });
 
@@ -277,6 +279,7 @@ class CustomerRouteController extends Controller
             ->get()
             ->map(function ($route) use ($startDate, $endDate) {
                 $visitDates = $route->getVisitDates($startDate, $endDate);
+
                 return [
                     'route' => $route,
                     'visit_dates' => $visitDates,
@@ -284,7 +287,7 @@ class CustomerRouteController extends Controller
                 ];
             })
             ->filter(function ($item) {
-                return !empty($item['visit_dates']);
+                return ! empty($item['visit_dates']);
             });
 
         return response()->json([
@@ -326,6 +329,7 @@ class CustomerRouteController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to activate customer route.',

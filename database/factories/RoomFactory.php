@@ -25,7 +25,7 @@ class RoomFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->unique()->word() . ' Room',
+            'name' => $this->faker->unique()->word().' Room',
             'location' => $this->faker->sentence(3),
         ];
     }

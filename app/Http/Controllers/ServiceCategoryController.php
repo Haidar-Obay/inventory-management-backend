@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
 use App\Http\Requests\StoreServiceCategoryRequest;
 use App\Http\Requests\UpdateServiceCategoryRequest;
+use App\Imports\DynamicExcelImport;
 use App\Models\ServiceCategory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class ServiceCategoryController extends Controller
 {
@@ -19,16 +19,18 @@ class ServiceCategoryController extends Controller
         $query = ServiceCategory::query();
 
         if ($request->filled('name')) {
-            $query->where('name', 'like', '%' . $request->input('name') . '%');
+            $query->where('name', 'like', '%'.$request->input('name').'%');
         }
 
         $categories = $query->orderBy('name')->get();
+
         return response()->json($categories);
     }
 
     public function store(StoreServiceCategoryRequest $request): JsonResponse
     {
         $category = ServiceCategory::create($request->validated());
+
         return response()->json($category, 201);
     }
 
@@ -40,12 +42,14 @@ class ServiceCategoryController extends Controller
     public function update(UpdateServiceCategoryRequest $request, ServiceCategory $serviceCategory): JsonResponse
     {
         $serviceCategory->update($request->validated());
+
         return response()->json($serviceCategory);
     }
 
     public function destroy(ServiceCategory $serviceCategory): JsonResponse
     {
         $serviceCategory->delete();
+
         return response()->json(['message' => 'Deleted']);
     }
 
@@ -70,10 +74,11 @@ class ServiceCategoryController extends Controller
         ];
 
         $headings = [
-            'ID', 'Name', 'Description', 'Created At', 'Updated At'
+            'ID', 'Name', 'Description', 'Created At', 'Updated At',
         ];
 
-        $fileName = 'service_categories_' . '.xlsx';
+        $fileName = 'service_categories_'.'.xlsx';
+
         return Excel::download(new Export($serviceCategories, $columns, $headings), $fileName);
     }
 
@@ -99,7 +104,8 @@ class ServiceCategoryController extends Controller
         $data = $serviceCategories->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
-        return $pdf->download('service_categories_' . '.pdf');
+
+        return $pdf->download('service_categories_'.'.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -168,8 +174,9 @@ class ServiceCategoryController extends Controller
         }
 
         // Check if headers were valid
-        if (!$import->areHeadersValid()) {
+        if (! $import->areHeadersValid()) {
             $headerResult = $import->getHeaderValidationResult();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid Excel file headers',
@@ -178,8 +185,8 @@ class ServiceCategoryController extends Controller
                     'missing_headers' => $headerResult['missing'],
                     'extra_headers' => $headerResult['extra'],
                     'expected_headers' => $headerResult['expected_headers'],
-                    'actual_headers' => $headerResult['excel_headers']
-                ]
+                    'actual_headers' => $headerResult['excel_headers'],
+                ],
             ], 422);
         }
 

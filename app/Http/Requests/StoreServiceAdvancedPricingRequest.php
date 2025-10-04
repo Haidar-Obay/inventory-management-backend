@@ -21,5 +21,3 @@ class StoreServiceAdvancedPricingRequest extends FormRequest
         ];
     }
 }
-
-

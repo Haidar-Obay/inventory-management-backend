@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Customer;
-use App\Models\Salesman;
-use Illuminate\Http\Request;
-use App\Http\Requests\Salesman\StoreSalesmanRequest;
-use App\Http\Requests\Salesman\UpdateSalesmanRequest;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Salesman\StoreSalesmanRequest;
+use App\Http\Requests\Salesman\UpdateSalesmanRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\Salesman;
+use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SalesmanController extends Controller
 {
@@ -21,7 +20,7 @@ class SalesmanController extends Controller
 
         $salesmen = app('cache')->store('database')->get($key);
 
-        if (!$salesmen) {
+        if (! $salesmen) {
             $salesmen = Salesman::withCount('customers')->orderBy('name')->get();
             app('cache')->store('database')->forever($key, $salesmen);
         }
@@ -40,7 +39,7 @@ class SalesmanController extends Controller
 
         $cachedSalesman = app('cache')->store('database')->get($key);
 
-        if (!$cachedSalesman) {
+        if (! $cachedSalesman) {
             $salesman->loadCount('customers');
             $cachedSalesman = $salesman;
             app('cache')->store('database')->forever($key, $cachedSalesman);
@@ -119,6 +118,7 @@ class SalesmanController extends Controller
                 $salesman = Salesman::find($id);
                 if ($salesman->customers()->exists()) {
                     $skipped[] = ['id' => $id, 'reason' => 'Salesman has associated customers'];
+
                     continue;
                 }
                 $deleted += $salesman->delete();
@@ -152,7 +152,8 @@ class SalesmanController extends Controller
         $columns = ['id', 'code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_by_item', 'active'];
         $headings = ['ID', 'Code', 'Name', 'Email', 'Phone 1', 'Phone 2', 'Address', 'Is Manager', 'Is Supervisor', 'Is Collector', 'Fix Commission', 'Commission by Item', 'Active'];
 
-        $fileName = 'salesmen_' . '.xlsx';
+        $fileName = 'salesmen_'.'.xlsx';
+
         return Excel::download(new Export($salesmen, $columns, $headings), $fileName);
     }
 
@@ -181,11 +182,12 @@ class SalesmanController extends Controller
             'is_collector' => 'Is Collector',
             'fix_commission' => 'Fix Commission',
             'commission_by_item' => 'Commission by Item',
-            'active' => 'Active'
+            'active' => 'Active',
         ];
         $data = $salesmen->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Salesmen.pdf');
     }
 
@@ -216,7 +218,11 @@ class SalesmanController extends Controller
             Salesman::class,
             ['code', 'name', 'email', 'phone1', 'phone2', 'address', 'is_manager', 'is_supervisor', 'is_collector', 'fix_commission', 'commission_by_item', 'active'],
             function ($row) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
                 $errors = [];
 
                 if (($row['code'] ?? '') === '') {
@@ -225,14 +231,19 @@ class SalesmanController extends Controller
                 if (($row['name'] ?? '') === '') {
                     $errors[] = 'Missing name';
                 }
-                if (!empty($row['email']) && !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
+                if (! empty($row['email']) && ! filter_var($row['email'], FILTER_VALIDATE_EMAIL)) {
                     $errors[] = 'Invalid email format';
                 }
 
                 return $errors;
             },
             function ($row) {
-                foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                foreach ($row as $k => $v) {
+                    if (is_string($v)) {
+                        $row[$k] = trim($v);
+                    }
+                }
+
                 return [
                     'code' => $row['code'] ?? null,
                     'name' => $row['name'] ?? null,
@@ -288,7 +299,7 @@ class SalesmanController extends Controller
 
         $salesmen = app('cache')->store('database')->get($key);
 
-        if (!$salesmen) {
+        if (! $salesmen) {
             $salesmen = Salesman::where('active', true)
                 ->select('id', 'code', 'name', 'created_at', 'updated_at')
                 ->orderBy('name')

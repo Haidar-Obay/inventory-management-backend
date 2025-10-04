@@ -14,12 +14,12 @@ class ExportPDF
         $orientation = $options['orientation'] ?? ($req ? $req->input('orientation', 'landscape') : 'landscape');
         $fit = $options['fit'] ?? ($req ? $req->input('fit', 'scale') : 'scale'); // 'scale' | 'wrap'
         $fontSizeInput = $options['fontSize'] ?? ($req ? $req->input('fontSize') : null);
-        $fontSize = max(6, min(14, (int)($fontSizeInput ?? 9)));
+        $fontSize = max(6, min(14, (int) ($fontSizeInput ?? 9)));
 
         $cellPadding = $fit === 'scale' ? 4 : 6;
         $titleMargin = $fit === 'scale' ? 16 : 24;
 
-        $html = "<h1 style=\"text-align: center; margin-bottom: {$titleMargin}px; font-size: " . ($fontSize + 6) . "px;\">{$title}</h1>";
+        $html = "<h1 style=\"text-align: center; margin-bottom: {$titleMargin}px; font-size: ".($fontSize + 6)."px;\">{$title}</h1>";
         $html .= '<table border="1" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse; table-layout: fixed;">';
         $html .= '<thead><tr>';
 
@@ -44,7 +44,7 @@ class ExportPDF
                 ];
                 $rawValue = $row[$key] ?? null;
                 $displayValue = $this->formatValue($rawValue);
-                $html .= '<td style="' . implode('; ', $cellStyles) . '">' . htmlspecialchars($displayValue) . '</td>';
+                $html .= '<td style="'.implode('; ', $cellStyles).'">'.htmlspecialchars($displayValue).'</td>';
             }
             $html .= '</tr>';
         }
@@ -71,13 +71,14 @@ class ExportPDF
             if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
                 try {
                     return Carbon::parse($value)->format('n/j/Y');
-                } catch (\Throwable $e) {}
+                } catch (\Throwable $e) {
+                }
             }
         }
         if (is_array($value) || is_object($value)) {
             return json_encode($value, JSON_UNESCAPED_UNICODE);
         }
-        return (string)$value;
+
+        return (string) $value;
     }
- 
 }

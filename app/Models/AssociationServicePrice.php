@@ -29,5 +29,3 @@ class AssociationServicePrice extends Model
         return $this->belongsTo(Service::class);
     }
 }
-
-

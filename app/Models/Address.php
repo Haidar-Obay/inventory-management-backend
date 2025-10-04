@@ -8,33 +8,37 @@ use OwenIt\Auditing\Contracts\Auditable;
 class Address extends Model implements Auditable
 {
     use \OwenIt\Auditing\Auditable;
-    protected $guarded = ["id"];
+
+    protected $guarded = ['id'];
+
     protected $table = 'addresses';
+
     protected $primaryKey = 'id';
+
     public $timestamps = false;
 
     // New relationship using pivot table
     public function customers()
     {
         return $this->belongsToMany(Customer::class, 'customer_addresses')
-                    ->withPivot(['address_type', 'is_primary', 'address_name', 'notes'])
-                    ->withTimestamps();
+            ->withPivot(['address_type', 'is_primary', 'address_name', 'notes'])
+            ->withTimestamps();
     }
 
     public function billingCustomers()
     {
         return $this->belongsToMany(Customer::class, 'customer_addresses')
-                    ->wherePivot('address_type', 'billing')
-                    ->withPivot(['is_primary', 'address_name', 'notes'])
-                    ->withTimestamps();
+            ->wherePivot('address_type', 'billing')
+            ->withPivot(['is_primary', 'address_name', 'notes'])
+            ->withTimestamps();
     }
 
     public function shippingCustomers()
     {
         return $this->belongsToMany(Customer::class, 'customer_addresses')
-                    ->wherePivot('address_type', 'shipping')
-                    ->withPivot(['is_primary', 'address_name', 'notes'])
-                    ->withTimestamps();
+            ->wherePivot('address_type', 'shipping')
+            ->withPivot(['is_primary', 'address_name', 'notes'])
+            ->withTimestamps();
     }
 
     // Location relationships

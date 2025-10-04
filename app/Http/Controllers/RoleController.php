@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Role;
-use App\Http\Requests\Role\StoreRoleRequest;
-use App\Http\Requests\Role\UpdateRoleRequest;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Role\StoreRoleRequest;
+use App\Http\Requests\Role\UpdateRoleRequest;
 use App\Imports\DynamicExcelImport;
-use Illuminate\Support\Facades\DB;
+use App\Models\Role;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class RoleController extends Controller
 {
@@ -22,6 +22,7 @@ class RoleController extends Controller
     protected function actingUserIsOwner(Request $request): bool
     {
         $user = $request->user();
+
         return $user ? $user->roles()->where('name', 'Owner')->exists() : false;
     }
 
@@ -32,6 +33,7 @@ class RoleController extends Controller
     {
         return in_array($role->name, ['Owner', 'Admin']);
     }
+
     /**
      * Display a listing of the resource.
      */
@@ -66,13 +68,13 @@ class RoleController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Roles retrieved successfully',
-                'data' => $transformedData
+                'data' => $transformedData,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve roles',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -85,19 +87,19 @@ class RoleController extends Controller
         try {
             $data = $request->validated();
             $data['created_by'] = Auth::user()->id;
-            
+
             $role = Role::create($data);
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Role created successfully',
-                'data' => $role
+                'data' => $role,
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to create role',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -129,13 +131,13 @@ class RoleController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Role retrieved successfully',
-                'data' => $transformedData
+                'data' => $transformedData,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve role',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -147,10 +149,10 @@ class RoleController extends Controller
     {
         try {
             // Guard: Only Owner can modify Owner/Admin roles
-            if ($this->roleIsPrivileged($role) && !$this->actingUserIsOwner($request)) {
+            if ($this->roleIsPrivileged($role) && ! $this->actingUserIsOwner($request)) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Insufficient permissions to modify privileged roles.'
+                    'message' => 'Insufficient permissions to modify privileged roles.',
                 ], 403);
             }
 
@@ -169,10 +171,10 @@ class RoleController extends Controller
                 foreach ($validated['permissions'] as $perm) {
                     $permissionId = $perm['permission_id'];
                     $syncMap[$permissionId] = [
-                        'can_view' => (bool)($perm['can_view'] ?? false),
-                        'can_add' => (bool)($perm['can_add'] ?? false),
-                        'can_edit' => (bool)($perm['can_edit'] ?? false),
-                        'can_delete' => (bool)($perm['can_delete'] ?? false),
+                        'can_view' => (bool) ($perm['can_view'] ?? false),
+                        'can_add' => (bool) ($perm['can_add'] ?? false),
+                        'can_edit' => (bool) ($perm['can_edit'] ?? false),
+                        'can_delete' => (bool) ($perm['can_delete'] ?? false),
                     ];
                 }
 
@@ -205,10 +207,10 @@ class RoleController extends Controller
                         'permission_id' => $perm->id,
                         'resource_key' => $perm->resource_key,
                         'resource_label' => $perm->resource_label,
-                        'can_view' => (bool)$perm->pivot->can_view,
-                        'can_add' => (bool)$perm->pivot->can_add,
-                        'can_edit' => (bool)$perm->pivot->can_edit,
-                        'can_delete' => (bool)$perm->pivot->can_delete,
+                        'can_view' => (bool) $perm->pivot->can_view,
+                        'can_add' => (bool) $perm->pivot->can_add,
+                        'can_edit' => (bool) $perm->pivot->can_edit,
+                        'can_delete' => (bool) $perm->pivot->can_delete,
                     ];
                 })->values(),
                 'updated_at' => $role->updated_at,
@@ -221,10 +223,11 @@ class RoleController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update role',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -236,17 +239,17 @@ class RoleController extends Controller
     {
         try {
             // Guard: Only Owner can delete Owner/Admin roles
-            if ($this->roleIsPrivileged($role) && !request()->user()?->roles()->where('name', 'Owner')->exists()) {
+            if ($this->roleIsPrivileged($role) && ! request()->user()?->roles()->where('name', 'Owner')->exists()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Insufficient permissions to delete privileged roles.'
+                    'message' => 'Insufficient permissions to delete privileged roles.',
                 ], 403);
             }
             // Prevent deleting protected roles
             if (in_array($role->name, ['Owner', 'Admin'])) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => "Cannot delete protected role '{$role->name}'."
+                    'message' => "Cannot delete protected role '{$role->name}'.",
                 ], 422);
             }
 
@@ -262,13 +265,13 @@ class RoleController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Role deleted successfully'
+                'message' => 'Role deleted successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to delete role',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -284,13 +287,13 @@ class RoleController extends Controller
             return response()->json([
                 'status' => 'success',
                 'message' => 'Active roles retrieved successfully',
-                'data' => $roles
+                'data' => $roles,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve active roles',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -302,13 +305,13 @@ class RoleController extends Controller
     {
         try {
             // Guard: Only Owner can toggle Owner/Admin roles
-            if ($this->roleIsPrivileged($role) && !request()->user()?->roles()->where('name', 'Owner')->exists()) {
+            if ($this->roleIsPrivileged($role) && ! request()->user()?->roles()->where('name', 'Owner')->exists()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Insufficient permissions to modify privileged roles.'
+                    'message' => 'Insufficient permissions to modify privileged roles.',
                 ], 403);
             }
-            $role->update(['active' => !$role->active]);
+            $role->update(['active' => ! $role->active]);
 
             return response()->json([
                 'status' => 'success',
@@ -316,14 +319,14 @@ class RoleController extends Controller
                 'data' => [
                     'id' => $role->id,
                     'name' => $role->name,
-                    'active' => $role->active
-                ]
+                    'active' => $role->active,
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to update role status',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -336,17 +339,17 @@ class RoleController extends Controller
         try {
             $roles = Role::with('users');
             $columns = ['id', 'name', 'description', 'active',
-            'created_at',
-            'updated_at'];
+                'created_at',
+                'updated_at'];
             $headings = ['ID', 'Name', 'Description', 'Active',
-            'Created At', 'Updated At'];
+                'Created At', 'Updated At'];
 
             return Excel::download(new Export($roles, $columns, $headings), 'roles.xlsx');
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to export roles',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -368,12 +371,13 @@ class RoleController extends Controller
             $data = $roles->toArray();
 
             $pdf = app(ExportPDF::class)->generatePdf($title, $headers, $data);
+
             return $pdf->download('Roles.pdf');
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to export roles to PDF',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -385,25 +389,25 @@ class RoleController extends Controller
     {
         try {
             $request->validate([
-            'file' => [
-                'required',
-                'file',
-                'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
-            ],
-            'type' => 'nullable|string|in:fresh,mapping',
-            'mapping' => 'nullable|array',
-        ], [
-            'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
-        ]);
+                'file' => [
+                    'required',
+                    'file',
+                    'mimes:xlsx,xls,csv,txt,text/plain,text/csv,application/csv',
+                ],
+                'type' => 'nullable|string|in:fresh,mapping',
+                'mapping' => 'nullable|array',
+            ], [
+                'file.mimes' => 'The file field must be a file of type: xlsx, xls, csv',
+            ]);
 
-        // If type is 'fresh', delete all records first
-        if ($request->input('type') === 'fresh') {
-            // Get model class from the import
-            Role::truncate();
-        }
+            // If type is 'fresh', delete all records first
+            if ($request->input('type') === 'fresh') {
+                // Get model class from the import
+                Role::truncate();
+            }
 
-        // If type is 'mapping', use provided mapping, else use default
-        $mapping = $request->input('mapping');
+            // If type is 'mapping', use provided mapping, else use default
+            $mapping = $request->input('mapping');
 
             $import = new DynamicExcelImport(
                 Role::class,
@@ -438,7 +442,7 @@ class RoleController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to import roles',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -451,7 +455,7 @@ class RoleController extends Controller
         try {
             $request->validate([
                 'role_ids' => 'required|array',
-                'role_ids.*' => 'exists:roles,id'
+                'role_ids.*' => 'exists:roles,id',
             ]);
 
             $roleIds = $request->input('role_ids');
@@ -461,20 +465,23 @@ class RoleController extends Controller
 
             foreach ($roleIds as $roleId) {
                 $role = Role::find($roleId);
-                
-                if (!$role) {
+
+                if (! $role) {
                     $errors[] = "Role with ID {$roleId} not found.";
+
                     continue;
                 }
-                
+
                 // Prevent deleting protected roles for non-owners
-                if (in_array($role->name, ['Owner', 'Admin']) && !$isOwner) {
+                if (in_array($role->name, ['Owner', 'Admin']) && ! $isOwner) {
                     $errors[] = "Cannot delete protected role '{$role->name}'.";
+
                     continue;
                 }
-                
+
                 if ($role->users()->count() > 0) {
                     $errors[] = "Cannot delete role '{$role->name}' - it has users assigned to it.";
+
                     continue;
                 }
 
@@ -488,10 +495,10 @@ class RoleController extends Controller
                 'data' => [
                     'deleted_count' => $deletedCount,
                     'total_requested' => count($roleIds),
-                ]
+                ],
             ];
 
-            if (!empty($errors)) {
+            if (! empty($errors)) {
                 $response['warnings'] = $errors;
             }
 
@@ -500,7 +507,7 @@ class RoleController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to bulk delete roles',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

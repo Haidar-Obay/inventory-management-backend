@@ -5,8 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Service extends Model
 {
@@ -56,7 +56,6 @@ class Service extends Model
         return $this->belongsTo(Department::class, 'sub_department_id');
     }
 
-
     public function specialists(): BelongsToMany
     {
         return $this->belongsToMany(Specialist::class, 'service_specialist')->withTimestamps();
@@ -82,5 +81,3 @@ class Service extends Model
         return $this->hasMany(ReferrerServiceCommission::class);
     }
 }
-
-

@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class CustomerRoute extends Model
 {
@@ -100,10 +100,11 @@ class CustomerRoute extends Model
                 6 => 'Saturday',
                 7 => 'Sunday',
             ];
+
             return $dayNames[$this->day_value] ?? 'Unknown';
         }
 
-        return $this->day_value . ($this->frequency === 'monthly' ? 'th' : '');
+        return $this->day_value.($this->frequency === 'monthly' ? 'th' : '');
     }
 
     /**
@@ -139,7 +140,7 @@ class CustomerRoute extends Model
      */
     public function isCurrentlyActive(): bool
     {
-        if (!$this->active) {
+        if (! $this->active) {
             return false;
         }
 
@@ -161,7 +162,7 @@ class CustomerRoute extends Model
      */
     public function getNextVisitDate(): ?Carbon
     {
-        if (!$this->isCurrentlyActive()) {
+        if (! $this->isCurrentlyActive()) {
             return null;
         }
 
@@ -173,6 +174,7 @@ class CustomerRoute extends Model
             while ($nextDate->lt($now)) {
                 $nextDate->addWeek();
             }
+
             return $nextDate;
         }
 
@@ -181,6 +183,7 @@ class CustomerRoute extends Model
             while ($nextDate->lt($now)) {
                 $nextDate->addWeeks(2);
             }
+
             return $nextDate;
         }
 
@@ -189,6 +192,7 @@ class CustomerRoute extends Model
             while ($nextDate->lt($now)) {
                 $nextDate->addMonth();
             }
+
             return $nextDate;
         }
 
@@ -200,7 +204,7 @@ class CustomerRoute extends Model
      */
     public function getPreviousVisitDate(): ?Carbon
     {
-        if (!$this->isCurrentlyActive()) {
+        if (! $this->isCurrentlyActive()) {
             return null;
         }
 
@@ -212,6 +216,7 @@ class CustomerRoute extends Model
             while ($prevDate->gt($now)) {
                 $prevDate->subWeek();
             }
+
             return $prevDate;
         }
 
@@ -220,6 +225,7 @@ class CustomerRoute extends Model
             while ($prevDate->gt($now)) {
                 $prevDate->subWeeks(2);
             }
+
             return $prevDate;
         }
 
@@ -228,6 +234,7 @@ class CustomerRoute extends Model
             while ($prevDate->gt($now)) {
                 $prevDate->subMonth();
             }
+
             return $prevDate;
         }
 
@@ -239,7 +246,7 @@ class CustomerRoute extends Model
      */
     public function isVisitDayToday(): bool
     {
-        if (!$this->isCurrentlyActive()) {
+        if (! $this->isCurrentlyActive()) {
             return false;
         }
 
@@ -254,8 +261,10 @@ class CustomerRoute extends Model
             if ($today->day === $this->day_value) {
                 $startDate = $this->start_date ? Carbon::parse($this->start_date) : $today;
                 $weeksDiff = $startDate->diffInWeeks($today);
+
                 return $weeksDiff % 2 === 0;
             }
+
             return false;
         }
 
@@ -271,7 +280,7 @@ class CustomerRoute extends Model
      */
     public function getVisitDates($startDate, $endDate): array
     {
-        if (!$this->isCurrentlyActive()) {
+        if (! $this->isCurrentlyActive()) {
             return [];
         }
 
@@ -302,8 +311,10 @@ class CustomerRoute extends Model
             if ($date->day === $this->day_value) {
                 $startDate = $this->start_date ? Carbon::parse($this->start_date) : $date;
                 $weeksDiff = $startDate->diffInWeeks($date);
+
                 return $weeksDiff % 2 === 0;
             }
+
             return false;
         }
 

@@ -4,16 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
 class AdjustmentType extends Model implements Auditable
 {
-    use HasFactory, AuditableTrait;
+    use AuditableTrait, HasFactory;
 
     protected $guarded = ['id'];
+
     protected $table = 'adjustment_types';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     protected $casts = [
@@ -37,7 +40,9 @@ class AdjustmentType extends Model implements Auditable
 
     // Constants for transaction types
     const TRANSACTION_TYPE_IN = 'in';
+
     const TRANSACTION_TYPE_OUT = 'out';
+
     const TRANSACTION_TYPE_IN_OUT = 'in_out';
 
     // Helper method to get all transaction types

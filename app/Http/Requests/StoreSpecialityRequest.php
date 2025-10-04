@@ -18,5 +18,3 @@ class StoreSpecialityRequest extends FormRequest
         ];
     }
 }
-
-

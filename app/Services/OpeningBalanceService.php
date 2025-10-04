@@ -2,35 +2,35 @@
 
 namespace App\Services;
 
-use App\Models\Customer;
-use App\Models\Supplier;
-use App\Models\CustomerOpeningBalance;
-use App\Models\SupplierOpeningBalance;
 use App\Models\Currency;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Collection;
+use App\Models\Customer;
+use App\Models\CustomerOpeningBalance;
+use App\Models\Supplier;
+use App\Models\SupplierOpeningBalance;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class OpeningBalanceService
 {
     /**
      * Set opening balance for a model (customer or supplier) in a specific currency
      */
-    public function setOpeningBalance(Model $model, int $currencyId, float $amount, string $openingDate = null, string $notes = null)
+    public function setOpeningBalance(Model $model, int $currencyId, float $amount, ?string $openingDate = null, ?string $notes = null)
     {
         if ($model instanceof Customer) {
             return $this->setCustomerOpeningBalance($model, $currencyId, $amount, $openingDate, $notes);
         } elseif ($model instanceof Supplier) {
             return $this->setSupplierOpeningBalance($model, $currencyId, $amount, $openingDate, $notes);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
     /**
      * Set opening balance for a customer in a specific currency
      */
-    public function setCustomerOpeningBalance(Customer $customer, int $currencyId, float $amount, string $openingDate = null, string $notes = null): CustomerOpeningBalance
+    public function setCustomerOpeningBalance(Customer $customer, int $currencyId, float $amount, ?string $openingDate = null, ?string $notes = null): CustomerOpeningBalance
     {
         return DB::transaction(function () use ($customer, $currencyId, $amount, $openingDate, $notes) {
             $openingBalance = $customer->getOpeningBalanceForCurrency($currencyId);
@@ -41,6 +41,7 @@ class OpeningBalanceService
                     'opening_date' => $openingDate ?? now()->toDateString(),
                     'notes' => $notes,
                 ]);
+
                 return $openingBalance;
             } else {
                 return $customer->openingBalances()->create([
@@ -57,16 +58,17 @@ class OpeningBalanceService
     /**
      * Set opening balance for a supplier in a specific currency
      */
-    public function setSupplierOpeningBalance(Supplier $supplier, int $currencyId, float $amount, string $openingDate = null, string $notes = null): SupplierOpeningBalance
+    public function setSupplierOpeningBalance(Supplier $supplier, int $currencyId, float $amount, ?string $openingDate = null, ?string $notes = null): SupplierOpeningBalance
     {
         $openingBalance = $supplier->getOpeningBalanceForCurrency($currencyId);
-        
+
         if ($openingBalance) {
             $openingBalance->update([
                 'opening_amount' => $amount,
                 'opening_date' => $openingDate ?? now()->toDateString(),
                 'notes' => $notes,
             ]);
+
             return $openingBalance;
         }
 
@@ -88,7 +90,7 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $this->removeSupplierOpeningBalance($model, $currencyId);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -101,6 +103,7 @@ class OpeningBalanceService
 
         if ($openingBalance) {
             $openingBalance->update(['is_active' => false]);
+
             return true;
         }
 
@@ -113,12 +116,13 @@ class OpeningBalanceService
     public function removeSupplierOpeningBalance(Supplier $supplier, int $currencyId): bool
     {
         $openingBalance = $supplier->getOpeningBalanceForCurrency($currencyId);
-        
+
         if ($openingBalance) {
             $openingBalance->update(['is_active' => false]);
+
             return true;
         }
-        
+
         return false;
     }
 
@@ -132,7 +136,7 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $this->getSupplierOpeningBalanceSummary($model);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -184,7 +188,7 @@ class OpeningBalanceService
                 'opening_date' => $openingBalance->opening_date,
                 'notes' => $openingBalance->notes,
             ];
-            
+
             $summary['total_amount'] += $openingBalance->opening_amount;
         }
 
@@ -201,7 +205,7 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $this->getSupplierAvailableCurrencies($model);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -245,7 +249,7 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $this->bulkUpdateSupplierOpeningBalances($model, $openingBalances);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -281,7 +285,7 @@ class OpeningBalanceService
 
         try {
             $updatedBalances = [];
-            
+
             foreach ($openingBalances as $openingBalanceData) {
                 $openingBalance = $this->setSupplierOpeningBalance(
                     $supplier,
@@ -290,16 +294,18 @@ class OpeningBalanceService
                     $openingBalanceData['opening_date'] ?? null,
                     $openingBalanceData['notes'] ?? null
                 );
-                
+
                 $openingBalance->load('currency');
                 $updatedBalances[] = $openingBalance;
             }
 
             DB::commit();
+
             return $updatedBalances;
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             throw $e;
         }
     }
@@ -314,7 +320,7 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $this->getSupplierOpeningBalanceStatistics($model);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -386,7 +392,7 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $model->hasOpeningBalanceForCurrency($currencyId);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -401,7 +407,7 @@ class OpeningBalanceService
             // Suppliers don't have credit limits in the current implementation
             return collect([]);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -416,7 +422,7 @@ class OpeningBalanceService
             // Suppliers don't have cheque limits in the current implementation
             return collect([]);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -430,21 +436,21 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $model->openingBalances()->active()->exists();
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
     /**
      * Get total opening balance for a specific currency
      */
-    public function getTotalOpeningBalance(Model $model, int $currencyId = null): float
+    public function getTotalOpeningBalance(Model $model, ?int $currencyId = null): float
     {
         if ($model instanceof Customer) {
             return $model->getTotalOpeningBalance($currencyId);
         } elseif ($model instanceof Supplier) {
             return $model->getTotalOpeningBalance($currencyId);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -458,7 +464,7 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $model->openingBalances()->with('currency')->active()->get();
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -472,7 +478,7 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $model->getOpeningCurrencyIds();
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -486,7 +492,7 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $model->hasOpeningBalanceForCurrency($currencyId);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -500,7 +506,7 @@ class OpeningBalanceService
         } elseif ($model instanceof Supplier) {
             return $model->getOpeningBalanceForCurrency($currencyId);
         }
-        
+
         throw new \InvalidArgumentException('Model must be either Customer or Supplier');
     }
 
@@ -510,23 +516,23 @@ class OpeningBalanceService
     public function validateOpeningBalanceData(array $data): array
     {
         $errors = [];
-        
+
         foreach ($data as $index => $openingBalance) {
-            if (!isset($openingBalance['currency_id'])) {
+            if (! isset($openingBalance['currency_id'])) {
                 $errors["opening_balances.{$index}.currency_id"] = ['Currency ID is required'];
             }
-            
-            if (!isset($openingBalance['opening_amount'])) {
+
+            if (! isset($openingBalance['opening_amount'])) {
                 $errors["opening_balances.{$index}.opening_amount"] = ['Opening amount is required'];
-            } elseif (!is_numeric($openingBalance['opening_amount']) || $openingBalance['opening_amount'] < 0) {
+            } elseif (! is_numeric($openingBalance['opening_amount']) || $openingBalance['opening_amount'] < 0) {
                 $errors["opening_balances.{$index}.opening_amount"] = ['Opening amount must be a positive number'];
             }
-            
-            if (isset($openingBalance['opening_date']) && !strtotime($openingBalance['opening_date'])) {
+
+            if (isset($openingBalance['opening_date']) && ! strtotime($openingBalance['opening_date'])) {
                 $errors["opening_balances.{$index}.opening_date"] = ['Opening date must be a valid date'];
             }
         }
-        
+
         return $errors;
     }
 }

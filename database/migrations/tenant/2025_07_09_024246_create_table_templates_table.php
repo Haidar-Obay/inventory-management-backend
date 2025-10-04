@@ -27,7 +27,7 @@ return new class extends Migration
             $table->string('headerFontStyle', 50)->nullable();
             $table->string('headerFontColor', 50)->nullable();
             $table->timestamps();
-            
+
             $table->unique(['table_name', 'name'], 'unique_template_name');
             $table->index(['table_name'], 'idx_table_name');
         });

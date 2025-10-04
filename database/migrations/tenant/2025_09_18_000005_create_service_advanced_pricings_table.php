@@ -31,5 +31,3 @@ return new class extends Migration
         Schema::dropIfExists('service_advanced_pricings');
     }
 };
-
-

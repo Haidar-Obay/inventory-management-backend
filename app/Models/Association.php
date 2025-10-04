@@ -26,5 +26,3 @@ class Association extends Model
         return $this->hasMany(AssociationContact::class);
     }
 }
-
-

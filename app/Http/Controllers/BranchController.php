@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Export;
+use App\Exports\ExportPDF;
+use App\Imports\DynamicExcelImport;
 use App\Models\Branch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\Export;
-use App\Exports\ExportPDF;
-use App\Imports\DynamicExcelImport;
 
 class BranchController extends Controller
 {
@@ -26,7 +26,7 @@ class BranchController extends Controller
     {
         $validated = $request->validate(Branch::$rules);
         $branch = Branch::create($validated);
-        Cache::forget("branches_" . tenant('id'));
+        Cache::forget('branches_'.tenant('id'));
 
         return response()->json($branch, 201);
     }
@@ -44,13 +44,13 @@ class BranchController extends Controller
     public function update(Request $request, Branch $branch)
     {
         $rules = Branch::$rules;
-        $rules['code'] = 'required|string|max:50|unique:branches,code,' . $branch->id;
+        $rules['code'] = 'required|string|max:50|unique:branches,code,'.$branch->id;
 
         $validated = $request->validate($rules);
         $branch->update($validated);
 
-        Cache::forget("branches_" . tenant('id'));
-        Cache::forget("branch_{$branch->id}_" . tenant('id'));
+        Cache::forget('branches_'.tenant('id'));
+        Cache::forget("branch_{$branch->id}_".tenant('id'));
 
         return response()->json($branch);
     }
@@ -61,8 +61,8 @@ class BranchController extends Controller
         // For example, check if the branch is being used in other tables
 
         $branch->delete();
-        Cache::forget("branches_" . tenant('id'));
-        Cache::forget("branch_{$branch->id}_" . tenant('id'));
+        Cache::forget('branches_'.tenant('id'));
+        Cache::forget("branch_{$branch->id}_".tenant('id'));
 
         return response()->json(null, 204);
     }
@@ -71,7 +71,7 @@ class BranchController extends Controller
     {
         $ids = $request->input('ids');
 
-        if (!$ids || !is_array($ids)) {
+        if (! $ids || ! is_array($ids)) {
             return response()->json(['message' => 'No branches selected'], 400);
         }
 
@@ -79,7 +79,7 @@ class BranchController extends Controller
         // For example, check if any of the branches are being used in other tables
 
         Branch::whereIn('id', $ids)->delete();
-        Cache::forget("branches_" . tenant('id'));
+        Cache::forget('branches_'.tenant('id'));
 
         return response()->json(['message' => 'Branches deleted successfully']);
     }
@@ -94,8 +94,9 @@ class BranchController extends Controller
 
         $columns = ['id', 'code', 'name', 'active', 'created_at', 'updated_at'];
         $headings = ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At'];
-        
-        $fileName = 'branches' . '.xlsx';
+
+        $fileName = 'branches'.'.xlsx';
+
         return Excel::download(new Export($branches, $columns, $headings), $fileName);
     }
 
@@ -108,13 +109,14 @@ class BranchController extends Controller
         }
 
         $branches = Branch::select('id', 'code', 'name', 'active', 'created_at', 'updated_at')->get();
-        
+
         $title = 'Branches Report';
         $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'active' => 'Active', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
-        
-        $pdfService = new ExportPDF();
+
+        $pdfService = new ExportPDF;
         $pdf = $pdfService->generatePdf($title, $headers, $branches->toArray());
-        return $pdf->download('branches' . '.pdf');
+
+        return $pdf->download('branches'.'.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -148,14 +150,20 @@ class BranchController extends Controller
                     $errors = [];
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
-                    if (empty($row[$codeKey])) $errors[] = 'Missing code';
-                    if (empty($row[$nameKey])) $errors[] = 'Missing name';
+                    if (empty($row[$codeKey])) {
+                        $errors[] = 'Missing code';
+                    }
+                    if (empty($row[$nameKey])) {
+                        $errors[] = 'Missing name';
+                    }
+
                     return $errors;
                 },
                 function ($row) use ($mapping) {
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                     $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+
                     return [
                         'code' => $row[$codeKey] ?? null,
                         'name' => $row[$nameKey] ?? null,
@@ -164,12 +172,13 @@ class BranchController extends Controller
                 },
                 true // Enable header validation
             );
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -178,12 +187,12 @@ class BranchController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
-            
-            Cache::forget("branches_" . tenant('id'));
+
+            Cache::forget('branches_'.tenant('id'));
 
             return response()->json([
                 'success' => true,
@@ -193,7 +202,7 @@ class BranchController extends Controller
                 'skipped_rows' => $import->getSkippedRows(),
             ]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error importing branches: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Error importing branches: '.$e->getMessage()], 500);
         }
     }
 }

@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Department;
-use App\Http\Requests\Department\StoreDepartmentRequest;
-use App\Http\Requests\Department\UpdateDepartmentRequest;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Department\StoreDepartmentRequest;
+use App\Http\Requests\Department\UpdateDepartmentRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\Department;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class DepartmentController extends Controller
 {
@@ -22,7 +22,7 @@ class DepartmentController extends Controller
 
         $departments = app('cache')->store('database')->get($key);
 
-        if (!$departments) {
+        if (! $departments) {
             $departments = Department::with('parent')->get();
             app('cache')->store('database')->forever($key, $departments);
         }
@@ -52,6 +52,7 @@ class DepartmentController extends Controller
         $tenantId = tenant('id');
         $department = Department::create($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
+
         return response()->json([
             'status' => true,
             'message' => 'Department created successfully.',
@@ -63,13 +64,15 @@ class DepartmentController extends Controller
     {
         try {
             $department = Department::findOrFail($id);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Department fetched successfully.',
                 'data' => $department,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching department: ' . $e->getMessage());
+            Log::error('Error fetching department: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Department not found',
@@ -95,6 +98,7 @@ class DepartmentController extends Controller
         $tenantId = tenant('id');
         $department->update($validated);
         app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
+
         return response()->json([
             'status' => true,
             'message' => 'Department updated successfully.',
@@ -113,6 +117,7 @@ class DepartmentController extends Controller
         }
         $department->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
+
         return response()->json([
             'status' => true,
             'message' => 'Department deleted successfully.',
@@ -124,7 +129,7 @@ class DepartmentController extends Controller
         $tenantId = tenant('id');
         $ids = $request->input('ids');
 
-        if (!$ids || !is_array($ids)) {
+        if (! $ids || ! is_array($ids)) {
             return response()->json([
                 'status' => false,
                 'message' => 'No departments selected for deletion',
@@ -141,13 +146,14 @@ class DepartmentController extends Controller
                     ], 422);
                 }
                 $department->delete();
-                Cache::forget("departments_" . tenant('id'));
-                Cache::forget("department_{$department->id}_" . tenant('id'));
+                Cache::forget('departments_'.tenant('id'));
+                Cache::forget("department_{$department->id}_".tenant('id'));
             }
 
             return response()->json(null, 204);
         } catch (\Exception $e) {
-            Log::error('Error in bulk delete: ' . $e->getMessage());
+            Log::error('Error in bulk delete: '.$e->getMessage());
+
             return response()->json([
                 'status' => false,
                 'message' => 'Failed to delete departments',
@@ -166,7 +172,7 @@ class DepartmentController extends Controller
                 'parent.code as parent_code',
                 'departments.active',
                 'departments.created_at',
-                'departments.updated_at'
+                'departments.updated_at',
             ]);
 
         $collection = $departments->get();
@@ -209,6 +215,7 @@ class DepartmentController extends Controller
         $data = $departments->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
+
         return $pdf->download('Departments.pdf');
     }
 
@@ -241,31 +248,44 @@ class DepartmentController extends Controller
                 Department::class,
                 ['code', 'name', 'sub_department_of', 'active'],
                 function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $errors = [];
-                    if (($row['code'] ?? '') === '') { $errors[] = 'Missing code'; }
-                    if (($row['name'] ?? '') === '') { $errors[] = 'Missing name'; }
+                    if (($row['code'] ?? '') === '') {
+                        $errors[] = 'Missing code';
+                    }
+                    if (($row['name'] ?? '') === '') {
+                        $errors[] = 'Missing name';
+                    }
                     // Validate parent department code if provided
-                    if (!empty($row['sub_department_of'])) {
+                    if (! empty($row['sub_department_of'])) {
                         $parentDepartment = Department::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_department_of'])])->first();
-                        if (!$parentDepartment) {
+                        if (! $parentDepartment) {
                             $errors[] = "Parent department with code '{$row['sub_department_of']}' not found";
                         }
                     }
+
                     return $errors;
                 },
                 function ($row) {
-                    foreach ($row as $k => $v) { if (is_string($v)) { $row[$k] = trim($v); } }
+                    foreach ($row as $k => $v) {
+                        if (is_string($v)) {
+                            $row[$k] = trim($v);
+                        }
+                    }
                     $subDepartmentOfId = null;
-                    
+
                     // If sub_department_of is provided, resolve the code to ID
-                    if (!empty($row['sub_department_of'])) {
+                    if (! empty($row['sub_department_of'])) {
                         $parentDepartment = Department::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row['sub_department_of'])])->first();
                         if ($parentDepartment) {
                             $subDepartmentOfId = $parentDepartment->id;
                         }
                     }
-                    
+
                     return [
                         'code' => $row['code'] ?? null,
                         'name' => $row['name'] ?? null,
@@ -275,12 +295,13 @@ class DepartmentController extends Controller
                 },
                 true // Enable header validation
             );
-            
+
             Excel::import($import, $request->file('file'));
-            
+
             // Check if headers were valid
-            if (!$import->areHeadersValid()) {
+            if (! $import->areHeadersValid()) {
                 $headerResult = $import->getHeaderValidationResult();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid Excel file headers',
@@ -289,11 +310,11 @@ class DepartmentController extends Controller
                         'missing_headers' => $headerResult['missing'],
                         'extra_headers' => $headerResult['extra'],
                         'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers']
-                    ]
+                        'actual_headers' => $headerResult['excel_headers'],
+                    ],
                 ], 422);
             }
-            
+
             app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
 
             $imported = $import->getImportedCount();
@@ -323,12 +344,10 @@ class DepartmentController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => 'Import failed: ' . $e->getMessage(),
+                'message' => 'Import failed: '.$e->getMessage(),
             ], 422);
         }
     }
-
-    
 
     public function getSubDepartments($departmentId)
     {
@@ -346,7 +365,7 @@ class DepartmentController extends Controller
     {
         if ($currentId && $parentId == $currentId) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'sub_department_of' => ['A department cannot be a sub-department of itself']
+                'sub_department_of' => ['A department cannot be a sub-department of itself'],
             ]);
         }
 
@@ -356,13 +375,13 @@ class DepartmentController extends Controller
                 $ancestors = $this->getAncestors($parent);
                 if (in_array($currentId, $ancestors)) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'sub_department_of' => ['Circular reference detected in department hierarchy']
+                        'sub_department_of' => ['Circular reference detected in department hierarchy'],
                     ]);
                 }
             }
         } catch (\Exception $e) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'sub_department_of' => ['An error occurred while validating the department hierarchy']
+                'sub_department_of' => ['An error occurred while validating the department hierarchy'],
             ]);
         }
     }
@@ -374,23 +393,24 @@ class DepartmentController extends Controller
             $ancestors[] = $department->parent->id;
             $department = $department->parent;
         }
+
         return $ancestors;
     }
 
     public function getNames()
     {
-            $departments = Department::whereNull('sub_department_of')
-                ->select('id', 'name', 'created_at', 'updated_at')
-                ->orderBy('name')
-                ->get()
-                ->map(function ($department) {
-                    return [
-                        'id' => $department->id,
-                        'name' => $department->name,
-                        'created_at' => $department->created_at,
-                        'updated_at' => $department->updated_at,
-                    ];
-                });
+        $departments = Department::whereNull('sub_department_of')
+            ->select('id', 'name', 'created_at', 'updated_at')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($department) {
+                return [
+                    'id' => $department->id,
+                    'name' => $department->name,
+                    'created_at' => $department->created_at,
+                    'updated_at' => $department->updated_at,
+                ];
+            });
 
         return response()->json([
             'status' => true,
@@ -399,4 +419,3 @@ class DepartmentController extends Controller
         ]);
     }
 }
-

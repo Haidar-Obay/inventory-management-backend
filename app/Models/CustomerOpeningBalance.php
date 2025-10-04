@@ -10,8 +10,11 @@ class CustomerOpeningBalance extends Model implements Auditable
     use \OwenIt\Auditing\Auditable;
 
     protected $guarded = ['id'];
+
     protected $table = 'customer_opening_balances';
+
     protected $primaryKey = 'id';
+
     public $timestamps = true;
 
     protected $casts = [
