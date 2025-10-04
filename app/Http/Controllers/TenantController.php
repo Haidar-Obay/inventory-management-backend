@@ -396,7 +396,7 @@ class TenantController extends Controller
         return response()->json([
             'message' => 'Tenant found',
             'tenant' => $name,
-            'subscription_end_date' => $tenant->subscription_end_date
+            'subscription_end_date' => $tenant->subscription_end_date,
         ]);
     }
 }
