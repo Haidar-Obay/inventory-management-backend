@@ -23,7 +23,7 @@ class RoleController extends Controller
     {
         $user = $request->user();
 
-        return $user ? $user->roles()->where('name', 'Owner')->exists() : false;
+        return $user ? ($user->role?->name === 'Owner') : false;
     }
 
     /**
@@ -239,7 +239,7 @@ class RoleController extends Controller
     {
         try {
             // Guard: Only Owner can delete Owner/Admin roles
-            if ($this->roleIsPrivileged($role) && ! request()->user()?->roles()->where('name', 'Owner')->exists()) {
+            if ($this->roleIsPrivileged($role) && request()->user()?->role?->name !== 'Owner') {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Insufficient permissions to delete privileged roles.',
@@ -305,7 +305,7 @@ class RoleController extends Controller
     {
         try {
             // Guard: Only Owner can toggle Owner/Admin roles
-            if ($this->roleIsPrivileged($role) && ! request()->user()?->roles()->where('name', 'Owner')->exists()) {
+            if ($this->roleIsPrivileged($role) && request()->user()?->role?->name !== 'Owner') {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Insufficient permissions to modify privileged roles.',
@@ -461,7 +461,7 @@ class RoleController extends Controller
             $roleIds = $request->input('role_ids');
             $deletedCount = 0;
             $errors = [];
-            $isOwner = $request->user() ? $request->user()->roles()->where('name', 'Owner')->exists() : false;
+            $isOwner = $request->user() ? ($request->user()->role?->name === 'Owner') : false;
 
             foreach ($roleIds as $roleId) {
                 $role = Role::find($roleId);

@@ -30,10 +30,11 @@ class PermissionService
         $cachedResult = app('cache')->store('database')->get($cacheKey);
 
         if ($cachedResult === null) {
-            $result = DB::table('user_roles')
-                ->join('role_permissions', 'user_roles.role_id', '=', 'role_permissions.role_id')
+            $result = DB::table('users')
+                ->join('roles', 'users.role_id', '=', 'roles.id')
+                ->join('role_permissions', 'roles.id', '=', 'role_permissions.role_id')
                 ->join('permissions', 'role_permissions.permission_id', '=', 'permissions.id')
-                ->where('user_roles.user_id', $user->id)
+                ->where('users.id', $user->id)
                 ->where('permissions.resource_key', $resourceKey)
                 ->where("role_permissions.{$actionFlag}", true)
                 ->exists();

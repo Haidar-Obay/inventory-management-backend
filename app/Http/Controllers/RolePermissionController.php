@@ -65,7 +65,7 @@ class RolePermissionController extends Controller
             $permissionsData = $request->input('permissions');
             // Enforce: Admin cannot edit Owner or Admin roles
             $authUser = $request->user();
-            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && in_array($role->name, ['Owner', 'Admin'])) {
+            if ($authUser && $authUser->role?->name === 'Admin' && in_array($role->name, ['Owner', 'Admin'])) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Admins cannot modify Owner/Admin role permissions.',
@@ -131,7 +131,7 @@ class RolePermissionController extends Controller
 
             // Enforce: Admin cannot edit Owner or Admin roles
             $authUser = $request->user();
-            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && in_array($role->name, ['Owner', 'Admin'])) {
+            if ($authUser && $authUser->role?->name === 'Admin' && in_array($role->name, ['Owner', 'Admin'])) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Admins cannot modify Owner/Admin role permissions.',

@@ -61,7 +61,8 @@ class BootstrapTenantRbac implements ShouldQueue
         // Assign Owner role to initial owner user
         $owner = User::find($this->ownerUserId);
         if ($owner) {
-            $owner->roles()->syncWithoutDetaching([$ownerRole->id]);
+            $owner->role()->associate($ownerRole->id);
+            $owner->save();
         }
     }
 }

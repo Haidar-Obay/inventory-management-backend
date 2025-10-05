@@ -36,11 +36,11 @@ class UserManagementController extends Controller
             return false;
         }
 
-        if (! Schema::hasTable('roles') || ! Schema::hasTable('user_roles')) {
+        if (! Schema::hasTable('roles') || ! Schema::hasColumn('users', 'role_id')) {
             return false;
         }
 
-        return $user->roles()->where('name', $roleName)->exists();
+        return $user->role?->name === $roleName;
     }
 
     public function registerUser(Request $request)
@@ -132,8 +132,8 @@ class UserManagementController extends Controller
         $users = CacheHelper::cacheInContext($cacheKey);
 
         if (! $users) {
-            $users = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by')
-                ->orderBy('created_at', 'desc')->with(['roles', 'creator'])
+            $users = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by', 'role_id')
+                ->orderBy('created_at', 'desc')->with(['role', 'creator'])
                 ->get();
 
             CacheHelper::cacheInContext($cacheKey, $users);
@@ -201,7 +201,7 @@ class UserManagementController extends Controller
         $user = CacheHelper::cacheInContext($cacheKey);
 
         if (! $user) {
-            $user = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by')->with(['roles', 'creator'])->find($id);
+            $user = User::select('id', 'name', 'email', 'active', 'created_at', 'created_by', 'role_id')->with(['role', 'creator'])->find($id);
 
             if (! $user) {
                 return response()->json(['message' => 'User not found.'], 404);
@@ -227,7 +227,7 @@ class UserManagementController extends Controller
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        $user->load(['roles', 'creator']);
+        $user->load(['role', 'creator']);
 
         return response()->json([
             'message' => 'User retrieved successfully.',
@@ -304,7 +304,7 @@ class UserManagementController extends Controller
             CacheHelper::cacheInContext($this->getCacheKey('user', $id), null);
 
             // Only load roles if we're in a tenant context
-            $freshUser = tenancy()->initialized ? $user->fresh(['roles']) : $user->fresh();
+            $freshUser = tenancy()->initialized ? $user->fresh(['role']) : $user->fresh();
 
             return response()->json([
                 'message' => 'User updated successfully.',
