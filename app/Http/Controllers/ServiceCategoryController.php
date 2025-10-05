@@ -16,13 +16,22 @@ class ServiceCategoryController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = ServiceCategory::query();
+        $query = ServiceCategory::query()->with(['department:id,name']);
 
         if ($request->filled('name')) {
             $query->where('name', 'like', '%'.$request->input('name').'%');
         }
 
         $categories = $query->orderBy('name')->get();
+
+        // Flatten department name into response while keeping department_id
+        $categories = $categories->map(function ($c) {
+            $arr = $c->toArray();
+            $arr['department_name'] = optional($c->department)->name;
+            // Optionally hide the nested relation to keep payload small
+            unset($arr['department']);
+            return $arr;
+        });
 
         return response()->json($categories);
     }
@@ -36,7 +45,12 @@ class ServiceCategoryController extends Controller
 
     public function show(ServiceCategory $serviceCategory): JsonResponse
     {
-        return response()->json($serviceCategory);
+        $serviceCategory->loadMissing(['department:id,name']);
+        $data = $serviceCategory->toArray();
+        $data['department_name'] = optional($serviceCategory->department)->name;
+        unset($data['department']);
+
+        return response()->json($data);
     }
 
     public function update(UpdateServiceCategoryRequest $request, ServiceCategory $serviceCategory): JsonResponse

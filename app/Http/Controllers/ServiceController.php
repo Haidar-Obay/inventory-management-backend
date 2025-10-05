@@ -22,17 +22,12 @@ class ServiceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Service::query()->with(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
+        $query = Service::query()->with(['serviceCategory:id,name,description', 'specialists:id,name']);
 
         if ($request->filled('category_id')) {
             $query->where('service_category_id', $request->integer('category_id'));
         }
-        if ($request->filled('department_id')) {
-            $query->where('department_id', $request->integer('department_id'));
-        }
-        if ($request->filled('sub_department_id')) {
-            $query->where('sub_department_id', $request->integer('sub_department_id'));
-        }
+        // department filters removed
         if ($request->filled('specialist_id')) {
             $query->whereHas('specialists', function ($q) use ($request) {
                 $q->where('specialist_id', $request->integer('specialist_id'));
@@ -45,7 +40,7 @@ class ServiceController extends Controller
         $services = $query->orderBy('name')->paginate(10);
         // Hide raw FK ids and image, but keep other related models
         $services->getCollection()->transform(function ($service) {
-            return $service->makeHidden(['service_category_id', 'department_id', 'sub_department_id', 'image']);
+            return $service->makeHidden(['service_category_id', 'image']);
         });
 
         return response()->json($services);
@@ -89,7 +84,7 @@ class ServiceController extends Controller
         if (! empty($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
-        $service->load(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
+        $service->load(['serviceCategory:id,name,description', 'specialists:id,name']);
 
         return response()->json([
             'status' => true,
@@ -102,8 +97,6 @@ class ServiceController extends Controller
     {
         $loaded = $service->load([
             'serviceCategory:id,name,description',
-            'department:id,name',
-            'subDepartment:id,name',
             'specialists:id,name',
         ]);
 
@@ -132,7 +125,7 @@ class ServiceController extends Controller
         $loaded->setRelation('referrer_rules', $referrerRules);
 
         // Hide raw IDs but keep related objects
-        $loaded->makeHidden(['service_category_id', 'department_id', 'sub_department_id']);
+        $loaded->makeHidden(['service_category_id']);
 
         return response()->json([
             'status' => true,
@@ -176,7 +169,7 @@ class ServiceController extends Controller
         if (is_array($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
-        $service->load(['serviceCategory:id,name,description', 'department:id,name', 'subDepartment:id,name', 'specialists:id,name']);
+        $service->load(['serviceCategory:id,name,description', 'specialists:id,name']);
 
         return response()->json([
             'status' => true,
@@ -196,8 +189,6 @@ class ServiceController extends Controller
     {
         $services = Service::query()->with([
             'serviceCategory:id,name',
-            'department:id,name',
-            'subDepartment:id,name',
             'specialists:id,name',
         ]);
         $collection = $services->get();
@@ -227,8 +218,6 @@ class ServiceController extends Controller
             'service_color',
             'service_sex',
             'active',
-            'department.name',
-            'subDepartment.name',
             'specialists.*.name',
             'created_at',
             'updated_at',
@@ -238,8 +227,7 @@ class ServiceController extends Controller
             'ID', 'Name', 'Service Category', 'CNSS Code', 'Result After Days', 'Needs Specialist', 'Duration (min)',
             'Normal Price', 'VIP Price', 'Price In Group', 'Event Pricing',
             'Price Calculated by Hour', 'Hour Price', 'Estimated Cost',
-            'Service Color', 'Service Sex', 'Active',
-            'Department', 'Sub Department', 'Specialists',
+            'Service Color', 'Service Sex', 'Active', 'Specialists',
             'Created At', 'Updated At',
         ];
 
@@ -253,15 +241,13 @@ class ServiceController extends Controller
         $services = Service::query()
             ->with([
                 'serviceCategory:id,name',
-                'department:id,name',
-                'subDepartment:id,name',
                 'specialists:id,name',
             ])
             ->get([
                 'id', 'name', 'service_category_id', 'cnss_code', 'result_after_days', 'needs_specialist',
                 'duration_minutes', 'normal_price', 'vip_price', 'price_in_group', 'event_pricing',
                 'price_calculated_by_hour', 'hour_price', 'estimated_cost', 'service_color', 'service_sex',
-                'active', 'department_id', 'sub_department_id', 'created_at', 'updated_at',
+                'active', 'created_at', 'updated_at',
             ]);
 
         if ($services->isEmpty()) {
@@ -290,8 +276,6 @@ class ServiceController extends Controller
             'service_color' => 'Service Color',
             'service_sex' => 'Service Sex',
             'active' => 'Active',
-            'department.name' => 'Department',
-            'subDepartment.name' => 'Sub Department',
             'specialists' => 'Specialists',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
@@ -317,8 +301,6 @@ class ServiceController extends Controller
                 'service_color' => $s->service_color,
                 'service_sex' => $s->service_sex,
                 'active' => $s->active,
-                'department.name' => optional($s->department)->name,
-                'subDepartment.name' => optional($s->subDepartment)->name,
                 'specialists' => $s->specialists->pluck('name')->values()->all(),
                 'created_at' => $s->created_at,
                 'updated_at' => $s->updated_at,
@@ -355,8 +337,6 @@ class ServiceController extends Controller
                 [
                     'name',
                     'service_category_id',
-                    'department_id',
-                    'sub_department_id',
                     'cnss_code',
                     'result_after_days',
                     'needs_specialist',
@@ -414,8 +394,6 @@ class ServiceController extends Controller
                     return [
                         'name' => $row['name'] ?? null,
                         'service_category_id' => $row['service_category_id'] ?? null,
-                        'department_id' => $row['department_id'] ?? null,
-                        'sub_department_id' => $row['sub_department_id'] ?? null,
                         'cnss_code' => $row['cnss_code'] ?? null,
                         'result_after_days' => isset($row['result_after_days']) ? (int) $row['result_after_days'] : null,
                         'needs_specialist' => $toBool($row['needs_specialist'] ?? false),
