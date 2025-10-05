@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Department;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\Specialist;
