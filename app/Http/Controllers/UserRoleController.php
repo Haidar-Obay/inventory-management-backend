@@ -10,23 +10,22 @@ use Illuminate\Http\Request;
 class UserRoleController extends Controller
 {
     /**
-     * Assign roles to a user.
+     * Assign a single role to a user.
      */
     public function assignRoles(Request $request, User $user): JsonResponse
     {
         try {
             $request->validate([
-                'role_ids' => 'required|array',
-                'role_ids.*' => 'exists:roles,id',
+                'role_id' => 'required|exists:roles,id',
             ]);
 
-            $roleIds = $request->input('role_ids');
+            $roleId = (int) $request->input('role_id');
 
             // Check if trying to assign Owner role
-            $ownerRole = Role::whereIn('id', $roleIds)->where('name', 'Owner')->first();
+            $ownerRole = Role::where('id', $roleId)->where('name', 'Owner')->first();
             if ($ownerRole) {
                 // Check if there's already an owner
-                $existingOwner = User::whereHas('roles', function ($query) {
+                $existingOwner = User::whereHas('role', function ($query) {
                     $query->where('name', 'Owner');
                 })->first();
 
@@ -40,18 +39,19 @@ class UserRoleController extends Controller
 
             // Enforce: Admin cannot assign Admin or Owner roles
             $authUser = $request->user();
-            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && Role::whereIn('id', $roleIds)->whereIn('name', ['Admin', 'Owner'])->exists()) {
+            if ($authUser && $authUser->role?->name === 'Admin' && Role::where('id', $roleId)->whereIn('name', ['Admin', 'Owner'])->exists()) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Admins cannot assign Admin or Owner roles.',
                 ], 403);
             }
 
-            // Sync roles (this will replace existing roles)
-            $user->roles()->sync($roleIds);
+            // Set single role
+            $user->role()->associate($roleId);
+            $user->save();
 
-            // Reload user with roles
-            $user->load('roles');
+            // Reload user with role
+            $user->load('role');
 
             return response()->json([
                 'status' => 'success',
@@ -59,13 +59,11 @@ class UserRoleController extends Controller
                 'data' => [
                     'user_id' => $user->id,
                     'user_name' => $user->name,
-                    'assigned_roles' => $user->roles->map(function ($role) {
-                        return [
-                            'id' => $role->id,
-                            'name' => $role->name,
-                            'description' => $role->description,
-                        ];
-                    }),
+                    'assigned_role' => $user->role ? [
+                        'id' => $user->role->id,
+                        'name' => $user->role->name,
+                        'description' => $user->role->description,
+                    ] : null,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -78,31 +76,26 @@ class UserRoleController extends Controller
     }
 
     /**
-     * Remove roles from a user.
+     * Clear role from a user (set to null).
      */
     public function removeRoles(Request $request, User $user): JsonResponse
     {
         try {
-            $request->validate([
-                'role_ids' => 'required|array',
-                'role_ids.*' => 'exists:roles,id',
-            ]);
-
-            $roleIds = $request->input('role_ids');
             // Enforce: Admin cannot remove Admin or Owner roles
             $authUser = $request->user();
-            if ($authUser && $authUser->roles()->whereIn('name', ['Admin'])->exists() && Role::whereIn('id', $roleIds)->whereIn('name', ['Admin', 'Owner'])->exists()) {
+            if ($authUser && $authUser->role?->name === 'Admin' && in_array(optional($user->role)->name, ['Admin', 'Owner'])) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Admins cannot modify Admin or Owner roles.',
                 ], 403);
             }
 
-            // Detach specified roles
-            $user->roles()->detach($roleIds);
+            // Disassociate role
+            $user->role()->dissociate();
+            $user->save();
 
-            // Reload user with remaining roles
-            $user->load('roles');
+            // Reload user
+            $user->load('role');
 
             return response()->json([
                 'status' => 'success',
@@ -110,13 +103,11 @@ class UserRoleController extends Controller
                 'data' => [
                     'user_id' => $user->id,
                     'user_name' => $user->name,
-                    'remaining_roles' => $user->roles->map(function ($role) {
-                        return [
-                            'id' => $role->id,
-                            'name' => $role->name,
-                            'description' => $role->description,
-                        ];
-                    }),
+                    'role' => $user->role ? [
+                        'id' => $user->role->id,
+                        'name' => $user->role->name,
+                        'description' => $user->role->description,
+                    ] : null,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -129,12 +120,12 @@ class UserRoleController extends Controller
     }
 
     /**
-     * Get all roles for a specific user.
+     * Get role for a specific user.
      */
     public function getUserRoles(User $user): JsonResponse
     {
         try {
-            $user->load('roles');
+            $user->load('role');
 
             return response()->json([
                 'status' => 'success',
@@ -143,14 +134,12 @@ class UserRoleController extends Controller
                     'user_id' => $user->id,
                     'user_name' => $user->name,
                     'email' => $user->email,
-                    'roles' => $user->roles->map(function ($role) {
-                        return [
-                            'id' => $role->id,
-                            'name' => $role->name,
-                            'description' => $role->description,
-                            'active' => $role->active,
-                        ];
-                    }),
+                    'role' => $user->role ? [
+                        'id' => $user->role->id,
+                        'name' => $user->role->name,
+                        'description' => $user->role->description,
+                        'active' => $user->role->active,
+                    ] : null,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -206,7 +195,7 @@ class UserRoleController extends Controller
             ]);
 
             $roleName = $request->input('role_name');
-            $hasRole = $user->roles()->where('name', $roleName)->exists();
+            $hasRole = optional($user->role)->name === $roleName;
 
             return response()->json([
                 'status' => 'success',

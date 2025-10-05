@@ -20,6 +20,13 @@ return new class extends Migration
             $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
             $table->timestamps();
         });
+
+        // Add FK for users.role_id after roles table exists
+        Schema::table('users', function (Blueprint $table) {
+            if (Schema::hasColumn('users', 'role_id')) {
+                $table->foreign('role_id')->references('id')->on('roles')->onDelete('set null');
+            }
+        });
     }
 
     /**
@@ -27,6 +34,12 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // Drop FK from users.role_id before dropping roles
+        Schema::table('users', function (Blueprint $table) {
+            if (Schema::hasColumn('users', 'role_id')) {
+                $table->dropForeign(['role_id']);
+            }
+        });
         Schema::dropIfExists('roles');
     }
 };
