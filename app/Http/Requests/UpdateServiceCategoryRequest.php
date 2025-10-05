@@ -20,6 +20,7 @@ class UpdateServiceCategoryRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('service_categories', 'name')->ignore($categoryId)],
             'description' => ['nullable', 'string', 'max:1000'],
+            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
         ];
     }
 }

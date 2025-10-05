@@ -17,8 +17,6 @@ class StoreServiceRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255', 'unique:services,name'],
             'service_category_id' => ['nullable', 'integer', 'exists:service_categories,id'],
-            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
-            'sub_department_id' => ['nullable', 'integer', 'exists:departments,id'],
             'cnss_code' => ['nullable', 'string', 'max:100'],
             'result_after_days' => ['nullable', 'integer', 'min:0'],
             'needs_specialist' => ['boolean'],

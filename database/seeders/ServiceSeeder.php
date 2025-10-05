@@ -12,9 +12,6 @@ class ServiceSeeder extends Seeder
 {
     public function run(): void
     {
-        $imaging = Department::where('code', 'IMG')->first();
-        $mriUnit = Department::where('code', 'MRI')->first();
-
         // Get a service category
         $imagingCategory = ServiceCategory::where('name', 'Imaging Services')->first();
 
@@ -22,8 +19,6 @@ class ServiceSeeder extends Seeder
             'name' => 'MRI Brain Scan',
         ], [
             'service_category_id' => $imagingCategory?->id,
-            'department_id' => $imaging?->id,
-            'sub_department_id' => $mriUnit?->id,
             'cnss_code' => 'CNSS-99123',
             'result_after_days' => 2,
             'needs_specialist' => true,
