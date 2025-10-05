@@ -30,6 +30,7 @@ class ServiceCategoryController extends Controller
             $arr['department_name'] = optional($c->department)->name;
             // Optionally hide the nested relation to keep payload small
             unset($arr['department']);
+
             return $arr;
         });
 
