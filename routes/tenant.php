@@ -361,10 +361,10 @@ Route::middleware([
             Route::post('/transaction-series', [TransactionSeriesController::class, 'importFromExcel']);
             Route::post('/cost-centers', [CostCenterController::class, 'importFromExcel']);
             Route::post('/departments', [DepartmentController::class, 'importFromExcel']);
-            Route::post('/sales-channels', [SalesChannelController::class, 'import']);
-            Route::post('/distribution-channels', [DistributionChannelController::class, 'import']);
-            Route::post('/transportation-channels', [TransportationChannelController::class, 'import']);
-            Route::post('/media-channels', [MediaChannelController::class, 'import']);
+            Route::post('/sales-channels', [SalesChannelController::class, 'importFromExcel']);
+            Route::post('/distribution-channels', [DistributionChannelController::class, 'importFromExcel']);
+            Route::post('/transportation-channels', [TransportationChannelController::class, 'importFromExcel']);
+            Route::post('/media-channels', [MediaChannelController::class, 'importFromExcel']);
             Route::post('/items', [ItemController::class, 'importFromExcel']);
             Route::post('/customer-master-lists', [CustomerMasterListController::class, 'importFromExcel']);
             Route::post('/specialities', [SpecialityController::class, 'importFromExcel']);
