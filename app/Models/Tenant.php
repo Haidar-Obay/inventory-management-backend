@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use OwenIt\Auditing\Contracts\Auditable;
 use Stancl\Tenancy\Contracts\TenantWithDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDatabase;
@@ -43,6 +44,13 @@ class Tenant extends BaseTenant implements Auditable, TenantWithDatabase
     public function subscriptionPlan(): BelongsTo
     {
         return $this->belongsTo(SubscriptionPlan::class);
+    }
+
+    public function modules(): BelongsToMany
+    {
+        return $this->belongsToMany(Module::class, 'tenant_modules')
+            ->withPivot('assigned_price', 'is_included', 'subscription_plan_id')
+            ->withTimestamps();
     }
 
     public function hasActiveSubscription(): bool
@@ -98,5 +106,12 @@ class Tenant extends BaseTenant implements Auditable, TenantWithDatabase
     public function hasFeature(string $feature): bool
     {
         return $this->subscriptionPlan?->hasFeature($feature) ?? false;
+    }
+
+    public function calculateAssignedTotalPrice(): float
+    {
+        $base = (float) ($this->subscriptionPlan?->price ?? 0);
+        $modulesTotal = (float) $this->modules()->sum('tenant_modules.assigned_price');
+        return $base + $modulesTotal;
     }
 }

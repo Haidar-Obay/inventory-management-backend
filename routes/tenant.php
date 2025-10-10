@@ -65,6 +65,7 @@ use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierGroupController;
 use App\Http\Controllers\TableTemplateController;
+use App\Http\Controllers\TenantModuleController;
 use App\Http\Controllers\TradeController;
 use App\Http\Controllers\TransactionSeriesController;
 use App\Http\Controllers\TransportationChannelController;
@@ -101,6 +102,10 @@ Route::middleware([
     // add verified 'auth:sanctum', 'verified'
     // Protected Routes
     Route::middleware(['auth:sanctum'])->group(function () {
+
+        // Tenant modules pages and assigned modules
+        Route::get('tenant/allowed-pages', [TenantModuleController::class, 'getAllowedPages']);
+        Route::get('tenant/assigned-modules', [TenantModuleController::class, 'getAssignedModules']);
 
         // log audit
         Route::get('audits', [AuditController::class, 'index']);

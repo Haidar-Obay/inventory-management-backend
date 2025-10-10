@@ -24,6 +24,10 @@ class StoreTenantRequest extends FormRequest
             'subscription_status' => 'nullable|in:active,expired,cancelled,trial',
             'auto_renew' => 'nullable|boolean',
             'data' => 'nullable|array',
+
+            // modules assignment at creation
+            'selected_modules' => 'nullable|array',
+            'selected_modules.*' => 'integer|exists:modules,id',
         ];
     }
 }

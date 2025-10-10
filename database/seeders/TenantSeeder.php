@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Module;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
 use App\Models\User;
@@ -36,6 +37,32 @@ class TenantSeeder extends Seeder
         $tenant->domains()->create([
             'domain' => 'hadishokor.'.env('CENTRAL_DOMAIN'),
         ]);
+
+        // Assign Beauty Center and Stock Management modules to the tenant in CENTRAL context
+        tenancy()->central(function () use ($tenant, $defaultPlan) {
+            $beauty = Module::where('code', 'beauty_center')->first();
+            $stock = Module::where('code', 'stock_management')->first();
+            $syncData = [];
+            if ($beauty) {
+                $syncData[$beauty->id] = [
+                    'assigned_price' => 0.0,
+                    'is_included' => true,
+                    'subscription_plan_id' => $defaultPlan->id,
+                ];
+            }
+            if ($stock) {
+                $syncData[$stock->id] = [
+                    'assigned_price' => 0.0,
+                    'is_included' => true,
+                    'subscription_plan_id' => $defaultPlan->id,
+                ];
+            }
+            if (!empty($syncData)) {
+                $tenant->modules()->syncWithoutDetaching($syncData);
+            }
+        });
+
+        // Initialize tenant context (for tenant DB setup and user/RBAC)
         tenancy()->initialize($tenant);
         \App\Jobs\CreateDefaultTableTemplates::dispatchSync();
         // Create the original owner user
