@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SubscriptionPlanSeeder::class,
             ModuleSeeder::class,
+            ModuleResourceSeeder::class,
             TenantSeeder::class,
         ]);
 
