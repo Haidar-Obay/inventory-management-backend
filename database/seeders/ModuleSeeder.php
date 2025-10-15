@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+    use App\Enums\PageCode;
 use App\Models\Module;
 use App\Models\ModulePage;
 use Illuminate\Database\Seeder;
@@ -22,17 +23,20 @@ class ModuleSeeder extends Seeder
                 'sort_order' => 1,
                 'active' => true,
                 'pages' => [
-                    // Align codes with frontend menu keys
-                    ['name' => 'Overview', 'code' => 'overview', 'path' => '/main/dashboard/overview', 'order' => 1, 'is_public' => false],
-                    ['name' => 'Service Categories', 'code' => 'serviceCategories', 'path' => '/main/mainfiles/services?tab=0', 'order' => 2, 'is_public' => false],
-                    ['name' => 'Services', 'code' => 'services_inner', 'path' => '/main/mainfiles/services?tab=1', 'order' => 3, 'is_public' => false],
-                    ['name' => 'Customers', 'code' => 'customer_inner', 'path' => '/main/mainfiles/customer?tab=2', 'order' => 4, 'is_public' => false],
-                    ['name' => 'Customer Master Lists', 'code' => 'customerMasterList', 'path' => '/main/mainfiles/customer?tab=3', 'order' => 5, 'is_public' => false],
+                    ['name' => 'Scheduler', 'code' => PageCode::SCHEDULER_PAGE->value, 'path' => '/main/scheduler', 'order' => 0, 'is_public' => false],
+                    ['name' => 'Dashboard', 'code' => PageCode::DASHBOARD_PAGE->value, 'path' => '/main/dashboard', 'order' => 1, 'is_public' => false],
+                    ['name' => 'Overview', 'code' => PageCode::DASHBOARD_OVERVIEW_PAGE->value, 'path' => '/main/dashboard/overview', 'order' => 2, 'is_public' => false],
+                    ['name' => 'Analytics', 'code' => PageCode::DASHBOARD_ANALYTICS_PAGE->value, 'path' => '/main/dashboard/analytics', 'order' => 3, 'is_public' => false],
+                    ['name' => 'Reports', 'code' => PageCode::DASHBOARD_REPORTS_PAGE->value, 'path' => '/main/dashboard/reports', 'order' => 4, 'is_public' => false],
+                    ['name' => 'Service Categories', 'code' => PageCode::SERVICES_PAGE->value, 'path' => '/main/mainfiles/services?tab=0', 'order' => 10, 'is_public' => false],
+                    ['name' => 'Services', 'code' => PageCode::SERVICES_PAGE->value, 'path' => '/main/mainfiles/services?tab=1', 'order' => 11, 'is_public' => false],
+                    ['name' => 'Customers', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer', 'order' => 12, 'is_public' => false],
+                    ['name' => 'Customer Master Lists', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer?tab=3', 'order' => 13, 'is_public' => false],
                     // Settings pages
-                    ['name' => 'User Management', 'code' => 'userManagementTab', 'path' => '/main/settings/userManagement?tab=0', 'order' => 90, 'is_public' => false],
-                    ['name' => 'Permission', 'code' => 'permission', 'path' => '/main/settings/userManagement?tab=1', 'order' => 91, 'is_public' => false],
-                    ['name' => 'Role Management', 'code' => 'roleManagement', 'path' => '/main/settings/userManagement?tab=2', 'order' => 92, 'is_public' => false],
-                    ['name' => 'System Settings', 'code' => 'systemSettings', 'path' => '/main/settings/systemSettings', 'order' => 93, 'is_public' => false],
+                    ['name' => 'User Management', 'code' => PageCode::USER_MANAGEMENT_PAGE->value, 'path' => '/main/settings/userManagement?tab=0', 'order' => 90, 'is_public' => false],
+                    ['name' => 'Permission', 'code' => PageCode::PERMISSIONS_PAGE->value, 'path' => '/main/settings/userManagement?tab=1', 'order' => 91, 'is_public' => false],
+                    ['name' => 'Role Management', 'code' => PageCode::ROLES_PAGE->value, 'path' => '/main/settings/userManagement?tab=2', 'order' => 92, 'is_public' => false],
+                    ['name' => 'System Settings', 'code' => PageCode::SYSTEM_SETTINGS_PAGE->value, 'path' => '/main/settings/systemSettings', 'order' => 93, 'is_public' => false],
                 ],
             ],
             [
@@ -43,17 +47,16 @@ class ModuleSeeder extends Seeder
                 'sort_order' => 2,
                 'active' => true,
                 'pages' => [
-                    // Align codes with frontend menu keys
-                    ['name' => 'Product Lines', 'code' => 'productLines', 'path' => '/main/mainfiles/items?tab=0', 'order' => 1, 'is_public' => false],
-                    ['name' => 'Categories', 'code' => 'categories', 'path' => '/main/mainfiles/items?tab=1', 'order' => 2, 'is_public' => false],
-                    ['name' => 'Brands', 'code' => 'brands', 'path' => '/main/mainfiles/items?tab=2', 'order' => 3, 'is_public' => false],
-                    ['name' => 'Items', 'code' => 'items_inner', 'path' => '/main/mainfiles/items?tab=3', 'order' => 4, 'is_public' => false],
-                    ['name' => 'Suppliers', 'code' => 'supplier_inner', 'path' => '/main/supplier?tab=1', 'order' => 5, 'is_public' => false],
+                    ['name' => 'Product Lines', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=0', 'order' => 1, 'is_public' => false],
+                    ['name' => 'Categories', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 2, 'is_public' => false],
+                    ['name' => 'Brands', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 3, 'is_public' => false],
+                    ['name' => 'Items', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 4, 'is_public' => false],
+                    ['name' => 'Suppliers', 'code' => PageCode::SUPPLIERS_SUPPLIERS->value, 'path' => '/main/supplier?tab=1', 'order' => 5, 'is_public' => false],
                     // Settings pages
-                    ['name' => 'User Management', 'code' => 'userManagementTab', 'path' => '/main/settings/userManagement?tab=0', 'order' => 90, 'is_public' => false],
-                    ['name' => 'Permission', 'code' => 'permission', 'path' => '/main/settings/userManagement?tab=1', 'order' => 91, 'is_public' => false],
-                    ['name' => 'Role Management', 'code' => 'roleManagement', 'path' => '/main/settings/userManagement?tab=2', 'order' => 92, 'is_public' => false],
-                    ['name' => 'System Settings', 'code' => 'systemSettings', 'path' => '/main/settings/systemSettings', 'order' => 93, 'is_public' => false],
+                    ['name' => 'User Management', 'code' => PageCode::USER_MANAGEMENT_PAGE->value, 'path' => '/main/settings/userManagement?tab=0', 'order' => 90, 'is_public' => false],
+                    ['name' => 'Permission', 'code' => PageCode::PERMISSIONS_PAGE->value, 'path' => '/main/settings/userManagement?tab=1', 'order' => 91, 'is_public' => false],
+                    ['name' => 'Role Management', 'code' => PageCode::ROLES_PAGE->value, 'path' => '/main/settings/userManagement?tab=2', 'order' => 92, 'is_public' => false],
+                    ['name' => 'System Settings', 'code' => PageCode::SYSTEM_SETTINGS_PAGE->value, 'path' => '/main/settings/systemSettings', 'order' => 93, 'is_public' => false],
                 ],
             ],
             [
