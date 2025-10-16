@@ -44,7 +44,7 @@ class SupplierController extends Controller
                 'phone2' => $supplier->phone2,
                 'phone3' => $supplier->phone3,
                 'file_number' => $supplier->file_number,
-                'barcode' => $supplier->barcode,
+                'bar_code' => $supplier->bar_code,
                 'search_terms' => $supplier->search_terms,
                 'indicator' => $supplier->indicator,
                 'active' => $supplier->active,
@@ -82,13 +82,25 @@ class SupplierController extends Controller
     public function store(StoreSupplierRequest $request)
     {
         try {
+            // bar_code is the canonical input
+
             // Create the supplier
             $supplier = Supplier::create($request->validated());
 
             // Handle addresses
-            if ($request->filled('billing_address_line1')) {
-                $this->createBillingAddress($supplier, $request);
-            }
+            $hasAnyBilling = $request->filled('billing_address_line1');
+            if (! $hasAnyBilling) {
+            foreach ([
+            'billing_country_id','billing_city_id','billing_district_id','billing_zone_id',
+            'billing_building','billing_block','billing_floor','billing_side',
+            'billing_apartment','billing_zip_code','billing_address_line2','billing_address_name','billing_notes',
+            ] as $k) {
+            if ($request->has($k)) { $hasAnyBilling = true; break; }
+        }
+        }
+        if ($hasAnyBilling) {
+        $this->createBillingAddress($supplier, $request);
+        }
 
             if ($request->has('shipping_addresses')) {
                 $this->createShippingAddresses($supplier, $request);
@@ -223,7 +235,7 @@ class SupplierController extends Controller
             'phone2' => $supplier->phone2,
             'phone3' => $supplier->phone3,
             'file_number' => $supplier->file_number,
-            'barcode' => $supplier->barcode,
+                'bar_code' => $supplier->bar_code,
             'search_terms' => $supplier->search_terms,
             'indicator' => $supplier->indicator,
             'opening_amount' => $supplier->opening_amount,
@@ -561,6 +573,8 @@ class SupplierController extends Controller
     public function update(UpdateSupplierRequest $request, Supplier $supplier)
     {
         try {
+            // bar_code is the canonical input
+
             // Update the supplier
             $supplier->update($request->validated());
 
@@ -722,7 +736,7 @@ class SupplierController extends Controller
 
             $columns = [
                 'id', 'title', 'first_name', 'middle_name', 'last_name', 'display_name',
-                'company_name', 'phone1', 'phone2', 'phone3', 'file_number', 'barcode',
+                'company_name', 'phone1', 'phone2', 'phone3', 'file_number', 'bar_code',
                 'search_terms', 'indicator', 'opening_amount', 'opening_date', 'credit_limit',
                 'payment_day', 'track_payment', 'settlement_method', 'accept_cheques',
                 'max_cheques', 'taxable', 'taxed_from_date', 'taxed_till_date',
@@ -732,7 +746,7 @@ class SupplierController extends Controller
 
             $headings = [
                 'ID', 'Title', 'First Name', 'Middle Name', 'Last Name', 'Display Name',
-                'Company Name', 'Phone 1', 'Phone 2', 'Phone 3', 'File Number', 'Barcode',
+                'Company Name', 'Phone 1', 'Phone 2', 'Phone 3', 'File Number', 'Bar Code',
                 'Search Terms', 'Indicator', 'Opening Amount', 'Opening Date', 'Credit Limit',
                 'Payment Day', 'Track Payment', 'Settlement Method', 'Accept Cheques',
                 'Max Cheques', 'Taxable', 'Taxed From Date', 'Taxed Till Date',
@@ -776,7 +790,7 @@ class SupplierController extends Controller
                     'Phone 2' => $supplier->phone2,
                     'Phone 3' => $supplier->phone3,
                     'File Number' => $supplier->file_number,
-                    'Barcode' => $supplier->barcode,
+                    'Bar Code' => $supplier->bar_code,
                     'Search Terms' => is_array($supplier->search_terms) ? implode(', ', $supplier->search_terms) : '',
                     'Trade' => $supplier->trade ? $supplier->trade->name : '',
                     'Supplier Group' => $supplier->supplierGroup ? $supplier->supplierGroup->name : '',
@@ -897,7 +911,7 @@ class SupplierController extends Controller
                     'phone2',
                     'phone3',
                     'file_number',
-                    'barcode',
+                    'bar_code',
                     'search_terms',
                     'trade_id',
                     'supplier_group_id',
@@ -995,7 +1009,7 @@ class SupplierController extends Controller
                         'phone2' => $row['phone2'] ?? null,
                         'phone3' => $row['phone3'] ?? null,
                         'file_number' => $row['file_number'] ?? null,
-                        'barcode' => $row['barcode'] ?? null,
+                        'bar_code' => $row['bar_code'] ?? null,
                         'search_terms' => $row['search_terms'] ?? null,
                         'trade_id' => $row['trade_id'] ?? null,
                         'supplier_group_id' => $row['supplier_group_id'] ?? null,

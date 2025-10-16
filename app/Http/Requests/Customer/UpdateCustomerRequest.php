@@ -7,12 +7,27 @@ use App\Models\PaymentTerm;
 use App\Models\Salesman;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Validator;
 
 class UpdateCustomerRequest extends FormRequest
 {
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * Override the validation behavior to handle FormData with 'data' field
+     */
+    protected function prepareForValidation()
+    {
+        // If this is FormData with a 'data' field, decode it and merge into request
+        if ($this->has('data')) {
+            $data = json_decode($this->input('data'), true);
+            if (is_array($data)) {
+                $this->merge($data);
+            }
+        }
     }
 
     public function rules(): array
@@ -125,7 +140,33 @@ class UpdateCustomerRequest extends FormRequest
                     }
                 },
             ],
+            'payment_term_id' => [
+                'sometimes',
+                'nullable',
+                'exists:payment_terms,id',
+                function ($attribute, $value, $fail) {
+                    if ($value) {
+                        $paymentTerm = PaymentTerm::find($value);
+                        if ($paymentTerm && ! $paymentTerm->active) {
+                            $fail('The selected payment term is inactive and cannot be assigned to a customer.');
+                        }
+                    }
+                },
+            ],
             'selected_payment_method' => [
+                'sometimes',
+                'nullable',
+                'exists:payment_methods,id',
+                function ($attribute, $value, $fail) {
+                    if ($value) {
+                        $paymentMethod = PaymentMethod::find($value);
+                        if ($paymentMethod && ! $paymentMethod->active) {
+                            $fail('The selected payment method is inactive and cannot be assigned to a customer.');
+                        }
+                    }
+                },
+            ],
+            'payment_method_id' => [
                 'sometimes',
                 'nullable',
                 'exists:payment_methods,id',

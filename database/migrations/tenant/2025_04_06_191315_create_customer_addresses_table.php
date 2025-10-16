@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -19,11 +20,20 @@ return new class extends Migration
             $table->timestamps();
 
             // Ensure a customer can only have one primary address per type
-            $table->unique(['customer_id', 'address_type', 'is_primary'], 'unique_primary_address_per_type');
+            // Use partial unique index to only enforce uniqueness when is_primary = true
+            // This allows multiple is_primary = false addresses but only one is_primary = true per customer per type
 
             // Remove the overall primary constraint to allow multiple primary addresses (one per type)
             // $table->unique(['customer_id', 'is_primary'], 'unique_primary_address_per_customer');
         });
+
+        // Create partial unique index to only enforce uniqueness when is_primary = true
+        // This allows multiple is_primary = false addresses but only one is_primary = true per customer per type
+        DB::statement('
+            CREATE UNIQUE INDEX unique_primary_address_per_type 
+            ON customer_addresses (customer_id, address_type) 
+            WHERE is_primary = true
+        ');
     }
 
     public function down(): void
