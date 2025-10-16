@@ -15,8 +15,6 @@ class Service extends Model
     protected $fillable = [
         'name',
         'service_category_id',
-        'department_id',
-        'sub_department_id',
         'cnss_code',
         'result_after_days',
         'needs_specialist',
@@ -44,16 +42,6 @@ class Service extends Model
     public function serviceCategory(): BelongsTo
     {
         return $this->belongsTo(ServiceCategory::class, 'service_category_id');
-    }
-
-    public function department(): BelongsTo
-    {
-        return $this->belongsTo(Department::class, 'department_id');
-    }
-
-    public function subDepartment(): BelongsTo
-    {
-        return $this->belongsTo(Department::class, 'sub_department_id');
     }
 
     public function specialists(): BelongsToMany

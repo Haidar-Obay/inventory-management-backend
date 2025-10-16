@@ -101,7 +101,7 @@ class TenantController extends Controller
             }
 
             if ($request->filled('subscription_end_date')) {
-                $tenantData['subscription_end_date'] = $request->input('subscription_end_date');
+                
             } else {
                 // If no end date specified, add 30 days from start date
                 $startDate = $tenantData['subscription_start_date'];
@@ -149,6 +149,22 @@ class TenantController extends Controller
                 'active' => true,
             ]);
 
+            // Assign modules to tenant with provided selection (no plan-module dependency)
+            if ($request->filled('selected_modules')) {
+                $moduleIds = $request->input('selected_modules', []);
+                $syncData = [];
+
+                foreach ($moduleIds as $moduleId) {
+                    $syncData[$moduleId] = [
+                        'assigned_price' => 0.0, // default; can be updated later via billing config
+                        'is_included' => false,
+                        'subscription_plan_id' => $subscriptionPlan->id,
+                    ];
+                }
+
+                $tenant->modules()->sync($syncData);
+            }
+
             // Bootstrap RBAC (Owner/Admin roles + base permissions) and assign Owner role to this user
             \App\Jobs\BootstrapTenantRbac::dispatchSync($user->id);
 
@@ -173,6 +189,15 @@ class TenantController extends Controller
                 'subscription_end_date' => $tenant->subscription_end_date,
                 'auto_renew' => $tenant->auto_renew,
                 'trial_ends_at' => $tenant->subscription_end_date->format('Y-m-d'),
+                'assigned_modules' => $tenant->modules()->get()->map(function($m){
+                    return [
+                        'id' => $m->id,
+                        'name' => $m->name,
+                        'assigned_price' => $m->pivot->assigned_price,
+                        'is_included' => $m->pivot->is_included,
+                    ];
+                }),
+                'calculated_total_price' => $tenant->calculateAssignedTotalPrice(),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([

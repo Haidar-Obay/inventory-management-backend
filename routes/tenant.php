@@ -65,6 +65,7 @@ use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierGroupController;
 use App\Http\Controllers\TableTemplateController;
+use App\Http\Controllers\TenantModuleController;
 use App\Http\Controllers\TradeController;
 use App\Http\Controllers\TransactionSeriesController;
 use App\Http\Controllers\TransportationChannelController;
@@ -102,6 +103,10 @@ Route::middleware([
     // Protected Routes
     Route::middleware(['auth:sanctum'])->group(function () {
 
+        // Tenant modules pages and assigned modules
+        Route::get('tenant/allowed-pages', [TenantModuleController::class, 'getAllowedPages']);
+        Route::get('tenant/assigned-modules', [TenantModuleController::class, 'getAssignedModules']);
+
         // log audit
         Route::get('audits', [AuditController::class, 'index']);
 
@@ -127,11 +132,11 @@ Route::middleware([
         Route::apiResource('districts', DistrictController::class);
         Route::apiResource('trades', TradeController::class);
         Route::apiResource('company-codes', CompanyCodeController::class);
-        Route::apiResource('brands', BrandController::class);
-        Route::apiResource('product-lines', ProductLineController::class);
-        Route::apiResource('categories', CategoryController::class);
-        Route::apiResource('supplier-groups', SupplierGroupController::class);
-        Route::apiResource('suppliers', SupplierController::class)->middleware('subscription.limits:opening_balance');
+         Route::apiResource('brands', BrandController::class)->middleware('check.permission:brands,view');
+        Route::apiResource('product-lines', ProductLineController::class)->middleware('check.permission:product_lines,view');
+        Route::apiResource('categories', CategoryController::class)->middleware('check.permission:categories,view');
+        Route::apiResource('supplier-groups', SupplierGroupController::class)->middleware('check.permission:supplier_groups,view');
+        Route::apiResource('suppliers', SupplierController::class)->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
 
         // Supplier Opening Balances
         Route::prefix('suppliers/{supplier}/opening-balances')->middleware('subscription.limits:opening_balance')->group(function () {
@@ -144,18 +149,18 @@ Route::middleware([
             Route::delete('/{openingBalance}', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'destroy']);
             Route::get('/check-currency/{currencyId}', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'checkCurrencyExists']);
         });
-        Route::apiResource('payment-terms', PaymentTermController::class);
+        Route::apiResource('payment-terms', PaymentTermController::class)->middleware('check.permission:payment_terms,view');
 
-        Route::apiResource('currencies', CurrencyController::class)->middleware('subscription.limits:currency');
-        Route::apiResource('salesmen', SalesmanController::class);
-        Route::apiResource('customers', CustomerController::class)->middleware('subscription.limits:customer');
-        Route::apiResource('customer-groups', CustomerGroupController::class);
+        Route::apiResource('currencies', CurrencyController::class)->middleware(['subscription.limits:currency', 'check.permission:currencies,view']);
+        Route::apiResource('salesmen', SalesmanController::class)->middleware('check.permission:salesmen,view');
+        Route::apiResource('customers', CustomerController::class)->middleware(['subscription.limits:customer', 'check.permission:customers,view']);
+        Route::apiResource('customer-groups', CustomerGroupController::class)->middleware('check.permission:customer_groups,view');
         // Route::apiResource('customer-attachments', CustomerAttachmentController::class);
-        Route::apiResource('payment-methods', PaymentMethodController::class);
+        Route::apiResource('payment-methods', PaymentMethodController::class)->middleware('check.permission:payment_methods,view');
         Route::apiResource('refer-bies', ReferByController::class);
-        Route::apiResource('branches', BranchController::class);
+        Route::apiResource('branches', BranchController::class)->middleware('check.permission:branches,view');
         Route::apiResource('adjustment-types', AdjustmentTypeController::class);
-        Route::apiResource('warehouses', WarehouseController::class);
+        Route::apiResource('warehouses', WarehouseController::class)->middleware('check.permission:warehouses,view');
         Route::apiResource('rooms', RoomController::class);
         Route::apiResource('sections', SectionController::class);
 
@@ -165,8 +170,8 @@ Route::middleware([
         Route::apiResource('assets', AssetController::class);
         Route::apiResource('assignments', AssignmentController::class);
         Route::apiResource('business-types', BusinessTypeController::class);
-        Route::apiResource('projects', ProjectController::class);
-        Route::apiResource('jobs', JobController::class);
+        Route::apiResource('projects', ProjectController::class)->middleware('check.permission:projects,view');
+        Route::apiResource('jobs', JobController::class)->middleware('check.permission:jobs,view');
         Route::apiResource('transaction-series', TransactionSeriesController::class);
         Route::apiResource('cost-centers', CostCenterController::class);
         Route::apiResource('departments', DepartmentController::class);
@@ -174,21 +179,21 @@ Route::middleware([
         Route::apiResource('distribution-channels', DistributionChannelController::class);
         Route::apiResource('transportation-channels', TransportationChannelController::class);
         Route::apiResource('media-channels', MediaChannelController::class);
-        Route::apiResource('items', ItemController::class);
+        Route::apiResource('items', ItemController::class)->middleware('check.permission:items,view');
         Route::apiResource('customer-master-lists', CustomerMasterListController::class);
-        Route::apiResource('specialities', SpecialityController::class);
-        Route::apiResource('specialists', SpecialistController::class);
-        Route::apiResource('services', ServiceController::class);
+        Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');
+        Route::apiResource('specialists', SpecialistController::class)->middleware('check.permission:specialists,view');
+        Route::apiResource('services', ServiceController::class)->middleware('check.permission:services,view');
         Route::apiResource('service-needed-items', ServiceNeededItemController::class);
         Route::apiResource('service-advanced-pricings', ServiceAdvancedPricingController::class);
-        Route::apiResource('associations', AssociationController::class);
+        Route::apiResource('associations', AssociationController::class)->middleware('check.permission:associations,view');
         Route::apiResource('association-contacts', AssociationContactController::class);
         Route::apiResource('association-service-prices', AssociationServicePriceController::class);
         Route::apiResource('connection-types', ConnectionTypeController::class);
-        Route::apiResource('connections', ConnectionController::class);
-        Route::apiResource('service-categories', ServiceCategoryController::class);
+        Route::apiResource('connections', ConnectionController::class)->middleware('check.permission:connections,view');
+        Route::apiResource('service-categories', ServiceCategoryController::class)->middleware('check.permission:service_categories,view');
         Route::post('service-categories/bulk-delete', [ServiceCategoryController::class, 'bulkDelete']);
-        Route::apiResource('referrers', ReferrerController::class);
+        Route::apiResource('referrers', ReferrerController::class)->middleware('check.permission:referrers,view');
         Route::apiResource('referrer-service-commissions', ReferrerServiceCommissionController::class);
 
         // Customer Master List additional routes
@@ -361,10 +366,10 @@ Route::middleware([
             Route::post('/transaction-series', [TransactionSeriesController::class, 'importFromExcel']);
             Route::post('/cost-centers', [CostCenterController::class, 'importFromExcel']);
             Route::post('/departments', [DepartmentController::class, 'importFromExcel']);
-            Route::post('/sales-channels', [SalesChannelController::class, 'import']);
-            Route::post('/distribution-channels', [DistributionChannelController::class, 'import']);
-            Route::post('/transportation-channels', [TransportationChannelController::class, 'import']);
-            Route::post('/media-channels', [MediaChannelController::class, 'import']);
+            Route::post('/sales-channels', [SalesChannelController::class, 'importFromExcel']);
+            Route::post('/distribution-channels', [DistributionChannelController::class, 'importFromExcel']);
+            Route::post('/transportation-channels', [TransportationChannelController::class, 'importFromExcel']);
+            Route::post('/media-channels', [MediaChannelController::class, 'importFromExcel']);
             Route::post('/items', [ItemController::class, 'importFromExcel']);
             Route::post('/customer-master-lists', [CustomerMasterListController::class, 'importFromExcel']);
             Route::post('/specialities', [SpecialityController::class, 'importFromExcel']);
