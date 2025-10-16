@@ -67,6 +67,9 @@ jobs:
       - name: Generate app key
         run: php artisan key:generate
 
+      - name: Create storage link
+        run: php artisan storage:link
+
       - name: Verify artisan
         run: php artisan --version
 
@@ -318,6 +321,9 @@ jobs:
 
       - name: Generate app key
         run: php artisan key:generate
+
+      - name: Create storage link
+        run: php artisan storage:link
 
       - name: Wait for database
         run: |

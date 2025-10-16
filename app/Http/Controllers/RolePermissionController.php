@@ -6,6 +6,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RolePermissionController extends Controller
 {
@@ -15,7 +16,26 @@ class RolePermissionController extends Controller
     public function getRolePermissions(Role $role): JsonResponse
     {
         try {
-            $role->load('permissions');
+            // Filter role permissions by tenant's assigned module resources (central DB)
+            $tenantId = tenant('id');
+            $central = config('tenancy.database.central_connection', config('database.default'));
+            $allowedResourceKeys = collect(
+                DB::connection($central)
+                    ->table('module_resources')
+                    ->join('modules', 'module_resources.module_id', '=', 'modules.id')
+                    ->join('tenant_modules', 'modules.id', '=', 'tenant_modules.module_id')
+                    ->join('tenants', 'tenant_modules.tenant_id', '=', 'tenants.id')
+                    ->where('tenants.id', $tenantId)
+                    ->pluck('module_resources.code')
+            )->unique()->values();
+
+            $role->load(['permissions' => function ($q) use ($allowedResourceKeys) {
+                if ($allowedResourceKeys->isNotEmpty()) {
+                    $q->whereIn('permissions.resource_key', $allowedResourceKeys);
+                } else {
+                    $q->whereRaw('1=0');
+                }
+            }]);
 
             $permissions = $role->permissions->map(function ($permission) {
                 return [

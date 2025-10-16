@@ -10,6 +10,7 @@ use App\Imports\DynamicExcelImport;
 use App\Models\Permission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class PermissionController extends Controller
@@ -26,7 +27,26 @@ class PermissionController extends Controller
             $permissions = app('cache')->store('database')->get($key);
 
             if (! $permissions) {
-                $query = Permission::with('roles');
+                // Collect allowed backend resources for this tenant via assigned modules
+                // Fetch allowed resource keys from central DB (module_resources → modules → tenant_modules)
+                $central = config('tenancy.database.central_connection', config('database.default'));
+                $allowedResourceKeys = collect(
+                    DB::connection($central)
+                        ->table('module_resources')
+                        ->join('modules', 'module_resources.module_id', '=', 'modules.id')
+                        ->join('tenant_modules', 'modules.id', '=', 'tenant_modules.module_id')
+                        ->join('tenants', 'tenant_modules.tenant_id', '=', 'tenants.id')
+                        ->where('tenants.id', $tenantId)
+                        ->pluck('module_resources.code')
+                )->unique()->values();
+
+                $query = Permission::with('roles')
+                    ->when($allowedResourceKeys->isNotEmpty(), function ($q) use ($allowedResourceKeys) {
+                        $q->whereIn('resource_key', $allowedResourceKeys);
+                    }, function ($q) {
+                        // If no resources allowed for tenant, return empty
+                        $q->whereRaw('1=0');
+                    });
 
                 // Search functionality
                 if ($request->has('search') && ! empty($request->search)) {
@@ -46,7 +66,8 @@ class PermissionController extends Controller
                     ];
                 });
 
-                app('cache')->store('database')->forever($key, $transformedData);
+                // Cache briefly to reflect module assignment changes
+                app('cache')->store('database')->put($key, $transformedData, now()->addMinutes(5));
                 $permissions = $transformedData;
             }
 

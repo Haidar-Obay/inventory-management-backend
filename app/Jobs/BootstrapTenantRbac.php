@@ -20,11 +20,41 @@ class BootstrapTenantRbac implements ShouldQueue
 
     public function handle(): void
     {
-        // Base permissions for user/role/permission management
+        // Base permissions for all main business entities
         $permissionKeys = [
+            // System Management
             ['resource_key' => 'users', 'resource_label' => 'User Management'],
             ['resource_key' => 'roles', 'resource_label' => 'Role Management'],
             ['resource_key' => 'permissions', 'resource_label' => 'Permission Management'],
+
+            // Core Business Entities
+            ['resource_key' => 'customers', 'resource_label' => 'Customer Management'],
+            ['resource_key' => 'suppliers', 'resource_label' => 'Supplier Management'],
+            ['resource_key' => 'items', 'resource_label' => 'Item Management'],
+            ['resource_key' => 'services', 'resource_label' => 'Service Management'],
+            ['resource_key' => 'specialists', 'resource_label' => 'Specialist Management'],
+            ['resource_key' => 'associations', 'resource_label' => 'Association Management'],
+            ['resource_key' => 'connections', 'resource_label' => 'Connection Management'],
+            ['resource_key' => 'referrers', 'resource_label' => 'Referrer Management'],
+
+            // Configuration/Reference Data
+            ['resource_key' => 'brands', 'resource_label' => 'Brand Management'],
+            ['resource_key' => 'categories', 'resource_label' => 'Category Management'],
+            ['resource_key' => 'customer_groups', 'resource_label' => 'Customer Group Management'],
+            ['resource_key' => 'supplier_groups', 'resource_label' => 'Supplier Group Management'],
+            ['resource_key' => 'service_categories', 'resource_label' => 'Service Category Management'],
+            ['resource_key' => 'specialities', 'resource_label' => 'Speciality Management'],
+
+            // Financial/Operations
+            ['resource_key' => 'currencies', 'resource_label' => 'Currency Management'],
+            ['resource_key' => 'payment_terms', 'resource_label' => 'Payment Terms Management'],
+            ['resource_key' => 'payment_methods', 'resource_label' => 'Payment Methods Management'],
+            ['resource_key' => 'salesmen', 'resource_label' => 'Salesman Management'],
+            ['resource_key' => 'branches', 'resource_label' => 'Branch Management'],
+            ['resource_key' => 'warehouses', 'resource_label' => 'Warehouse Management'],
+            ['resource_key' => 'projects', 'resource_label' => 'Project Management'],
+            ['resource_key' => 'jobs', 'resource_label' => 'Job Management'],
+            ['resource_key' => 'product_lines', 'resource_label' => 'Product Line Management'],
         ];
 
         foreach ($permissionKeys as $perm) {
@@ -40,7 +70,8 @@ class BootstrapTenantRbac implements ShouldQueue
             'active' => true,
         ]);
 
-        $permissions = Permission::whereIn('resource_key', ['users', 'roles', 'permissions'])->get();
+        // Grant full access to ALL defined permissions (covers newly added permissions automatically)
+        $permissions = Permission::all();
 
         // Owner: full on these resources
         foreach ($permissions as $permission) {

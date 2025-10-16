@@ -23,6 +23,16 @@ class SubscriptionPlanController extends Controller
         ]);
     }
 
+    public function getDefaultPlan(): JsonResponse
+    {
+        $plan = SubscriptionPlan::where('is_default', true)->where('is_active', true)->first();
+        if (! $plan) {
+            return response()->json(['message' => 'No active default plan found'], 404);
+        }
+
+        return response()->json(['plan' => $plan]);
+    }
+
     public function show($id): JsonResponse
     {
         $plan = SubscriptionPlan::findOrFail($id);
