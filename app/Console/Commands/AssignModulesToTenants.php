@@ -9,6 +9,7 @@ use Illuminate\Console\Command;
 class AssignModulesToTenants extends Command
 {
     protected $signature = 'tenants:assign-modules';
+
     protected $description = 'Assign modules to tenants';
 
     public function handle()
@@ -20,7 +21,7 @@ class AssignModulesToTenants extends Command
 
         foreach ($tenants as $tenant) {
             $this->info("Tenant: {$tenant->name} (ID: {$tenant->id})");
-            
+
             // Assign all modules to each tenant for now
             foreach ($modules as $module) {
                 $tenant->modules()->syncWithoutDetaching([$module->id => [

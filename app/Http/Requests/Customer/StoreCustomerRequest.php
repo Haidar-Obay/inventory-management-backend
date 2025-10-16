@@ -6,7 +6,6 @@ use App\Models\PaymentMethod;
 use App\Models\PaymentTerm;
 use App\Models\Salesman;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Validator;
 
 class StoreCustomerRequest extends FormRequest
 {

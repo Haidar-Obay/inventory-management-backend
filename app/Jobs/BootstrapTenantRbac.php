@@ -26,7 +26,7 @@ class BootstrapTenantRbac implements ShouldQueue
             ['resource_key' => 'users', 'resource_label' => 'User Management'],
             ['resource_key' => 'roles', 'resource_label' => 'Role Management'],
             ['resource_key' => 'permissions', 'resource_label' => 'Permission Management'],
-            
+
             // Core Business Entities
             ['resource_key' => 'customers', 'resource_label' => 'Customer Management'],
             ['resource_key' => 'suppliers', 'resource_label' => 'Supplier Management'],
@@ -36,7 +36,7 @@ class BootstrapTenantRbac implements ShouldQueue
             ['resource_key' => 'associations', 'resource_label' => 'Association Management'],
             ['resource_key' => 'connections', 'resource_label' => 'Connection Management'],
             ['resource_key' => 'referrers', 'resource_label' => 'Referrer Management'],
-            
+
             // Configuration/Reference Data
             ['resource_key' => 'brands', 'resource_label' => 'Brand Management'],
             ['resource_key' => 'categories', 'resource_label' => 'Category Management'],
@@ -44,7 +44,7 @@ class BootstrapTenantRbac implements ShouldQueue
             ['resource_key' => 'supplier_groups', 'resource_label' => 'Supplier Group Management'],
             ['resource_key' => 'service_categories', 'resource_label' => 'Service Category Management'],
             ['resource_key' => 'specialities', 'resource_label' => 'Speciality Management'],
-            
+
             // Financial/Operations
             ['resource_key' => 'currencies', 'resource_label' => 'Currency Management'],
             ['resource_key' => 'payment_terms', 'resource_label' => 'Payment Terms Management'],

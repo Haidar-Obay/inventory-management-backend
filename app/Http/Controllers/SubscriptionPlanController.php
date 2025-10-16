@@ -29,6 +29,7 @@ class SubscriptionPlanController extends Controller
         if (! $plan) {
             return response()->json(['message' => 'No active default plan found'], 404);
         }
+
         return response()->json(['plan' => $plan]);
     }
 

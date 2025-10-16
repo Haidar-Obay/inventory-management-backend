@@ -101,7 +101,7 @@ class TenantController extends Controller
             }
 
             if ($request->filled('subscription_end_date')) {
-                
+
             } else {
                 // If no end date specified, add 30 days from start date
                 $startDate = $tenantData['subscription_start_date'];
@@ -189,7 +189,7 @@ class TenantController extends Controller
                 'subscription_end_date' => $tenant->subscription_end_date,
                 'auto_renew' => $tenant->auto_renew,
                 'trial_ends_at' => $tenant->subscription_end_date->format('Y-m-d'),
-                'assigned_modules' => $tenant->modules()->get()->map(function($m){
+                'assigned_modules' => $tenant->modules()->get()->map(function ($m) {
                     return [
                         'id' => $m->id,
                         'name' => $m->name,

@@ -90,17 +90,21 @@ class SupplierController extends Controller
             // Handle addresses
             $hasAnyBilling = $request->filled('billing_address_line1');
             if (! $hasAnyBilling) {
-            foreach ([
-            'billing_country_id','billing_city_id','billing_district_id','billing_zone_id',
-            'billing_building','billing_block','billing_floor','billing_side',
-            'billing_apartment','billing_zip_code','billing_address_line2','billing_address_name','billing_notes',
-            ] as $k) {
-            if ($request->has($k)) { $hasAnyBilling = true; break; }
-        }
-        }
-        if ($hasAnyBilling) {
-        $this->createBillingAddress($supplier, $request);
-        }
+                foreach ([
+                    'billing_country_id', 'billing_city_id', 'billing_district_id', 'billing_zone_id',
+                    'billing_building', 'billing_block', 'billing_floor', 'billing_side',
+                    'billing_apartment', 'billing_zip_code', 'billing_address_line2', 'billing_address_name', 'billing_notes',
+                ] as $k) {
+                    if ($request->has($k)) {
+                        $hasAnyBilling = true;
+
+                        break;
+                    }
+                }
+            }
+            if ($hasAnyBilling) {
+                $this->createBillingAddress($supplier, $request);
+            }
 
             if ($request->has('shipping_addresses')) {
                 $this->createShippingAddresses($supplier, $request);
@@ -235,7 +239,7 @@ class SupplierController extends Controller
             'phone2' => $supplier->phone2,
             'phone3' => $supplier->phone3,
             'file_number' => $supplier->file_number,
-                'bar_code' => $supplier->bar_code,
+            'bar_code' => $supplier->bar_code,
             'search_terms' => $supplier->search_terms,
             'indicator' => $supplier->indicator,
             'opening_amount' => $supplier->opening_amount,

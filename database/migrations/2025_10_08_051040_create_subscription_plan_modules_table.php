@@ -19,7 +19,7 @@ return new class extends Migration
             $table->boolean('is_included')->default(false);
             $table->boolean('is_optional')->default(false);
             $table->timestamps();
-            
+
             $table->unique(['subscription_plan_id', 'module_id']);
         });
     }

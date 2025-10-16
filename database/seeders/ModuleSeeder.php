@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-    use App\Enums\PageCode;
+use App\Enums\PageCode;
 use App\Models\Module;
 use App\Models\ModulePage;
 use Illuminate\Database\Seeder;

@@ -9,9 +9,6 @@ use App\Http\Controllers\AssociationContactController;
 use App\Http\Controllers\AssociationController;
 use App\Http\Controllers\AssociationServicePriceController;
 use App\Http\Controllers\AuditController;
-// Controllers
-use App\Http\Controllers\Auth\ForgotPasswordController;
-use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BrandController;
@@ -132,7 +129,7 @@ Route::middleware([
         Route::apiResource('districts', DistrictController::class);
         Route::apiResource('trades', TradeController::class);
         Route::apiResource('company-codes', CompanyCodeController::class);
-         Route::apiResource('brands', BrandController::class)->middleware('check.permission:brands,view');
+        Route::apiResource('brands', BrandController::class)->middleware('check.permission:brands,view');
         Route::apiResource('product-lines', ProductLineController::class)->middleware('check.permission:product_lines,view');
         Route::apiResource('categories', CategoryController::class)->middleware('check.permission:categories,view');
         Route::apiResource('supplier-groups', SupplierGroupController::class)->middleware('check.permission:supplier_groups,view');

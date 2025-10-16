@@ -7,7 +7,6 @@ use App\Models\PaymentTerm;
 use App\Models\Salesman;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Validator;
 
 class UpdateCustomerRequest extends FormRequest
 {
