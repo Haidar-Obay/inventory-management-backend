@@ -403,7 +403,7 @@ class UpdateCustomerRequest extends FormRequest
 
             // Attachments (handled separately in controller)
             'attachments' => 'sometimes|nullable|array',
-            'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,docx,xlsx,txt|max:5120',
+            'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,docx,xlsx,txt|max:10240',
 
             // Credit limits validation
             'credit_limits' => 'sometimes|array',

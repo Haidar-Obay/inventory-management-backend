@@ -10,8 +10,10 @@ use App\Imports\DynamicExcelImport;
 use App\Models\Address;
 use App\Models\Currency;
 use App\Models\Supplier;
+use App\Models\SupplierAttachment;
 use App\Services\OpeningBalanceService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
 class SupplierController extends Controller
@@ -166,6 +168,7 @@ class SupplierController extends Controller
                 'addresses',
                 'contacts',
                 'attachments',
+                'openingBalances.currency:id,code,name',
             ]);
 
             return response()->json([
@@ -647,6 +650,7 @@ class SupplierController extends Controller
                 'addresses',
                 'contacts',
                 'attachments',
+                'openingBalances.currency:id,code,name',
             ]);
 
             return response()->json([
@@ -1204,20 +1208,64 @@ class SupplierController extends Controller
 
     private function createAttachments($supplier, $request)
     {
-        foreach ($request->attachments as $attachmentData) {
-            $file = $attachmentData['file'];
-            $fileName = $file->getClientOriginalName();
-            $filePath = $file->store('supplier-attachments', 'public');
+        // Handle attachments - check for actual file uploads first
+        if ($request->hasFile('attachments')) {
+            $tenantId = tenant('id');
 
-            $supplier->attachments()->create([
-                'file_name' => $fileName,
-                'file_path' => $filePath,
-                'file_type' => $file->getMimeType(),
-                'file_size' => $file->getSize(),
-                'description' => $attachmentData['description'] ?? null,
-                'category' => $attachmentData['category'] ?? 'general',
-                'is_public' => $attachmentData['is_public'] ?? true,
-            ]);
+            // Handle file uploads
+            $files = is_array($request->file('attachments'))
+                ? $request->file('attachments')
+                : [$request->file('attachments')];
+
+            // Get attachment metadata from the decoded data if available
+            $attachmentMetadata = [];
+            if ($request->has('data')) {
+                $data = json_decode($request->input('data'), true);
+                $attachmentMetadata = $data['attachments'] ?? [];
+            }
+
+            foreach ($files as $index => $file) {
+                // Skip if file is null, not valid, or not an instance of UploadedFile
+                if (! $file || ! $file->isValid()) {
+                    continue;
+                }
+
+                $path = Storage::disk('public')->putFile(
+                    "tenants/{$tenantId}/suppliers/{$supplier->id}/attachments",
+                    $file
+                );
+
+                // Find matching metadata for this file
+                $metadata = $attachmentMetadata[$index] ?? [];
+                $description = $metadata['description'] ?? '';
+
+                SupplierAttachment::create([
+                    'supplier_id' => $supplier->id,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_path' => url(Storage::url($path)),
+                    'file_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                    'description' => $description,
+                    'category' => 'document',
+                ]);
+            }
+        } elseif ($request->has('attachments')) {
+            // Handle attachments with new structure (JSON data)
+            foreach ($request->input('attachments') as $attachmentData) {
+                // Only create attachment if we have a valid file path or file URL
+                $filePath = $attachmentData['file_url'] ?? $attachmentData['file_path'] ?? null;
+                if ($filePath && ! empty(trim($filePath))) {
+                    SupplierAttachment::create([
+                        'supplier_id' => $supplier->id,
+                        'file_name' => $attachmentData['file_name'] ?? 'Unknown',
+                        'file_path' => $filePath,
+                        'file_type' => $attachmentData['file_type'] ?? null,
+                        'file_size' => $attachmentData['file_size'] ?? null,
+                        'description' => $attachmentData['description'] ?? '',
+                        'category' => $attachmentData['category'] ?? 'document',
+                    ]);
+                }
+            }
         }
     }
 
@@ -1251,7 +1299,11 @@ class SupplierController extends Controller
     private function updateAttachments($supplier, $request)
     {
         // Remove existing attachments
-        $supplier->attachments()->delete();
+        foreach ($supplier->attachments as $attachment) {
+            $relativePath = str_replace(url('/storage'), '', $attachment->file_path);
+            Storage::disk('public')->delete($relativePath);
+            $attachment->delete();
+        }
 
         // Create new attachments
         $this->createAttachments($supplier, $request);

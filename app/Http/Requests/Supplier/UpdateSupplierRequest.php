@@ -15,6 +15,20 @@ class UpdateSupplierRequest extends FormRequest
     }
 
     /**
+     * Override the validation behavior to handle FormData with 'data' field
+     */
+    protected function prepareForValidation()
+    {
+        // If this is FormData with a 'data' field, decode it and merge into request
+        if ($this->has('data')) {
+            $data = json_decode($this->input('data'), true);
+            if (is_array($data)) {
+                $this->merge($data);
+            }
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
@@ -45,10 +59,7 @@ class UpdateSupplierRequest extends FormRequest
             'business_type_id' => ['nullable', 'exists:business_types,id'],
             'indicator' => ['nullable', 'string', 'in:A,B,C,D'],
 
-            // Opening (Legacy single currency - kept for backward compatibility)
-            'currency_id' => ['nullable', 'exists:currencies,id'],
-            'opening_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
-            'opening_date' => ['nullable', 'date'],
+            // Opening balances are handled in separate supplier_opening_balances table
 
             // Multi-currency opening balances
             'opening_balances' => ['nullable', 'array'],
@@ -60,20 +71,18 @@ class UpdateSupplierRequest extends FormRequest
             // Payment Terms
             'payment_term_id' => ['nullable', 'exists:payment_terms,id'],
             'payment_method_id' => ['nullable', 'exists:payment_methods,id'],
-            'credit_limit' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
-
-            // Multi-currency credit limits
-            'credit_limits' => ['nullable', 'array'],
-            'credit_limits.*.currency_id' => ['required', 'exists:currencies,id'],
-            'credit_limits.*.credit_limit' => ['required', 'numeric', 'min:0', 'max:999999999.99'],
-            'credit_limits.*.notes' => ['nullable', 'string', 'max:1000'],
+            'allow_credit' => ['nullable', 'boolean'],
             'payment_day' => ['nullable', 'string', 'in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30'],
             'track_payment' => ['nullable', 'string', 'in:yes,no'],
             'settlement_method' => ['nullable', 'string', 'in:FIFO,Manual'],
             'accept_cheques' => ['nullable', 'boolean'],
-            // 'max_cheques' => ['nullable', 'integer', 'min:0'], // deprecated in favor of multi-currency cheque_limits
 
-            // Multi-currency cheque limits
+            // Credit limits and cheque limits are handled in separate tables for multi-currency support
+            'credit_limits' => ['nullable', 'array'],
+            'credit_limits.*.currency_id' => ['required', 'exists:currencies,id'],
+            'credit_limits.*.credit_limit' => ['required', 'numeric', 'min:0', 'max:999999999.99'],
+            'credit_limits.*.notes' => ['nullable', 'string', 'max:1000'],
+
             'cheque_limits' => ['nullable', 'array'],
             'cheque_limits.*.currency_id' => ['required', 'exists:currencies,id'],
             'cheque_limits.*.max_cheques' => ['required', 'integer', 'min:0'],
@@ -133,7 +142,7 @@ class UpdateSupplierRequest extends FormRequest
 
             // Contacts
             'contacts' => ['nullable', 'array'],
-            'contacts.*.title' => ['nullable', 'string', 'in:Mr.,Mrs.,Ms.,Dr.,Prof.'],
+            'contacts.*.title' => ['nullable', 'string', 'max:255'],
             'contacts.*.name' => ['required', 'string', 'max:255'],
             'contacts.*.work_phone' => ['nullable', 'string', 'max:20'],
             'contacts.*.mobile' => ['nullable', 'string', 'max:20'],
@@ -141,12 +150,19 @@ class UpdateSupplierRequest extends FormRequest
             'contacts.*.extension' => ['nullable', 'string', 'max:20'],
             'contacts.*.is_primary' => ['nullable', 'boolean'],
 
-            // Attachments
+            // Attachments: support both file uploads and/or metadata
+            // If files are uploaded via multipart, validate size/mimes per item
             'attachments' => ['nullable', 'array'],
-            'attachments.*.file' => ['required', 'file', 'max:10240'], // 10MB max
-            'attachments.*.description' => ['nullable', 'string', 'max:255'],
-            'attachments.*.category' => ['nullable', 'string', 'max:255'],
-            'attachments.*.is_public' => ['nullable', 'boolean'],
+            'attachments.*' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,docx,xlsx,txt', 'max:10240'],
+            // If only metadata is provided (no files), these are optional per item
+            'attachments.*.file_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'attachments.*.file_url' => ['sometimes', 'nullable', 'url'],
+            'attachments.*.file_type' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'attachments.*.file_path' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'attachments.*.file_size' => ['sometimes', 'nullable', 'integer'],
+            'attachments.*.description' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'attachments.*.category' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'attachments.*.is_public' => ['sometimes', 'nullable', 'boolean'],
         ];
     }
 

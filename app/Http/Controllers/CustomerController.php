@@ -380,6 +380,11 @@ class CustomerController extends Controller
                 }
 
                 foreach ($files as $index => $file) {
+                    // Skip if file is null, not valid, or not an instance of UploadedFile
+                    if (! $file || ! $file->isValid()) {
+                        continue;
+                    }
+
                     $path = Storage::disk('public')->putFile(
                         "tenants/{$tenantId}/customers/{$customer->id}/attachments",
                         $file
@@ -976,8 +981,13 @@ class CustomerController extends Controller
                 }
 
                 foreach ($files as $index => $file) {
+                    // Skip if file is null, not valid, or not an instance of UploadedFile
+                    if (! $file || ! $file->isValid()) {
+                        continue;
+                    }
+
                     $path = Storage::disk('public')->putFile(
-                        "tenants/{$tenantId}/{$customer->id}/attachments",
+                        "tenants/{$tenantId}/customers/{$customer->id}/attachments",
                         $file
                     );
 

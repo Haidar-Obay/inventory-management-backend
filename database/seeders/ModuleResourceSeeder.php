@@ -40,6 +40,7 @@ class ModuleResourceSeeder extends Seeder
             // Customers
             PageCode::CUSTOMERS_PAGE->value => 'customers',
 
+
             // Relations
             PageCode::RELATIONS_ASSOCIATIONS->value => 'associations',
             PageCode::RELATIONS_REFERRERS->value => 'referrers',
@@ -95,8 +96,8 @@ class ModuleResourceSeeder extends Seeder
             // Explicit resources per module code (ensures backend alignment regardless of page codes)
             $moduleSpecificResources = [
                 // Do NOT hard-add 'suppliers' here; it will be added only if a supplier page code exists
-                'stock_management' => ['product_lines', 'categories', 'brands', 'items'],
-                'beauty_center' => ['service_categories', 'services', 'customers', 'customer_master_lists'],
+                'stock_management' => ['product_lines', 'categories', 'brands', 'items', 'supplier_groups'],
+                'beauty_center' => ['service_categories', 'services', 'customers', 'customer_master_lists', 'payment_terms', 'payment_methods', 'salesmen', 'customer_groups', 'currencies'],
                 'customer_management' => ['customers'],
             ];
 

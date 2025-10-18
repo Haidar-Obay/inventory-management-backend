@@ -32,20 +32,18 @@ return new class extends Migration
             $table->foreignId('business_type_id')->nullable()->constrained('business_types');
             $table->enum('indicator', ['A', 'B', 'C', 'D'])->nullable();
 
-            // Opening
-            $table->foreignId('currency_id')->nullable()->constrained('currencies');
-            $table->decimal('opening_amount', 15, 2)->nullable()->default(0.00);
-            $table->date('opening_date')->nullable();
+            // Opening balances are handled in separate supplier_opening_balances table
 
             // Payment Terms
             $table->foreignId('payment_term_id')->nullable()->constrained('payment_terms');
             $table->foreignId('payment_method_id')->nullable()->constrained('payment_methods');
-            $table->decimal('credit_limit', 15, 2)->nullable()->default(0.00);
+            $table->boolean('allow_credit')->default(false);
             $table->enum('payment_day', ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30'])->nullable();
             $table->enum('track_payment', ['yes', 'no'])->default('no');
             $table->enum('settlement_method', ['FIFO', 'Manual'])->nullable();
             $table->boolean('accept_cheques')->default(false);
-            $table->integer('max_cheques')->nullable()->default(0);
+            
+            // Credit limits and cheque limits are handled in separate tables for multi-currency support
 
             // More Options
             $table->text('notes')->nullable();

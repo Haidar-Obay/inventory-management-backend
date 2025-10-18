@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('supplier_contacts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('supplier_id')->constrained('suppliers')->onDelete('cascade');
-            $table->enum('title', ['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.'])->nullable();
+            $table->string('title')->nullable();
             $table->string('name');
             $table->string('work_phone')->nullable();
             $table->string('mobile')->nullable();
