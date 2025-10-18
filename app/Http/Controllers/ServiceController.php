@@ -7,10 +7,7 @@ use App\Exports\ExportPDF;
 use App\Http\Requests\StoreServiceRequest;
 use App\Http\Requests\UpdateServiceRequest;
 use App\Imports\DynamicExcelImport;
-use App\Models\AssociationServicePrice;
-use App\Models\ReferrerServiceCommission;
 use App\Models\Service;
-use App\Models\ServiceAdvancedPricing;
 use App\Models\ServiceNeededItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,7 +41,7 @@ class ServiceController extends Controller
             $service->needed_items = $service->neededItems->map(function ($neededItem) {
                 return $neededItem->item ? $neededItem->item->code : null;
             })->filter()->values()->toArray();
-            
+
             return $service->makeHidden(['service_category_id', 'image', 'neededItems']);
         });
 

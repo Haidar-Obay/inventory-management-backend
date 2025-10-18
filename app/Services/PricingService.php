@@ -140,7 +140,6 @@ class PricingService
         if ($eventType === 'birthday' && $service->birthday_price) {
             return $service->birthday_price;
         }
-        
         if ($eventType === 'wedding' && $service->wedding_price) {
             return $service->wedding_price;
         }
