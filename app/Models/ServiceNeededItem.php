@@ -12,15 +12,16 @@ class ServiceNeededItem extends Model
 
     protected $fillable = [
         'service_id',
-        'asset_id',
-        'description',
-        'unit',
-        'qty',
-        'notes_multiline',
+        'item_id',
+        'quantity',
     ];
 
     protected $casts = [
-        'qty' => 'decimal:3',
+        'quantity' => 'decimal:3',
+    ];
+
+    protected $attributes = [
+        'quantity' => 0,
     ];
 
     public function service(): BelongsTo
@@ -28,8 +29,8 @@ class ServiceNeededItem extends Model
         return $this->belongsTo(Service::class);
     }
 
-    public function asset(): BelongsTo
+    public function item(): BelongsTo
     {
-        return $this->belongsTo(Asset::class);
+        return $this->belongsTo(Item::class);
     }
 }

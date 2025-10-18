@@ -22,7 +22,7 @@ class ServiceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Service::query()->with(['serviceCategory:id,name,description', 'specialists:id,name']);
+        $query = Service::query()->with(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name', 'neededItems.item:id,code']);
 
         if ($request->filled('category_id')) {
             $query->where('service_category_id', $request->integer('category_id'));
@@ -40,7 +40,12 @@ class ServiceController extends Controller
         $services = $query->orderBy('name')->paginate(10);
         // Hide raw FK ids and image, but keep other related models
         $services->getCollection()->transform(function ($service) {
-            return $service->makeHidden(['service_category_id', 'image']);
+            // Format needed items to show codes
+            $service->needed_items = $service->neededItems->map(function ($neededItem) {
+                return $neededItem->item ? $neededItem->item->code : null;
+            })->filter()->values()->toArray();
+            
+            return $service->makeHidden(['service_category_id', 'image', 'neededItems']);
         });
 
         return response()->json($services);
@@ -51,7 +56,8 @@ class ServiceController extends Controller
         $data = $request->validated();
 
         $specialistIds = $data['specialist_ids'] ?? [];
-        unset($data['specialist_ids']);
+        $assetIds = $data['asset_ids'] ?? [];
+        unset($data['specialist_ids'], $data['asset_ids']);
 
         // Handle image upload (file or base64 data URL or plain URL string)
         if (request()->hasFile('image')) {
@@ -84,7 +90,10 @@ class ServiceController extends Controller
         if (! empty($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
-        $service->load(['serviceCategory:id,name,description', 'specialists:id,name']);
+        if (! empty($assetIds)) {
+            $service->assets()->sync($assetIds);
+        }
+        $service->load(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name']);
 
         return response()->json([
             'status' => true,
@@ -98,31 +107,25 @@ class ServiceController extends Controller
         $loaded = $service->load([
             'serviceCategory:id,name,description',
             'specialists:id,name',
+            'assets:id,name',
         ]);
 
-        // Attach advanced pricing (with specialist)
-        $advancedPricings = ServiceAdvancedPricing::with('specialist:id,name')
+        // Attach needed items (with item)
+        $neededItems = ServiceNeededItem::with('item:id,code,name,unit,description')
             ->where('service_id', $service->id)
-            ->get();
-        $loaded->setRelation('advanced_pricings', $advancedPricings);
-
-        // Attach needed items (with asset)
-        $neededItems = ServiceNeededItem::with('asset:id,name')
-            ->where('service_id', $service->id)
-            ->get();
+            ->get()
+            ->map(function ($neededItem) {
+                return [
+                    'id' => $neededItem->id,
+                    'item_id' => $neededItem->item_id,
+                    'item_code' => $neededItem->item->code ?? '',
+                    'item_name' => $neededItem->item->name ?? '',
+                    'description' => $neededItem->item->description ?? '',
+                    'unit' => $neededItem->item->unit ?? '',
+                    'quantity' => $neededItem->quantity,
+                ];
+            });
         $loaded->setRelation('needed_items', $neededItems);
-
-        // Attach association pricing rules (with association)
-        $associationPrices = AssociationServicePrice::with('association:id,name')
-            ->where('service_id', $service->id)
-            ->get();
-        $loaded->setRelation('association_prices', $associationPrices);
-
-        // Attach referrer rules (with referrer)
-        $referrerRules = ReferrerServiceCommission::with('referrer:id,name')
-            ->where('service_id', $service->id)
-            ->get();
-        $loaded->setRelation('referrer_rules', $referrerRules);
 
         // Hide raw IDs but keep related objects
         $loaded->makeHidden(['service_category_id']);
@@ -138,7 +141,8 @@ class ServiceController extends Controller
     {
         $data = $request->validated();
         $specialistIds = $data['specialist_ids'] ?? null;
-        unset($data['specialist_ids']);
+        $assetIds = $data['asset_ids'] ?? null;
+        unset($data['specialist_ids'], $data['asset_ids']);
 
         if (request()->hasFile('image')) {
             $path = Storage::disk('public')->putFile('services', request()->file('image'));
@@ -169,7 +173,10 @@ class ServiceController extends Controller
         if (is_array($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
-        $service->load(['serviceCategory:id,name,description', 'specialists:id,name']);
+        if (is_array($assetIds)) {
+            $service->assets()->sync($assetIds);
+        }
+        $service->load(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name']);
 
         return response()->json([
             'status' => true,
@@ -204,17 +211,18 @@ class ServiceController extends Controller
             'id',
             'name',
             'serviceCategory.name',
-            'cnss_code',
             'result_after_days',
             'needs_specialist',
+            'needs_machine',
             'duration_minutes',
             'normal_price',
             'vip_price',
             'price_in_group',
-            'event_pricing',
             'price_calculated_by_hour',
             'hour_price',
-            'estimated_cost',
+            'cost_price',
+            'birthday_price',
+            'wedding_price',
             'service_color',
             'service_sex',
             'active',
@@ -224,9 +232,9 @@ class ServiceController extends Controller
         ];
 
         $headings = [
-            'ID', 'Name', 'Service Category', 'CNSS Code', 'Result After Days', 'Needs Specialist', 'Duration (min)',
-            'Normal Price', 'VIP Price', 'Price In Group', 'Event Pricing',
-            'Price Calculated by Hour', 'Hour Price', 'Estimated Cost',
+            'ID', 'Name', 'Service Category', 'Result After Days', 'Needs Specialist', 'Needs Machine', 'Duration (min)',
+            'Normal Price', 'VIP Price', 'Price In Group',
+            'Price Calculated by Hour', 'Hour Price', 'Cost Price', 'Birthday Price', 'Wedding Price',
             'Service Color', 'Service Sex', 'Active', 'Specialists',
             'Created At', 'Updated At',
         ];
@@ -244,10 +252,10 @@ class ServiceController extends Controller
                 'specialists:id,name',
             ])
             ->get([
-                'id', 'name', 'service_category_id', 'cnss_code', 'result_after_days', 'needs_specialist',
-                'duration_minutes', 'normal_price', 'vip_price', 'price_in_group', 'event_pricing',
-                'price_calculated_by_hour', 'hour_price', 'estimated_cost', 'service_color', 'service_sex',
-                'active', 'created_at', 'updated_at',
+                'id', 'name', 'service_category_id', 'result_after_days', 'needs_specialist', 'needs_machine',
+                'duration_minutes', 'normal_price', 'vip_price', 'price_in_group',
+                'price_calculated_by_hour', 'hour_price', 'cost_price', 'birthday_price', 'wedding_price',
+                'service_color', 'service_sex', 'active', 'created_at', 'updated_at',
             ]);
 
         if ($services->isEmpty()) {
@@ -262,17 +270,18 @@ class ServiceController extends Controller
             'id' => 'ID',
             'name' => 'Name',
             'serviceCategory.name' => 'Service Category',
-            'cnss_code' => 'CNSS Code',
             'result_after_days' => 'Result After Days',
             'needs_specialist' => 'Needs Specialist',
+            'needs_machine' => 'Needs Machine',
             'duration_minutes' => 'Duration (min)',
             'normal_price' => 'Normal Price',
             'vip_price' => 'VIP Price',
             'price_in_group' => 'Price In Group',
-            'event_pricing' => 'Event Pricing',
             'price_calculated_by_hour' => 'Price Calculated by Hour',
             'hour_price' => 'Hour Price',
-            'estimated_cost' => 'Estimated Cost',
+            'cost_price' => 'Cost Price',
+            'birthday_price' => 'Birthday Price',
+            'wedding_price' => 'Wedding Price',
             'service_color' => 'Service Color',
             'service_sex' => 'Service Sex',
             'active' => 'Active',
@@ -287,17 +296,18 @@ class ServiceController extends Controller
                 'id' => $s->id,
                 'name' => $s->name,
                 'serviceCategory.name' => optional($s->serviceCategory)->name,
-                'cnss_code' => $s->cnss_code,
                 'result_after_days' => $s->result_after_days,
                 'needs_specialist' => $s->needs_specialist,
+                'needs_machine' => $s->needs_machine,
                 'duration_minutes' => $s->duration_minutes,
                 'normal_price' => $s->normal_price,
                 'vip_price' => $s->vip_price,
                 'price_in_group' => $s->price_in_group,
-                'event_pricing' => $s->event_pricing,
                 'price_calculated_by_hour' => $s->price_calculated_by_hour,
                 'hour_price' => $s->hour_price,
-                'estimated_cost' => $s->estimated_cost,
+                'cost_price' => $s->cost_price,
+                'birthday_price' => $s->birthday_price,
+                'wedding_price' => $s->wedding_price,
                 'service_color' => $s->service_color,
                 'service_sex' => $s->service_sex,
                 'active' => $s->active,
@@ -337,18 +347,19 @@ class ServiceController extends Controller
                 [
                     'name',
                     'service_category_id',
-                    'cnss_code',
                     'result_after_days',
                     'needs_specialist',
+                    'needs_machine',
                     'specialist_id',
                     'duration_minutes',
                     'normal_price',
                     'vip_price',
                     'price_in_group',
-                    'event_pricing',
                     'price_calculated_by_hour',
                     'hour_price',
-                    'estimated_cost',
+                    'cost_price',
+                    'birthday_price',
+                    'wedding_price',
                     'image',
                     'service_color',
                     'service_sex',
@@ -394,18 +405,19 @@ class ServiceController extends Controller
                     return [
                         'name' => $row['name'] ?? null,
                         'service_category_id' => $row['service_category_id'] ?? null,
-                        'cnss_code' => $row['cnss_code'] ?? null,
                         'result_after_days' => isset($row['result_after_days']) ? (int) $row['result_after_days'] : null,
                         'needs_specialist' => $toBool($row['needs_specialist'] ?? false),
+                        'needs_machine' => $toBool($row['needs_machine'] ?? false),
                         'specialist_id' => $row['specialist_id'] ?? null,
                         'duration_minutes' => isset($row['duration_minutes']) ? (int) $row['duration_minutes'] : null,
                         'normal_price' => isset($row['normal_price']) ? (float) $row['normal_price'] : null,
                         'vip_price' => isset($row['vip_price']) ? (float) $row['vip_price'] : null,
                         'price_in_group' => isset($row['price_in_group']) ? (float) $row['price_in_group'] : null,
-                        'event_pricing' => $toBool($row['event_pricing'] ?? false),
                         'price_calculated_by_hour' => $toBool($row['price_calculated_by_hour'] ?? false),
                         'hour_price' => isset($row['hour_price']) ? (float) $row['hour_price'] : null,
-                        'estimated_cost' => isset($row['estimated_cost']) ? (float) $row['estimated_cost'] : null,
+                        'cost_price' => isset($row['cost_price']) ? (float) $row['cost_price'] : null,
+                        'birthday_price' => isset($row['birthday_price']) ? (float) $row['birthday_price'] : null,
+                        'wedding_price' => isset($row['wedding_price']) ? (float) $row['wedding_price'] : null,
                         'image' => $row['image'] ?? null,
                         'service_color' => $row['service_color'] ?? null,
                         'service_sex' => $row['service_sex'] ?? 'both',

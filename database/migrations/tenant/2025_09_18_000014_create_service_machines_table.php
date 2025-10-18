@@ -6,25 +6,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('service_needed_items', function (Blueprint $table) {
+        Schema::create('service_assets', function (Blueprint $table) {
             $table->id();
             $table->foreignId('service_id')->constrained('services')->onDelete('cascade');
-            $table->foreignId('item_id')->nullable()->constrained('items')->onDelete('restrict');
-            $table->decimal('quantity', 12, 3)->default(0);
+            $table->foreignId('asset_id')->constrained('assets')->onDelete('cascade');
             $table->timestamps();
+
+            $table->unique(['service_id', 'asset_id']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('service_needed_items');
+        Schema::dropIfExists('service_assets');
     }
 };

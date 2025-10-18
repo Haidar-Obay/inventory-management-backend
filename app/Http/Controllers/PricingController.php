@@ -20,11 +20,11 @@ class PricingController extends Controller
             'specialist_id' => ['nullable', 'integer', 'exists:specialists,id'],
             'service_type' => ['nullable', 'string', 'in:on_site,on_call'],
             'hours' => ['nullable', 'integer', 'min:1'],
-            'is_event' => ['nullable', 'boolean'],
+            'event_type' => ['nullable', 'string', 'in:birthday,wedding'],
         ]);
 
         $context = $request->only([
-            'service_id', 'association_id', 'referrer_id', 'category_name', 'specialist_id', 'service_type', 'hours', 'is_event',
+            'service_id', 'association_id', 'referrer_id', 'category_name', 'specialist_id', 'service_type', 'hours', 'event_type',
         ]);
 
         $result = $this->pricingService->resolvePrice($context);
