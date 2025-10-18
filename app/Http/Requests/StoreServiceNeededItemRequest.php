@@ -15,11 +15,8 @@ class StoreServiceNeededItemRequest extends FormRequest
     {
         return [
             'service_id' => ['required', 'integer', 'exists:services,id'],
-            'asset_id' => ['required', 'integer', 'exists:assets,id'],
-            'description' => ['nullable', 'string', 'max:255'],
-            'unit' => ['nullable', 'string', 'max:50'],
-            'qty' => ['required', 'numeric', 'min:0'],
-            'notes_multiline' => ['nullable', 'string'],
+            'item_id' => ['required', 'integer', 'exists:items,id'],
+            'quantity' => ['required', 'numeric', 'min:0'],
         ];
     }
 }

@@ -187,20 +187,52 @@ class PricingServiceTest extends TestCase
         $this->assertNotContains('Referrer discount: 15.00', $result['discounts_applied']);
     }
 
-    public function test_handles_event_pricing()
+    public function test_handles_birthday_pricing()
     {
         $service = Service::factory()->create([
             'normal_price' => 100.00,
-            'event_pricing' => true,
+            'birthday_price' => 150.00,
         ]);
 
         $result = $this->pricingService->resolvePrice([
             'service_id' => $service->id,
-            'is_event' => true,
+            'event_type' => 'birthday',
+        ]);
+
+        $this->assertEquals(150.00, $result['base_price']);
+        $this->assertEquals(150.00, $result['final_price']);
+    }
+
+    public function test_handles_wedding_pricing()
+    {
+        $service = Service::factory()->create([
+            'normal_price' => 100.00,
+            'wedding_price' => 200.00,
+        ]);
+
+        $result = $this->pricingService->resolvePrice([
+            'service_id' => $service->id,
+            'event_type' => 'wedding',
+        ]);
+
+        $this->assertEquals(200.00, $result['base_price']);
+        $this->assertEquals(200.00, $result['final_price']);
+    }
+
+    public function test_falls_back_to_normal_price_when_event_price_not_set()
+    {
+        $service = Service::factory()->create([
+            'normal_price' => 100.00,
+            'birthday_price' => null,
+        ]);
+
+        $result = $this->pricingService->resolvePrice([
+            'service_id' => $service->id,
+            'event_type' => 'birthday',
         ]);
 
         $this->assertEquals(100.00, $result['base_price']);
-        $this->assertContains('Event pricing applied', $result['overrides_applied']);
+        $this->assertEquals(100.00, $result['final_price']);
     }
 
     public function test_resolves_base_price_with_service_category()

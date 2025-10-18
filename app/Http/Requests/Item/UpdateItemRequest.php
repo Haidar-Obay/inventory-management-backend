@@ -17,6 +17,8 @@ class UpdateItemRequest extends FormRequest
             'code' => 'sometimes|string',
             'name' => 'sometimes|string',
             'price' => 'sometimes|numeric|min:0',
+            'unit' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
         ];
     }
 

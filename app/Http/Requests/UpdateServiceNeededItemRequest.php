@@ -15,11 +15,8 @@ class UpdateServiceNeededItemRequest extends FormRequest
     {
         return [
             'service_id' => ['sometimes', 'integer', 'exists:services,id'],
-            'asset_id' => ['sometimes', 'integer', 'exists:assets,id'],
-            'description' => ['nullable', 'string', 'max:255'],
-            'unit' => ['nullable', 'string', 'max:50'],
-            'qty' => ['sometimes', 'numeric', 'min:0'],
-            'notes_multiline' => ['nullable', 'string'],
+            'item_id' => ['sometimes', 'integer', 'exists:items,id'],
+            'quantity' => ['sometimes', 'numeric', 'min:0'],
         ];
     }
 }

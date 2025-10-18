@@ -17,8 +17,8 @@ class DatabaseSeeder extends Seeder
 
         User::factory()->create([
             'name' => 'Admin User',
-            'email' => 'binbotadmin@brain.com',
-            'password' => bcrypt('br@in_binbot'),
+            'email' => 'cenral@binbot.com',
+            'password' => bcrypt('12345678'),
         ]);
 
         $this->call([

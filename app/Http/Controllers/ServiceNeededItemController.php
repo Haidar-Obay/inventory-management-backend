@@ -18,12 +18,12 @@ class ServiceNeededItemController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = ServiceNeededItem::query()->with(['service:id,name', 'asset:id,name']);
+        $query = ServiceNeededItem::query()->with(['service:id,name', 'item:id,name']);
         if ($request->filled('service_id')) {
             $query->where('service_id', $request->integer('service_id'));
         }
-        if ($request->filled('asset_id')) {
-            $query->where('asset_id', $request->integer('asset_id'));
+        if ($request->filled('item_id')) {
+            $query->where('item_id', $request->integer('item_id'));
         }
 
         return response()->json($query->orderByDesc('id')->paginate());
@@ -37,11 +37,8 @@ class ServiceNeededItemController extends Controller
         if (isset($payload[0]) && is_array($payload[0])) {
             $rules = [
                 'service_id' => ['required', 'integer', 'exists:services,id'],
-                'asset_id' => ['required', 'integer', 'exists:assets,id'],
-                'description' => ['nullable', 'string', 'max:255'],
-                'unit' => ['nullable', 'string', 'max:50'],
-                'qty' => ['required', 'numeric', 'min:0'],
-                'notes_multiline' => ['nullable', 'string'],
+                'item_id' => ['required', 'integer', 'exists:items,id'],
+                'quantity' => ['nullable', 'numeric', 'min:0'],
             ];
 
             $created = [];
@@ -58,7 +55,7 @@ class ServiceNeededItemController extends Controller
                         continue;
                     }
                     $created[] = ServiceNeededItem::create($validator->validated())
-                        ->load(['service:id,name', 'asset:id,name']);
+                        ->load(['service:id,name', 'item:id,name']);
                 }
                 if (! empty($errors) && empty($created)) {
                     DB::rollBack();
@@ -83,28 +80,25 @@ class ServiceNeededItemController extends Controller
         // Single
         $validator = Validator::make($payload, [
             'service_id' => ['required', 'integer', 'exists:services,id'],
-            'asset_id' => ['required', 'integer', 'exists:assets,id'],
-            'description' => ['nullable', 'string', 'max:255'],
-            'unit' => ['nullable', 'string', 'max:50'],
-            'qty' => ['required', 'numeric', 'min:0'],
-            'notes_multiline' => ['nullable', 'string'],
+            'item_id' => ['required', 'integer', 'exists:items,id'],
+            'quantity' => ['nullable', 'numeric', 'min:0'],
         ]);
         $validator->validate();
         $item = ServiceNeededItem::create($validator->validated());
 
-        return response()->json($item->load(['service:id,name', 'asset:id,name']), 201);
+        return response()->json($item->load(['service:id,name', 'item:id,name']), 201);
     }
 
     public function show(ServiceNeededItem $serviceNeededItem): JsonResponse
     {
-        return response()->json($serviceNeededItem->load(['service:id,name', 'asset:id,name']));
+        return response()->json($serviceNeededItem->load(['service:id,name', 'item:id,name']));
     }
 
     public function update(UpdateServiceNeededItemRequest $request, ServiceNeededItem $serviceNeededItem): JsonResponse
     {
         $serviceNeededItem->update($request->validated());
 
-        return response()->json($serviceNeededItem->load(['service:id,name', 'asset:id,name']));
+        return response()->json($serviceNeededItem->load(['service:id,name', 'item:id,name']));
     }
 
     public function destroy(ServiceNeededItem $serviceNeededItem): JsonResponse
@@ -117,7 +111,7 @@ class ServiceNeededItemController extends Controller
     // Nested under services
     public function indexByService(Service $service): JsonResponse
     {
-        $items = ServiceNeededItem::with('asset:id,name')
+        $items = ServiceNeededItem::with('item:id,name')
             ->where('service_id', $service->id)
             ->orderByDesc('id')
             ->get();
@@ -160,10 +154,10 @@ class ServiceNeededItemController extends Controller
         }
 
         $columns = [
-            'id', 'service_id', 'asset_id', 'description', 'unit', 'qty', 'notes_multiline', 'created_at', 'updated_at',
+            'id', 'service_id', 'item_id', 'quantity', 'created_at', 'updated_at',
         ];
         $headings = [
-            'ID', 'Service ID', 'Asset ID', 'Description', 'Unit', 'Quantity', 'Notes', 'Created At', 'Updated At',
+            'ID', 'Service ID', 'Item ID', 'Quantity', 'Created At', 'Updated At',
         ];
 
         $fileName = 'service_needed_items_'.date('Y-m-d_H-i-s').'.xlsx';
@@ -173,7 +167,7 @@ class ServiceNeededItemController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $rows = ServiceNeededItem::select('id', 'service_id', 'asset_id', 'description', 'unit', 'qty')->get();
+        $rows = ServiceNeededItem::select('id', 'service_id', 'item_id', 'quantity')->get();
         if ($rows->isEmpty()) {
             return response()->json(['message' => 'No service needed items found.'], 404);
         }
@@ -181,10 +175,8 @@ class ServiceNeededItemController extends Controller
         $headers = [
             'id' => 'ID',
             'service_id' => 'Service ID',
-            'asset_id' => 'Asset ID',
-            'description' => 'Description',
-            'unit' => 'Unit',
-            'qty' => 'Quantity',
+            'item_id' => 'Item ID',
+            'quantity' => 'Quantity',
         ];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
 
@@ -199,17 +191,17 @@ class ServiceNeededItemController extends Controller
 
         $import = new DynamicExcelImport(
             ServiceNeededItem::class,
-            ['service_id', 'asset_id', 'description', 'unit', 'qty', 'notes_multiline'],
+            ['service_id', 'item_id', 'quantity'],
             function ($row) {
                 $errors = [];
                 if (empty($row['service_id'])) {
                     $errors[] = 'Missing service_id';
                 }
-                if (empty($row['asset_id'])) {
-                    $errors[] = 'Missing asset_id';
+                if (empty($row['item_id'])) {
+                    $errors[] = 'Missing item_id';
                 }
-                if (isset($row['qty']) && ! is_numeric($row['qty'])) {
-                    $errors[] = 'qty must be numeric';
+                if (isset($row['quantity']) && ! is_numeric($row['quantity'])) {
+                    $errors[] = 'quantity must be numeric';
                 }
 
                 return $errors;
@@ -217,11 +209,8 @@ class ServiceNeededItemController extends Controller
             function ($row) {
                 return [
                     'service_id' => (int) $row['service_id'],
-                    'asset_id' => (int) $row['asset_id'],
-                    'description' => $row['description'] ?? null,
-                    'unit' => $row['unit'] ?? null,
-                    'qty' => isset($row['qty']) ? (float) $row['qty'] : 0,
-                    'notes_multiline' => $row['notes_multiline'] ?? null,
+                    'item_id' => (int) $row['item_id'],
+                    'quantity' => isset($row['quantity']) ? (float) $row['quantity'] : 0,
                 ];
             }
         );

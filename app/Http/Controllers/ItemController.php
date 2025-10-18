@@ -135,8 +135,8 @@ class ItemController extends Controller
             ], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'price', 'created_at', 'updated_at'];
-        $headings = ['ID', 'Code', 'Name', 'Price', 'Created At', 'Updated At'];
+        $columns = ['id', 'code', 'name', 'price', 'unit', 'description', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Price', 'Unit', 'Description', 'Created At', 'Updated At'];
 
         $fileName = 'items'.'.xlsx';
 
@@ -145,7 +145,7 @@ class ItemController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $items = Item::select('id', 'code', 'name', 'price', 'created_at', 'updated_at')->get();
+        $items = Item::select('id', 'code', 'name', 'price', 'unit', 'description', 'created_at', 'updated_at')->get();
 
         if ($items->isEmpty()) {
             return response()->json([
@@ -155,7 +155,7 @@ class ItemController extends Controller
         }
 
         $title = 'Items Report';
-        $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'price' => 'Price', 'created_at' => 'Created At', 'updated_at' => 'Updated At', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
+        $headers = ['id' => 'ID', 'code' => 'Code', 'name' => 'Name', 'price' => 'Price', 'unit' => 'Unit', 'description' => 'Description', 'created_at' => 'Created At', 'updated_at' => 'Updated At'];
         $data = $items->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
@@ -188,7 +188,7 @@ class ItemController extends Controller
 
         $import = new DynamicExcelImport(
             Item::class,
-            ['code', 'name', 'price'],
+            ['code', 'name', 'price', 'unit', 'description'],
             function ($row) use ($mapping) {
                 foreach ($row as $k => $v) {
                     if (is_string($v)) {
@@ -200,6 +200,8 @@ class ItemController extends Controller
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $priceKey = $mapping ? array_search('price', $mapping) : 'price';
+                $unitKey = $mapping ? array_search('unit', $mapping) : 'unit';
+                $descriptionKey = $mapping ? array_search('description', $mapping) : 'description';
 
                 if ((($row[$codeKey] ?? '') === '')) {
                     $errors[] = 'Missing code';
@@ -223,11 +225,15 @@ class ItemController extends Controller
                 $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $priceKey = $mapping ? array_search('price', $mapping) : 'price';
+                $unitKey = $mapping ? array_search('unit', $mapping) : 'unit';
+                $descriptionKey = $mapping ? array_search('description', $mapping) : 'description';
 
                 return [
                     'code' => $row[$codeKey] ?? null,
                     'name' => $row[$nameKey] ?? null,
                     'price' => isset($row[$priceKey]) ? floatval($row[$priceKey]) : null,
+                    'unit' => $row[$unitKey] ?? null,
+                    'description' => $row[$descriptionKey] ?? null,
                 ];
             },
             $mapping ? false : true // Disable header validation when mapping provided

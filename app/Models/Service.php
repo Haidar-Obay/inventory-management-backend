@@ -15,17 +15,18 @@ class Service extends Model
     protected $fillable = [
         'name',
         'service_category_id',
-        'cnss_code',
         'result_after_days',
         'needs_specialist',
+        'needs_asset',
         'duration_minutes',
         'normal_price',
         'vip_price',
         'price_in_group',
-        'event_pricing',
         'price_calculated_by_hour',
         'hour_price',
-        'estimated_cost',
+        'cost_price',
+        'birthday_price',
+        'wedding_price',
         'image',
         'service_color',
         'service_sex',
@@ -34,7 +35,7 @@ class Service extends Model
 
     protected $casts = [
         'needs_specialist' => 'boolean',
-        'event_pricing' => 'boolean',
+        'needs_asset' => 'boolean',
         'price_calculated_by_hour' => 'boolean',
         'active' => 'boolean',
     ];
@@ -47,6 +48,11 @@ class Service extends Model
     public function specialists(): BelongsToMany
     {
         return $this->belongsToMany(Specialist::class, 'service_specialist')->withTimestamps();
+    }
+
+    public function assets(): BelongsToMany
+    {
+        return $this->belongsToMany(Asset::class, 'service_assets')->withTimestamps();
     }
 
     public function neededItems(): HasMany

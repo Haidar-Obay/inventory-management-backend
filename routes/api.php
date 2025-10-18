@@ -3,9 +3,6 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AuditController;
-use App\Http\Controllers\Auth\ForgotPasswordController;
-// use App\Http\Controllers\TenantAuthController;
-use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\ModulePageController;
@@ -14,11 +11,9 @@ use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantModuleController;
 use App\Http\Controllers\TenantSubscriptionController;
-use App\Http\Controllers\UserManagementController;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -27,10 +22,11 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+// Public health check (used by tests and uptime monitors)
+Route::get('/health', fn () => response()->json(['status' => 'ok']))->middleware('api');
+
 Route::get('/user', fn (Request $request) => $request->user())
     ->middleware('auth:sanctum');
-
-// Simple ping endpoint for CI/testing
 
 /*
 |--------------------------------------------------------------------------
@@ -45,7 +41,7 @@ foreach (config('tenancy.central_domains') as $domain) {
         ]));
         // getting tenant by name
         Route::get('tenant/get-tenant-by-name/{name}', [TenantController::class, 'getTenantByName']);
-        
+
         // Public module pages route (no auth required)
         Route::get('get-module-pages/{moduleId}/pages', [TenantModuleController::class, 'getModulePages']);
         // log audit
@@ -89,7 +85,7 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::delete('/{moduleId}/resources/{resourceId}', [ModuleResourceController::class, 'destroy']);
 
             // Tenant-specific module pages
-          
+
         });
 
         // Subscription Plans Management
@@ -126,6 +122,7 @@ foreach (config('tenancy.central_domains') as $domain) {
                 $user->markEmailAsVerified();
                 event(new Verified($user));
             }
+
             return response()->json(['message' => 'Email verified successfully']);
         });
     });

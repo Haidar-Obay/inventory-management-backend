@@ -18,10 +18,10 @@ return new class extends Migration
             // Foreign references
             $table->foreignId('service_category_id')->nullable()->constrained('service_categories')->nullOnDelete();
 
-            $table->string('cnss_code')->nullable();
             $table->integer('result_after_days')->nullable();
 
             $table->boolean('needs_specialist')->default(false);
+            $table->boolean('needs_asset')->default(false);
 
             $table->integer('duration_minutes')->nullable();
 
@@ -29,11 +29,13 @@ return new class extends Migration
             $table->decimal('vip_price', 10, 2)->nullable();
             $table->decimal('price_in_group', 10, 2)->nullable();
 
-            $table->boolean('event_pricing')->default(false);
             $table->boolean('price_calculated_by_hour')->default(false);
             $table->decimal('hour_price', 10, 2)->nullable();
 
-            $table->decimal('estimated_cost', 10, 2)->nullable();
+            $table->decimal('cost_price', 10, 2)->nullable();
+
+            $table->decimal('birthday_price', 10, 2)->nullable();
+            $table->decimal('wedding_price', 10, 2)->nullable();
 
             $table->string('image')->nullable();
             $table->string('service_color')->nullable();

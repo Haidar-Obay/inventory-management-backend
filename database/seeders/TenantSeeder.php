@@ -38,11 +38,22 @@ class TenantSeeder extends Seeder
             'domain' => 'hadishokor.'.env('CENTRAL_DOMAIN'),
         ]);
 
-        // Assign Beauty Center and Stock Management modules to the tenant in CENTRAL context
+        // Assign General Module, Beauty Center and Stock Management modules to the tenant in CENTRAL context
         tenancy()->central(function () use ($tenant, $defaultPlan) {
+            $general = Module::where('code', 'general_module')->first();
             $beauty = Module::where('code', 'beauty_center')->first();
             $stock = Module::where('code', 'stock_management')->first();
             $syncData = [];
+            
+            // Assign General Module first (highest priority for testing)
+            if ($general) {
+                $syncData[$general->id] = [
+                    'assigned_price' => 0.0,
+                    'is_included' => true,
+                    'subscription_plan_id' => $defaultPlan->id,
+                ];
+            }
+            
             if ($beauty) {
                 $syncData[$beauty->id] = [
                     'assigned_price' => 0.0,

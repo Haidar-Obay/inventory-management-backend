@@ -23,6 +23,8 @@ class Item extends Model implements Auditable
         'code',
         'name',
         'price',
+        'unit',
+        'description',
     ];
 
     protected $casts = [
