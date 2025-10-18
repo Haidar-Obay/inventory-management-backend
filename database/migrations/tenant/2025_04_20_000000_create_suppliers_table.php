@@ -42,7 +42,7 @@ return new class extends Migration
             $table->enum('track_payment', ['yes', 'no'])->default('no');
             $table->enum('settlement_method', ['FIFO', 'Manual'])->nullable();
             $table->boolean('accept_cheques')->default(false);
-            
+
             // Credit limits and cheque limits are handled in separate tables for multi-currency support
 
             // More Options

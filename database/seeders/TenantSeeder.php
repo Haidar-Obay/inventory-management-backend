@@ -44,7 +44,7 @@ class TenantSeeder extends Seeder
             $beauty = Module::where('code', 'beauty_center')->first();
             $stock = Module::where('code', 'stock_management')->first();
             $syncData = [];
-            
+
             // Assign General Module first (highest priority for testing)
             if ($general) {
                 $syncData[$general->id] = [
@@ -53,7 +53,7 @@ class TenantSeeder extends Seeder
                     'subscription_plan_id' => $defaultPlan->id,
                 ];
             }
-            
+
             if ($beauty) {
                 $syncData[$beauty->id] = [
                     'assigned_price' => 0.0,
@@ -76,6 +76,7 @@ class TenantSeeder extends Seeder
         // Initialize tenant context (for tenant DB setup and user/RBAC)
         tenancy()->initialize($tenant);
         \App\Jobs\CreateDefaultTableTemplates::dispatchSync();
+
         // Create the original owner user
         $owner = User::create([
             'name' => 'hadishokor_owner',

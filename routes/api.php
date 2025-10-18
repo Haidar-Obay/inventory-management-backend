@@ -17,9 +17,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
-|--------------------------------------------------------------------------
-| Sanctum‐protected "current user" endpoint
-|--------------------------------------------------------------------------
+||--------------------------------------------------------------------------
+|| Sanctum‐protected "current user" endpoint
+||--------------------------------------------------------------------------
 */
 
 // Public health check (used by tests and uptime monitors)
@@ -29,9 +29,9 @@ Route::get('/user', fn (Request $request) => $request->user())
     ->middleware('auth:sanctum');
 
 /*
-|--------------------------------------------------------------------------
-| Central‐domain tenant management
-|--------------------------------------------------------------------------
+||--------------------------------------------------------------------------
+|| Central‐domain tenant management
+||--------------------------------------------------------------------------
 */
 foreach (config('tenancy.central_domains') as $domain) {
     Route::domain($domain)->middleware('api')->group(function () {
