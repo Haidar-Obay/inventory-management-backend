@@ -17,6 +17,8 @@ class StoreItemRequest extends FormRequest
             'code' => 'required|string|unique:items,code',
             'name' => 'required|string',
             'price' => 'required|numeric|min:0',
+            'unit' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
         ];
     }
 

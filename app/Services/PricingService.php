@@ -18,14 +18,14 @@ class PricingService
         $specialistId = $context['specialist_id'] ?? null;
         $serviceType = $context['service_type'] ?? null; // 'on_site' or 'on_call'
         $hours = $context['hours'] ?? 1;
-        $isEvent = $context['is_event'] ?? false;
+        $eventType = $context['event_type'] ?? null; // 'birthday' or 'wedding'
 
         $service = Service::findOrFail($serviceId);
         $overridesApplied = [];
         $discountsApplied = [];
 
         // Base price calculation
-        $basePrice = $this->calculateBasePrice($service, $hours);
+        $basePrice = $this->calculateBasePrice($service, $hours, $eventType);
         $overridesApplied[] = "Base price: {$basePrice}";
 
         // Service advanced pricing override (specialist + service type)
@@ -44,12 +44,6 @@ class PricingService
                     $overridesApplied[] = "Advanced pricing ({$serviceType}): {$basePrice}";
                 }
             }
-        }
-
-        // Event pricing override
-        if ($isEvent && $service->event_pricing) {
-            $basePrice = $service->normal_price ?? $basePrice;
-            $overridesApplied[] = 'Event pricing applied';
         }
 
         // Association-level price override
@@ -130,17 +124,26 @@ class PricingService
                 'id' => $service->id,
                 'name' => $service->name,
                 'normal_price' => $service->normal_price,
+                'vip_price' => $service->vip_price,
+                'price_in_group' => $service->price_in_group,
+                'birthday_price' => $service->birthday_price,
+                'wedding_price' => $service->wedding_price,
                 'hour_price' => $service->hour_price,
                 'price_calculated_by_hour' => $service->price_calculated_by_hour,
             ],
         ];
     }
 
-    private function calculateBasePrice(Service $service, int $hours): float
+    private function calculateBasePrice(Service $service, int $hours, ?string $eventType = null): float
     {
-        // Since we now have a simple one-to-one relationship with service categories,
-        // we don't need category-specific pricing logic anymore.
-        // The service category is just for classification, not pricing.
+        // Handle event-specific pricing first
+        if ($eventType === 'birthday' && $service->birthday_price) {
+            return $service->birthday_price;
+        }
+        
+        if ($eventType === 'wedding' && $service->wedding_price) {
+            return $service->wedding_price;
+        }
 
         // Use normal pricing logic
         if ($service->price_calculated_by_hour && $service->hour_price) {
