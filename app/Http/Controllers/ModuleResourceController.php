@@ -13,6 +13,7 @@ class ModuleResourceController extends Controller
     public function index($moduleId): JsonResponse
     {
         $module = Module::findOrFail($moduleId);
+
         return response()->json([
             'resources' => $module->resources()->orderBy('name')->get(),
         ]);
@@ -39,7 +40,7 @@ class ModuleResourceController extends Controller
             return response()->json(['errors' => ['code' => ['Code must be unique per module']]], 422);
         }
 
-        $resource = $module->resources()->create($request->only(['name','code','description','migration_class','enabled','version']));
+        $resource = $module->resources()->create($request->only(['name', 'code', 'description', 'migration_class', 'enabled', 'version']));
 
         return response()->json([
             'message' => 'Module resource created successfully',
@@ -50,6 +51,7 @@ class ModuleResourceController extends Controller
     public function show($moduleId, $resourceId): JsonResponse
     {
         $resource = ModuleResource::where('module_id', $moduleId)->findOrFail($resourceId);
+
         return response()->json(['resource' => $resource]);
     }
 
@@ -71,11 +73,11 @@ class ModuleResourceController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        if ($request->filled('code') && $module->resources()->where('code', $request->code)->where('id','!=',$resource->id)->exists()) {
+        if ($request->filled('code') && $module->resources()->where('code', $request->code)->where('id', '!=', $resource->id)->exists()) {
             return response()->json(['errors' => ['code' => ['Code must be unique per module']]], 422);
         }
 
-        $resource->update($request->only(['name','code','description','migration_class','enabled','version']));
+        $resource->update($request->only(['name', 'code', 'description', 'migration_class', 'enabled', 'version']));
 
         return response()->json([
             'message' => 'Module resource updated successfully',
@@ -87,6 +89,7 @@ class ModuleResourceController extends Controller
     {
         $resource = ModuleResource::where('module_id', $moduleId)->findOrFail($resourceId);
         $resource->delete();
+
         return response()->json(['message' => 'Module resource deleted successfully']);
     }
 }

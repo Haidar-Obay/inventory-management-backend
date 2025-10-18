@@ -23,7 +23,7 @@ return new class extends Migration
 
             // Business Information
             $table->string('file_number')->nullable();
-            $table->string('barcode')->nullable();
+            $table->string('bar_code')->nullable();
             $table->json('search_terms')->nullable()->comment('JSON array of search keywords for supplier lookup');
 
             // Categorize

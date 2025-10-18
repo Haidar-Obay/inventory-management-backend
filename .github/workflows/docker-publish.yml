@@ -52,6 +52,11 @@ jobs:
             cd "${{ env.DEPLOY_DIR }}"
             docker compose pull "${{ env.SERVICE_NAME }}"
             docker compose up -d --no-deps "${{ env.SERVICE_NAME }}"
+            
+            # Create storage link for file uploads
+            echo "Creating storage link for file uploads..."
+            docker compose exec "${{ env.SERVICE_NAME }}" php artisan storage:link --force
+            
             echo "Running digest:"
             docker inspect -f '{{.Image}}' "${{ env.SERVICE_NAME }}" | xargs docker image inspect -f '{{index .RepoDigests 0}}'
             docker image prune -f

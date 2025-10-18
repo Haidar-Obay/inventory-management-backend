@@ -14,6 +14,20 @@ class StoreCustomerRequest extends FormRequest
         return true;
     }
 
+    /**
+     * Override the validation behavior to handle FormData with 'data' field
+     */
+    protected function prepareForValidation()
+    {
+        // If this is FormData with a 'data' field, decode it and merge into request
+        if ($this->has('data')) {
+            $data = json_decode($this->input('data'), true);
+            if (is_array($data)) {
+                $this->merge($data);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -93,7 +107,31 @@ class StoreCustomerRequest extends FormRequest
                     }
                 },
             ],
+            'payment_term_id' => [
+                'nullable',
+                'exists:payment_terms,id',
+                function ($attribute, $value, $fail) {
+                    if ($value) {
+                        $paymentTerm = PaymentTerm::find($value);
+                        if ($paymentTerm && ! $paymentTerm->active) {
+                            $fail('The selected payment term is inactive and cannot be assigned to a customer.');
+                        }
+                    }
+                },
+            ],
             'selected_payment_method' => [
+                'nullable',
+                'exists:payment_methods,id',
+                function ($attribute, $value, $fail) {
+                    if ($value) {
+                        $paymentMethod = PaymentMethod::find($value);
+                        if ($paymentMethod && ! $paymentMethod->active) {
+                            $fail('The selected payment method is inactive and cannot be assigned to a customer.');
+                        }
+                    }
+                },
+            ],
+            'payment_method_id' => [
                 'nullable',
                 'exists:payment_methods,id',
                 function ($attribute, $value, $fail) {

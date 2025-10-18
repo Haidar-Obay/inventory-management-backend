@@ -13,6 +13,7 @@ class ModulePageController extends Controller
     public function index($moduleId): JsonResponse
     {
         $module = Module::findOrFail($moduleId);
+
         return response()->json([
             'pages' => $module->pages()->orderBy('order')->get(),
         ]);
@@ -42,7 +43,7 @@ class ModulePageController extends Controller
             return response()->json(['errors' => ['path' => ['Path must be unique per module']]], 422);
         }
 
-        $page = $module->pages()->create($request->only(['name','code','path','order','is_public']));
+        $page = $module->pages()->create($request->only(['name', 'code', 'path', 'order', 'is_public']));
 
         return response()->json([
             'message' => 'Module page created successfully',
@@ -53,6 +54,7 @@ class ModulePageController extends Controller
     public function show($moduleId, $pageId): JsonResponse
     {
         $page = ModulePage::where('module_id', $moduleId)->findOrFail($pageId);
+
         return response()->json(['page' => $page]);
     }
 
@@ -73,14 +75,14 @@ class ModulePageController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        if ($request->filled('code') && $module->pages()->where('code', $request->code)->where('id','!=',$page->id)->exists()) {
+        if ($request->filled('code') && $module->pages()->where('code', $request->code)->where('id', '!=', $page->id)->exists()) {
             return response()->json(['errors' => ['code' => ['Code must be unique per module']]], 422);
         }
-        if ($request->filled('path') && $module->pages()->where('path', $request->path)->where('id','!=',$page->id)->exists()) {
+        if ($request->filled('path') && $module->pages()->where('path', $request->path)->where('id', '!=', $page->id)->exists()) {
             return response()->json(['errors' => ['path' => ['Path must be unique per module']]], 422);
         }
 
-        $page->update($request->only(['name','code','path','order','is_public']));
+        $page->update($request->only(['name', 'code', 'path', 'order', 'is_public']));
 
         return response()->json([
             'message' => 'Module page updated successfully',
@@ -92,6 +94,7 @@ class ModulePageController extends Controller
     {
         $page = ModulePage::where('module_id', $moduleId)->findOrFail($pageId);
         $page->delete();
+
         return response()->json(['message' => 'Module page deleted successfully']);
     }
 }

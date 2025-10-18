@@ -68,7 +68,7 @@ class TenantSeeder extends Seeder
                     'subscription_plan_id' => $defaultPlan->id,
                 ];
             }
-            if (!empty($syncData)) {
+            if (! empty($syncData)) {
                 $tenant->modules()->syncWithoutDetaching($syncData);
             }
         });

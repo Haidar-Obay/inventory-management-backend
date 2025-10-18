@@ -12,6 +12,7 @@ use App\Models\Customer;
 use App\Models\CustomerAttachment;
 use App\Models\PaymentTerm;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -152,196 +153,290 @@ class CustomerController extends Controller
     {
         $validated = $request->validated();
 
-        // Handle billing address - unified structure
-        $billingAddress = null;
-        if ($request->filled('billing_address_line1')) {
-            $billingAddress = Address::create([
-                'address_line1' => $request->input('billing_address_line1'),
-                'address_line2' => $request->input('billing_address_line2'),
-                'country_id' => $request->input('billing_country_id'),
-                'city_id' => $request->input('billing_city_id'),
-                'district_id' => $request->input('billing_district_id'),
-                'zone_id' => $request->input('billing_zone_id'),
-                'building' => $request->input('billing_building'),
-                'block' => $request->input('billing_block'),
-                'floor' => $request->input('billing_floor'),
-                'side' => $request->input('billing_side'),
-                'appartment' => $request->input('billing_apartment'),
-                'zip_code' => $request->input('billing_zip_code'),
-            ]);
-        }
+        // Use database transaction to ensure all operations succeed or fail together
+        return DB::transaction(function () use ($request, $validated) {
 
-        // Handle shipping addresses - unified structure as array
-        $shippingAddresses = [];
-        if ($request->has('shipping_addresses')) {
-            foreach ($request->input('shipping_addresses') as $shippingAddressData) {
-                $address = Address::create([
-                    'address_line1' => $shippingAddressData['address_line1'],
-                    'address_line2' => $shippingAddressData['address_line2'] ?? null,
-                    'country_id' => $shippingAddressData['country_id'],
-                    'city_id' => $shippingAddressData['city_id'],
-                    'district_id' => $shippingAddressData['district_id'] ?? null,
-                    'zone_id' => $shippingAddressData['zone_id'] ?? null,
-                    'building' => $shippingAddressData['building'] ?? null,
-                    'block' => $shippingAddressData['block'] ?? null,
-                    'floor' => $shippingAddressData['floor'] ?? null,
-                    'side' => $shippingAddressData['side'] ?? null,
-                    'appartment' => $shippingAddressData['apartment'] ?? null,
-                    'zip_code' => $shippingAddressData['zip_code'] ?? null,
+            // Handle billing address - unified structure
+            $billingAddress = null;
+            $hasAnyBillingField = $request->filled('billing_address_line1');
+            if (! $hasAnyBillingField) {
+                foreach ([
+                    'billing_country_id',
+                    'billing_city_id',
+                    'billing_district_id',
+                    'billing_zone_id',
+                    'billing_building',
+                    'billing_block',
+                    'billing_floor',
+                    'billing_side',
+                    'billing_apartment',
+                    'billing_zip_code',
+                    'billing_address_line2',
+                    'billing_notes',
+                ] as $key) {
+                    if ($request->has($key)) {
+                        $hasAnyBillingField = true;
+
+                        break;
+                    }
+                }
+            }
+            if ($hasAnyBillingField) {
+                $billingAddress = Address::create([
+                    'address_line1' => $request->input('billing_address_line1'),
+                    'address_line2' => $request->input('billing_address_line2'),
+                    'country_id' => $request->input('billing_country_id'),
+                    'city_id' => $request->input('billing_city_id'),
+                    'district_id' => $request->input('billing_district_id'),
+                    'zone_id' => $request->input('billing_zone_id'),
+                    'building' => $request->input('billing_building'),
+                    'block' => $request->input('billing_block'),
+                    'floor' => $request->input('billing_floor'),
+                    'side' => $request->input('billing_side'),
+                    'appartment' => $request->input('billing_apartment'),
+                    'zip_code' => $request->input('billing_zip_code'),
                 ]);
-                $shippingAddresses[] = $address;
             }
-        }
 
-        // Remove address fields from validated data since we handle them separately
-        unset($validated['billing_address_line1'], $validated['billing_address_line2'],
-            $validated['billing_country_id'], $validated['billing_city_id'],
-            $validated['billing_district_id'], $validated['billing_zone_id'],
-            $validated['billing_building'], $validated['billing_block'],
-            $validated['billing_floor'], $validated['billing_side'],
-            $validated['billing_apartment'], $validated['billing_zip_code'],
-            $validated['shipping_addresses']);
-
-        // Handle payment terms with new field names
-        if ($request->filled('selected_payment_term')) {
-            $validated['payment_term_id'] = $request->input('selected_payment_term');
-        }
-
-        if ($request->filled('selected_payment_method')) {
-            $validated['payment_method_id'] = $request->input('selected_payment_method');
-        }
-
-        // Handle pricing with new field names
-        if ($request->filled('price_choice')) {
-            $validated['price_choice'] = $request->input('price_choice');
-        }
-
-        if ($request->filled('price_list')) {
-            $validated['price_list'] = $request->input('price_list');
-        }
-
-        if ($request->filled('markup')) {
-            $validated['markup_percentage'] = $request->input('markup');
-        }
-
-        if ($request->filled('markdown')) {
-            $validated['markdown_percentage'] = $request->input('markdown');
-        }
-
-        // Handle message field
-        if ($request->filled('message')) {
-            $validated['message'] = $request->input('message');
-            $validated['showMessageField'] = true;
-        }
-
-        $customer = Customer::create($validated);
-
-        // Attach billing address to customer
-        if ($billingAddress) {
-            $customer->addresses()->attach($billingAddress->id, [
-                'address_type' => 'billing',
-                'is_primary' => true,
-                'address_name' => 'Primary Billing Address',
-            ]);
-        }
-
-        // Attach shipping addresses to customer
-        foreach ($shippingAddresses as $index => $address) {
-            $customer->addresses()->attach($address->id, [
-                'address_type' => 'shipping',
-                'is_primary' => $index === 0, // First shipping address is primary
-                'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
-            ]);
-        }
-
-        // Handle credit limits with new structure
-        if ($request->has('credit_limits')) {
-            $creditLimits = $request->input('credit_limits');
-            foreach ($creditLimits as $currencyCode => $amount) {
-                // Find currency by code
-                $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                if ($currency) {
-                    $customer->setCreditLimit($currency->id, $amount);
+            // Handle shipping addresses - unified structure as array
+            $shippingAddresses = [];
+            if ($request->has('shipping_addresses')) {
+                foreach ($request->input('shipping_addresses') as $shippingAddressData) {
+                    $address = Address::create([
+                        'address_line1' => $shippingAddressData['address_line1'],
+                        'address_line2' => $shippingAddressData['address_line2'] ?? null,
+                        'country_id' => $shippingAddressData['country_id'],
+                        'city_id' => $shippingAddressData['city_id'],
+                        'district_id' => $shippingAddressData['district_id'] ?? null,
+                        'zone_id' => $shippingAddressData['zone_id'] ?? null,
+                        'building' => $shippingAddressData['building'] ?? null,
+                        'block' => $shippingAddressData['block'] ?? null,
+                        'floor' => $shippingAddressData['floor'] ?? null,
+                        'side' => $shippingAddressData['side'] ?? null,
+                        'appartment' => $shippingAddressData['apartment'] ?? null,
+                        'zip_code' => $shippingAddressData['zip_code'] ?? null,
+                    ]);
+                    $shippingAddresses[] = $address;
                 }
             }
-        }
 
-        // Handle cheque limits with new structure
-        if ($request->has('max_cheques')) {
-            $chequeLimits = $request->input('max_cheques');
-            foreach ($chequeLimits as $currencyCode => $maxCheques) {
-                // Find currency by code
-                $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                if ($currency) {
-                    $customer->setChequeLimit($currency->id, $maxCheques);
+            // Remove address fields from validated data since we handle them separately
+            unset($validated['billing_address_line1'], $validated['billing_address_line2'],
+                $validated['billing_country_id'], $validated['billing_city_id'],
+                $validated['billing_district_id'], $validated['billing_zone_id'],
+                $validated['billing_building'], $validated['billing_block'],
+                $validated['billing_floor'], $validated['billing_side'],
+                $validated['billing_apartment'], $validated['billing_zip_code'],
+                $validated['shipping_addresses']);
+
+            // Handle payment terms with new field names
+            if ($request->filled('selected_payment_term')) {
+                $validated['payment_term_id'] = $request->input('selected_payment_term');
+            } elseif ($request->filled('payment_term_id')) {
+                $validated['payment_term_id'] = $request->input('payment_term_id');
+            }
+
+            if ($request->filled('selected_payment_method')) {
+                $validated['payment_method_id'] = $request->input('selected_payment_method');
+            } elseif ($request->filled('payment_method_id')) {
+                $validated['payment_method_id'] = $request->input('payment_method_id');
+            }
+
+            // Handle pricing with new field names
+            if ($request->filled('price_choice')) {
+                $validated['price_choice'] = $request->input('price_choice');
+            }
+
+            if ($request->filled('price_list')) {
+                $validated['price_list'] = $request->input('price_list');
+            }
+
+            if ($request->filled('markup')) {
+                $validated['markup_percentage'] = $request->input('markup');
+            }
+
+            if ($request->filled('markdown')) {
+                $validated['markdown_percentage'] = $request->input('markdown');
+            }
+
+            // Handle message field
+            if ($request->filled('message')) {
+                $validated['message'] = $request->input('message');
+                $validated['showMessageField'] = true;
+            }
+
+            $customer = Customer::create($validated);
+
+            // Attach billing address to customer
+            if ($billingAddress) {
+                $customer->addresses()->attach($billingAddress->id, [
+                    'address_type' => 'billing',
+                    'is_primary' => true,
+                    'address_name' => 'Primary Billing Address',
+                    'notes' => $request->input('billing_notes'),
+                ]);
+            }
+
+            // Attach shipping addresses to customer
+            foreach ($shippingAddresses as $index => $address) {
+                $customer->addresses()->attach($address->id, [
+                    'address_type' => 'shipping',
+                    'is_primary' => $index === 0, // First shipping address is primary
+                    'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
+                ]);
+            }
+
+            // Handle opening balances FIRST (required before credit/cheque limits)
+            if ($request->has('opening_balances')) {
+                foreach ($request->input('opening_balances') as $openingBalanceData) {
+                    // Find currency by code
+                    $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
+                    if ($currency) {
+                        try {
+                            $customer->setOpeningBalance(
+                                $currency->id,
+                                $openingBalanceData['amount'],
+                                $openingBalanceData['date'] ?? null
+                            );
+                        } catch (\Exception $e) {
+                            // Re-throw the exception to trigger transaction rollback
+                            throw new \Exception('Opening balance validation failed: '.$e->getMessage());
+                        }
+                    }
                 }
             }
-        }
 
-        // Handle opening balances with new structure
-        if ($request->has('opening_balances')) {
-            foreach ($request->input('opening_balances') as $openingBalanceData) {
-                // Find currency by code
-                $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
-                if ($currency) {
-                    $customer->setOpeningBalance(
-                        $currency->id,
-                        $openingBalanceData['amount'],
-                        $openingBalanceData['date'] ?? null
+            // Handle credit limits with new structure (after opening balances)
+            if ($request->has('credit_limits')) {
+                $creditLimits = $request->input('credit_limits');
+                foreach ($creditLimits as $currencyCode => $amount) {
+                    // Find currency by code
+                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
+                    if ($currency) {
+                        try {
+                            $customer->setCreditLimit($currency->id, $amount);
+                        } catch (\Exception $e) {
+                            // Re-throw the exception to trigger transaction rollback
+                            throw new \Exception('Credit limit validation failed: '.$e->getMessage());
+                        }
+                    }
+                }
+            }
+
+            // Handle cheque limits with new structure (after opening balances)
+            if ($request->has('max_cheques')) {
+                $chequeLimits = $request->input('max_cheques');
+                foreach ($chequeLimits as $currencyCode => $maxCheques) {
+                    // Find currency by code
+                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
+                    if ($currency) {
+                        try {
+                            $customer->setChequeLimit($currency->id, $maxCheques);
+                        } catch (\Exception $e) {
+                            // Re-throw the exception to trigger transaction rollback
+                            throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
+                        }
+                    }
+                }
+            }
+
+            // Handle contacts
+            if ($request->has('contacts')) {
+                foreach ($request->input('contacts') as $contactData) {
+                    $isPrimary = isset($contactData['is_primary']) && (bool) $contactData['is_primary'];
+
+                    $contact = $customer->contacts()->create([
+                        'title' => $contactData['title'] ?? null,
+                        'name' => $contactData['name'],
+                        'work_phone' => $contactData['work_phone'] ?? null,
+                        'mobile' => $contactData['mobile'] ?? null,
+                        'email' => $contactData['email'] ?? null,
+                        'position' => $contactData['position'] ?? null,
+                        'extension' => $contactData['extension'] ?? null,
+                        'is_primary' => $isPrimary,
+                    ]);
+
+                    // Set as primary contact if specified (also updates customer.contacts_id)
+                    if ($isPrimary) {
+                        $customer->setPrimaryContact($contact->id);
+                    }
+                }
+            }
+
+            // Handle attachments - check for actual file uploads first
+            if ($request->hasFile('attachments')) {
+                $tenantId = tenant('id');
+
+                // Handle file uploads
+                $files = is_array($request->file('attachments'))
+                    ? $request->file('attachments')
+                    : [$request->file('attachments')];
+
+                // Get attachment metadata from the decoded data if available
+                $attachmentMetadata = [];
+                if ($request->has('data')) {
+                    $data = json_decode($request->input('data'), true);
+                    $attachmentMetadata = $data['attachments'] ?? [];
+                }
+
+                foreach ($files as $index => $file) {
+                    $path = Storage::disk('public')->putFile(
+                        "tenants/{$tenantId}/customers/{$customer->id}/attachments",
+                        $file
                     );
+
+                    // Find matching metadata for this file
+                    $metadata = $attachmentMetadata[$index] ?? [];
+                    $description = $metadata['description'] ?? '';
+
+                    CustomerAttachment::create([
+                        'customer_id' => $customer->id,
+                        'file_name' => $file->getClientOriginalName(),
+                        'file_path' => url(Storage::url($path)),
+                        'file_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                        'description' => $description,
+                        'category' => 'document',
+                    ]);
+                }
+            } elseif ($request->has('attachments')) {
+                // Handle JSON attachment data (fallback for frontend compatibility)
+                foreach ($request->input('attachments') as $attachmentData) {
+                    // Only create attachment if we have a valid file path or file URL
+                    $filePath = $attachmentData['file_url'] ?? $attachmentData['file_path'] ?? null;
+                    if ($filePath && ! empty(trim($filePath))) {
+                        CustomerAttachment::create([
+                            'customer_id' => $customer->id,
+                            'file_name' => $attachmentData['file_name'] ?? 'Unknown',
+                            'file_path' => $filePath,
+                            'file_type' => $attachmentData['file_type'] ?? null,
+                            'description' => $attachmentData['description'] ?? '',
+                            'category' => 'document',
+                        ]);
+                    }
                 }
             }
-        }
 
-        // Handle contacts
-        if ($request->has('contacts')) {
-            foreach ($request->input('contacts') as $contactData) {
-                $contact = $customer->contacts()->create([
-                    'title' => $contactData['title'] ?? null,
-                    'name' => $contactData['name'],
-                    'work_phone' => $contactData['work_phone'] ?? null,
-                    'mobile' => $contactData['mobile'] ?? null,
-                    'email' => $contactData['email'] ?? null,
-                    'position' => $contactData['position'] ?? null,
-                    'extension' => $contactData['extension'] ?? null,
-                ]);
-
-                // Set as primary contact if specified
-                if (isset($contactData['is_primary']) && $contactData['is_primary']) {
-                    $customer->setPrimaryContact($contact->id);
-                }
-            }
-        }
-
-        // Handle attachments with new structure
-        if ($request->has('attachments')) {
-            foreach ($request->input('attachments') as $attachmentData) {
-                CustomerAttachment::create([
-                    'customer_id' => $customer->id,
-                    'file_name' => $attachmentData['file_name'] ?? 'Unknown',
-                    'file_path' => $attachmentData['file_url'] ?? null,
-                    'file_type' => $attachmentData['file_type'] ?? null,
-                    'category' => 'document',
-                ]);
-            }
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer created successfully.',
-            'data' => $customer->load([
-                'addresses',
-                'billingAddresses',
-                'shippingAddresses',
-                'primaryBillingAddress',
-                'primaryShippingAddress',
-                'paymentMethod',
-                'paymentTerm',
-                'primaryContact',
-                'contacts',
-                'attachments',
-            ]),
-        ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Customer created successfully.',
+                'data' => $customer->load([
+                    'addresses',
+                    'billingAddresses',
+                    'shippingAddresses',
+                    'primaryBillingAddress',
+                    'primaryShippingAddress',
+                    'paymentMethod',
+                    'paymentTerm',
+                    'primaryContact',
+                    'contacts',
+                    'attachments',
+                    'creditLimits.currency',
+                    'chequeLimits.currency',
+                    'openingBalances.currency',
+                ]),
+            ]);
+        });
     }
 
     public function show(Customer $customer)
@@ -673,228 +768,273 @@ class CustomerController extends Controller
         $validated = $request->validated();
         logger()->info('Validated data', $validated);
 
-        // Handle addresses - unified structure
-        if ($request->filled('billing_address_line1') || $request->has('shipping_addresses')) {
-            // Remove all existing addresses and create new ones
-            $customer->addresses()->detach();
+        // Use database transaction to ensure all operations succeed or fail together
+        return DB::transaction(function () use ($request, $validated, $customer) {
 
-            // Handle billing address - unified structure
-            if ($request->filled('billing_address_line1')) {
-                $billingAddress = Address::create([
-                    'address_line1' => $request->input('billing_address_line1'),
-                    'address_line2' => $request->input('billing_address_line2'),
-                    'country_id' => $request->input('billing_country_id'),
-                    'city_id' => $request->input('billing_city_id'),
-                    'district_id' => $request->input('billing_district_id'),
-                    'zone_id' => $request->input('billing_zone_id'),
-                    'building' => $request->input('billing_building'),
-                    'block' => $request->input('billing_block'),
-                    'floor' => $request->input('billing_floor'),
-                    'side' => $request->input('billing_side'),
-                    'appartment' => $request->input('billing_apartment'),
-                    'zip_code' => $request->input('billing_zip_code'),
-                ]);
+            // Handle addresses - unified structure
+            if ($request->filled('billing_address_line1') || $request->has('shipping_addresses')) {
+                // Remove all existing addresses and create new ones
+                $customer->addresses()->detach();
 
-                $customer->addresses()->attach($billingAddress->id, [
-                    'address_type' => 'billing',
-                    'is_primary' => true,
-                    'address_name' => 'Primary Billing Address',
-                    'notes' => $request->input('billing_notes'),
-                ]);
-            }
-
-            // Handle shipping addresses - unified structure as array
-            if ($request->has('shipping_addresses')) {
-                foreach ($request->input('shipping_addresses') as $index => $shippingAddressData) {
-                    $address = Address::create([
-                        'address_line1' => $shippingAddressData['address_line1'],
-                        'address_line2' => $shippingAddressData['address_line2'] ?? null,
-                        'country_id' => $shippingAddressData['country_id'],
-                        'city_id' => $shippingAddressData['city_id'],
-                        'district_id' => $shippingAddressData['district_id'] ?? null,
-                        'zone_id' => $shippingAddressData['zone_id'] ?? null,
-                        'building' => $shippingAddressData['building'] ?? null,
-                        'block' => $shippingAddressData['block'] ?? null,
-                        'floor' => $shippingAddressData['floor'] ?? null,
-                        'side' => $shippingAddressData['side'] ?? null,
-                        'appartment' => $shippingAddressData['apartment'] ?? null,
-                        'zip_code' => $shippingAddressData['zip_code'] ?? null,
+                // Handle billing address - unified structure
+                if ($request->filled('billing_address_line1')) {
+                    $billingAddress = Address::create([
+                        'address_line1' => $request->input('billing_address_line1'),
+                        'address_line2' => $request->input('billing_address_line2'),
+                        'country_id' => $request->input('billing_country_id'),
+                        'city_id' => $request->input('billing_city_id'),
+                        'district_id' => $request->input('billing_district_id'),
+                        'zone_id' => $request->input('billing_zone_id'),
+                        'building' => $request->input('billing_building'),
+                        'block' => $request->input('billing_block'),
+                        'floor' => $request->input('billing_floor'),
+                        'side' => $request->input('billing_side'),
+                        'appartment' => $request->input('billing_apartment'),
+                        'zip_code' => $request->input('billing_zip_code'),
                     ]);
 
-                    $customer->addresses()->attach($address->id, [
-                        'address_type' => 'shipping',
-                        'is_primary' => $index === 0, // First shipping address is primary
-                        'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
-                        'notes' => $shippingAddressData['notes'] ?? null,
+                    $customer->addresses()->attach($billingAddress->id, [
+                        'address_type' => 'billing',
+                        'is_primary' => true,
+                        'address_name' => 'Primary Billing Address',
+                        'notes' => $request->input('billing_notes'),
                     ]);
                 }
-            }
-        }
 
-        // Remove address fields from validated data since we handle them separately
-        unset($validated['billing_address_line1'], $validated['billing_address_line2'],
-            $validated['billing_country_id'], $validated['billing_city_id'],
-            $validated['billing_district_id'], $validated['billing_zone_id'],
-            $validated['billing_building'], $validated['billing_block'],
-            $validated['billing_floor'], $validated['billing_side'],
-            $validated['billing_apartment'], $validated['billing_zip_code'],
-            $validated['billing_notes'], $validated['shipping_addresses']);
+                // Handle shipping addresses - unified structure as array
+                if ($request->has('shipping_addresses')) {
+                    foreach ($request->input('shipping_addresses') as $index => $shippingAddressData) {
+                        $address = Address::create([
+                            'address_line1' => $shippingAddressData['address_line1'],
+                            'address_line2' => $shippingAddressData['address_line2'] ?? null,
+                            'country_id' => $shippingAddressData['country_id'],
+                            'city_id' => $shippingAddressData['city_id'],
+                            'district_id' => $shippingAddressData['district_id'] ?? null,
+                            'zone_id' => $shippingAddressData['zone_id'] ?? null,
+                            'building' => $shippingAddressData['building'] ?? null,
+                            'block' => $shippingAddressData['block'] ?? null,
+                            'floor' => $shippingAddressData['floor'] ?? null,
+                            'side' => $shippingAddressData['side'] ?? null,
+                            'appartment' => $shippingAddressData['apartment'] ?? null,
+                            'zip_code' => $shippingAddressData['zip_code'] ?? null,
+                        ]);
 
-        // Handle pricing fields mapping (allow null to clear values)
-        if ($request->has('markup')) {
-            $validated['markup_percentage'] = $request->input('markup');
-        }
-
-        if ($request->has('markdown')) {
-            $validated['markdown_percentage'] = $request->input('markdown');
-        }
-
-        if ($request->filled('primary_payment_method_id')) {
-            $validated['primary_payment_method_id'] = $request->input('primary_payment_method_id');
-        }
-
-        if ($request->filled('payment_term')) {
-            if ($customer->paymentTerm) {
-                $customer->paymentTerm()->update($request->input('payment_term'));
-            } else {
-                $paymentTerm = PaymentTerm::create($request->input('payment_term'));
-                $validated['payment_term_id'] = $paymentTerm->id;
-            }
-        }
-
-        $customer->update($validated);
-
-        // Handle credit limits
-        if ($request->has('credit_limits')) {
-            // Delete existing credit limits completely instead of just marking as inactive
-            $customer->creditLimits()->delete();
-
-            foreach ($request->input('credit_limits') as $currencyCode => $amount) {
-                // Find currency by code
-                $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                if ($currency) {
-                    $customer->setCreditLimit($currency->id, $amount);
+                        $customer->addresses()->attach($address->id, [
+                            'address_type' => 'shipping',
+                            'is_primary' => $index === 0, // First shipping address is primary
+                            'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
+                            'notes' => $shippingAddressData['notes'] ?? null,
+                        ]);
+                    }
                 }
             }
-        }
 
-        // Handle cheque limits
-        if ($request->has('max_cheques')) {
-            // Delete existing cheque limits completely instead of just marking as inactive
-            $customer->chequeLimits()->delete();
+            // Remove address fields from validated data since we handle them separately
+            unset($validated['billing_address_line1'], $validated['billing_address_line2'],
+                $validated['billing_country_id'], $validated['billing_city_id'],
+                $validated['billing_district_id'], $validated['billing_zone_id'],
+                $validated['billing_building'], $validated['billing_block'],
+                $validated['billing_floor'], $validated['billing_side'],
+                $validated['billing_apartment'], $validated['billing_zip_code'],
+                $validated['billing_notes'], $validated['shipping_addresses']);
 
-            foreach ($request->input('max_cheques') as $currencyCode => $maxCheques) {
-                // Find currency by code
-                $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                if ($currency) {
-                    $customer->setChequeLimit($currency->id, $maxCheques);
+            // Handle pricing fields mapping (allow null to clear values)
+            if ($request->has('markup')) {
+                $validated['markup_percentage'] = $request->input('markup');
+            }
+
+            if ($request->has('markdown')) {
+                $validated['markdown_percentage'] = $request->input('markdown');
+            }
+
+            // Handle payment method - support both field name formats
+            if ($request->filled('primary_payment_method_id')) {
+                $validated['payment_method_id'] = $request->input('primary_payment_method_id');
+            } elseif ($request->filled('payment_method_id')) {
+                $validated['payment_method_id'] = $request->input('payment_method_id');
+            }
+
+            // Handle payment term - support both field name formats
+            if ($request->filled('payment_term')) {
+                if ($customer->paymentTerm) {
+                    $customer->paymentTerm()->update($request->input('payment_term'));
+                } else {
+                    $paymentTerm = PaymentTerm::create($request->input('payment_term'));
+                    $validated['payment_term_id'] = $paymentTerm->id;
+                }
+            } elseif ($request->filled('payment_term_id')) {
+                $validated['payment_term_id'] = $request->input('payment_term_id');
+            }
+
+            $customer->update($validated);
+
+            // Handle opening balances FIRST (required before credit/cheque limits)
+            if ($request->has('opening_balances')) {
+                // Delete existing opening balances completely instead of just marking as inactive
+                $customer->openingBalances()->delete();
+
+                foreach ($request->input('opening_balances') as $openingBalanceData) {
+                    // Find currency by code
+                    $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
+                    if ($currency) {
+                        try {
+                            $customer->setOpeningBalance(
+                                $currency->id,
+                                $openingBalanceData['amount'],
+                                $openingBalanceData['date'] ?? null
+                            );
+                        } catch (\Exception $e) {
+                            // Re-throw the exception to trigger transaction rollback
+                            throw new \Exception('Opening balance validation failed: '.$e->getMessage());
+                        }
+                    }
                 }
             }
-        }
 
-        // Handle opening balances
-        if ($request->has('opening_balances')) {
-            // Delete existing opening balances completely instead of just marking as inactive
-            $customer->openingBalances()->delete();
+            // Handle credit limits (after opening balances)
+            if ($request->has('credit_limits')) {
+                // Delete existing credit limits completely instead of just marking as inactive
+                $customer->creditLimits()->delete();
 
-            foreach ($request->input('opening_balances') as $openingBalanceData) {
-                // Find currency by code
-                $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
-                if ($currency) {
-                    $customer->setOpeningBalance(
-                        $currency->id,
-                        $openingBalanceData['amount'],
-                        $openingBalanceData['date'] ?? null
+                foreach ($request->input('credit_limits') as $currencyCode => $amount) {
+                    // Find currency by code
+                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
+                    if ($currency) {
+                        try {
+                            $customer->setCreditLimit($currency->id, $amount);
+                        } catch (\Exception $e) {
+                            // Re-throw the exception to trigger transaction rollback
+                            throw new \Exception('Credit limit validation failed: '.$e->getMessage());
+                        }
+                    }
+                }
+            }
+
+            // Handle cheque limits (after opening balances)
+            if ($request->has('max_cheques')) {
+                // Delete existing cheque limits completely instead of just marking as inactive
+                $customer->chequeLimits()->delete();
+
+                foreach ($request->input('max_cheques') as $currencyCode => $maxCheques) {
+                    // Find currency by code
+                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
+                    if ($currency) {
+                        try {
+                            $customer->setChequeLimit($currency->id, $maxCheques);
+                        } catch (\Exception $e) {
+                            // Re-throw the exception to trigger transaction rollback
+                            throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
+                        }
+                    }
+                }
+            }
+
+            // Handle contacts
+            if ($request->has('contacts')) {
+                // Remove existing contacts and create new ones
+                $customer->contacts()->delete();
+
+                foreach ($request->input('contacts') as $contactData) {
+                    $contact = $customer->contacts()->create([
+                        'title' => $contactData['title'] ?? null,
+                        'name' => $contactData['name'],
+                        'work_phone' => $contactData['work_phone'] ?? null,
+                        'mobile' => $contactData['mobile'] ?? null,
+                        'email' => $contactData['email'] ?? null,
+                        'position' => $contactData['position'] ?? null,
+                        'extension' => $contactData['extension'] ?? null,
+                    ]);
+
+                    // Set as primary contact if specified
+                    if (isset($contactData['is_primary']) && $contactData['is_primary']) {
+                        $customer->setPrimaryContact($contact->id);
+                    }
+                }
+            }
+
+            // Handle attachments
+            if ($request->hasFile('attachments')) {
+                $tenantId = tenant('id');
+
+                // Delete existing attachments
+                foreach ($customer->attachments as $attachment) {
+                    $relativePath = str_replace(url('/storage'), '', $attachment->file_path);
+                    Storage::disk('public')->delete($relativePath);
+                    $attachment->delete();
+                }
+
+                // Create new attachments
+                $files = is_array($request->file('attachments'))
+                    ? $request->file('attachments')
+                    : [$request->file('attachments')];
+
+                // Get attachment metadata from the decoded data if available
+                $attachmentMetadata = [];
+                if ($request->has('data')) {
+                    $data = json_decode($request->input('data'), true);
+                    $attachmentMetadata = $data['attachments'] ?? [];
+                }
+
+                foreach ($files as $index => $file) {
+                    $path = Storage::disk('public')->putFile(
+                        "tenants/{$tenantId}/{$customer->id}/attachments",
+                        $file
                     );
+
+                    // Find matching metadata for this file
+                    $metadata = $attachmentMetadata[$index] ?? [];
+                    $description = $metadata['description'] ?? '';
+
+                    CustomerAttachment::create([
+                        'customer_id' => $customer->id,
+                        'file_name' => $file->getClientOriginalName(),
+                        'file_path' => url(Storage::url($path)),
+                        'file_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                        'description' => $description,
+                        'category' => 'document',
+                    ]);
                 }
             }
-        }
 
-        // Handle contacts
-        if ($request->has('contacts')) {
-            // Remove existing contacts and create new ones
-            $customer->contacts()->delete();
-
-            foreach ($request->input('contacts') as $contactData) {
-                $contact = $customer->contacts()->create([
-                    'title' => $contactData['title'] ?? null,
-                    'name' => $contactData['name'],
-                    'work_phone' => $contactData['work_phone'] ?? null,
-                    'mobile' => $contactData['mobile'] ?? null,
-                    'email' => $contactData['email'] ?? null,
-                    'position' => $contactData['position'] ?? null,
-                    'extension' => $contactData['extension'] ?? null,
-                ]);
-
-                // Set as primary contact if specified
-                if (isset($contactData['is_primary']) && $contactData['is_primary']) {
-                    $customer->setPrimaryContact($contact->id);
+            // Handle attachments with new structure (JSON data)
+            if ($request->has('attachments')) {
+                foreach ($request->input('attachments') as $attachmentData) {
+                    // Only create attachment if we have a valid file path or file URL
+                    $filePath = $attachmentData['file_url'] ?? $attachmentData['file_path'] ?? null;
+                    if ($filePath && ! empty(trim($filePath))) {
+                        CustomerAttachment::create([
+                            'customer_id' => $customer->id,
+                            'file_name' => $attachmentData['file_name'] ?? 'Unknown',
+                            'file_path' => $filePath,
+                            'file_type' => $attachmentData['file_type'] ?? null,
+                            'description' => $attachmentData['description'] ?? '',
+                            'category' => 'document',
+                        ]);
+                    }
                 }
             }
-        }
 
-        // Handle attachments
-        if ($request->hasFile('attachments')) {
-            $tenantId = tenant('id');
-
-            // Delete existing attachments
-            foreach ($customer->attachments as $attachment) {
-                $relativePath = str_replace(url('/storage'), '', $attachment->file_path);
-                Storage::disk('public')->delete($relativePath);
-                $attachment->delete();
-            }
-
-            // Create new attachments
-            $files = is_array($request->file('attachments'))
-                ? $request->file('attachments')
-                : [$request->file('attachments')];
-
-            foreach ($files as $file) {
-                $path = Storage::disk('public')->putFile(
-                    "tenants/{$tenantId}/{$customer->id}/attachments",
-                    $file
-                );
-
-                CustomerAttachment::create([
-                    'customer_id' => $customer->id,
-                    'file_name' => $file->getClientOriginalName(),
-                    'file_path' => url(Storage::url($path)),
-                    'file_type' => $file->getMimeType(),
-                    'file_size' => $file->getSize(),
-                    'category' => 'document',
-                ]);
-            }
-        }
-
-        // Handle attachments with new structure (JSON data)
-        if ($request->has('attachments')) {
-            foreach ($request->input('attachments') as $attachmentData) {
-                CustomerAttachment::create([
-                    'customer_id' => $customer->id,
-                    'file_name' => $attachmentData['file_name'] ?? 'Unknown',
-                    'file_path' => $attachmentData['file_url'] ?? null,
-                    'file_type' => $attachmentData['file_type'] ?? null,
-                    'category' => 'document',
-                ]);
-            }
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer updated successfully.',
-            'data' => $customer->load([
-                'addresses',
-                'billingAddresses',
-                'shippingAddresses',
-                'primaryBillingAddress',
-                'primaryShippingAddress',
-                'paymentMethod',
-                'paymentTerm',
-                'primaryContact',
-                'contacts',
-                'attachments',
-            ]),
-        ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Customer updated successfully.',
+                'data' => $customer->load([
+                    'addresses',
+                    'billingAddresses',
+                    'shippingAddresses',
+                    'primaryBillingAddress',
+                    'primaryShippingAddress',
+                    'paymentMethod',
+                    'paymentTerm',
+                    'primaryContact',
+                    'contacts',
+                    'attachments',
+                    'creditLimits.currency',
+                    'chequeLimits.currency',
+                    'openingBalances.currency',
+                ]),
+            ]);
+        });
     }
 
     public function destroy(Customer $customer)

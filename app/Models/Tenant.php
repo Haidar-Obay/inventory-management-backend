@@ -112,6 +112,7 @@ class Tenant extends BaseTenant implements Auditable, TenantWithDatabase
     {
         $base = (float) ($this->subscriptionPlan?->price ?? 0);
         $modulesTotal = (float) $this->modules()->sum('tenant_modules.assigned_price');
+
         return $base + $modulesTotal;
     }
 }

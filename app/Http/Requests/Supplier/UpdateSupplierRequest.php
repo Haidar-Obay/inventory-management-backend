@@ -35,7 +35,7 @@ class UpdateSupplierRequest extends FormRequest
 
             // Business Information
             'file_number' => ['nullable', 'string', 'max:255'],
-            'barcode' => ['nullable', 'string', 'max:255'],
+            'bar_code' => ['nullable', 'string', 'max:255'],
             'search_terms' => ['nullable', 'array'],
             'search_terms.*' => ['string', 'max:100'],
 

@@ -8,9 +8,9 @@ use App\Http\Requests\Permission\StorePermissionRequest;
 use App\Http\Requests\Permission\UpdatePermissionRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Permission;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class PermissionController extends Controller
@@ -30,13 +30,14 @@ class PermissionController extends Controller
                 // Collect allowed backend resources for this tenant via assigned modules
                 // Fetch allowed resource keys from central DB (module_resources → modules → tenant_modules)
                 $central = config('tenancy.database.central_connection', config('database.default'));
-                $allowedResourceKeys = collect(DB::connection($central)
-                    ->table('module_resources')
-                    ->join('modules', 'module_resources.module_id', '=', 'modules.id')
-                    ->join('tenant_modules', 'modules.id', '=', 'tenant_modules.module_id')
-                    ->join('tenants', 'tenant_modules.tenant_id', '=', 'tenants.id')
-                    ->where('tenants.id', $tenantId)
-                    ->pluck('module_resources.code')
+                $allowedResourceKeys = collect(
+                    DB::connection($central)
+                        ->table('module_resources')
+                        ->join('modules', 'module_resources.module_id', '=', 'modules.id')
+                        ->join('tenant_modules', 'modules.id', '=', 'tenant_modules.module_id')
+                        ->join('tenants', 'tenant_modules.tenant_id', '=', 'tenants.id')
+                        ->where('tenants.id', $tenantId)
+                        ->pluck('module_resources.code')
                 )->unique()->values();
 
                 $query = Permission::with('roles')

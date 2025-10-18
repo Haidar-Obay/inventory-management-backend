@@ -6,7 +6,6 @@ use App\Enums\PageCode;
 use App\Models\Module;
 use App\Models\ModuleResource;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class ModuleResourceSeeder extends Seeder
 {
@@ -19,50 +18,50 @@ class ModuleResourceSeeder extends Seeder
         $resourceMapping = [
             // System Management
             PageCode::USER_MANAGEMENT_PAGE->value => 'users',
-            PageCode::PERMISSIONS_PAGE->value     => 'permissions',
-            PageCode::ROLES_PAGE->value           => 'roles',
+            PageCode::PERMISSIONS_PAGE->value => 'permissions',
+            PageCode::ROLES_PAGE->value => 'roles',
 
             // Address Codes
-            PageCode::ADDRESS_CODES_COUNTRIES->value  => 'countries',
-            PageCode::ADDRESS_CODES_CITIES->value     => 'cities',
-            PageCode::ADDRESS_CODES_DISTRICTS->value  => 'districts',
-            PageCode::ADDRESS_CODES_ZONES->value      => 'zones',
+            PageCode::ADDRESS_CODES_COUNTRIES->value => 'countries',
+            PageCode::ADDRESS_CODES_CITIES->value => 'cities',
+            PageCode::ADDRESS_CODES_DISTRICTS->value => 'districts',
+            PageCode::ADDRESS_CODES_ZONES->value => 'zones',
 
             // Services (granularity handled by module-specific resources too)
-            PageCode::SERVICES_PAGE->value            => 'services',
+            PageCode::SERVICES_PAGE->value => 'services',
 
             // Items (granularity handled below)
-            PageCode::ITEMS_PAGE->value               => 'items',
+            PageCode::ITEMS_PAGE->value => 'items',
 
             // Suppliers
-            PageCode::SUPPLIERS_GROUPS->value         => 'suppliers',
-            PageCode::SUPPLIERS_SUPPLIERS->value      => 'suppliers',
+            PageCode::SUPPLIERS_GROUPS->value => 'suppliers',
+            PageCode::SUPPLIERS_SUPPLIERS->value => 'suppliers',
 
             // Customers
-            PageCode::CUSTOMERS_PAGE->value           => 'customers',
+            PageCode::CUSTOMERS_PAGE->value => 'customers',
 
             // Relations
-            PageCode::RELATIONS_ASSOCIATIONS->value   => 'associations',
-            PageCode::RELATIONS_REFERRERS->value      => 'referrers',
-            PageCode::RELATIONS_CONNECTIONS->value    => 'connections',
+            PageCode::RELATIONS_ASSOCIATIONS->value => 'associations',
+            PageCode::RELATIONS_REFERRERS->value => 'referrers',
+            PageCode::RELATIONS_CONNECTIONS->value => 'connections',
 
             // Sections
-            PageCode::SECTIONS_PROJECTS->value        => 'projects',
-            PageCode::SECTIONS_COST_CENTERS->value    => 'cost_centers',
-            PageCode::SECTIONS_DEPARTMENTS->value     => 'departments',
-            PageCode::SECTIONS_TRADES->value          => 'trades',
-            PageCode::SECTIONS_COMPANY_CODES->value   => 'company_codes',
-            PageCode::SECTIONS_JOBS->value            => 'jobs',
+            PageCode::SECTIONS_PROJECTS->value => 'projects',
+            PageCode::SECTIONS_COST_CENTERS->value => 'cost_centers',
+            PageCode::SECTIONS_DEPARTMENTS->value => 'departments',
+            PageCode::SECTIONS_TRADES->value => 'trades',
+            PageCode::SECTIONS_COMPANY_CODES->value => 'company_codes',
+            PageCode::SECTIONS_JOBS->value => 'jobs',
 
             // General Files
-            PageCode::GENERAL_FILES_BUSINESS_TYPES->value        => 'business_types',
-            PageCode::GENERAL_FILES_SALES_CHANNELS->value        => 'sales_channels',
+            PageCode::GENERAL_FILES_BUSINESS_TYPES->value => 'business_types',
+            PageCode::GENERAL_FILES_SALES_CHANNELS->value => 'sales_channels',
             PageCode::GENERAL_FILES_DISTRIBUTION_CHANNELS->value => 'distribution_channels',
-            PageCode::GENERAL_FILES_MEDIA_CHANNELS->value        => 'media_channels',
+            PageCode::GENERAL_FILES_MEDIA_CHANNELS->value => 'media_channels',
 
             // Payment
-            PageCode::PAYMENT_TERMS->value            => 'payment_terms',
-            PageCode::PAYMENT_METHODS->value          => 'payment_methods',
+            PageCode::PAYMENT_TERMS->value => 'payment_terms',
+            PageCode::PAYMENT_METHODS->value => 'payment_methods',
         ];
 
         // Get all modules
@@ -71,12 +70,12 @@ class ModuleResourceSeeder extends Seeder
         foreach ($modules as $module) {
             // Get all pages for this module
             $pages = $module->pages;
-            
+
             foreach ($pages as $page) {
                 // Check if this page code maps to a backend resource
                 if (isset($resourceMapping[$page->code])) {
                     $resourceKey = $resourceMapping[$page->code];
-                    
+
                     // Create module resource if it doesn't exist
                     ModuleResource::firstOrCreate(
                         [
@@ -174,7 +173,7 @@ class ModuleResourceSeeder extends Seeder
         // Add core system resources to all modules (users, roles, permissions)
         $coreResources = [
             'users' => 'User Management',
-            'roles' => 'Role Management', 
+            'roles' => 'Role Management',
             'permissions' => 'Permission Management',
         ];
 

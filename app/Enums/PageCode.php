@@ -51,5 +51,3 @@ enum PageCode: string
     case PERMISSIONS_PAGE = 'PERMISSIONS_PAGE';
     case ROLES_PAGE = 'ROLES_PAGE';
 }
-
-
