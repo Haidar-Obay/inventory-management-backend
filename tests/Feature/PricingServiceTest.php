@@ -224,6 +224,7 @@ class PricingServiceTest extends TestCase
         $service = Service::factory()->create([
             'normal_price' => 100.00,
             'birthday_price' => null,
+            'price_calculated_by_hour' => false,
         ]);
 
         $result = $this->pricingService->resolvePrice([
