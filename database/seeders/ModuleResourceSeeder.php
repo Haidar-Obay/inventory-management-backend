@@ -95,6 +95,7 @@ class ModuleResourceSeeder extends Seeder
             // Explicit resources per module code (ensures backend alignment regardless of page codes)
             $moduleSpecificResources = [
                 // Do NOT hard-add 'suppliers' here; it will be added only if a supplier page code exists
+
                 'stock_management'   => ['product_lines', 'categories', 'brands', 'items'],
                 'beauty_center'      => [
                     'service_categories',
