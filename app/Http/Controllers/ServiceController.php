@@ -22,30 +22,21 @@ class ServiceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Service::query()->with(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name', 'neededItems.item:id,code']);
+        $query = Service::query()
+            ->select(['id', 'name', 'service_category_id', 'normal_price', 'cost_price', 'active'])
+            ->with(['serviceCategory:id,name']);
 
         if ($request->filled('category_id')) {
             $query->where('service_category_id', $request->integer('category_id'));
-        }
-        // department filters removed
-        if ($request->filled('specialist_id')) {
-            $query->whereHas('specialists', function ($q) use ($request) {
-                $q->where('specialist_id', $request->integer('specialist_id'));
-            });
         }
         if ($request->filled('active')) {
             $query->where('active', filter_var($request->input('active'), FILTER_VALIDATE_BOOLEAN));
         }
 
         $services = $query->orderBy('name')->paginate(10);
-        // Hide raw FK ids and image, but keep other related models
+        // Hide raw FK id but keep category
         $services->getCollection()->transform(function ($service) {
-            // Format needed items to show codes
-            $service->needed_items = $service->neededItems->map(function ($neededItem) {
-                return $neededItem->item ? $neededItem->item->code : null;
-            })->filter()->values()->toArray();
-            
-            return $service->makeHidden(['service_category_id', 'image', 'neededItems']);
+            return $service->makeHidden(['service_category_id']);
         });
 
         return response()->json($services);
@@ -105,7 +96,9 @@ class ServiceController extends Controller
     public function show(Service $service): JsonResponse
     {
         $loaded = $service->load([
-            'serviceCategory:id,name,description',
+            'serviceCategory:id,name,description,department_id',
+            'serviceCategory.department:id,name,code,sub_department_of',
+            'serviceCategory.department.parent:id,name,code',
             'specialists:id,name',
             'assets:id,name',
         ]);
