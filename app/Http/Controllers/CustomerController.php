@@ -467,7 +467,7 @@ class CustomerController extends Controller
             'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
             'primaryContact:id,name,title,work_phone,mobile,position,extension',
             'contacts:id,name,title,work_phone,mobile,position,extension,is_primary',
-            'attachments:id,file_name,file_path,file_type,file_size,category',
+            'attachments:id,customer_id,file_name,file_path,file_type,file_size,description,category,is_public,created_at,updated_at',
             'creditLimits:id,currency_id,credit_limit,notes,is_active',
             'chequeLimits:id,currency_id,max_cheques,notes,is_active',
             'openingBalances:id,currency_id,opening_amount,opening_date,notes,is_active',
@@ -759,6 +759,19 @@ class CustomerController extends Controller
                     'is_active' => $openingBalance->is_active,
                 ];
             }),
+            // Attachments
+            'attachments' => $customer->attachments->map(function ($attachment) {
+                return [
+                    'id' => $attachment->id,
+                    'file_name' => $attachment->file_name,
+                    'file_path' => $attachment->file_path,
+                    'file_type' => $attachment->file_type,
+                    'file_size' => $attachment->file_size,
+                    'description' => $attachment->description,
+                    'category' => $attachment->category,
+                    'is_public' => (bool) $attachment->is_public,
+                ];
+            }),
         ];
 
         return response()->json([
@@ -879,14 +892,26 @@ class CustomerController extends Controller
                 $customer->openingBalances()->delete();
 
                 foreach ($request->input('opening_balances') as $openingBalanceData) {
-                    // Find currency by code
-                    $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
-                    if ($currency) {
+                    // Resolve currency ID from either currency_id, numeric currency, or currency code
+                    $currencyId = $openingBalanceData['currency_id'] ?? null;
+                    if (! $currencyId && isset($openingBalanceData['currency'])) {
+                        if (is_numeric($openingBalanceData['currency'])) {
+                            $currencyId = (int) $openingBalanceData['currency'];
+                        } else {
+                            $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
+                            $currencyId = $currency?->id;
+                        }
+                    }
+
+                    if ($currencyId) {
+                        $amount = $openingBalanceData['opening_amount'] ?? ($openingBalanceData['amount'] ?? null);
+                        $date = $openingBalanceData['opening_date'] ?? ($openingBalanceData['date'] ?? null);
+
                         try {
                             $customer->setOpeningBalance(
-                                $currency->id,
-                                $openingBalanceData['amount'],
-                                $openingBalanceData['date'] ?? null
+                                $currencyId,
+                                $amount,
+                                $date
                             );
                         } catch (\Exception $e) {
                             // Re-throw the exception to trigger transaction rollback
@@ -957,8 +982,8 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle attachments
-            if ($request->hasFile('attachments')) {
+            // Handle attachments (multipart) - support both 'attachments' and 'attachments[]'
+            if ($request->hasFile('attachments') || $request->hasFile('attachments.*')) {
                 $tenantId = tenant('id');
 
                 // Delete existing attachments
@@ -969,9 +994,20 @@ class CustomerController extends Controller
                 }
 
                 // Create new attachments
-                $files = is_array($request->file('attachments'))
-                    ? $request->file('attachments')
-                    : [$request->file('attachments')];
+                $files = [];
+                $direct = $request->file('attachments');
+                if ($direct) {
+                    $files = is_array($direct) ? $direct : [$direct];
+                }
+                // Also merge attachments[]
+                $dot = $request->file('attachments.*');
+                if (is_array($dot)) {
+                    foreach ($dot as $item) {
+                        if ($item) {
+                            $files[] = $item;
+                        }
+                    }
+                }
 
                 // Get attachment metadata from the decoded data if available
                 $attachmentMetadata = [];
