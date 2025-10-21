@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreConnectionRequest extends FormRequest
+class StoreMediaTypeRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -14,8 +14,7 @@ class StoreConnectionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
-            'type_id' => ['required', 'integer', 'exists:connection_types,id'],
+            'name' => ['required', 'string', 'max:255', 'unique:media_types,name'],
         ];
     }
 }
