@@ -43,7 +43,7 @@ class ModuleResourceSeeder extends Seeder
             // Relations
             PageCode::RELATIONS_ASSOCIATIONS->value => 'associations',
             PageCode::RELATIONS_REFERRERS->value => 'referrers',
-            PageCode::RELATIONS_CONNECTIONS->value => 'connections',
+            PageCode::RELATIONS_MEDIA_TYPES->value => 'media_types',
 
             // Sections
             PageCode::SECTIONS_PROJECTS->value => 'projects',
@@ -141,7 +141,7 @@ class ModuleResourceSeeder extends Seeder
                     'jobs',
                     'associations',
                     'referrers',
-                    'connections',
+                    'media_types',
                     'customer_groups',
                     'salesmen',
                     'specialists',

@@ -34,7 +34,7 @@ class BootstrapTenantRbac implements ShouldQueue
             ['resource_key' => 'services', 'resource_label' => 'Service Management'],
             ['resource_key' => 'specialists', 'resource_label' => 'Specialist Management'],
             ['resource_key' => 'associations', 'resource_label' => 'Association Management'],
-            ['resource_key' => 'connections', 'resource_label' => 'Connection Management'],
+            ['resource_key' => 'media_types', 'resource_label' => 'Media Type Management'],
             ['resource_key' => 'referrers', 'resource_label' => 'Referrer Management'],
 
             // Configuration/Reference Data
