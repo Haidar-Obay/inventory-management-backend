@@ -33,16 +33,12 @@ class ServiceController extends Controller
         $services = $query->orderBy('name')->paginate(10);
         // Hide raw FK id but keep category
         $services->getCollection()->transform(function ($service) {
-<<<<<<< HEAD
-            return $service->makeHidden(['service_category_id']);
-=======
             // Format needed items to show codes
             $service->needed_items = $service->neededItems->map(function ($neededItem) {
                 return $neededItem->item ? $neededItem->item->code : null;
             })->filter()->values()->toArray();
 
             return $service->makeHidden(['service_category_id', 'image', 'neededItems']);
->>>>>>> 277dc2571476dd608456657bd36a9bf2d30edcad
         });
 
         return response()->json($services);

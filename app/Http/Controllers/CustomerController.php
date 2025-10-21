@@ -894,7 +894,7 @@ class CustomerController extends Controller
                 foreach ($request->input('opening_balances') as $openingBalanceData) {
                     // Resolve currency ID from either currency_id, numeric currency, or currency code
                     $currencyId = $openingBalanceData['currency_id'] ?? null;
-                    if (!$currencyId && isset($openingBalanceData['currency'])) {
+                    if (! $currencyId && isset($openingBalanceData['currency'])) {
                         if (is_numeric($openingBalanceData['currency'])) {
                             $currencyId = (int) $openingBalanceData['currency'];
                         } else {
@@ -906,6 +906,7 @@ class CustomerController extends Controller
                     if ($currencyId) {
                         $amount = $openingBalanceData['opening_amount'] ?? ($openingBalanceData['amount'] ?? null);
                         $date = $openingBalanceData['opening_date'] ?? ($openingBalanceData['date'] ?? null);
+
                         try {
                             $customer->setOpeningBalance(
                                 $currencyId,
@@ -1001,7 +1002,11 @@ class CustomerController extends Controller
                 // Also merge attachments[]
                 $dot = $request->file('attachments.*');
                 if (is_array($dot)) {
-                    foreach ($dot as $item) { if ($item) $files[] = $item; }
+                    foreach ($dot as $item) {
+                        if ($item) {
+                            $files[] = $item;
+                        }
+                    }
                 }
 
                 // Get attachment metadata from the decoded data if available
