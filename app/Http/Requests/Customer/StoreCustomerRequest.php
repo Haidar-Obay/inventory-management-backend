@@ -349,11 +349,14 @@ class StoreCustomerRequest extends FormRequest
             'contacts.*.extension' => 'nullable|string|max:20',
             'contacts.*.is_primary' => 'boolean',
 
-            // Attachments with new structure
+            // Attachments: support both file uploads and/or metadata
+            // If files are uploaded via multipart, validate size/mimes per item
             'attachments' => 'nullable|array',
-            'attachments.*.file_name' => 'nullable|string|max:255',
-            'attachments.*.file_url' => 'nullable|url',
-            'attachments.*.file_type' => 'nullable|string|max:100',
+            'attachments.*' => 'sometimes|file|mimes:jpg,jpeg,png,pdf,docx,xlsx,txt|max:10240',
+            // If only metadata is provided (no files), these are optional per item
+            'attachments.*.file_name' => 'sometimes|nullable|string|max:255',
+            'attachments.*.file_url' => 'sometimes|nullable|url',
+            'attachments.*.file_type' => 'sometimes|nullable|string|max:100',
         ];
     }
 

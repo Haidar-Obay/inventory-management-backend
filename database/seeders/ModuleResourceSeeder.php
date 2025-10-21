@@ -96,8 +96,8 @@ class ModuleResourceSeeder extends Seeder
             $moduleSpecificResources = [
                 // Do NOT hard-add 'suppliers' here; it will be added only if a supplier page code exists
 
-                'stock_management'   => ['product_lines', 'categories', 'brands', 'items'],
-                'beauty_center'      => [
+                'stock_management' => ['product_lines', 'categories', 'brands', 'items', 'supplier_groups'],
+                'beauty_center' => [
                     'service_categories',
                     'services',
                     'customers',
@@ -109,8 +109,8 @@ class ModuleResourceSeeder extends Seeder
                     'customer_groups',
                     'salesmen',
                 ],
-                'customer_management'=> ['customers'],
-                'general_module'     => [
+                'customer_management' => ['customers'],
+                'general_module' => [
                     // All available resources for comprehensive testing
                     'service_categories',
                     'services',

@@ -84,41 +84,41 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Overview', 'code' => PageCode::DASHBOARD_OVERVIEW_PAGE->value, 'path' => '/main/dashboard/overview', 'order' => 2, 'is_public' => false],
                     ['name' => 'Analytics', 'code' => PageCode::DASHBOARD_ANALYTICS_PAGE->value, 'path' => '/main/dashboard/analytics', 'order' => 3, 'is_public' => false],
                     ['name' => 'Reports', 'code' => PageCode::DASHBOARD_REPORTS_PAGE->value, 'path' => '/main/dashboard/reports', 'order' => 4, 'is_public' => false],
-                    
+
                     // Main Files - Services
                     ['name' => 'Service Categories', 'code' => PageCode::SERVICES_PAGE->value, 'path' => '/main/mainfiles/services?tab=0', 'order' => 10, 'is_public' => false],
                     ['name' => 'Services', 'code' => PageCode::SERVICES_PAGE->value, 'path' => '/main/mainfiles/services?tab=1', 'order' => 11, 'is_public' => false],
-                    
+
                     // Main Files - Items
                     ['name' => 'Product Lines', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=0', 'order' => 20, 'is_public' => false],
                     ['name' => 'Categories', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 21, 'is_public' => false],
                     ['name' => 'Brands', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 22, 'is_public' => false],
                     ['name' => 'Items', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 23, 'is_public' => false],
-                    
+
                     // Main Files - Customers
                     ['name' => 'Customers', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer', 'order' => 30, 'is_public' => false],
                     ['name' => 'Customer Master Lists', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer?tab=3', 'order' => 31, 'is_public' => false],
-                    
+
                     // Suppliers
                     ['name' => 'Supplier Groups', 'code' => PageCode::SUPPLIERS_GROUPS->value, 'path' => '/main/supplier?tab=0', 'order' => 40, 'is_public' => false],
                     ['name' => 'Suppliers', 'code' => PageCode::SUPPLIERS_SUPPLIERS->value, 'path' => '/main/supplier?tab=1', 'order' => 41, 'is_public' => false],
-                    
+
                     // Address Codes
                     ['name' => 'Countries', 'code' => PageCode::ADDRESS_CODES_COUNTRIES->value, 'path' => '/main/addresscodes/countries', 'order' => 50, 'is_public' => false],
                     ['name' => 'Cities', 'code' => PageCode::ADDRESS_CODES_CITIES->value, 'path' => '/main/addresscodes/cities', 'order' => 51, 'is_public' => false],
                     ['name' => 'Districts', 'code' => PageCode::ADDRESS_CODES_DISTRICTS->value, 'path' => '/main/addresscodes/districts', 'order' => 52, 'is_public' => false],
                     ['name' => 'Zones', 'code' => PageCode::ADDRESS_CODES_ZONES->value, 'path' => '/main/addresscodes/zones', 'order' => 53, 'is_public' => false],
-                    
+
                     // Payment
                     ['name' => 'Payment Terms', 'code' => PageCode::PAYMENT_TERMS->value, 'path' => '/main/payment/terms', 'order' => 60, 'is_public' => false],
                     ['name' => 'Payment Methods', 'code' => PageCode::PAYMENT_METHODS->value, 'path' => '/main/payment/methods', 'order' => 61, 'is_public' => false],
-                    
+
                     // General Files
                     ['name' => 'Business Types', 'code' => PageCode::GENERAL_FILES_BUSINESS_TYPES->value, 'path' => '/main/generalfiles/business-types', 'order' => 70, 'is_public' => false],
                     ['name' => 'Sales Channels', 'code' => PageCode::GENERAL_FILES_SALES_CHANNELS->value, 'path' => '/main/generalfiles/sales-channels', 'order' => 71, 'is_public' => false],
                     ['name' => 'Distribution Channels', 'code' => PageCode::GENERAL_FILES_DISTRIBUTION_CHANNELS->value, 'path' => '/main/generalfiles/distribution-channels', 'order' => 72, 'is_public' => false],
                     ['name' => 'Media Channels', 'code' => PageCode::GENERAL_FILES_MEDIA_CHANNELS->value, 'path' => '/main/generalfiles/media-channels', 'order' => 73, 'is_public' => false],
-                    
+
                     // Sections
                     ['name' => 'Projects', 'code' => PageCode::SECTIONS_PROJECTS->value, 'path' => '/main/sections/projects', 'order' => 80, 'is_public' => false],
                     ['name' => 'Cost Centers', 'code' => PageCode::SECTIONS_COST_CENTERS->value, 'path' => '/main/sections/cost-centers', 'order' => 81, 'is_public' => false],
@@ -126,7 +126,7 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Trades', 'code' => PageCode::SECTIONS_TRADES->value, 'path' => '/main/sections/trades', 'order' => 83, 'is_public' => false],
                     ['name' => 'Company Codes', 'code' => PageCode::SECTIONS_COMPANY_CODES->value, 'path' => '/main/sections/company-codes', 'order' => 84, 'is_public' => false],
                     ['name' => 'Jobs', 'code' => PageCode::SECTIONS_JOBS->value, 'path' => '/main/sections/jobs', 'order' => 85, 'is_public' => false],
-                    
+
                     // Relations
                     ['name' => 'Associations', 'code' => PageCode::RELATIONS_ASSOCIATIONS->value, 'path' => '/main/relations/associations', 'order' => 90, 'is_public' => false],
                     ['name' => 'Referrers', 'code' => PageCode::RELATIONS_REFERRERS->value, 'path' => '/main/relations/referrers', 'order' => 91, 'is_public' => false],
@@ -135,7 +135,7 @@ class ModuleSeeder extends Seeder
                     // Support
                     ['name' => 'Help', 'code' => PageCode::SUPPORT_HELP_PAGE->value, 'path' => '/main/support/help', 'order' => 100, 'is_public' => false],
                     ['name' => 'Contact', 'code' => PageCode::SUPPORT_CONTACT_PAGE->value, 'path' => '/main/support/contact', 'order' => 101, 'is_public' => false],
-                    
+
                     // Settings
                     ['name' => 'User Management', 'code' => PageCode::USER_MANAGEMENT_PAGE->value, 'path' => '/main/settings/userManagement?tab=0', 'order' => 110, 'is_public' => false],
                     ['name' => 'Permission', 'code' => PageCode::PERMISSIONS_PAGE->value, 'path' => '/main/settings/userManagement?tab=1', 'order' => 111, 'is_public' => false],
