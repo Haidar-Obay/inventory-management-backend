@@ -24,6 +24,19 @@ class AssociationController extends Controller
         return response()->json($query->orderBy('name')->paginate());
     }
 
+    public function getNames(): JsonResponse
+    {
+        $associations = Association::where('active', true)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'data' => $associations,
+        ]);
+    }
+
     public function store(StoreAssociationRequest $request): JsonResponse
     {
         $association = Association::create($request->validated());

@@ -24,6 +24,19 @@ class ReferrerController extends Controller
         return response()->json($query->orderBy('name')->paginate());
     }
 
+    public function getNames(): JsonResponse
+    {
+        $referrers = Referrer::where('active', true)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'data' => $referrers,
+        ]);
+    }
+
     public function store(StoreReferrerRequest $request): JsonResponse
     {
         $row = Referrer::create($request->validated());

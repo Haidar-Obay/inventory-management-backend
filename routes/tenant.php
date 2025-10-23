@@ -9,6 +9,8 @@ use App\Http\Controllers\AssociationContactController;
 use App\Http\Controllers\AssociationController;
 use App\Http\Controllers\AssociationServicePriceController;
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\Auth\ForgotPasswordController as AuthForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController as AuthResetPasswordController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BrandController;
@@ -32,7 +34,6 @@ use App\Http\Controllers\CustomerTaxController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DistributionChannelController;
 use App\Http\Controllers\DistrictController;
-use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\MediaChannelController;
@@ -46,7 +47,6 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ReferByController;
 use App\Http\Controllers\ReferrerController;
 use App\Http\Controllers\ReferrerServiceCommissionController;
-use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\RoomController;
@@ -185,12 +185,14 @@ Route::middleware([
         Route::apiResource('service-needed-items', ServiceNeededItemController::class);
         Route::apiResource('service-advanced-pricings', ServiceAdvancedPricingController::class);
         Route::apiResource('associations', AssociationController::class)->middleware('check.permission:associations,view');
+        Route::get('associations-names', [AssociationController::class, 'getNames']);
         Route::apiResource('association-contacts', AssociationContactController::class);
         Route::apiResource('association-service-prices', AssociationServicePriceController::class);
         Route::apiResource('media-types', MediaTypeController::class);
         Route::apiResource('service-categories', ServiceCategoryController::class)->middleware('check.permission:service_categories,view');
         Route::post('service-categories/bulk-delete', [ServiceCategoryController::class, 'bulkDelete']);
         Route::apiResource('referrers', ReferrerController::class)->middleware('check.permission:referrers,view');
+        Route::get('referrers-names', [ReferrerController::class, 'getNames']);
         Route::apiResource('referrer-service-commissions', ReferrerServiceCommissionController::class);
 
         // Customer Master List additional routes
@@ -668,8 +670,8 @@ Route::middleware([
     })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
 
     // Password Reset Routes
-    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
-    Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
+    Route::post('/forgot-password', [AuthForgotPasswordController::class, 'sendResetLink']);
+    Route::post('/reset-password', [AuthResetPasswordController::class, 'reset']);
 });
 
 Route::middleware([

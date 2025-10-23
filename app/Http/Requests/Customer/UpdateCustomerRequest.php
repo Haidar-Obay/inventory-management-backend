@@ -62,6 +62,25 @@ class UpdateCustomerRequest extends FormRequest
                 'max:20',
                 Rule::unique('customers', 'phone3')->ignore($customerId),
             ],
+            'email' => [
+                'sometimes',
+                'nullable',
+                'email',
+                'max:255',
+                Rule::unique('customers', 'email')->ignore($customerId),
+            ],
+            'card_number' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:255',
+                Rule::unique('customers', 'card_number')->ignore($customerId),
+            ],
+            'date_of_birth' => 'sometimes|nullable|date|before:today',
+            'place_of_birth' => 'sometimes|nullable|string|max:255',
+            'gender' => 'sometimes|nullable|in:Male,Female,Other',
+            'blood_type' => 'sometimes|nullable|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
+            'marital_status' => 'sometimes|nullable|in:Single,Married,Divorced,Widowed,Other',
             'file_number' => [
                 'sometimes',
                 'nullable',
@@ -80,8 +99,14 @@ class UpdateCustomerRequest extends FormRequest
             'sales_channel_id' => 'sometimes|nullable|exists:sales_channels,id',
             'distribution_channel_id' => 'sometimes|nullable|exists:distribution_channels,id',
             'media_channel_id' => 'sometimes|nullable|exists:media_channels,id',
+            'media_type_id' => 'sometimes|nullable|exists:media_types,id',
+            'referral_id' => 'sometimes|nullable|exists:referrers,id',
             'indicator' => 'sometimes|nullable|in:A,B,C,D',
             'risk_category' => 'sometimes|nullable|in:Low,Medium,High',
+
+            // Many-to-many relationships
+            'associations' => 'sometimes|nullable|array',
+            'associations.*' => 'exists:associations,id',
 
             // Salesmen relationships with active validation
             'salesman_id' => 'sometimes|nullable|exists:salesmen,id',
@@ -323,6 +348,8 @@ class UpdateCustomerRequest extends FormRequest
             // Status flags
             'active' => 'sometimes|nullable|boolean',
             'black_listed' => 'sometimes|nullable|boolean',
+            'blacklisted_reason' => 'sometimes|nullable|string|max:1000|required_if:black_listed,true',
+            'status' => 'sometimes|nullable|in:Normal,VIP',
             'one_time_account' => 'sometimes|nullable|boolean',
             'special_account' => 'sometimes|nullable|boolean',
             'pos_customer' => 'sometimes|nullable|boolean',
@@ -405,24 +432,19 @@ class UpdateCustomerRequest extends FormRequest
             'attachments' => 'sometimes|nullable|array',
             'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,docx,xlsx,txt|max:10240',
 
-            // Credit limits validation
+            // Credit limits validation (matching controller logic)
             'credit_limits' => 'sometimes|array',
-            'credit_limits.*.currency_id' => 'required|exists:currencies,id',
-            'credit_limits.*.credit_limit' => 'required|numeric|min:0',
-            'credit_limits.*.notes' => 'nullable|string',
+            'credit_limits.*' => 'numeric|min:0',
 
-            // Cheque limits validation
-            'cheque_limits' => 'sometimes|array',
-            'cheque_limits.*.currency_id' => 'required|exists:currencies,id',
-            'cheque_limits.*.max_cheques' => 'required|integer|min:0',
-            'cheque_limits.*.notes' => 'nullable|string',
+            // Cheque limits validation (matching controller logic)
+            'max_cheques' => 'sometimes|array',
+            'max_cheques.*' => 'integer|min:0',
 
-            // Opening balances validation
+            // Opening balances validation (matching controller logic)
             'opening_balances' => 'sometimes|array',
-            'opening_balances.*.currency_id' => 'required|exists:currencies,id',
-            'opening_balances.*.opening_amount' => 'required|numeric',
-            'opening_balances.*.opening_date' => 'nullable|date',
-            'opening_balances.*.notes' => 'nullable|string',
+            'opening_balances.*.currency' => 'required|string|max:10',
+            'opening_balances.*.amount' => 'required|numeric',
+            'opening_balances.*.date' => 'nullable|date',
 
             // Contacts validation
             'contacts' => 'sometimes|nullable|array',
@@ -444,25 +466,19 @@ class UpdateCustomerRequest extends FormRequest
             'addresses.*.address_line1.required' => 'Address line 1 is required for each address.',
 
             // Credit limits messages
-            'credit_limits.*.currency_id.required' => 'Currency is required for each credit limit.',
-            'credit_limits.*.currency_id.exists' => 'Selected currency does not exist.',
-            'credit_limits.*.credit_limit.required' => 'Credit limit amount is required.',
-            'credit_limits.*.credit_limit.numeric' => 'Credit limit must be a number.',
-            'credit_limits.*.credit_limit.min' => 'Credit limit must be at least 0.',
+            'credit_limits.*.numeric' => 'Credit limit must be a number.',
+            'credit_limits.*.min' => 'Credit limit must be at least 0.',
 
             // Cheque limits messages
-            'cheque_limits.*.currency_id.required' => 'Currency is required for each cheque limit.',
-            'cheque_limits.*.currency_id.exists' => 'Selected currency does not exist.',
-            'cheque_limits.*.max_cheques.required' => 'Maximum cheques is required.',
-            'cheque_limits.*.max_cheques.integer' => 'Maximum cheques must be a whole number.',
-            'cheque_limits.*.max_cheques.min' => 'Maximum cheques must be at least 0.',
+            'max_cheques.*.integer' => 'Maximum cheques must be a whole number.',
+            'max_cheques.*.min' => 'Maximum cheques must be at least 0.',
 
             // Opening balances messages
-            'opening_balances.*.currency_id.required' => 'Currency is required for each opening balance.',
-            'opening_balances.*.currency_id.exists' => 'Selected currency does not exist.',
-            'opening_balances.*.opening_amount.required' => 'Opening amount is required.',
-            'opening_balances.*.opening_amount.numeric' => 'Opening amount must be a number.',
-            'opening_balances.*.opening_date.date' => 'Opening date must be a valid date.',
+            'opening_balances.*.currency.required' => 'Currency is required for each opening balance.',
+            'opening_balances.*.currency.max' => 'Currency code cannot exceed 10 characters.',
+            'opening_balances.*.amount.required' => 'Opening amount is required.',
+            'opening_balances.*.amount.numeric' => 'Opening amount must be a number.',
+            'opening_balances.*.date.date' => 'Opening date must be a valid date.',
 
             // Contacts messages
             'contacts.*.name.required' => 'Contact name is required.',

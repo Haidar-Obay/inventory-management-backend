@@ -15,8 +15,10 @@ use App\Models\CustomerGroup;
 use App\Models\DistributionChannel;
 use App\Models\District;
 use App\Models\MediaChannel;
+use App\Models\MediaType;
 use App\Models\PaymentMethod;
 use App\Models\PaymentTerm;
+use App\Models\Referrer;
 use App\Models\SalesChannel;
 use App\Models\Salesman;
 use App\Models\Trade;
@@ -135,6 +137,14 @@ class CustomerSeeder extends Seeder
             ['name' => 'Default Media Channel']
         );
 
+        $mediaType = MediaType::firstOrCreate(
+            ['name' => 'Default Media Type']
+        );
+
+        $referrer = Referrer::firstOrCreate(
+            ['name' => 'Default Referrer']
+        );
+
         // Create 10 sample customers
         for ($i = 0; $i < 10; $i++) {
             // Create the customer with all new fields
@@ -149,6 +159,13 @@ class CustomerSeeder extends Seeder
                 'phone1' => $faker->phoneNumber(),
                 'phone2' => $faker->optional()->phoneNumber(),
                 'phone3' => $faker->optional()->phoneNumber(),
+                'email' => $faker->optional()->email(),
+                'card_number' => $faker->optional()->numerify('CARD####'),
+                'date_of_birth' => $faker->optional()->date('Y-m-d', '2000-01-01'),
+                'place_of_birth' => $faker->optional()->city(),
+                'gender' => $faker->optional()->randomElement(['Male', 'Female', 'Other']),
+                'blood_type' => $faker->optional()->randomElement(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']),
+                'marital_status' => $faker->optional()->randomElement(['Single', 'Married', 'Divorced', 'Widowed', 'Other']),
                 'file_number' => $faker->unique()->numerify('FN####'),
                 'bar_code' => $faker->unique()->ean13(),
                 'search_terms' => json_encode($faker->words(3)),
@@ -161,6 +178,8 @@ class CustomerSeeder extends Seeder
                 'sales_channel_id' => $salesChannel->id,
                 'distribution_channel_id' => $distributionChannel->id,
                 'media_channel_id' => $mediaChannel->id,
+                'media_type_id' => $mediaType->id,
+                'referral_id' => $referrer->id,
                 'indicator' => Arr::random(['A', 'B', 'C', 'D']),
                 'risk_category' => Arr::random(['Low', 'Medium', 'High']),
 
@@ -202,6 +221,8 @@ class CustomerSeeder extends Seeder
                 // Status
                 'active' => true,
                 'black_listed' => $faker->boolean(5),
+                'blacklisted_reason' => $faker->optional()->sentence(),
+                'status' => Arr::random(['Normal', 'VIP']),
                 'one_time_account' => $faker->boolean(10),
                 'special_account' => $faker->boolean(10),
                 'pos_customer' => $faker->boolean(10),
