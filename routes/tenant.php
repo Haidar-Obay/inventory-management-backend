@@ -188,6 +188,10 @@ Route::middleware([
         Route::get('associations-names', [AssociationController::class, 'getNames']);
         Route::apiResource('association-contacts', AssociationContactController::class);
         Route::apiResource('association-service-prices', AssociationServicePriceController::class);
+        // Custom routes for media-types (must be before resource route)
+        Route::get('media-types/parents', [MediaTypeController::class, 'getParentMediaTypes']);
+        Route::get('media-types/hierarchy', [MediaTypeController::class, 'getHierarchy']);
+        Route::get('media-types/{media_type}/sub-types', [MediaTypeController::class, 'getSubMediaTypes']);
         Route::apiResource('media-types', MediaTypeController::class);
         Route::apiResource('service-categories', ServiceCategoryController::class)->middleware('check.permission:service_categories,view');
         Route::post('service-categories/bulk-delete', [ServiceCategoryController::class, 'bulkDelete']);

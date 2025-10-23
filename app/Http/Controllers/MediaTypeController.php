@@ -16,7 +16,9 @@ class MediaTypeController extends Controller
 {
     public function index(): JsonResponse
     {
-        $rows = MediaType::orderBy('name')->paginate();
+        $rows = MediaType::with(['parent', 'children'])
+            ->orderBy('name')
+            ->paginate();
 
         return response()->json($rows);
     }
@@ -30,6 +32,8 @@ class MediaTypeController extends Controller
 
     public function show(MediaType $media_type): JsonResponse
     {
+        $media_type->load(['parent', 'children']);
+
         return response()->json($media_type);
     }
 
@@ -116,5 +120,31 @@ class MediaTypeController extends Controller
             'rows_skipped_count' => $import->getSkippedCount(),
             'skipped_rows' => $import->getSkippedRows(),
         ]);
+    }
+
+    public function getParentMediaTypes(): JsonResponse
+    {
+        $parentMediaTypes = MediaType::whereNull('sub_media_type_of')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($parentMediaTypes);
+    }
+
+    public function getSubMediaTypes(MediaType $media_type): JsonResponse
+    {
+        $subMediaTypes = $media_type->children()->orderBy('name')->get();
+
+        return response()->json($subMediaTypes);
+    }
+
+    public function getHierarchy(): JsonResponse
+    {
+        $hierarchy = MediaType::whereNull('sub_media_type_of')
+            ->with('getAllChildren')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json($hierarchy);
     }
 }
