@@ -33,7 +33,7 @@ class CustomerController extends Controller
             'customer_group_id',
             'salesman_id',
             'payment_term_id',
-            'payment_method_id'
+            'payment_method_id',
         ])->with([
             'customerGroup:id,name',
             'salesman:id,name',
@@ -54,7 +54,7 @@ class CustomerController extends Controller
                 'phone1' => $customer->phone1,
                 'email' => $customer->email,
                 'active' => $customer->active,
-                
+
                 // Business Context (Important)
                 'customer_group' => $customer->customerGroup ? [
                     'id' => $customer->customerGroup->id,
@@ -72,7 +72,7 @@ class CustomerController extends Controller
                     'id' => $customer->paymentMethod->id,
                     'name' => $customer->paymentMethod->name,
                 ] : null,
-                
+
                 // Status Indicators (Useful)
                 'black_listed' => $customer->black_listed,
                 'created_at' => $customer->created_at,
@@ -542,7 +542,7 @@ class CustomerController extends Controller
                 'id' => $customer->mediaChannel->id,
                 'name' => $customer->mediaChannel->name,
             ] : null,
-            
+
             // New relationships for ClientDrawer
             'media_type' => $customer->mediaType ? [
                 'id' => $customer->mediaType->id,
@@ -889,7 +889,7 @@ class CustomerController extends Controller
                         }
                     }
                 }
-                
+
                 // Reload the model and its relationships to ensure opening balances are available for credit limit checks
                 $customer->load('openingBalances');
             }
@@ -972,13 +972,13 @@ class CustomerController extends Controller
                 }
             }
 
-// Handle associations (many-to-many)
-if ($request->has('associations')) {
-    $customer->associations()->sync($request->input('associations'));
-}
+            // Handle associations (many-to-many)
+            if ($request->has('associations')) {
+                $customer->associations()->sync($request->input('associations'));
+            }
 
-// Handle attachments (multipart) - support both 'attachments' and 'attachments[]'
-if ($request->hasFile('attachments') || $request->hasFile('attachments.*')) {
+            // Handle attachments (multipart) - support both 'attachments' and 'attachments[]'
+            if ($request->hasFile('attachments') || $request->hasFile('attachments.*')) {
                 $tenantId = tenant('id');
 
                 // Delete existing attachments

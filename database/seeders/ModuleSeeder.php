@@ -50,17 +50,17 @@ class ModuleSeeder extends Seeder
                     // Dashboard Pages
                     ['name' => 'Dashboard', 'code' => PageCode::DASHBOARD_PAGE->value, 'path' => '/main/dashboard', 'order' => 0, 'is_public' => false],
                     ['name' => 'Overview', 'code' => PageCode::DASHBOARD_OVERVIEW_PAGE->value, 'path' => '/main/dashboard/overview', 'order' => 1, 'is_public' => false],
-                    
+
                     // Inventory Management
                     ['name' => 'Product Lines', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=0', 'order' => 10, 'is_public' => false],
                     ['name' => 'Categories', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 11, 'is_public' => false],
                     ['name' => 'Brands', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 12, 'is_public' => false],
                     ['name' => 'Items', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 13, 'is_public' => false],
-                    
+
                     // Suppliers and Customers
                     ['name' => 'Suppliers', 'code' => PageCode::SUPPLIERS_SUPPLIERS->value, 'path' => '/main/supplier?tab=1', 'order' => 20, 'is_public' => false],
                     ['name' => 'Customers', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer', 'order' => 21, 'is_public' => false],
-                    
+
                     // Settings pages
                     ['name' => 'User Management', 'code' => PageCode::USER_MANAGEMENT_PAGE->value, 'path' => '/main/settings/userManagement?tab=0', 'order' => 90, 'is_public' => false],
                     ['name' => 'Permission', 'code' => PageCode::PERMISSIONS_PAGE->value, 'path' => '/main/settings/userManagement?tab=1', 'order' => 91, 'is_public' => false],

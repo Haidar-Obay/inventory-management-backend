@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('customer_id')->constrained('customers')->onDelete('cascade');
             $table->foreignId('association_id')->constrained('associations')->onDelete('cascade');
             $table->timestamps();
-            
+
             // Ensure unique relationship
             $table->unique(['customer_id', 'association_id']);
         });

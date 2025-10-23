@@ -9,6 +9,8 @@ use App\Http\Controllers\AssociationContactController;
 use App\Http\Controllers\AssociationController;
 use App\Http\Controllers\AssociationServicePriceController;
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\Auth\ForgotPasswordController as AuthForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController as AuthResetPasswordController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BrandController;
@@ -32,7 +34,6 @@ use App\Http\Controllers\CustomerTaxController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DistributionChannelController;
 use App\Http\Controllers\DistrictController;
-use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\MediaChannelController;
@@ -71,14 +72,13 @@ use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ZoneController;
 use App\Models\User;
-use App\Http\Controllers\Auth\ForgotPasswordController as AuthForgotPasswordController;
-use App\Http\Controllers\Auth\ResetPasswordController as AuthResetPasswordController;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
+
 /*
 |--------------------------------------------------------------------------
 | Tenant Routes

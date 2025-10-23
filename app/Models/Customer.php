@@ -44,6 +44,7 @@ class Customer extends Model implements Auditable
 
     // Status constants
     const STATUS_NORMAL = 'Normal';
+
     const STATUS_VIP = 'VIP';
 
     // Get all available statuses
