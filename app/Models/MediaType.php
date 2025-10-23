@@ -34,7 +34,7 @@ class MediaType extends Model implements Auditable
 
     public function isSubMediaType()
     {
-        return !is_null($this->sub_media_type_of);
+        return ! is_null($this->sub_media_type_of);
     }
 
     public function hasSubMediaTypes()

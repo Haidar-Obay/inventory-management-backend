@@ -67,7 +67,7 @@ class ServiceCategoryController extends Controller
         if ($serviceCategory->services()->exists()) {
             return response()->json([
                 'message' => 'Cannot delete service category. It is linked to one or more services.',
-                'error' => 'service_category_has_services'
+                'error' => 'service_category_has_services',
             ], 422);
         }
 
@@ -251,13 +251,14 @@ class ServiceCategoryController extends Controller
 
         foreach ($request->ids as $id) {
             $serviceCategory = ServiceCategory::find($id);
-            
+
             // Check if there are any services linked to this category
             if ($serviceCategory->services()->exists()) {
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => 'Cannot delete service category. It is linked to one or more services.'
+                    'id' => $id,
+                    'reason' => 'Cannot delete service category. It is linked to one or more services.',
                 ];
+
                 continue;
             }
 

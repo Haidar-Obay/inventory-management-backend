@@ -33,6 +33,7 @@ class MediaTypeController extends Controller
     public function show(MediaType $media_type): JsonResponse
     {
         $media_type->load(['parent', 'children']);
+
         return response()->json($media_type);
     }
 
@@ -133,6 +134,7 @@ class MediaTypeController extends Controller
     public function getSubMediaTypes(MediaType $media_type): JsonResponse
     {
         $subMediaTypes = $media_type->children()->orderBy('name')->get();
+
         return response()->json($subMediaTypes);
     }
 
