@@ -20,65 +20,42 @@ class CustomerController extends Controller
 {
     public function index()
     {
-        $customers = Customer::with([
+        // Optimized query - only fetch essential data for grid
+        $customers = Customer::select([
+            'id',
+            'first_name',
+            'last_name',
+            'phone1',
+            'email',
+            'active',
+            'black_listed',
+            'created_at',
+            'customer_group_id',
+            'salesman_id',
+            'payment_term_id',
+            'payment_method_id'
+        ])->with([
             'customerGroup:id,name',
             'salesman:id,name',
-            'collector:id,name',
-            'supervisor:id,name',
-            'manager:id,name',
-            'paymentTerm:id,code', // changed from name to code
-            'paymentMethod:id,code', // changed from name to code
-            'trade:id,name',
-            'companyCode:id,code',
-            'businessType:id,name',
-            'salesChannel:id,name',
-            'distributionChannel:id,name',
-            'mediaChannel:id,name',
-            'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-            'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-            'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-            'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-            'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id',
-            'primaryContact:id,name',
-            'contacts:id,name',
-            'attachments:id,file_name,file_path',
+            'paymentTerm:id,name',
+            'paymentMethod:id,name',
         ]);
 
         // Get the customers data
         $customersData = $customers->get();
 
-        // Transform the response to be lighter
+        // Transform the response to only include essential fields for grid
         $transformedData = $customersData->map(function ($customer) {
             return [
+                // Core Identity (Essential)
                 'id' => $customer->id,
-                'title' => $customer->title,
                 'first_name' => $customer->first_name,
-                'middle_name' => $customer->middle_name,
                 'last_name' => $customer->last_name,
-                'display_name' => $customer->display_name,
-                'company_name' => $customer->company_name,
                 'phone1' => $customer->phone1,
-                'phone2' => $customer->phone2,
-                'phone3' => $customer->phone3,
-                'file_number' => $customer->file_number,
-                'bar_code' => $customer->bar_code,
-                'search_terms' => $customer->search_terms,
-                'indicator' => $customer->indicator,
-                'risk_category' => $customer->risk_category,
+                'email' => $customer->email,
                 'active' => $customer->active,
-                'black_listed' => $customer->black_listed,
-                'one_time_account' => $customer->one_time_account,
-                'special_account' => $customer->special_account,
-                'pos_customer' => $customer->pos_customer,
-                'free_delivery_charge' => $customer->free_delivery_charge,
-                'print_invoice_language' => $customer->print_invoice_language,
-                'send_invoice' => $customer->send_invoice,
-                'showMessageField' => $customer->showMessageField,
-                'message' => $customer->message,
-                'notes' => $customer->notes,
-                'created_at' => $customer->created_at,
-                'updated_at' => $customer->updated_at,
-                // Related data with only essential info
+                
+                // Business Context (Important)
                 'customer_group' => $customer->customerGroup ? [
                     'id' => $customer->customerGroup->id,
                     'name' => $customer->customerGroup->name,
@@ -87,58 +64,18 @@ class CustomerController extends Controller
                     'id' => $customer->salesman->id,
                     'name' => $customer->salesman->name,
                 ] : null,
-                'collector' => $customer->collector ? [
-                    'id' => $customer->collector->id,
-                    'name' => $customer->collector->name,
-                ] : null,
-                'supervisor' => $customer->supervisor ? [
-                    'id' => $customer->supervisor->id,
-                    'name' => $customer->supervisor->name,
-                ] : null,
-                'manager' => $customer->manager ? [
-                    'id' => $customer->manager->id,
-                    'name' => $customer->manager->name,
-                ] : null,
                 'payment_term' => $customer->paymentTerm ? [
                     'id' => $customer->paymentTerm->id,
-                    'code' => $customer->paymentTerm->code, // changed from name to code
+                    'name' => $customer->paymentTerm->name,
                 ] : null,
                 'payment_method' => $customer->paymentMethod ? [
                     'id' => $customer->paymentMethod->id,
-                    'code' => $customer->paymentMethod->code, // changed from name to code
+                    'name' => $customer->paymentMethod->name,
                 ] : null,
-                'trade' => $customer->trade ? [
-                    'id' => $customer->trade->id,
-                    'name' => $customer->trade->name,
-                ] : null,
-                'company_code' => $customer->companyCode ? [
-                    'id' => $customer->companyCode->id,
-                    'code' => $customer->companyCode->code,
-                ] : null,
-                'business_type' => $customer->businessType ? [
-                    'id' => $customer->businessType->id,
-                    'name' => $customer->businessType->name,
-                ] : null,
-                'sales_channel' => $customer->salesChannel ? [
-                    'id' => $customer->salesChannel->id,
-                    'name' => $customer->salesChannel->name,
-                ] : null,
-                'distribution_channel' => $customer->distributionChannel ? [
-                    'id' => $customer->distributionChannel->id,
-                    'name' => $customer->distributionChannel->name,
-                ] : null,
-                'media_channel' => $customer->mediaChannel ? [
-                    'id' => $customer->mediaChannel->id,
-                    'name' => $customer->mediaChannel->name,
-                ] : null,
-                // Addresses with only essential info - use first() to get single model from collection
-                'primary_billing_address_id' => $customer->primaryBillingAddress->first() ? $customer->primaryBillingAddress->first()->id : null,
-                'primary_shipping_address_id' => $customer->primaryShippingAddress->first() ? $customer->primaryShippingAddress->first()->id : null,
-                'primary_contact_id' => $customer->primaryContact ? $customer->primaryContact->id : null,
-                // Count of related items
-                'addresses_count' => $customer->addresses->count(),
-                'contacts_count' => $customer->contacts->count(),
-                'attachments_count' => $customer->attachments->count(),
+                
+                // Status Indicators (Useful)
+                'black_listed' => $customer->black_listed,
+                'created_at' => $customer->created_at,
             ];
         });
 
@@ -363,6 +300,11 @@ class CustomerController extends Controller
                 }
             }
 
+            // Handle associations (many-to-many)
+            if ($request->has('associations')) {
+                $customer->associations()->sync($request->input('associations'));
+            }
+
             // Handle attachments - check for actual file uploads first
             if ($request->hasFile('attachments')) {
                 $tenantId = tenant('id');
@@ -460,6 +402,9 @@ class CustomerController extends Controller
             'salesChannel:id,name',
             'distributionChannel:id,name',
             'mediaChannel:id,name',
+            'mediaType:id,name',
+            'referral:id,name',
+            'associations:id,name',
             'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
             'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
             'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
@@ -490,6 +435,13 @@ class CustomerController extends Controller
             'phone1' => $customer->phone1,
             'phone2' => $customer->phone2,
             'phone3' => $customer->phone3,
+            'email' => $customer->email,
+            'date_of_birth' => $customer->date_of_birth,
+            'place_of_birth' => $customer->place_of_birth,
+            'gender' => $customer->gender,
+            'blood_type' => $customer->blood_type,
+            'marital_status' => $customer->marital_status,
+            'card_number' => $customer->card_number,
             'file_number' => $customer->file_number,
             'bar_code' => $customer->bar_code,
             'search_terms' => $customer->search_terms,
@@ -497,6 +449,7 @@ class CustomerController extends Controller
             'risk_category' => $customer->risk_category,
             'active' => $customer->active,
             'black_listed' => $customer->black_listed,
+            'blacklisted_reason' => $customer->blacklisted_reason,
             'one_time_account' => $customer->one_time_account,
             'special_account' => $customer->special_account,
             'pos_customer' => $customer->pos_customer,
@@ -589,6 +542,23 @@ class CustomerController extends Controller
                 'id' => $customer->mediaChannel->id,
                 'name' => $customer->mediaChannel->name,
             ] : null,
+            
+            // New relationships for ClientDrawer
+            'media_type' => $customer->mediaType ? [
+                'id' => $customer->mediaType->id,
+                'name' => $customer->mediaType->name,
+            ] : null,
+            'referral' => $customer->referral ? [
+                'id' => $customer->referral->id,
+                'name' => $customer->referral->name,
+            ] : null,
+            'associations' => $customer->associations->map(function ($association) {
+                return [
+                    'id' => $association->id,
+                    'name' => $association->name,
+                ];
+            }),
+            'status' => $customer->status,
 
             // Addresses with full details
             'addresses' => $customer->addresses->map(function ($address) {
@@ -894,6 +864,9 @@ class CustomerController extends Controller
                         }
                     }
                 }
+                
+                // Reload the model and its relationships to ensure opening balances are available for credit limit checks
+                $customer->load('openingBalances');
             }
 
             // Handle credit limits (after opening balances)
@@ -901,15 +874,32 @@ class CustomerController extends Controller
                 // Delete existing credit limits completely instead of just marking as inactive
                 $customer->creditLimits()->delete();
 
+                // Get the currencies that have opening balances (from the request data)
+                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
+                    ->pluck('currency')
+                    ->filter()
+                    ->toArray();
+
                 foreach ($request->input('credit_limits') as $currencyCode => $amount) {
                     // Find currency by code
                     $currency = \App\Models\Currency::where('code', $currencyCode)->first();
                     if ($currency) {
-                        try {
-                            $customer->setCreditLimit($currency->id, $amount);
-                        } catch (\Exception $e) {
-                            // Re-throw the exception to trigger transaction rollback
-                            throw new \Exception('Credit limit validation failed: '.$e->getMessage());
+                        // Check if this currency has an opening balance (from request data, not database)
+                        if (in_array($currencyCode, $openingBalanceCurrencies)) {
+                            try {
+                                // Create credit limit directly instead of using setCreditLimit method
+                                $customer->creditLimits()->create([
+                                    'currency_id' => $currency->id,
+                                    'credit_limit' => $amount,
+                                    'used_credit' => 0,
+                                    'available_credit' => $amount,
+                                    'notes' => null,
+                                    'is_active' => true,
+                                ]);
+                            } catch (\Exception $e) {
+                                // Re-throw the exception to trigger transaction rollback
+                                throw new \Exception('Credit limit validation failed: '.$e->getMessage());
+                            }
                         }
                     }
                 }
@@ -955,6 +945,11 @@ class CustomerController extends Controller
                         $customer->setPrimaryContact($contact->id);
                     }
                 }
+            }
+
+            // Handle associations (many-to-many)
+            if ($request->has('associations')) {
+                $customer->associations()->sync($request->input('associations'));
             }
 
             // Handle attachments
@@ -1099,6 +1094,8 @@ class CustomerController extends Controller
             'phone1',
             'phone2',
             'phone3',
+            'email',
+            'card_number',
             'file_number',
             'bar_code',
             'search_terms',
@@ -1232,6 +1229,8 @@ class CustomerController extends Controller
             'phone1',
             'phone2',
             'phone3',
+            'email',
+            'card_number',
             'file_number',
             'bar_code',
             'search_terms',

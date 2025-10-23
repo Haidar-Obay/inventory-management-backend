@@ -39,7 +39,21 @@ class Customer extends Model implements Auditable
         'markup_percentage' => 'decimal:2',
         'markdown_percentage' => 'decimal:2',
         'search_terms' => 'array',
+        'date_of_birth' => 'date',
     ];
+
+    // Status constants
+    const STATUS_NORMAL = 'Normal';
+    const STATUS_VIP = 'VIP';
+
+    // Get all available statuses
+    public static function getStatuses()
+    {
+        return [
+            self::STATUS_NORMAL,
+            self::STATUS_VIP,
+        ];
+    }
 
     // public function projects()
     // {
@@ -109,6 +123,23 @@ class Customer extends Model implements Auditable
     public function mediaChannel()
     {
         return $this->belongsTo(MediaChannel::class, 'media_channel_id');
+    }
+
+    public function mediaType()
+    {
+        return $this->belongsTo(MediaType::class, 'media_type_id');
+    }
+
+    public function referral()
+    {
+        return $this->belongsTo(Referrer::class, 'referral_id');
+    }
+
+    // Association relationship (many-to-many)
+    public function associations()
+    {
+        return $this->belongsToMany(Association::class, 'customer_association')
+            ->withTimestamps();
     }
 
     // Credit limits relationship

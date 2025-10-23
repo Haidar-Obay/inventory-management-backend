@@ -70,13 +70,14 @@ use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ZoneController;
 use App\Models\User;
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
-
 /*
 |--------------------------------------------------------------------------
 | Tenant Routes
@@ -183,12 +184,14 @@ Route::middleware([
         Route::apiResource('service-needed-items', ServiceNeededItemController::class);
         Route::apiResource('service-advanced-pricings', ServiceAdvancedPricingController::class);
         Route::apiResource('associations', AssociationController::class)->middleware('check.permission:associations,view');
+        Route::get('associations-names', [AssociationController::class, 'getNames']);
         Route::apiResource('association-contacts', AssociationContactController::class);
         Route::apiResource('association-service-prices', AssociationServicePriceController::class);
         Route::apiResource('media-types', MediaTypeController::class);
         Route::apiResource('service-categories', ServiceCategoryController::class)->middleware('check.permission:service_categories,view');
         Route::post('service-categories/bulk-delete', [ServiceCategoryController::class, 'bulkDelete']);
         Route::apiResource('referrers', ReferrerController::class)->middleware('check.permission:referrers,view');
+        Route::get('referrers-names', [ReferrerController::class, 'getNames']);
         Route::apiResource('referrer-service-commissions', ReferrerServiceCommissionController::class);
 
         // Customer Master List additional routes

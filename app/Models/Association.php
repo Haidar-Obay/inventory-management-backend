@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Association extends Model
 {
@@ -24,5 +25,12 @@ class Association extends Model
     public function contacts(): HasMany
     {
         return $this->hasMany(AssociationContact::class);
+    }
+
+    // Customer relationship (many-to-many)
+    public function customers(): BelongsToMany
+    {
+        return $this->belongsToMany(Customer::class, 'customer_association')
+            ->withTimestamps();
     }
 }
