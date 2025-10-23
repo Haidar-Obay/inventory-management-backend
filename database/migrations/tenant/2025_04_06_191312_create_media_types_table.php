@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('media_types', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
+            $table->foreignId('sub_media_type_of')->nullable()->constrained('media_types')->onDelete('set null');
             $table->timestamps();
         });
     }

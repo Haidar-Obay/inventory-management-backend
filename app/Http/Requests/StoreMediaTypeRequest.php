@@ -15,6 +15,7 @@ class StoreMediaTypeRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255', 'unique:media_types,name'],
+            'sub_media_type_of' => ['nullable', 'integer', 'exists:media_types,id'],
         ];
     }
 }

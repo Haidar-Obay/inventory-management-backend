@@ -19,6 +19,7 @@ class UpdateMediaTypeRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255', Rule::unique('media_types', 'name')->ignore($id)],
+            'sub_media_type_of' => ['nullable', 'integer', 'exists:media_types,id', Rule::notIn([$id])],
         ];
     }
 }
