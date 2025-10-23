@@ -140,7 +140,7 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Associations', 'code' => PageCode::RELATIONS_ASSOCIATIONS->value, 'path' => '/main/relations/associations', 'order' => 90, 'is_public' => false],
                     ['name' => 'Referrers', 'code' => PageCode::RELATIONS_REFERRERS->value, 'path' => '/main/relations/referrers', 'order' => 91, 'is_public' => false],
                     ['name' => 'Media Types', 'code' => PageCode::RELATIONS_MEDIA_TYPES->value, 'path' => '/main/relations/media-types', 'order' => 92, 'is_public' => false],
-                    
+
                     // Support
                     ['name' => 'Help', 'code' => PageCode::SUPPORT_HELP_PAGE->value, 'path' => '/main/support/help', 'order' => 100, 'is_public' => false],
                     ['name' => 'Contact', 'code' => PageCode::SUPPORT_CONTACT_PAGE->value, 'path' => '/main/support/contact', 'order' => 101, 'is_public' => false],

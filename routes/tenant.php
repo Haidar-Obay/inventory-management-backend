@@ -16,7 +16,6 @@ use App\Http\Controllers\BusinessTypeController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\CompanyCodeController;
-use App\Http\Controllers\MediaTypeController;
 use App\Http\Controllers\CostCenterController;
 use App\Http\Controllers\CountryController;
 use App\Http\Controllers\CurrencyController;
@@ -33,9 +32,11 @@ use App\Http\Controllers\CustomerTaxController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DistributionChannelController;
 use App\Http\Controllers\DistrictController;
+use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\MediaChannelController;
+use App\Http\Controllers\MediaTypeController;
 use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\PaymentTermController;
 use App\Http\Controllers\PermissionController;
@@ -70,8 +71,8 @@ use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ZoneController;
 use App\Models\User;
-use App\Http\Controllers\Auth\ForgotPasswordController;
-use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\Auth\ForgotPasswordController as AuthForgotPasswordController;
+use App\Http\Controllers\Auth\ResetPasswordController as AuthResetPasswordController;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -669,8 +670,8 @@ Route::middleware([
     })->middleware(['auth:sanctum', 'throttle:6,1'])->name('verification.send');
 
     // Password Reset Routes
-    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
-    Route::post('/reset-password', [ResetPasswordController::class, 'reset']);
+    Route::post('/forgot-password', [AuthForgotPasswordController::class, 'sendResetLink']);
+    Route::post('/reset-password', [AuthResetPasswordController::class, 'reset']);
 });
 
 Route::middleware([
