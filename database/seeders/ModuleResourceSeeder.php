@@ -96,7 +96,7 @@ class ModuleResourceSeeder extends Seeder
             $moduleSpecificResources = [
                 // Do NOT hard-add 'suppliers' here; it will be added only if a supplier page code exists
 
-                'stock_management' => ['product_lines', 'categories', 'brands', 'items', 'supplier_groups'],
+                'stock_management' => ['product_lines', 'categories', 'brands', 'items', 'supplier_groups', 'customers'],
                 'beauty_center' => [
                     'service_categories',
                     'services',

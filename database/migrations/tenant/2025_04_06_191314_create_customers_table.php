@@ -21,7 +21,13 @@ return new class extends Migration
             $table->string('phone2')->nullable();
             $table->string('phone3')->nullable();
 
-            // $table->string('email')->nullable();
+            $table->string('email')->nullable();
+            $table->string('card_number')->nullable();
+            $table->date('date_of_birth')->nullable();
+            $table->string('place_of_birth')->nullable();
+            $table->enum('gender', ['Male', 'Female', 'Other'])->nullable();
+            $table->enum('blood_type', ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])->nullable();
+            $table->enum('marital_status', ['Single', 'Married', 'Divorced', 'Widowed', 'Other'])->nullable();
             // $table->string('website')->nullable();
 
             // Business Information
@@ -37,6 +43,8 @@ return new class extends Migration
             $table->foreignId('sales_channel_id')->nullable()->constrained('sales_channels');
             $table->foreignId('distribution_channel_id')->nullable()->constrained('distribution_channels');
             $table->foreignId('media_channel_id')->nullable()->constrained('media_channels');
+            $table->foreignId('media_type_id')->nullable()->constrained('media_types');
+            $table->foreignId('referral_id')->nullable()->constrained('referrers');
             $table->enum('indicator', ['A', 'B', 'C', 'D'])->nullable();
             $table->enum('risk_category', ['Low', 'Medium', 'High'])->nullable();
 
@@ -79,6 +87,8 @@ return new class extends Migration
             // more details
             $table->boolean('active')->default(true);
             $table->boolean('black_listed')->default(false);
+            $table->text('blacklisted_reason')->nullable()->comment('Reason for blacklisting if black_listed is true');
+            $table->enum('status', ['Normal', 'VIP'])->default('Normal')->comment('Customer status: Normal or VIP');
             $table->boolean('one_time_account')->default(true);
             $table->boolean('special_account')->default(false);
             $table->boolean('pos_customer')->default(false);

@@ -40,6 +40,13 @@ class StoreCustomerRequest extends FormRequest
             'phone1' => 'required|string|max:20|unique:customers,phone1',
             'phone2' => 'nullable|string|max:20|unique:customers,phone2',
             'phone3' => 'nullable|string|max:20|unique:customers,phone3',
+            'email' => 'nullable|email|max:255|unique:customers,email',
+            'card_number' => 'nullable|string|max:255|unique:customers,card_number',
+            'date_of_birth' => 'nullable|date|before:today',
+            'place_of_birth' => 'nullable|string|max:255',
+            'gender' => 'nullable|in:Male,Female,Other',
+            'blood_type' => 'nullable|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
+            'marital_status' => 'nullable|in:Single,Married,Divorced,Widowed,Other',
             'file_number' => 'nullable|string|max:255|unique:customers,file_number',
             'bar_code' => 'nullable|string|max:255',
             'search_terms' => 'nullable|array',
@@ -52,8 +59,14 @@ class StoreCustomerRequest extends FormRequest
             'sales_channel_id' => 'nullable|exists:sales_channels,id',
             'distribution_channel_id' => 'nullable|exists:distribution_channels,id',
             'media_channel_id' => 'nullable|exists:media_channels,id',
+            'media_type_id' => 'nullable|exists:media_types,id',
+            'referral_id' => 'nullable|exists:referrers,id',
             'indicator' => 'nullable|in:A,B,C,D',
             'risk_category' => 'nullable|in:Low,Medium,High',
+
+            // Many-to-many relationships
+            'associations' => 'nullable|array',
+            'associations.*' => 'exists:associations,id',
 
             // Salesmen relationships with active validation
             'salesman_id' => 'nullable|exists:salesmen,id',
@@ -279,6 +292,8 @@ class StoreCustomerRequest extends FormRequest
             // Status flags
             'active' => 'nullable|boolean',
             'black_listed' => 'nullable|boolean',
+            'blacklisted_reason' => 'nullable|string|max:1000|required_if:black_listed,true',
+            'status' => 'nullable|in:Normal,VIP',
             'one_time_account' => 'nullable|boolean',
             'special_account' => 'nullable|boolean',
             'pos_customer' => 'nullable|boolean',
