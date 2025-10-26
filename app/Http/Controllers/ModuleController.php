@@ -91,10 +91,10 @@ class ModuleController extends Controller
     {
         $module = Module::findOrFail($id);
 
-        // Check if module is being used by any subscription plans
-        if ($module->subscriptionPlans()->exists()) {
+        // Check if module is being used by any tenants
+        if ($module->tenants()->exists()) {
             return response()->json([
-                'message' => 'Cannot delete module. It is currently being used by subscription plans.',
+                'message' => 'Cannot delete module. It is currently assigned to tenants.',
             ], 422);
         }
 

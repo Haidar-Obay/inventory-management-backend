@@ -32,7 +32,7 @@ class TenantController extends Controller
         $tenants = tenancy()->central(fn () => Cache::store('database')->get($cacheKey));
 
         if (! $tenants) {
-            $tenants = Tenant::all()->map(function ($tenant) {
+            $tenants = Tenant::with(['domains', 'modules'])->get()->map(function ($tenant) {
                 tenancy()->initialize($tenant);
                 $owner = User::first(); // Note: Owner identification now via roles table
 
@@ -44,6 +44,19 @@ class TenantController extends Controller
                     'owner' => optional($owner)->name,
                     'created_at' => $tenant->created_at->toDateTimeString(),
                     'updated_at' => $tenant->updated_at->toDateTimeString(),
+                    'subscription_plan_id' => $tenant->subscription_plan_id,
+                    'subscription_status' => $tenant->subscription_status,
+                    'subscription_start_date' => $tenant->subscription_start_date,
+                    'subscription_end_date' => $tenant->subscription_end_date,
+                    'auto_renew' => $tenant->auto_renew,
+                    'modules' => $tenant->modules()->get()->map(function ($m) {
+                        return [
+                            'id' => $m->id,
+                            'name' => $m->name,
+                            'code' => $m->code,
+                            'active' => $m->active,
+                        ];
+                    }),
                 ];
             });
 
@@ -101,7 +114,7 @@ class TenantController extends Controller
             }
 
             if ($request->filled('subscription_end_date')) {
-
+                $tenantData['subscription_end_date'] = $request->input('subscription_end_date');
             } else {
                 // If no end date specified, add 30 days from start date
                 $startDate = $tenantData['subscription_start_date'];
@@ -188,7 +201,7 @@ class TenantController extends Controller
                 'subscription_start_date' => $tenant->subscription_start_date,
                 'subscription_end_date' => $tenant->subscription_end_date,
                 'auto_renew' => $tenant->auto_renew,
-                'trial_ends_at' => $tenant->subscription_end_date->format('Y-m-d'),
+                'trial_ends_at' => $tenant->subscription_end_date ? $tenant->subscription_end_date->format('Y-m-d') : null,
                 'assigned_modules' => $tenant->modules()->get()->map(function ($m) {
                     return [
                         'id' => $m->id,
@@ -231,14 +244,14 @@ class TenantController extends Controller
         }
 
         $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'exists:tenants,id',
+            'tenant_ids' => 'required|array',
+            'tenant_ids.*' => 'exists:tenants,id',
         ]);
 
         $skipped = [];
         $deleted = 0;
 
-        foreach ($request->ids as $id) {
+        foreach ($request->tenant_ids as $id) {
             try {
                 if (tenant('id') === $id) {
                     $skipped[] = ['id' => $id, 'reason' => 'Cannot delete the tenant currently in use.'];
@@ -271,43 +284,48 @@ class TenantController extends Controller
             return response()->json(['message' => 'Only owner or admins can perform this operation'], 403);
         }
 
-        $cacheKey = "central_tenant_show_{$id}";
-
-        $tenant = tenancy()->central(fn () => Cache::store('database')->get($cacheKey));
-
-        if (! $tenant) {
-            $model = Tenant::with(['domains', 'subscriptionPlan'])->find($id);
-            if (! $model) {
-                return response()->json(['message' => 'Tenant not found'], 404);
-            }
-
-            tenancy()->initialize($model);
-            $owner = User::first(); // Note: Owner identification now via roles table
-
-            $tenant = [
-                'id' => $model->id,
-                'name' => $model->name,
-                'email' => $model->email,
-                'domain' => optional($model->domains->first())->domain,
-                'owner' => optional($owner)->name,
-                'created_at' => $model->created_at ? $model->created_at->toDateTimeString() : null,
-                'updated_at' => $model->updated_at ? $model->updated_at->toDateTimeString() : null,
-                // Subscription fields
-                'subscription_plan_id' => $model->subscription_plan_id,
-                'subscription_plan_name' => $model->subscriptionPlan?->name,
-                'subscription_plan_code' => $model->subscriptionPlan?->code,
-                'subscription_start_date' => $model->subscription_start_date,
-                'subscription_end_date' => $model->subscription_end_date,
-                'subscription_status' => $model->subscription_status,
-                'auto_renew' => $model->auto_renew,
-                'last_billing_date' => $model->last_billing_date,
-                'next_billing_date' => $model->next_billing_date,
-            ];
-
-            tenancy()->central(fn () => Cache::store('database')->forever($cacheKey, $tenant));
+        // Always fetch fresh data from the database to get modules
+        $model = Tenant::with(['domains', 'subscriptionPlan', 'modules'])->find($id);
+        if (! $model) {
+            return response()->json(['message' => 'Tenant not found'], 404);
         }
 
-        return response()->json($tenant);
+        tenancy()->initialize($model);
+        $owner = User::first(); // Note: Owner identification now via roles table
+
+        $tenant = [
+            'id' => $model->id,
+            'name' => $model->name,
+            'email' => $model->email,
+            'domain' => optional($model->domains->first())->domain,
+            'owner' => optional($owner)->name,
+            'created_at' => $model->created_at ? $model->created_at->toDateTimeString() : null,
+            'updated_at' => $model->updated_at ? $model->updated_at->toDateTimeString() : null,
+            // Subscription fields
+            'subscription_plan_id' => $model->subscription_plan_id,
+            'subscription_plan_name' => $model->subscriptionPlan?->name,
+            'subscription_plan_code' => $model->subscriptionPlan?->code,
+            'subscription_start_date' => $model->subscription_start_date,
+            'subscription_end_date' => $model->subscription_end_date,
+            'subscription_status' => $model->subscription_status,
+            'auto_renew' => $model->auto_renew,
+            'last_billing_date' => $model->last_billing_date,
+            'next_billing_date' => $model->next_billing_date,
+            // Modules
+            'modules' => $model->modules()->get()->map(function ($m) {
+                return [
+                    'id' => $m->id,
+                    'name' => $m->name,
+                    'code' => $m->code,
+                    'description' => $m->description,
+                    'active' => $m->active,
+                    'assigned_price' => $m->pivot->assigned_price,
+                    'is_included' => $m->pivot->is_included,
+                ];
+            }),
+        ];
+
+        return response()->json(['tenant' => $tenant]);
     }
 
     public function updateTenant(UpdateTenantRequest $request, $id)
@@ -319,15 +337,37 @@ class TenantController extends Controller
         try {
             $tenant = Tenant::findOrFail($id);
 
-            $tenant->update([
+            $updateData = [
                 'name' => $request->input('name'),
                 'email' => $request->input('email'),
-            ]);
+            ];
+
+            // Handle subscription fields if provided
+            if ($request->filled('subscription_plan_id')) {
+                $updateData['subscription_plan_id'] = $request->input('subscription_plan_id');
+            }
+            if ($request->filled('subscription_status')) {
+                $updateData['subscription_status'] = $request->input('subscription_status');
+            }
+            if ($request->filled('subscription_start_date')) {
+                $updateData['subscription_start_date'] = $request->input('subscription_start_date');
+            }
+            if ($request->filled('subscription_end_date')) {
+                $updateData['subscription_end_date'] = $request->input('subscription_end_date');
+            }
+            if ($request->filled('auto_renew')) {
+                $updateData['auto_renew'] = $request->input('auto_renew');
+            }
+
+            $tenant->update($updateData);
 
             if ($request->filled('domain')) {
-                $tenant->domains()->update([
-                    'domain' => "{$request->input('domain')}.".env('CENTRAL_DOMAIN'),
-                ]);
+                $domain = $tenant->domains()->first();
+                if ($domain) {
+                    $domain->update([
+                        'domain' => "{$request->input('domain')}.".env('CENTRAL_DOMAIN'),
+                    ]);
+                }
             }
 
             if ($request->filled('password')) {
@@ -336,10 +376,30 @@ class TenantController extends Controller
                 ]);
             }
 
+            // Handle module assignments if provided
+            if ($request->has('selected_modules')) {
+                $moduleIds = $request->input('selected_modules', []);
+                $syncData = [];
+
+                foreach ($moduleIds as $moduleId) {
+                    $syncData[$moduleId] = [
+                        'assigned_price' => 0.0, // default; can be updated later via billing config
+                        'is_included' => false,
+                        'subscription_plan_id' => $tenant->subscription_plan_id,
+                    ];
+                }
+
+                $tenant->modules()->sync($syncData);
+            }
+
             tenancy()->central(function () use ($id) {
                 Cache::store('database')->forget('central_tenants_all');
                 Cache::store('database')->forget("central_tenant_show_{$id}");
             });
+
+            // Load the tenant with all its relationships
+            $tenant->refresh();
+            $tenant->load(['domains', 'subscriptionPlan', 'modules']);
 
             return response()->json([
                 'message' => 'Tenant updated successfully',
@@ -347,8 +407,23 @@ class TenantController extends Controller
                     'id' => $tenant->id,
                     'name' => $tenant->name,
                     'email' => $tenant->email,
-                    'password' => $request->input('password'),
                     'domain' => optional($tenant->domains->first())->domain,
+                    'subscription_plan_id' => $tenant->subscription_plan_id,
+                    'subscription_status' => $tenant->subscription_status,
+                    'subscription_start_date' => $tenant->subscription_start_date,
+                    'subscription_end_date' => $tenant->subscription_end_date,
+                    'auto_renew' => $tenant->auto_renew,
+                    'modules' => $tenant->modules()->get()->map(function ($m) {
+                        return [
+                            'id' => $m->id,
+                            'name' => $m->name,
+                            'code' => $m->code,
+                            'description' => $m->description,
+                            'active' => $m->active,
+                            'assigned_price' => $m->pivot->assigned_price,
+                            'is_included' => $m->pivot->is_included,
+                        ];
+                    }),
                     'updated_at' => $tenant->updated_at->toDateTimeString(),
                 ],
             ]);
