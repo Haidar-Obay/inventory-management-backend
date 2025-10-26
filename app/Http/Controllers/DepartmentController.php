@@ -126,39 +126,55 @@ class DepartmentController extends Controller
 
     public function bulkDelete(Request $request)
     {
-        $tenantId = tenant('id');
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:departments,id',
+        ]);
+
         $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
 
-        if (! $ids || ! is_array($ids)) {
-            return response()->json([
-                'status' => false,
-                'message' => 'No departments selected for deletion',
-            ], 400);
-        }
-
-        try {
-            foreach ($ids as $id) {
-                $department = Department::findOrFail($id);
-                if ($department->hasSubDepartments()) {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'Cannot delete department with sub-departments',
-                    ], 422);
+        foreach ($ids as $id) {
+            try {
+                $department = Department::find($id);
+                
+                if (!$department) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Department not found.',
+                    ];
+                    continue;
                 }
+
+                // Check if department has sub-departments
+                if ($department->hasSubDepartments()) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete department. It has sub-departments.',
+                    ];
+                    continue;
+                }
+
                 $department->delete();
-                Cache::forget('departments_'.tenant('id'));
-                Cache::forget("department_{$department->id}_".tenant('id'));
+                app('cache')->store('database')->forget('departments_'.tenant('id'));
+                app('cache')->store('database')->forget("department_{$department->id}_".tenant('id'));
+                $deleted++;
+                
+            } catch (\Exception $e) {
+                Log::error('Error deleting department '.$id.': '.$e->getMessage());
+                $skipped[] = [
+                    'id' => $id, 
+                    'reason' => $e->getMessage()
+                ];
             }
-
-            return response()->json(null, 204);
-        } catch (\Exception $e) {
-            Log::error('Error in bulk delete: '.$e->getMessage());
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Failed to delete departments',
-            ], 500);
         }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()

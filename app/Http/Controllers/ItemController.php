@@ -9,6 +9,7 @@ use App\Http\Requests\Item\UpdateItemRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Item;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ItemController extends Controller
@@ -107,10 +108,25 @@ class ItemController extends Controller
         foreach ($request->ids as $id) {
             try {
                 $item = Item::find($id);
-                $deleted += $item->delete();
+                
+                if (!$item) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Item not found.',
+                    ];
+                    continue;
+                }
+
+                $item->delete();
+                $deleted++;
                 app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$id}");
-            } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                
+            } catch (\Exception $e) {
+                Log::error('Error deleting item '.$id.': '.$e->getMessage());
+                $skipped[] = [
+                    'id' => $id, 
+                    'reason' => $e->getMessage()
+                ];
             }
         }
 

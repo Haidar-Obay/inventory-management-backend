@@ -395,6 +395,7 @@ Route::middleware([
             Route::delete('/customers', [CustomerController::class, 'bulkDelete']);
             Route::delete('/cities', [CityController::class, 'bulkDelete']);
             Route::delete('/countries', [CountryController::class, 'bulkDelete']);
+            Route::delete('/districts', [DistrictController::class, 'bulkDelete']);
             Route::delete('/zones', [ZoneController::class, 'bulkDelete']);
             Route::delete('/currencies', [CurrencyController::class, 'bulkDelete']);
             Route::delete('/customer-groups', [CustomerGroupController::class, 'bulkDelete']);

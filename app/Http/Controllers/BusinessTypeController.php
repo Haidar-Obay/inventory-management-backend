@@ -120,11 +120,30 @@ class BusinessTypeController extends Controller
         $deleted = 0;
 
         foreach ($request->ids as $id) {
+            $businessType = BusinessType::find($id);
+
+            // Check if the business type has any customers linked to it
+            if ($businessType->customers()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete business type. It is being used by one or more customers.',
+                ];
+                continue;
+            }
+
             try {
-                $deleted += BusinessType::where('id', $id)->delete();
+                $deleted += $businessType->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_business_type_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete business type. It is being used by one or more customers.',
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

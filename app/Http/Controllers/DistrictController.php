@@ -123,11 +123,30 @@ class DistrictController extends Controller
         $deleted = 0;
 
         foreach ($request->ids as $id) {
+            $district = District::find($id);
+
+            // Check if the district has any addresses linked to it
+            if ($district->addresses()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete district. It is being used by one or more addresses.',
+                ];
+                continue;
+            }
+
             try {
-                $deleted += District::where('id', $id)->delete();
+                $deleted += $district->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_district_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete district. It is being used by one or more addresses.',
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

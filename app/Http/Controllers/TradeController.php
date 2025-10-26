@@ -122,11 +122,30 @@ class TradeController extends Controller
         $deleted = 0;
 
         foreach ($request->ids as $id) {
+            $trade = Trade::find($id);
+
+            // Check if the trade has any customers linked to it
+            if ($trade->customers()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete trade. It is being used by one or more customers.',
+                ];
+                continue;
+            }
+
             try {
-                $deleted += Trade::where('id', $id)->delete();
+                $deleted += $trade->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_trade_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete trade. It is being used by one or more customers.',
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

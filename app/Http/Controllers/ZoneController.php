@@ -122,11 +122,30 @@ class ZoneController extends Controller
         $deleted = 0;
 
         foreach ($request->ids as $id) {
+            $zone = Zone::find($id);
+
+            // Check if the zone has any addresses linked to it
+            if ($zone->addresses()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete zone. It is being used by one or more addresses.',
+                ];
+                continue;
+            }
+
             try {
-                $deleted += Zone::where('id', $id)->delete();
+                $deleted += $zone->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_zone_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete zone. It is being used by one or more addresses.',
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

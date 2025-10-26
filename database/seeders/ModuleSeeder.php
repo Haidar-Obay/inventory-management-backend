@@ -109,37 +109,37 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Customer Master Lists', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer?tab=3', 'order' => 31, 'is_public' => false],
 
                     // Suppliers
-                    ['name' => 'Supplier Groups', 'code' => PageCode::SUPPLIERS_GROUPS->value, 'path' => '/main/supplier?tab=0', 'order' => 40, 'is_public' => false],
-                    ['name' => 'Suppliers', 'code' => PageCode::SUPPLIERS_SUPPLIERS->value, 'path' => '/main/supplier?tab=1', 'order' => 41, 'is_public' => false],
+                    ['name' => 'Supplier Groups', 'code' => PageCode::SUPPLIERS_GROUPS->value, 'path' => '/main/mainfiles/supplier?tab=0', 'order' => 40, 'is_public' => false],
+                    ['name' => 'Suppliers', 'code' => PageCode::SUPPLIERS_SUPPLIERS->value, 'path' => '/main/mainfiles/supplier?tab=1', 'order' => 41, 'is_public' => false],
 
                     // Address Codes
-                    ['name' => 'Countries', 'code' => PageCode::ADDRESS_CODES_COUNTRIES->value, 'path' => '/main/addresscodes?tab=0', 'order' => 50, 'is_public' => false],
-                    ['name' => 'Cities', 'code' => PageCode::ADDRESS_CODES_CITIES->value, 'path' => '/main/addresscodes?tab=1', 'order' => 51, 'is_public' => false],
-                    ['name' => 'Districts', 'code' => PageCode::ADDRESS_CODES_DISTRICTS->value, 'path' => '/main/addresscodes?tab=2', 'order' => 52, 'is_public' => false],
-                    ['name' => 'Zones', 'code' => PageCode::ADDRESS_CODES_ZONES->value, 'path' => '/main/addresscodes?tab=3', 'order' => 53, 'is_public' => false],
+                    ['name' => 'Countries', 'code' => PageCode::ADDRESS_CODES_COUNTRIES->value, 'path' => '/main/mainfiles/addresscodes?tab=0', 'order' => 50, 'is_public' => false],
+                    ['name' => 'Cities', 'code' => PageCode::ADDRESS_CODES_CITIES->value, 'path' => '/main/mainfiles/addresscodes?tab=1', 'order' => 51, 'is_public' => false],
+                    ['name' => 'Districts', 'code' => PageCode::ADDRESS_CODES_DISTRICTS->value, 'path' => '/main/mainfiles/addresscodes?tab=2', 'order' => 52, 'is_public' => false],
+                    ['name' => 'Zones', 'code' => PageCode::ADDRESS_CODES_ZONES->value, 'path' => '/main/mainfiles/addresscodes?tab=3', 'order' => 53, 'is_public' => false],
 
                     // Payment
-                    ['name' => 'Payment Terms', 'code' => PageCode::PAYMENT_TERMS->value, 'path' => '/main/payment?tab=0', 'order' => 60, 'is_public' => false],
-                    ['name' => 'Payment Methods', 'code' => PageCode::PAYMENT_METHODS->value, 'path' => '/main/payment?tab=1', 'order' => 61, 'is_public' => false],
+                    ['name' => 'Payment Terms', 'code' => PageCode::PAYMENT_TERMS->value, 'path' => '/main/mainfiles/payment?tab=0', 'order' => 60, 'is_public' => false],
+                    ['name' => 'Payment Methods', 'code' => PageCode::PAYMENT_METHODS->value, 'path' => '/main/mainfiles/payment?tab=1', 'order' => 61, 'is_public' => false],
 
                     // General Files
-                    ['name' => 'Business Types', 'code' => PageCode::GENERAL_FILES_BUSINESS_TYPES->value, 'path' => '/main/generalfiles?tab=0', 'order' => 70, 'is_public' => false],
-                    ['name' => 'Sales Channels', 'code' => PageCode::GENERAL_FILES_SALES_CHANNELS->value, 'path' => '/main/generalfiles?tab=1', 'order' => 71, 'is_public' => false],
-                    ['name' => 'Distribution Channels', 'code' => PageCode::GENERAL_FILES_DISTRIBUTION_CHANNELS->value, 'path' => '/main/generalfiles?tab=2', 'order' => 72, 'is_public' => false],
-                    ['name' => 'Media Channels', 'code' => PageCode::GENERAL_FILES_MEDIA_CHANNELS->value, 'path' => '/main/generalfiles?tab=3', 'order' => 73, 'is_public' => false],
+                    ['name' => 'Business Types', 'code' => PageCode::GENERAL_FILES_BUSINESS_TYPES->value, 'path' => '/main/mainfiles/generalfiles?tab=0', 'order' => 70, 'is_public' => false],
+                    ['name' => 'Sales Channels', 'code' => PageCode::GENERAL_FILES_SALES_CHANNELS->value, 'path' => '/main/mainfiles/generalfiles?tab=1', 'order' => 71, 'is_public' => false],
+                    ['name' => 'Distribution Channels', 'code' => PageCode::GENERAL_FILES_DISTRIBUTION_CHANNELS->value, 'path' => '/main/mainfiles/generalfiles?tab=2', 'order' => 72, 'is_public' => false],
+                    ['name' => 'Media Channels', 'code' => PageCode::GENERAL_FILES_MEDIA_CHANNELS->value, 'path' => '/main/mainfiles/generalfiles?tab=3', 'order' => 73, 'is_public' => false],
 
                     // Sections
-                    ['name' => 'Projects', 'code' => PageCode::SECTIONS_PROJECTS->value, 'path' => '/main/sections?tab=0', 'order' => 80, 'is_public' => false],
-                    ['name' => 'Cost Centers', 'code' => PageCode::SECTIONS_COST_CENTERS->value, 'path' => '/main/sections?tab=1', 'order' => 81, 'is_public' => false],
-                    ['name' => 'Departments', 'code' => PageCode::SECTIONS_DEPARTMENTS->value, 'path' => '/main/sections?tab=2', 'order' => 82, 'is_public' => false],
-                    ['name' => 'Trades', 'code' => PageCode::SECTIONS_TRADES->value, 'path' => '/main/sections?tab=3', 'order' => 83, 'is_public' => false],
-                    ['name' => 'Company Codes', 'code' => PageCode::SECTIONS_COMPANY_CODES->value, 'path' => '/main/sections?tab=4', 'order' => 84, 'is_public' => false],
-                    ['name' => 'Jobs', 'code' => PageCode::SECTIONS_JOBS->value, 'path' => '/main/sections?tab=5', 'order' => 85, 'is_public' => false],
+                    ['name' => 'Projects', 'code' => PageCode::SECTIONS_PROJECTS->value, 'path' => '/main/mainfiles/sections?tab=0', 'order' => 80, 'is_public' => false],
+                    ['name' => 'Cost Centers', 'code' => PageCode::SECTIONS_COST_CENTERS->value, 'path' => '/main/mainfiles/sections?tab=1', 'order' => 81, 'is_public' => false],
+                    ['name' => 'Departments', 'code' => PageCode::SECTIONS_DEPARTMENTS->value, 'path' => '/main/mainfiles/sections?tab=2', 'order' => 82, 'is_public' => false],
+                    ['name' => 'Trades', 'code' => PageCode::SECTIONS_TRADES->value, 'path' => '/main/mainfiles/sections?tab=3', 'order' => 83, 'is_public' => false],
+                    ['name' => 'Company Codes', 'code' => PageCode::SECTIONS_COMPANY_CODES->value, 'path' => '/main/mainfiles/sections?tab=4', 'order' => 84, 'is_public' => false],
+                    ['name' => 'Jobs', 'code' => PageCode::SECTIONS_JOBS->value, 'path' => '/main/mainfiles/sections?tab=5', 'order' => 85, 'is_public' => false],
 
                     // Relations
-                    ['name' => 'Associations', 'code' => PageCode::RELATIONS_ASSOCIATIONS->value, 'path' => '/main/relations?tab=0', 'order' => 90, 'is_public' => false],
-                    ['name' => 'Referrers', 'code' => PageCode::RELATIONS_REFERRERS->value, 'path' => '/main/relations?tab=1', 'order' => 91, 'is_public' => false],
-                    ['name' => 'Media Types', 'code' => PageCode::RELATIONS_MEDIA_TYPES->value, 'path' => '/main/relations?tab=2', 'order' => 92, 'is_public' => false],
+                    ['name' => 'Associations', 'code' => PageCode::RELATIONS_ASSOCIATIONS->value, 'path' => '/main/mainfiles/relations?tab=0', 'order' => 90, 'is_public' => false],
+                    ['name' => 'Referrers', 'code' => PageCode::RELATIONS_REFERRERS->value, 'path' => '/main/mainfiles/relations?tab=1', 'order' => 91, 'is_public' => false],
+                    ['name' => 'Media Types', 'code' => PageCode::RELATIONS_MEDIA_TYPES->value, 'path' => '/main/mainfiles/relations?tab=2', 'order' => 92, 'is_public' => false],
 
                     // Support
                     ['name' => 'Help', 'code' => PageCode::SUPPORT_HELP_PAGE->value, 'path' => '/main/support/help', 'order' => 100, 'is_public' => false],
