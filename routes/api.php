@@ -11,6 +11,7 @@ use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantModuleController;
 use App\Http\Controllers\TenantSubscriptionController;
+use App\Http\Controllers\UserManagementController;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
@@ -50,39 +51,41 @@ foreach (config('tenancy.central_domains') as $domain) {
         // Tenant CRUD
         Route::middleware(['auth:sanctum'])->prefix('tenant')->group(function () {
             Route::post('', [TenantController::class, 'store']);
+            Route::get('all', [TenantController::class, 'getAllTenants']);
             Route::get('', [TenantController::class, 'getAllTenants']);
-            Route::get('delete/{id}', [TenantController::class, 'deleteTenant']);
-            Route::get('makeDatabase/{id}', [TenantController::class, 'makeDatabase']);
-            Route::get('runMigrations/{id}', [TenantController::class, 'runMigrations']);
-            Route::get('deleteDatabase/{id}', [TenantController::class, 'deleteDatabase']);
-            Route::get('createAdmin/{id}', [TenantController::class, 'createAdmin']);
-            Route::put('{id}', [TenantController::class, 'updateTenant']);
+            Route::delete('bulk-delete-tenants', [TenantController::class, 'bulkDeleteTenants']);
             Route::get('export/excell', [TenantController::class, 'exportExcell']);
             Route::get('/exportPdf', [TenantController::class, 'exportPdf']);
+            Route::get('delete/{id}', [TenantController::class, 'deleteTenant']);
+            Route::get('{id}', [TenantController::class, 'getTenant']);
+            Route::delete('{id}', [TenantController::class, 'deleteTenant']);
+            Route::put('{id}', [TenantController::class, 'updateTenant']);
         });
 
         // Modules Management
         Route::middleware(['auth:sanctum'])->prefix('modules')->group(function () {
             Route::get('/', [ModuleController::class, 'index']);
-            Route::get('/{id}', [ModuleController::class, 'show']);
-            Route::post('/', [ModuleController::class, 'store']);
-            Route::put('/{id}', [ModuleController::class, 'update']);
-            Route::delete('/{id}', [ModuleController::class, 'destroy']);
             Route::get('/usage-stats', [ModuleController::class, 'getUsageStats']);
-
-            // Module Pages (nested)
+            Route::post('/', [ModuleController::class, 'store']);
+            
+            // Module Pages (nested - must come before /{id})
             Route::get('/{moduleId}/pages', [ModulePageController::class, 'index']);
             Route::post('/{moduleId}/pages', [ModulePageController::class, 'store']);
             Route::get('/{moduleId}/pages/{pageId}', [ModulePageController::class, 'show']);
             Route::put('/{moduleId}/pages/{pageId}', [ModulePageController::class, 'update']);
             Route::delete('/{moduleId}/pages/{pageId}', [ModulePageController::class, 'destroy']);
 
-            // Module Resources (nested)
+            // Module Resources (nested - must come before /{id})
             Route::get('/{moduleId}/resources', [ModuleResourceController::class, 'index']);
             Route::post('/{moduleId}/resources', [ModuleResourceController::class, 'store']);
             Route::get('/{moduleId}/resources/{resourceId}', [ModuleResourceController::class, 'show']);
             Route::put('/{moduleId}/resources/{resourceId}', [ModuleResourceController::class, 'update']);
             Route::delete('/{moduleId}/resources/{resourceId}', [ModuleResourceController::class, 'destroy']);
+            
+            // CRUD operations (must come after specific routes)
+            Route::get('/{id}', [ModuleController::class, 'show']);
+            Route::put('/{id}', [ModuleController::class, 'update']);
+            Route::delete('/{id}', [ModuleController::class, 'destroy']);
 
             // Tenant-specific module pages
 
@@ -124,6 +127,16 @@ foreach (config('tenancy.central_domains') as $domain) {
             }
 
             return response()->json(['message' => 'Email verified successfully']);
+        });
+
+        // User Management (protected routes)
+        Route::middleware(['auth:sanctum'])->group(function () {
+            Route::get('get-all-users', [UserManagementController::class, 'getAllUsersForCentral']);
+            Route::get('get-user/{id}', [UserManagementController::class, 'getCentralUser']);
+            Route::post('register', [UserManagementController::class, 'registerUserForCentral']);
+            Route::put('update-user/{id}', [UserManagementController::class, 'updateCentralUser']);
+            Route::delete('delete-user/{id}', [UserManagementController::class, 'deleteCentralUser']);
+            Route::delete('bulk-delete-users', [UserManagementController::class, 'bulkDeleteCentralUsers']);
         });
     });
 }

@@ -402,11 +402,145 @@ class UserManagementController extends Controller
         ]);
     }
 
+    // Central domain specific methods
+    public function getCentralUser($id)
+    {
+        // Validate ID parameter
+        if (! $id || $id === 'undefined' || ! is_numeric($id)) {
+            return response()->json(['message' => 'Invalid user ID provided.'], 400);
+        }
+
+        $user = User::select('id', 'name', 'email', 'active', 'created_at')->find($id);
+
+        if (! $user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        return response()->json([
+            'message' => 'User retrieved successfully.',
+            'user' => $user,
+        ]);
+    }
+
+    public function updateCentralUser(Request $request, $id)
+    {
+        // Validate ID parameter
+        if (! $id || $id === 'undefined' || ! is_numeric($id)) {
+            return response()->json(['message' => 'Invalid user ID provided.'], 400);
+        }
+
+        $user = User::find($id);
+
+        if (! $user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        // Build validation rules
+        $validationRules = [
+            'name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|email|unique:users,email,'.$id,
+            'active' => 'sometimes|boolean',
+            'password' => 'sometimes|string|min:6',
+        ];
+
+        $validated = $request->validate($validationRules);
+
+        $updateData = [];
+
+        if (isset($validated['name'])) {
+            $updateData['name'] = $validated['name'];
+        }
+
+        if (isset($validated['email'])) {
+            $updateData['email'] = $validated['email'];
+        }
+
+        if (isset($validated['password'])) {
+            $updateData['password'] = Hash::make($validated['password']);
+        }
+
+        if (isset($validated['active'])) {
+            $updateData['active'] = $validated['active'];
+        }
+
+        try {
+            $user->update($updateData);
+            return response()->json([
+                'message' => 'User updated successfully.',
+                'user' => $user->fresh(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to update user.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function deleteCentralUser($id)
+    {
+        // Validate ID parameter
+        if (! $id || $id === 'undefined' || ! is_numeric($id)) {
+            return response()->json(['message' => 'Invalid user ID provided.'], 400);
+        }
+
+        $authUser = Auth::user();
+
+        if ($authUser->id == $id) {
+            return response()->json(['message' => 'You cannot delete your own account.'], 403);
+        }
+
+        $user = User::find($id);
+
+        if (! $user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        try {
+            $user->delete();
+            return response()->json(['message' => 'User deleted successfully.']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json(['message' => 'User could not be deleted.'], 400);
+        }
+    }
+
+    public function bulkDeleteCentralUsers(Request $request)
+    {
+        $authUser = Auth::user();
+
+        $request->validate([
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'exists:users,id',
+        ]);
+
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->user_ids as $id) {
+            if ($authUser->id == $id) {
+                $skipped[] = ['id' => $id, 'reason' => 'Cannot delete the currently authenticated user.'];
+                continue;
+            }
+
+            try {
+                $deleted += User::where('id', $id)->delete();
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = ['id' => $id, 'reason' => 'Deletion failed due to constraints or DB error.'];
+            }
+        }
+
+        return response()->json([
+            'message' => 'Bulk user deletion completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
+    }
+
     /**
      * Toggle user active status.
      */
-    public function toggleUserStatus(Request $request, $id)
-    {
+        public function toggleUserStatus(Request $request, $id)
+        {
         // Validate ID parameter
         if (! $id || $id === 'undefined' || ! is_numeric($id)) {
             return response()->json(['message' => 'Invalid user ID provided.'], 400);
