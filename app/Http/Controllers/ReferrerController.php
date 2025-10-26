@@ -77,6 +77,7 @@ class ReferrerController extends Controller
                     'id' => $id,
                     'reason' => 'Cannot delete referrer. It is being used by one or more customers.',
                 ];
+
                 continue;
             }
 

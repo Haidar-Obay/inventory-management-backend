@@ -138,12 +138,13 @@ class SalesChannelController extends Controller
         foreach ($ids as $id) {
             try {
                 $salesChannel = SalesChannel::find($id);
-                
-                if (!$salesChannel) {
+
+                if (! $salesChannel) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Sales channel not found.',
                     ];
+
                     continue;
                 }
 
@@ -153,6 +154,7 @@ class SalesChannelController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete sales channel. It has sub-sales channels.',
                     ];
+
                     continue;
                 }
 
@@ -162,6 +164,7 @@ class SalesChannelController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete sales channel. It is being used by one or more customers.',
                     ];
+
                     continue;
                 }
 
@@ -169,7 +172,7 @@ class SalesChannelController extends Controller
                 app('cache')->store('database')->forget('sales_channels_'.tenant('id'));
                 app('cache')->store('database')->forget("sales_channel_{$salesChannel->id}_".tenant('id'));
                 $deleted++;
-                
+
             } catch (\Illuminate\Database\QueryException $e) {
                 // Check if it's a foreign key constraint error
                 if ($e->getCode() == '23503') {
@@ -180,15 +183,15 @@ class SalesChannelController extends Controller
                 } else {
                     Log::error('Error deleting sales channel '.$id.': '.$e->getMessage());
                     $skipped[] = [
-                        'id' => $id, 
-                        'reason' => $e->getMessage()
+                        'id' => $id,
+                        'reason' => $e->getMessage(),
                     ];
                 }
             } catch (\Exception $e) {
                 Log::error('Error deleting sales channel '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

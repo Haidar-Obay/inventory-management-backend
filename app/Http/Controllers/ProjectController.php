@@ -113,6 +113,7 @@ class ProjectController extends Controller
                     'id' => $id,
                     'reason' => 'Cannot delete project. It has associated jobs.',
                 ];
+
                 continue;
             }
 

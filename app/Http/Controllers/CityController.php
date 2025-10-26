@@ -131,6 +131,7 @@ class CityController extends Controller
                     'id' => $id,
                     'reason' => 'Cannot delete city. It is being used by one or more addresses.',
                 ];
+
                 continue;
             }
 

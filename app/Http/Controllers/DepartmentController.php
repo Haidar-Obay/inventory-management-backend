@@ -138,12 +138,13 @@ class DepartmentController extends Controller
         foreach ($ids as $id) {
             try {
                 $department = Department::find($id);
-                
-                if (!$department) {
+
+                if (! $department) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Department not found.',
                     ];
+
                     continue;
                 }
 
@@ -153,6 +154,7 @@ class DepartmentController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete department. It has sub-departments.',
                     ];
+
                     continue;
                 }
 
@@ -160,12 +162,12 @@ class DepartmentController extends Controller
                 app('cache')->store('database')->forget('departments_'.tenant('id'));
                 app('cache')->store('database')->forget("department_{$department->id}_".tenant('id'));
                 $deleted++;
-                
+
             } catch (\Exception $e) {
                 Log::error('Error deleting department '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

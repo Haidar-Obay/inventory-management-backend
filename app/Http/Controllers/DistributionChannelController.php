@@ -138,12 +138,13 @@ class DistributionChannelController extends Controller
         foreach ($ids as $id) {
             try {
                 $distributionChannel = DistributionChannel::find($id);
-                
-                if (!$distributionChannel) {
+
+                if (! $distributionChannel) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Distribution channel not found.',
                     ];
+
                     continue;
                 }
 
@@ -153,6 +154,7 @@ class DistributionChannelController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete distribution channel. It has sub-distribution channels.',
                     ];
+
                     continue;
                 }
 
@@ -162,6 +164,7 @@ class DistributionChannelController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete distribution channel. It is being used by one or more customers.',
                     ];
+
                     continue;
                 }
 
@@ -169,7 +172,7 @@ class DistributionChannelController extends Controller
                 app('cache')->store('database')->forget('distribution_channels_'.tenant('id'));
                 app('cache')->store('database')->forget("distribution_channel_{$distributionChannel->id}_".tenant('id'));
                 $deleted++;
-                
+
             } catch (\Illuminate\Database\QueryException $e) {
                 // Check if it's a foreign key constraint error
                 if ($e->getCode() == '23503') {
@@ -180,15 +183,15 @@ class DistributionChannelController extends Controller
                 } else {
                     Log::error('Error deleting distribution channel '.$id.': '.$e->getMessage());
                     $skipped[] = [
-                        'id' => $id, 
-                        'reason' => $e->getMessage()
+                        'id' => $id,
+                        'reason' => $e->getMessage(),
                     ];
                 }
             } catch (\Exception $e) {
                 Log::error('Error deleting distribution channel '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

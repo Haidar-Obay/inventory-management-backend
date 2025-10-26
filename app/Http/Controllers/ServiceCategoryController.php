@@ -261,7 +261,7 @@ class ServiceCategoryController extends Controller
         Log::info('Bulk delete request received', [
             'ids' => $request->input('ids'),
             'ids_type' => gettype($request->input('ids')),
-            'ids_count' => is_array($request->input('ids')) ? count($request->input('ids')) : 0
+            'ids_count' => is_array($request->input('ids')) ? count($request->input('ids')) : 0,
         ]);
 
         $request->validate([

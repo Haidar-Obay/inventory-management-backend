@@ -134,12 +134,13 @@ class SupplierGroupController extends Controller
         foreach ($ids as $id) {
             try {
                 $supplierGroup = SupplierGroup::find($id);
-                
-                if (!$supplierGroup) {
+
+                if (! $supplierGroup) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Supplier group not found.',
                     ];
+
                     continue;
                 }
 
@@ -149,17 +150,18 @@ class SupplierGroupController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete supplier group. It is being used by one or more suppliers.',
                     ];
+
                     continue;
                 }
 
                 $supplierGroup->delete();
                 $deleted++;
-                
+
             } catch (\Exception $e) {
                 Log::error('Error deleting supplier group '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

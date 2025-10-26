@@ -131,6 +131,7 @@ class DistrictController extends Controller
                     'id' => $id,
                     'reason' => 'Cannot delete district. It is being used by one or more addresses.',
                 ];
+
                 continue;
             }
 

@@ -709,12 +709,13 @@ class SupplierController extends Controller
         foreach ($ids as $id) {
             try {
                 $supplier = Supplier::find($id);
-                
-                if (!$supplier) {
+
+                if (! $supplier) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Supplier not found.',
                     ];
+
                     continue;
                 }
 
@@ -724,12 +725,12 @@ class SupplierController extends Controller
                 $supplier->attachments()->delete();
                 $supplier->delete();
                 $deleted++;
-                
+
             } catch (\Exception $e) {
                 Log::error('Error deleting supplier '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

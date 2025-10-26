@@ -128,6 +128,7 @@ class BusinessTypeController extends Controller
                     'id' => $id,
                     'reason' => 'Cannot delete business type. It is being used by one or more customers.',
                 ];
+
                 continue;
             }
 

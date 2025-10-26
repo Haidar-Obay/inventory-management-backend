@@ -138,12 +138,13 @@ class CostCenterController extends Controller
         foreach ($ids as $id) {
             try {
                 $costCenter = CostCenter::find($id);
-                
-                if (!$costCenter) {
+
+                if (! $costCenter) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Cost center not found.',
                     ];
+
                     continue;
                 }
 
@@ -153,6 +154,7 @@ class CostCenterController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete cost center. It has sub-cost centers.',
                     ];
+
                     continue;
                 }
 
@@ -160,12 +162,12 @@ class CostCenterController extends Controller
                 app('cache')->store('database')->forget('cost_centers_'.tenant('id'));
                 app('cache')->store('database')->forget("cost_center_{$costCenter->id}_".tenant('id'));
                 $deleted++;
-                
+
             } catch (\Exception $e) {
                 Log::error('Error deleting cost center '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

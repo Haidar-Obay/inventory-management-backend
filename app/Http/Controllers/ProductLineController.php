@@ -110,23 +110,24 @@ class ProductLineController extends Controller
         foreach ($ids as $id) {
             try {
                 $productLine = ProductLine::find($id);
-                
-                if (!$productLine) {
+
+                if (! $productLine) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Product line not found.',
                     ];
+
                     continue;
                 }
 
                 $productLine->delete();
                 $deleted++;
-                
+
             } catch (\Exception $e) {
                 Log::error('Error deleting product line '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

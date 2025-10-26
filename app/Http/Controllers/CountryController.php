@@ -132,6 +132,7 @@ class CountryController extends Controller
                     'id' => $id,
                     'reason' => 'Cannot delete country. It is being used by one or more addresses.',
                 ];
+
                 continue;
             }
 

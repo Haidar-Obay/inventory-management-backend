@@ -161,12 +161,13 @@ class CategoryController extends Controller
         foreach ($ids as $id) {
             try {
                 $category = Category::find($id);
-                
-                if (!$category) {
+
+                if (! $category) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Category not found.',
                     ];
+
                     continue;
                 }
 
@@ -176,17 +177,18 @@ class CategoryController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete category. It has subcategories.',
                     ];
+
                     continue;
                 }
 
                 $category->delete();
                 $deleted++;
-                
+
             } catch (\Exception $e) {
                 Log::error('Error deleting category '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

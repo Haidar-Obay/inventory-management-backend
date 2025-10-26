@@ -108,24 +108,25 @@ class ItemController extends Controller
         foreach ($request->ids as $id) {
             try {
                 $item = Item::find($id);
-                
-                if (!$item) {
+
+                if (! $item) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Item not found.',
                     ];
+
                     continue;
                 }
 
                 $item->delete();
                 $deleted++;
                 app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$id}");
-                
+
             } catch (\Exception $e) {
                 Log::error('Error deleting item '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

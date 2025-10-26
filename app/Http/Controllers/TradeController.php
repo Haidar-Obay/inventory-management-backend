@@ -130,6 +130,7 @@ class TradeController extends Controller
                     'id' => $id,
                     'reason' => 'Cannot delete trade. It is being used by one or more customers.',
                 ];
+
                 continue;
             }
 
