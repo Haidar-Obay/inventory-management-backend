@@ -123,11 +123,30 @@ class CityController extends Controller
         $deleted = 0;
 
         foreach ($request->ids as $id) {
+            $city = City::find($id);
+
+            // Check if the city has any addresses linked to it
+            if ($city->addresses()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete city. It is being used by one or more addresses.',
+                ];
+                continue;
+            }
+
             try {
-                $deleted += City::where('id', $id)->delete();
+                $deleted += $city->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_city_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete city. It is being used by one or more addresses.',
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

@@ -126,39 +126,78 @@ class SalesChannelController extends Controller
 
     public function bulkDelete(Request $request)
     {
-        $tenantId = tenant('id');
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:sales_channels,id',
+        ]);
+
         $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
 
-        if (! $ids || ! is_array($ids)) {
-            return response()->json([
-                'status' => false,
-                'message' => 'No sales channels selected for deletion',
-            ], 400);
-        }
-
-        try {
-            foreach ($ids as $id) {
-                $salesChannel = SalesChannel::findOrFail($id);
-                if ($salesChannel->hasSubSalesChannels()) {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'Cannot delete sales channel with sub-sales channels',
-                    ], 422);
+        foreach ($ids as $id) {
+            try {
+                $salesChannel = SalesChannel::find($id);
+                
+                if (!$salesChannel) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Sales channel not found.',
+                    ];
+                    continue;
                 }
+
+                // Check if sales channel has sub-sales channels
+                if ($salesChannel->hasSubSalesChannels()) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete sales channel. It has sub-sales channels.',
+                    ];
+                    continue;
+                }
+
+                // Check if the sales channel has any customers linked to it
+                if ($salesChannel->customers()->exists()) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete sales channel. It is being used by one or more customers.',
+                    ];
+                    continue;
+                }
+
                 $salesChannel->delete();
-                Cache::forget('sales_channels_'.tenant('id'));
-                Cache::forget("sales_channel_{$salesChannel->id}_".tenant('id'));
+                app('cache')->store('database')->forget('sales_channels_'.tenant('id'));
+                app('cache')->store('database')->forget("sales_channel_{$salesChannel->id}_".tenant('id'));
+                $deleted++;
+                
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete sales channel. It is being used by other records in the system.',
+                    ];
+                } else {
+                    Log::error('Error deleting sales channel '.$id.': '.$e->getMessage());
+                    $skipped[] = [
+                        'id' => $id, 
+                        'reason' => $e->getMessage()
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::error('Error deleting sales channel '.$id.': '.$e->getMessage());
+                $skipped[] = [
+                    'id' => $id, 
+                    'reason' => $e->getMessage()
+                ];
             }
-
-            return response()->json(null, 204);
-        } catch (\Exception $e) {
-            Log::error('Error in bulk delete: '.$e->getMessage());
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Failed to delete sales channels',
-            ], 500);
         }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()

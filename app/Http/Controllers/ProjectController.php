@@ -94,27 +94,45 @@ class ProjectController extends Controller
 
     public function bulkDelete(Request $request)
     {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:projects,id',
+        ]);
+
         $tenantId = tenant('id');
         $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
 
-        $projectsWithJobs = Project::whereIn('id', $ids)
-            ->whereHas('jobs')
-            ->pluck('id');
+        foreach ($ids as $id) {
+            $project = Project::find($id);
 
-        if ($projectsWithJobs->isNotEmpty()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Some projects have associated jobs and cannot be deleted',
-                'projects' => $projectsWithJobs,
-            ]);
+            // Check if project has associated jobs
+            if ($project && $project->jobs()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete project. It has associated jobs.',
+                ];
+                continue;
+            }
+
+            try {
+                if ($project) {
+                    $project->delete();
+                    $deleted++;
+                }
+            } catch (\Illuminate\Database\QueryException $e) {
+                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+            }
         }
 
-        Project::whereIn('id', $ids)->delete();
+        // Clear cache
         app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
 
         return response()->json([
-            'status' => true,
-            'message' => 'Projects deleted successfully.',
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
         ]);
     }
 

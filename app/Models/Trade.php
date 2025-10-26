@@ -20,4 +20,10 @@ class Trade extends Model implements Auditable
     protected $casts = [
         'active' => 'boolean',
     ];
+
+    // Customer relationship (one-to-many)
+    public function customers()
+    {
+        return $this->hasMany(Customer::class, 'trade_id');
+    }
 }

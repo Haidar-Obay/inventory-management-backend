@@ -24,4 +24,10 @@ class BusinessType extends Model implements Auditable
         'code' => 'required|string|max:50|unique:business_types,code',
         'name' => 'required|string|max:255',
     ];
+
+    // Customer relationship (one-to-many)
+    public function customers()
+    {
+        return $this->hasMany(Customer::class, 'business_type_id');
+    }
 }

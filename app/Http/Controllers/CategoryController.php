@@ -7,6 +7,7 @@ use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
 class CategoryController extends Controller
@@ -153,27 +154,51 @@ class CategoryController extends Controller
             'ids.*' => 'exists:categories,id',
         ]);
 
-        // Check for categories with subcategories
-        $categoriesWithSubcategories = Category::whereIn('id', $request->ids)
-            ->whereHas('subcategories')
-            ->pluck('id');
+        $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
 
-        if ($categoriesWithSubcategories->isNotEmpty()) {
-            return response()->json([
-                'message' => 'Some categories have subcategories and cannot be deleted',
-                'categories_with_subcategories' => $categoriesWithSubcategories,
-            ], 422);
+        foreach ($ids as $id) {
+            try {
+                $category = Category::find($id);
+                
+                if (!$category) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Category not found.',
+                    ];
+                    continue;
+                }
+
+                // Check if category has subcategories
+                if ($category->subcategories()->exists()) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete category. It has subcategories.',
+                    ];
+                    continue;
+                }
+
+                $category->delete();
+                $deleted++;
+                
+            } catch (\Exception $e) {
+                Log::error('Error deleting category '.$id.': '.$e->getMessage());
+                $skipped[] = [
+                    'id' => $id, 
+                    'reason' => $e->getMessage()
+                ];
+            }
         }
 
-        Category::whereIn('id', $request->ids)->delete();
+        // Invalidate cache after bulk delete
         $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_categories";
-
-        app('cache')->store('database')->forget($key);
+        app('cache')->store('database')->forget("tenant_{$tenantId}_categories");
 
         return response()->json([
-            'status' => true,
-            'message' => 'Categories deleted successfully.',
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
         ]);
     }
 

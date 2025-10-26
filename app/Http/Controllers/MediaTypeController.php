@@ -57,10 +57,38 @@ class MediaTypeController extends Controller
         $skipped = [];
         $deleted = 0;
         foreach ($request->ids as $id) {
+            $mediaType = MediaType::find($id);
+
+            // Check if the media type has any customers linked to it
+            if ($mediaType->customers()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete media type. It is being used by one or more customers.',
+                ];
+                continue;
+            }
+
+            // Check if the media type has any sub-media types
+            if ($mediaType->children()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete media type. It has sub-media types linked to it.',
+                ];
+                continue;
+            }
+
             try {
-                $deleted += MediaType::where('id', $id)->delete();
+                $deleted += $mediaType->delete();
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete media type. It is being used by other records in the system.',
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

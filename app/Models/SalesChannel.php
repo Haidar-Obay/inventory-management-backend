@@ -48,4 +48,10 @@ class SalesChannel extends Model implements Auditable
     {
         return $this->children()->exists();
     }
+
+    // Customer relationship (one-to-many)
+    public function customers()
+    {
+        return $this->hasMany(Customer::class, 'sales_channel_id');
+    }
 }

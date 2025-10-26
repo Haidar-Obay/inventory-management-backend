@@ -120,11 +120,30 @@ class CompanyCodeController extends Controller
         $deleted = 0;
 
         foreach ($request->ids as $id) {
+            $companyCode = CompanyCode::find($id);
+
+            // Check if the company code has any customers linked to it
+            if ($companyCode->customers()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete company code. It is being used by one or more customers.',
+                ];
+                continue;
+            }
+
             try {
-                $deleted += CompanyCode::where('id', $id)->delete();
+                $deleted += $companyCode->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_company_code_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete company code. It is being used by one or more customers.',
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

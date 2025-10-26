@@ -41,4 +41,10 @@ class MediaType extends Model implements Auditable
     {
         return $this->children()->exists();
     }
+
+    // Customer relationship (one-to-many)
+    public function customers()
+    {
+        return $this->hasMany(Customer::class, 'media_type_id');
+    }
 }

@@ -16,4 +16,10 @@ class CompanyCode extends Model implements Auditable
     protected $primaryKey = 'id';
 
     public $timestamps = true;
+
+    // Customer relationship (one-to-many)
+    public function customers()
+    {
+        return $this->hasMany(Customer::class, 'company_code_id');
+    }
 }

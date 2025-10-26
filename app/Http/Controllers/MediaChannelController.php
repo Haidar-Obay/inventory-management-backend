@@ -126,39 +126,78 @@ class MediaChannelController extends Controller
 
     public function bulkDelete(Request $request)
     {
-        $tenantId = tenant('id');
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:media_channels,id',
+        ]);
+
         $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
 
-        if (! $ids || ! is_array($ids)) {
-            return response()->json([
-                'status' => false,
-                'message' => 'No media channels selected for deletion',
-            ], 400);
-        }
-
-        try {
-            foreach ($ids as $id) {
-                $mediaChannel = MediaChannel::findOrFail($id);
-                if ($mediaChannel->hasSubMediaChannels()) {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'Cannot delete media channel with sub-media channels',
-                    ], 422);
+        foreach ($ids as $id) {
+            try {
+                $mediaChannel = MediaChannel::find($id);
+                
+                if (!$mediaChannel) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Media channel not found.',
+                    ];
+                    continue;
                 }
+
+                // Check if media channel has sub-media channels
+                if ($mediaChannel->hasSubMediaChannels()) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete media channel. It has sub-media channels.',
+                    ];
+                    continue;
+                }
+
+                // Check if the media channel has any customers linked to it
+                if ($mediaChannel->customers()->exists()) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete media channel. It is being used by one or more customers.',
+                    ];
+                    continue;
+                }
+
                 $mediaChannel->delete();
-                Cache::forget('media_channels_'.tenant('id'));
-                Cache::forget("media_channel_{$mediaChannel->id}_".tenant('id'));
+                app('cache')->store('database')->forget('media_channels_'.tenant('id'));
+                app('cache')->store('database')->forget("media_channel_{$mediaChannel->id}_".tenant('id'));
+                $deleted++;
+                
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete media channel. It is being used by other records in the system.',
+                    ];
+                } else {
+                    Log::error('Error deleting media channel '.$id.': '.$e->getMessage());
+                    $skipped[] = [
+                        'id' => $id, 
+                        'reason' => $e->getMessage()
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::error('Error deleting media channel '.$id.': '.$e->getMessage());
+                $skipped[] = [
+                    'id' => $id, 
+                    'reason' => $e->getMessage()
+                ];
             }
-
-            return response()->json(null, 204);
-        } catch (\Exception $e) {
-            Log::error('Error in bulk delete: '.$e->getMessage());
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Failed to delete media channels',
-            ], 500);
         }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()
