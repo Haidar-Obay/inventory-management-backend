@@ -67,7 +67,7 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::get('/', [ModuleController::class, 'index']);
             Route::get('/usage-stats', [ModuleController::class, 'getUsageStats']);
             Route::post('/', [ModuleController::class, 'store']);
-            
+
             // Module Pages (nested - must come before /{id})
             Route::get('/{moduleId}/pages', [ModulePageController::class, 'index']);
             Route::post('/{moduleId}/pages', [ModulePageController::class, 'store']);
@@ -81,7 +81,7 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::get('/{moduleId}/resources/{resourceId}', [ModuleResourceController::class, 'show']);
             Route::put('/{moduleId}/resources/{resourceId}', [ModuleResourceController::class, 'update']);
             Route::delete('/{moduleId}/resources/{resourceId}', [ModuleResourceController::class, 'destroy']);
-            
+
             // CRUD operations (must come after specific routes)
             Route::get('/{id}', [ModuleController::class, 'show']);
             Route::put('/{id}', [ModuleController::class, 'update']);

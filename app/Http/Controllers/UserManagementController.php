@@ -465,6 +465,7 @@ class UserManagementController extends Controller
 
         try {
             $user->update($updateData);
+
             return response()->json([
                 'message' => 'User updated successfully.',
                 'user' => $user->fresh(),
@@ -498,6 +499,7 @@ class UserManagementController extends Controller
 
         try {
             $user->delete();
+
             return response()->json(['message' => 'User deleted successfully.']);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json(['message' => 'User could not be deleted.'], 400);
@@ -519,6 +521,7 @@ class UserManagementController extends Controller
         foreach ($request->user_ids as $id) {
             if ($authUser->id == $id) {
                 $skipped[] = ['id' => $id, 'reason' => 'Cannot delete the currently authenticated user.'];
+
                 continue;
             }
 
@@ -539,8 +542,8 @@ class UserManagementController extends Controller
     /**
      * Toggle user active status.
      */
-        public function toggleUserStatus(Request $request, $id)
-        {
+    public function toggleUserStatus(Request $request, $id)
+    {
         // Validate ID parameter
         if (! $id || $id === 'undefined' || ! is_numeric($id)) {
             return response()->json(['message' => 'Invalid user ID provided.'], 400);
