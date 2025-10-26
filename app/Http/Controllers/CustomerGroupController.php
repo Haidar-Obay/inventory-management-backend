@@ -103,12 +103,13 @@ class CustomerGroupController extends Controller
         foreach ($ids as $id) {
             try {
                 $customerGroup = CustomerGroup::find($id);
-                
-                if (!$customerGroup) {
+
+                if (! $customerGroup) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Customer group not found.',
                     ];
+
                     continue;
                 }
 
@@ -118,17 +119,18 @@ class CustomerGroupController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete customer group. It is being used by one or more customers.',
                     ];
+
                     continue;
                 }
 
                 $customerGroup->delete();
                 $deleted++;
-                
+
             } catch (\Exception $e) {
                 Log::error('Error deleting customer group '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

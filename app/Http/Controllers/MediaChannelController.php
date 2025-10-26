@@ -138,12 +138,13 @@ class MediaChannelController extends Controller
         foreach ($ids as $id) {
             try {
                 $mediaChannel = MediaChannel::find($id);
-                
-                if (!$mediaChannel) {
+
+                if (! $mediaChannel) {
                     $skipped[] = [
                         'id' => $id,
                         'reason' => 'Media channel not found.',
                     ];
+
                     continue;
                 }
 
@@ -153,6 +154,7 @@ class MediaChannelController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete media channel. It has sub-media channels.',
                     ];
+
                     continue;
                 }
 
@@ -162,6 +164,7 @@ class MediaChannelController extends Controller
                         'id' => $id,
                         'reason' => 'Cannot delete media channel. It is being used by one or more customers.',
                     ];
+
                     continue;
                 }
 
@@ -169,7 +172,7 @@ class MediaChannelController extends Controller
                 app('cache')->store('database')->forget('media_channels_'.tenant('id'));
                 app('cache')->store('database')->forget("media_channel_{$mediaChannel->id}_".tenant('id'));
                 $deleted++;
-                
+
             } catch (\Illuminate\Database\QueryException $e) {
                 // Check if it's a foreign key constraint error
                 if ($e->getCode() == '23503') {
@@ -180,15 +183,15 @@ class MediaChannelController extends Controller
                 } else {
                     Log::error('Error deleting media channel '.$id.': '.$e->getMessage());
                     $skipped[] = [
-                        'id' => $id, 
-                        'reason' => $e->getMessage()
+                        'id' => $id,
+                        'reason' => $e->getMessage(),
                     ];
                 }
             } catch (\Exception $e) {
                 Log::error('Error deleting media channel '.$id.': '.$e->getMessage());
                 $skipped[] = [
-                    'id' => $id, 
-                    'reason' => $e->getMessage()
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
                 ];
             }
         }

@@ -65,6 +65,7 @@ class MediaTypeController extends Controller
                     'id' => $id,
                     'reason' => 'Cannot delete media type. It is being used by one or more customers.',
                 ];
+
                 continue;
             }
 
@@ -74,6 +75,7 @@ class MediaTypeController extends Controller
                     'id' => $id,
                     'reason' => 'Cannot delete media type. It has sub-media types linked to it.',
                 ];
+
                 continue;
             }
 

@@ -130,6 +130,7 @@ class ZoneController extends Controller
                     'id' => $id,
                     'reason' => 'Cannot delete zone. It is being used by one or more addresses.',
                 ];
+
                 continue;
             }
 
