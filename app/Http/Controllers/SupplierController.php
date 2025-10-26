@@ -13,6 +13,7 @@ use App\Models\Supplier;
 use App\Models\SupplierAttachment;
 use App\Services\OpeningBalanceService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -701,29 +702,44 @@ class SupplierController extends Controller
             'ids.*' => 'exists:suppliers,id',
         ]);
 
-        try {
-            $suppliers = Supplier::whereIn('id', $request->ids)->get();
+        $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
 
-            foreach ($suppliers as $supplier) {
+        foreach ($ids as $id) {
+            try {
+                $supplier = Supplier::find($id);
+
+                if (! $supplier) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Supplier not found.',
+                    ];
+
+                    continue;
+                }
+
+                // Delete related data
                 $supplier->addresses()->detach();
                 $supplier->contacts()->delete();
                 $supplier->attachments()->delete();
+                $supplier->delete();
+                $deleted++;
+
+            } catch (\Exception $e) {
+                Log::error('Error deleting supplier '.$id.': '.$e->getMessage());
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
+                ];
             }
-
-            Supplier::whereIn('id', $request->ids)->delete();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Suppliers deleted successfully',
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to delete suppliers',
-                'error' => $e->getMessage(),
-            ], 500);
         }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()

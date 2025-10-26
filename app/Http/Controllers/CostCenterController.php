@@ -126,38 +126,57 @@ class CostCenterController extends Controller
 
     public function bulkDelete(Request $request)
     {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:cost_centers,id',
+        ]);
+
         $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
 
-        if (! $ids || ! is_array($ids)) {
-            return response()->json([
-                'status' => false,
-                'message' => 'No cost centers selected for deletion',
-            ], 400);
-        }
+        foreach ($ids as $id) {
+            try {
+                $costCenter = CostCenter::find($id);
 
-        try {
-            foreach ($ids as $id) {
-                $costCenter = CostCenter::findOrFail($id);
-                if ($costCenter->hasSubCostCenters()) {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'Cannot delete cost center with sub-cost centers',
-                    ], 422);
+                if (! $costCenter) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cost center not found.',
+                    ];
+
+                    continue;
                 }
+
+                // Check if cost center has sub-cost centers
+                if ($costCenter->hasSubCostCenters()) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete cost center. It has sub-cost centers.',
+                    ];
+
+                    continue;
+                }
+
                 $costCenter->delete();
-                Cache::forget('cost_centers_'.tenant('id'));
-                Cache::forget("cost_center_{$costCenter->id}_".tenant('id'));
+                app('cache')->store('database')->forget('cost_centers_'.tenant('id'));
+                app('cache')->store('database')->forget("cost_center_{$costCenter->id}_".tenant('id'));
+                $deleted++;
+
+            } catch (\Exception $e) {
+                Log::error('Error deleting cost center '.$id.': '.$e->getMessage());
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
+                ];
             }
-
-            return response()->json(null, 204);
-        } catch (\Exception $e) {
-            Log::error('Error in bulk delete: '.$e->getMessage());
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Failed to delete cost centers',
-            ], 500);
         }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()

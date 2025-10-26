@@ -10,6 +10,7 @@ use App\Imports\DynamicExcelImport;
 use App\Models\ServiceCategory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ServiceCategoryController extends Controller
@@ -78,7 +79,7 @@ class ServiceCategoryController extends Controller
 
     public function exportExcell()
     {
-        $serviceCategories = ServiceCategory::query();
+        $serviceCategories = ServiceCategory::query()->with(['department:id,name']);
         $collection = $serviceCategories->get();
 
         if ($collection->isEmpty()) {
@@ -92,12 +93,13 @@ class ServiceCategoryController extends Controller
             'id',
             'name',
             'description',
+            'department.name',
             'created_at',
             'updated_at',
         ];
 
         $headings = [
-            'ID', 'Name', 'Description', 'Created At', 'Updated At',
+            'ID', 'Name', 'Description', 'Department', 'Created At', 'Updated At',
         ];
 
         $fileName = 'service_categories_'.'.xlsx';
@@ -107,7 +109,9 @@ class ServiceCategoryController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $serviceCategories = ServiceCategory::select('id', 'name', 'description', 'created_at', 'updated_at')->get();
+        $serviceCategories = ServiceCategory::with(['department:id,name'])
+            ->select('id', 'name', 'description', 'department_id', 'created_at', 'updated_at')
+            ->get();
 
         if ($serviceCategories->isEmpty()) {
             return response()->json([
@@ -121,10 +125,22 @@ class ServiceCategoryController extends Controller
             'id' => 'ID',
             'name' => 'Name',
             'description' => 'Description',
+            'department.name' => 'Department',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];
-        $data = $serviceCategories->toArray();
+
+        // Normalize department name for PDF
+        $data = $serviceCategories->map(function ($category) {
+            return [
+                'id' => $category->id,
+                'name' => $category->name,
+                'description' => $category->description,
+                'department.name' => optional($category->department)->name,
+                'created_at' => $category->created_at,
+                'updated_at' => $category->updated_at,
+            ];
+        })->toArray();
 
         $pdf = $pdfService->generatePdf($title, $headers, $data);
 
@@ -241,9 +257,23 @@ class ServiceCategoryController extends Controller
 
     public function bulkDelete(Request $request)
     {
+        // Log the incoming request for debugging
+        Log::info('Bulk delete request received', [
+            'ids' => $request->input('ids'),
+            'ids_type' => gettype($request->input('ids')),
+            'ids_count' => is_array($request->input('ids')) ? count($request->input('ids')) : 0,
+        ]);
+
         $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'exists:service_categories,id',
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'required|integer|exists:service_categories,id',
+        ], [
+            'ids.required' => 'The ids field is required.',
+            'ids.array' => 'The ids must be an array.',
+            'ids.min' => 'At least one ID must be provided.',
+            'ids.*.required' => 'Each ID is required.',
+            'ids.*.integer' => 'Each ID must be an integer.',
+            'ids.*.exists' => 'One or more selected service categories do not exist.',
         ]);
 
         $skipped = [];

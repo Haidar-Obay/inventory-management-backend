@@ -7,6 +7,7 @@ use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use App\Models\ProductLine;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ProductLineController extends Controller
@@ -102,15 +103,43 @@ class ProductLineController extends Controller
             'ids.*' => 'exists:product_lines,id',
         ]);
 
-        ProductLine::whereIn('id', $request->ids)->delete();
+        $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($ids as $id) {
+            try {
+                $productLine = ProductLine::find($id);
+
+                if (! $productLine) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Product line not found.',
+                    ];
+
+                    continue;
+                }
+
+                $productLine->delete();
+                $deleted++;
+
+            } catch (\Exception $e) {
+                Log::error('Error deleting product line '.$id.': '.$e->getMessage());
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
+                ];
+            }
+        }
 
         // Invalidate cache after bulk delete
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_product_lines");
 
         return response()->json([
-            'status' => true,
-            'message' => 'Product lines deleted successfully.',
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
         ]);
     }
 

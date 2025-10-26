@@ -112,7 +112,15 @@ class JobController extends Controller
                 $deleted += Job::where('id', $id)->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_job_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete job. It is being used by other records in the system.',
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

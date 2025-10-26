@@ -7,6 +7,7 @@ use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use App\Models\CustomerGroup;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
 class CustomerGroupController extends Controller
@@ -90,25 +91,58 @@ class CustomerGroupController extends Controller
 
     public function bulkDelete(Request $request)
     {
-        $tenantId = tenant('id');
-        $groupsWithCustomers = CustomerGroup::whereIn('id', $request->ids)
-            ->whereHas('customers')
-            ->pluck('id');
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:customer_groups,id',
+        ]);
 
-        if ($groupsWithCustomers->isNotEmpty()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Some customer groups have associated customers and cannot be deleted',
-                'groups_with_customers' => $groupsWithCustomers,
-            ], 400);
+        $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($ids as $id) {
+            try {
+                $customerGroup = CustomerGroup::find($id);
+
+                if (! $customerGroup) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Customer group not found.',
+                    ];
+
+                    continue;
+                }
+
+                // Check if customer group has associated customers
+                if ($customerGroup->customers()->exists()) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete customer group. It is being used by one or more customers.',
+                    ];
+
+                    continue;
+                }
+
+                $customerGroup->delete();
+                $deleted++;
+
+            } catch (\Exception $e) {
+                Log::error('Error deleting customer group '.$id.': '.$e->getMessage());
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
+                ];
+            }
         }
 
-        CustomerGroup::whereIn('id', $request->ids)->delete();
+        // Invalidate cache after bulk delete
+        $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
 
         return response()->json([
-            'status' => true,
-            'message' => 'Customer groups deleted successfully.',
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
         ]);
     }
 

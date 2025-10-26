@@ -69,10 +69,30 @@ class ReferrerController extends Controller
         $skipped = [];
         $deleted = 0;
         foreach ($request->ids as $id) {
+            $referrer = Referrer::find($id);
+
+            // Check if the referrer has any customers linked to it
+            if ($referrer->customers()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete referrer. It is being used by one or more customers.',
+                ];
+
+                continue;
+            }
+
             try {
-                $deleted += Referrer::where('id', $id)->delete();
+                $deleted += $referrer->delete();
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete referrer. It is being used by one or more customers.',
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

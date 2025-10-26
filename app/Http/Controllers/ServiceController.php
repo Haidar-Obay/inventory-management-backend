@@ -192,6 +192,7 @@ class ServiceController extends Controller
         $services = Service::query()->with([
             'serviceCategory:id,name',
             'specialists:id,name',
+            'assets:id,name',
         ]);
         $collection = $services->get();
 
@@ -208,7 +209,7 @@ class ServiceController extends Controller
             'serviceCategory.name',
             'result_after_days',
             'needs_specialist',
-            'needs_machine',
+            'needs_asset',
             'duration_minutes',
             'normal_price',
             'vip_price',
@@ -222,15 +223,16 @@ class ServiceController extends Controller
             'service_sex',
             'active',
             'specialists.*.name',
+            'assets.*.name',
             'created_at',
             'updated_at',
         ];
 
         $headings = [
-            'ID', 'Name', 'Service Category', 'Result After Days', 'Needs Specialist', 'Needs Machine', 'Duration (min)',
+            'ID', 'Name', 'Service Category', 'Result After Days', 'Needs Specialist', 'Needs Asset', 'Duration (min)',
             'Normal Price', 'VIP Price', 'Price In Group',
             'Price Calculated by Hour', 'Hour Price', 'Cost Price', 'Birthday Price', 'Wedding Price',
-            'Service Color', 'Service Sex', 'Active', 'Specialists',
+            'Service Color', 'Service Sex', 'Active', 'Specialists', 'Assets',
             'Created At', 'Updated At',
         ];
 
@@ -245,9 +247,10 @@ class ServiceController extends Controller
             ->with([
                 'serviceCategory:id,name',
                 'specialists:id,name',
+                'assets:id,name',
             ])
             ->get([
-                'id', 'name', 'service_category_id', 'result_after_days', 'needs_specialist', 'needs_machine',
+                'id', 'name', 'service_category_id', 'result_after_days', 'needs_specialist', 'needs_asset',
                 'duration_minutes', 'normal_price', 'vip_price', 'price_in_group',
                 'price_calculated_by_hour', 'hour_price', 'cost_price', 'birthday_price', 'wedding_price',
                 'service_color', 'service_sex', 'active', 'created_at', 'updated_at',
@@ -267,7 +270,7 @@ class ServiceController extends Controller
             'serviceCategory.name' => 'Service Category',
             'result_after_days' => 'Result After Days',
             'needs_specialist' => 'Needs Specialist',
-            'needs_machine' => 'Needs Machine',
+            'needs_asset' => 'Needs Asset',
             'duration_minutes' => 'Duration (min)',
             'normal_price' => 'Normal Price',
             'vip_price' => 'VIP Price',
@@ -281,11 +284,12 @@ class ServiceController extends Controller
             'service_sex' => 'Service Sex',
             'active' => 'Active',
             'specialists' => 'Specialists',
+            'assets' => 'Assets',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];
 
-        // Normalize specialists to array of names for PDF
+        // Normalize specialists and assets to array of names for PDF
         $data = $services->map(function ($s) {
             return [
                 'id' => $s->id,
@@ -293,7 +297,7 @@ class ServiceController extends Controller
                 'serviceCategory.name' => optional($s->serviceCategory)->name,
                 'result_after_days' => $s->result_after_days,
                 'needs_specialist' => $s->needs_specialist,
-                'needs_machine' => $s->needs_machine,
+                'needs_asset' => $s->needs_asset,
                 'duration_minutes' => $s->duration_minutes,
                 'normal_price' => $s->normal_price,
                 'vip_price' => $s->vip_price,
@@ -307,6 +311,7 @@ class ServiceController extends Controller
                 'service_sex' => $s->service_sex,
                 'active' => $s->active,
                 'specialists' => $s->specialists->pluck('name')->values()->all(),
+                'assets' => $s->assets->pluck('name')->values()->all(),
                 'created_at' => $s->created_at,
                 'updated_at' => $s->updated_at,
             ];

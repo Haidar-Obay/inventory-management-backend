@@ -124,11 +124,31 @@ class CountryController extends Controller
         $deleted = 0;
 
         foreach ($request->ids as $id) {
+            $country = Country::find($id);
+
+            // Check if the country has any addresses linked to it
+            if ($country->addresses()->exists()) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete country. It is being used by one or more addresses.',
+                ];
+
+                continue;
+            }
+
             try {
-                $deleted += Country::where('id', $id)->delete();
+                $deleted += $country->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_country_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error
+                if ($e->getCode() == '23503') {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete country. It is being used by one or more addresses.',
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

@@ -7,6 +7,7 @@ use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use App\Models\SupplierGroup;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -126,36 +127,50 @@ class SupplierGroupController extends Controller
             'ids.*' => 'exists:supplier_groups,id',
         ]);
 
-        $tenantId = tenant('id');
+        $ids = $request->input('ids');
         $skipped = [];
         $deleted = 0;
 
-        // Check for supplier groups with suppliers
-        $groupsWithSuppliers = SupplierGroup::whereIn('id', $request->ids)
-            ->whereHas('suppliers')
-            ->pluck('id');
-
-        if ($groupsWithSuppliers->isNotEmpty()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Some supplier groups have associated suppliers and cannot be deleted',
-                'groups_with_suppliers' => $groupsWithSuppliers,
-            ], 422);
-        }
-
-        foreach ($request->ids as $id) {
+        foreach ($ids as $id) {
             try {
-                $deleted += SupplierGroup::where('id', $id)->delete();
-                app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_group_{$id}");
-            } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                $supplierGroup = SupplierGroup::find($id);
+
+                if (! $supplierGroup) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Supplier group not found.',
+                    ];
+
+                    continue;
+                }
+
+                // Check if supplier group has associated suppliers
+                if ($supplierGroup->suppliers()->exists()) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete supplier group. It is being used by one or more suppliers.',
+                    ];
+
+                    continue;
+                }
+
+                $supplierGroup->delete();
+                $deleted++;
+
+            } catch (\Exception $e) {
+                Log::error('Error deleting supplier group '.$id.': '.$e->getMessage());
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => $e->getMessage(),
+                ];
             }
         }
 
+        // Invalidate cache after bulk delete
+        $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_groups");
 
         return response()->json([
-            'status' => true,
             'message' => 'Bulk delete completed.',
             'deleted_count' => $deleted,
             'skipped' => $skipped,
