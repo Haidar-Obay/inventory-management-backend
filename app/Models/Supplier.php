@@ -141,6 +141,13 @@ class Supplier extends Model implements Auditable
         return $this->hasMany(SupplierAttachment::class);
     }
 
+    public function items()
+    {
+        return $this->belongsToMany(Item::class, 'item_supplier')
+            ->withPivot(['original_code', 'currency', 'cost', 'is_primary'])
+            ->withTimestamps();
+    }
+
     // Contacts relationship
     public function contacts()
     {
