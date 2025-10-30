@@ -35,7 +35,11 @@ class CustomerGroupController extends Controller
     public function store(Request $request)
     {
         $tenantId = tenant('id');
-        $customerGroup = CustomerGroup::create($request->all());
+        $data = $request->all();
+        $nextId = $this->computeNextAvailableId(CustomerGroup::class, 'id');
+        $customerGroup = new CustomerGroup($data);
+        $customerGroup->id = $nextId;
+        $customerGroup->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
 
         return response()->json([

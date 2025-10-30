@@ -40,7 +40,10 @@ class DistrictController extends Controller
             'name' => 'required|string|max:255|unique:districts,name',
         ]);
 
-        $district = District::create($validated);
+        $nextId = $this->computeNextAvailableId(District::class, 'id');
+        $district = new District($validated);
+        $district->id = $nextId;
+        $district->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_districts");

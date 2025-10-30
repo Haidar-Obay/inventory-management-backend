@@ -29,5 +29,6 @@ class AppServiceProvider extends ServiceProvider
             return 'https://frontend-app.com/reset-password?token='.$token.'&email='.urlencode($user->email);
         });
 
+        // Removed global ID assignment logic; IDs are assigned explicitly in controllers.
     }
 }

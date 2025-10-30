@@ -39,7 +39,10 @@ class PaymentTermController extends Controller
             'active' => 'boolean',
         ]);
 
-        $paymentTerm = PaymentTerm::create($validated);
+        $nextId = $this->computeNextAvailableId(PaymentTerm::class, 'id');
+        $paymentTerm = new PaymentTerm($validated);
+        $paymentTerm->id = $nextId;
+        $paymentTerm->save();
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_payment_terms");
 

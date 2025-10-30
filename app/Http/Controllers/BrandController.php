@@ -53,7 +53,10 @@ class BrandController extends Controller
             }
         }
 
-        $brand = Brand::create($validated);
+        $nextId = $this->computeNextAvailableId(Brand::class, 'id');
+        $brand = new Brand($validated);
+        $brand->id = $nextId;
+        $brand->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_brands");

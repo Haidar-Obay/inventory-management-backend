@@ -50,7 +50,10 @@ class SalesChannelController extends Controller
         }
 
         $tenantId = tenant('id');
-        $salesChannel = SalesChannel::create($validated);
+        $nextId = $this->computeNextAvailableId(SalesChannel::class, 'id');
+        $salesChannel = new SalesChannel($validated);
+        $salesChannel->id = $nextId;
+        $salesChannel->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_sales_channels");
 
         return response()->json([

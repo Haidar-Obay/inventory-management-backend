@@ -50,7 +50,10 @@ class MediaChannelController extends Controller
         }
 
         $tenantId = tenant('id');
-        $mediaChannel = MediaChannel::create($validated);
+        $nextId = $this->computeNextAvailableId(MediaChannel::class, 'id');
+        $mediaChannel = new MediaChannel($validated);
+        $mediaChannel->id = $nextId;
+        $mediaChannel->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_media_channels");
 
         return response()->json([

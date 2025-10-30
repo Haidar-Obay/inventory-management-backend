@@ -54,7 +54,11 @@ class SalesmanController extends Controller
 
     public function store(StoreSalesmanRequest $request)
     {
-        $salesman = Salesman::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(Salesman::class, 'id');
+        $salesman = new Salesman($data);
+        $salesman->id = $nextId;
+        $salesman->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_salesmen");

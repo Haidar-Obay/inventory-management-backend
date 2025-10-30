@@ -38,7 +38,10 @@ class CompanyCodeController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $companyCode = CompanyCode::create($validated);
+        $nextId = $this->computeNextAvailableId(CompanyCode::class, 'id');
+        $companyCode = new CompanyCode($validated);
+        $companyCode->id = $nextId;
+        $companyCode->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_company_codes");

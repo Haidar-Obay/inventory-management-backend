@@ -43,7 +43,10 @@ class ModulePageController extends Controller
             return response()->json(['errors' => ['path' => ['Path must be unique per module']]], 422);
         }
 
-        $page = $module->pages()->create($request->only(['name', 'code', 'path', 'order', 'is_public']));
+        $nextId = $this->computeNextAvailableId(\App\Models\ModulePage::class, 'id');
+        $page = new \App\Models\ModulePage($request->only(['name', 'code', 'path', 'order', 'is_public']));
+        $page->id = $nextId;
+        $module->pages()->save($page);
 
         return response()->json([
             'message' => 'Module page created successfully',

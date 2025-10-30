@@ -202,7 +202,10 @@ class CustomerController extends Controller
                 $validated['showMessageField'] = true;
             }
 
-            $customer = Customer::create($validated);
+            $nextId = $this->computeNextAvailableId(Customer::class, 'id');
+            $customer = new Customer($validated);
+            $customer->id = $nextId;
+            $customer->save();
 
             // Attach billing address to customer
             if ($billingAddress) {
@@ -282,7 +285,9 @@ class CustomerController extends Controller
                 foreach ($request->input('contacts') as $contactData) {
                     $isPrimary = isset($contactData['is_primary']) && (bool) $contactData['is_primary'];
 
-                    $contact = $customer->contacts()->create([
+                    $nextContactId = $this->computeNextAvailableId(\App\Models\CustomerContact::class, 'id');
+                    $contact = new \App\Models\CustomerContact([
+                        'customer_id' => $customer->id,
                         'title' => $contactData['title'] ?? null,
                         'name' => $contactData['name'],
                         'work_phone' => $contactData['work_phone'] ?? null,
@@ -292,6 +297,8 @@ class CustomerController extends Controller
                         'extension' => $contactData['extension'] ?? null,
                         'is_primary' => $isPrimary,
                     ]);
+                    $contact->id = $nextContactId;
+                    $contact->save();
 
                     // Set as primary contact if specified (also updates customer.contacts_id)
                     if ($isPrimary) {
@@ -913,14 +920,18 @@ class CustomerController extends Controller
                         if (in_array($currencyCode, $openingBalanceCurrencies)) {
                             try {
                                 // Create credit limit directly instead of using setCreditLimit method
-                                $customer->creditLimits()->create([
-                                    'currency_id' => $currency->id,
-                                    'credit_limit' => $amount,
-                                    'used_credit' => 0,
-                                    'available_credit' => $amount,
-                                    'notes' => null,
-                                    'is_active' => true,
-                                ]);
+                        $nextCreditId = $this->computeNextAvailableId(\App\Models\CustomerCreditLimit::class, 'id');
+                        $customerCredit = new \App\Models\CustomerCreditLimit([
+                            'customer_id' => $customer->id,
+                            'currency_id' => $currency->id,
+                            'credit_limit' => $amount,
+                            'used_credit' => 0,
+                            'available_credit' => $amount,
+                            'notes' => null,
+                            'is_active' => true,
+                        ]);
+                        $customerCredit->id = $nextCreditId;
+                        $customerCredit->save();
                             } catch (\Exception $e) {
                                 // Re-throw the exception to trigger transaction rollback
                                 throw new \Exception('Credit limit validation failed: '.$e->getMessage());
@@ -955,7 +966,9 @@ class CustomerController extends Controller
                 $customer->contacts()->delete();
 
                 foreach ($request->input('contacts') as $contactData) {
-                    $contact = $customer->contacts()->create([
+                    $nextContactId = $this->computeNextAvailableId(\App\Models\CustomerContact::class, 'id');
+                    $contact = new \App\Models\CustomerContact([
+                        'customer_id' => $customer->id,
                         'title' => $contactData['title'] ?? null,
                         'name' => $contactData['name'],
                         'work_phone' => $contactData['work_phone'] ?? null,
@@ -964,6 +977,8 @@ class CustomerController extends Controller
                         'position' => $contactData['position'] ?? null,
                         'extension' => $contactData['extension'] ?? null,
                     ]);
+                    $contact->id = $nextContactId;
+                    $contact->save();
 
                     // Set as primary contact if specified
                     if (isset($contactData['is_primary']) && $contactData['is_primary']) {

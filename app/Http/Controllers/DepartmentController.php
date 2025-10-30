@@ -50,7 +50,10 @@ class DepartmentController extends Controller
         }
 
         $tenantId = tenant('id');
-        $department = Department::create($validated);
+        $nextId = $this->computeNextAvailableId(Department::class, 'id');
+        $department = new Department($validated);
+        $department->id = $nextId;
+        $department->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
 
         return response()->json([

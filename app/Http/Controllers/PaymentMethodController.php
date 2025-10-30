@@ -40,7 +40,10 @@ class PaymentMethodController extends Controller
             'active' => 'required|boolean',
         ]);
 
-        $paymentMethod = PaymentMethod::create($validated);
+        $nextId = $this->computeNextAvailableId(PaymentMethod::class, 'id');
+        $paymentMethod = new PaymentMethod($validated);
+        $paymentMethod->id = $nextId;
+        $paymentMethod->save();
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_payment_methods");
 

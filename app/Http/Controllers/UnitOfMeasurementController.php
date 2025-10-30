@@ -48,7 +48,11 @@ class UnitOfMeasurementController extends Controller
 
     public function store(StoreUnitOfMeasurementRequest $request)
     {
-        $uom = UnitOfMeasurement::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(UnitOfMeasurement::class, 'id');
+        $uom = new UnitOfMeasurement($data);
+        $uom->id = $nextId;
+        $uom->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_unit_of_measurements");

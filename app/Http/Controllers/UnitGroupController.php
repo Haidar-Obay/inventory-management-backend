@@ -48,7 +48,11 @@ class UnitGroupController extends Controller
 
     public function store(StoreUnitGroupRequest $request)
     {
-        $unitGroup = UnitGroup::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(UnitGroup::class, 'id');
+        $unitGroup = new UnitGroup($data);
+        $unitGroup->id = $nextId;
+        $unitGroup->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_unit_groups");

@@ -48,7 +48,10 @@ class ModuleController extends Controller
             ], 422);
         }
 
-        $module = Module::create($request->all());
+        $nextId = $this->computeNextAvailableId(Module::class, 'id');
+        $module = new Module($request->all());
+        $module->id = $nextId;
+        $module->save();
 
         Cache::forget('modules_all');
 

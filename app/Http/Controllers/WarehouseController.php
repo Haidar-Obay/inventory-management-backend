@@ -37,7 +37,10 @@ class WarehouseController extends Controller
             }
         }
 
-        $warehouse = Warehouse::create($validated);
+        $nextId = $this->computeNextAvailableId(Warehouse::class, 'id');
+        $warehouse = new Warehouse($validated);
+        $warehouse->id = $nextId;
+        $warehouse->save();
         Cache::forget('warehouses_'.tenant('id'));
 
         return response()->json($warehouse, 201);

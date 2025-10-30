@@ -155,12 +155,15 @@ class TenantController extends Controller
 
             tenancy()->initialize($tenant);
 
-            $user = User::create([
+            $nextUserId = $this->computeNextAvailableId(User::class, 'id');
+            $user = new User([
                 'name' => "{$request->input('name')}_owner",
                 'email' => $request->input('email'),
                 'password' => Hash::make($request->input('password')),
                 'active' => true,
             ]);
+            $user->id = $nextUserId;
+            $user->save();
 
             // Assign modules to tenant with provided selection (no plan-module dependency)
             if ($request->filled('selected_modules')) {

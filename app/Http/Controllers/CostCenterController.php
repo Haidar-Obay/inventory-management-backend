@@ -50,7 +50,10 @@ class CostCenterController extends Controller
         }
 
         $tenantId = tenant('id');
-        $costCenter = CostCenter::create($validated);
+        $nextId = $this->computeNextAvailableId(CostCenter::class, 'id');
+        $costCenter = new CostCenter($validated);
+        $costCenter->id = $nextId;
+        $costCenter->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
 
         return response()->json([

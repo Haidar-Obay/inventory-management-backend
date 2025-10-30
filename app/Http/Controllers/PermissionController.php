@@ -91,7 +91,11 @@ class PermissionController extends Controller
     public function store(StorePermissionRequest $request): JsonResponse
     {
         try {
-            $permission = Permission::create($request->validated());
+            $data = $request->validated();
+            $nextId = $this->computeNextAvailableId(Permission::class, 'id');
+            $permission = new Permission($data);
+            $permission->id = $nextId;
+            $permission->save();
 
             $tenantId = tenant('id');
             app('cache')->store('database')->forget("tenant_{$tenantId}_permissions");

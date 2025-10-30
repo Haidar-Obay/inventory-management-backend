@@ -67,7 +67,11 @@ class ItemController extends Controller
 
     public function store(StoreItemRequest $request)
     {
-        $item = Item::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(Item::class, 'id');
+        $item = new Item($data);
+        $item->id = $nextId;
+        $item->save();
 
         // Ensure base UOM is attached if provided
         if ($item->base_uom_id) {

@@ -39,7 +39,11 @@ class ProjectController extends Controller
     public function store(StoreProjectRequest $request)
     {
         $tenantId = tenant('id');
-        $project = Project::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(Project::class, 'id');
+        $project = new Project($data);
+        $project->id = $nextId;
+        $project->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
 
         return response()->json([

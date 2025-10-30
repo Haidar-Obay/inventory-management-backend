@@ -27,7 +27,10 @@ class AssociationContactController extends Controller
 
     public function store(StoreAssociationContactRequest $request): JsonResponse
     {
-        $contact = AssociationContact::create($request->validated());
+        $nextId = $this->computeNextAvailableId(AssociationContact::class, 'id');
+        $contact = new AssociationContact($request->validated());
+        $contact->id = $nextId;
+        $contact->save();
 
         return response()->json($contact->load('association:id,name'), 201);
     }

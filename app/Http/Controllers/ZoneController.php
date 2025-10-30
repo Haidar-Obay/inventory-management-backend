@@ -40,7 +40,11 @@ class ZoneController extends Controller
             'name' => 'required|string|max:255|unique:zones,name',
         ]);
 
-        $zone = Zone::create($validated);
+        $nextId = $this->computeNextAvailableId(Zone::class, 'id');
+
+        $zone = new Zone($validated);
+        $zone->id = $nextId;
+        $zone->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_zones");

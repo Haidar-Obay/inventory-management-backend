@@ -45,12 +45,15 @@ class CurrencyController extends Controller
             return response()->json(['message' => 'Invalid currency code.'], 422);
         }
 
-        $currency = Currency::create([
+        $nextId = $this->computeNextAvailableId(Currency::class, 'id');
+        $currency = new Currency([
             'name' => $request->name,
             'code' => $request->code,
             'iso_code' => $request->iso_code,
             'rate' => $rate,
         ]);
+        $currency->id = $nextId;
+        $currency->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_currencies");

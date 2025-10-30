@@ -39,7 +39,9 @@ class CustomerChequeLimitController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $chequeLimit = $customer->chequeLimits()->create([
+        $nextId = $this->computeNextAvailableId(CustomerChequeLimit::class, 'id');
+        $chequeLimit = new CustomerChequeLimit([
+            'customer_id' => $customer->id,
             'currency_id' => $request->currency_id,
             'max_cheques' => $request->max_cheques,
             'used_cheques' => 0,
@@ -47,6 +49,8 @@ class CustomerChequeLimitController extends Controller
             'notes' => $request->notes,
             'is_active' => true,
         ]);
+        $chequeLimit->id = $nextId;
+        $chequeLimit->save();
 
         $chequeLimit->load('currency');
 
@@ -172,7 +176,9 @@ class CustomerChequeLimitController extends Controller
                     continue;
                 }
 
-                $chequeLimit = $customer->chequeLimits()->create([
+                $nextId = $this->computeNextAvailableId(CustomerChequeLimit::class, 'id');
+                $chequeLimit = new CustomerChequeLimit([
+                    'customer_id' => $customer->id,
                     'currency_id' => $chequeLimitData['currency_id'],
                     'max_cheques' => $chequeLimitData['max_cheques'],
                     'used_cheques' => 0,
@@ -180,6 +186,8 @@ class CustomerChequeLimitController extends Controller
                     'notes' => $chequeLimitData['notes'] ?? null,
                     'is_active' => true,
                 ]);
+                $chequeLimit->id = $nextId;
+                $chequeLimit->save();
 
                 $chequeLimit->load('currency');
                 $results[] = $chequeLimit;

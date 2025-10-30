@@ -39,7 +39,11 @@ class ReferrerController extends Controller
 
     public function store(StoreReferrerRequest $request): JsonResponse
     {
-        $row = Referrer::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(Referrer::class, 'id');
+        $row = new Referrer($data);
+        $row->id = $nextId;
+        $row->save();
 
         return response()->json($row, 201);
     }

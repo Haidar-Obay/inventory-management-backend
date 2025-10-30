@@ -36,7 +36,11 @@ class JobController extends Controller
 
     public function store(StoreJobRequest $request)
     {
-        $job = Job::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(Job::class, 'id');
+        $job = new Job($data);
+        $job->id = $nextId;
+        $job->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_jobs");

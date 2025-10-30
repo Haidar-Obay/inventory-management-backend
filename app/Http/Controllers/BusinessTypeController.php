@@ -38,7 +38,10 @@ class BusinessTypeController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $businessType = BusinessType::create($validated);
+        $nextId = $this->computeNextAvailableId(BusinessType::class, 'id');
+        $businessType = new BusinessType($validated);
+        $businessType->id = $nextId;
+        $businessType->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_business_types");

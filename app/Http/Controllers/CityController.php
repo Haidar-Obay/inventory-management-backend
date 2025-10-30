@@ -40,7 +40,10 @@ class CityController extends Controller
             'name' => 'required|string|max:255|unique:cities,name',
         ]);
 
-        $city = City::create($validated);
+        $nextId = $this->computeNextAvailableId(City::class, 'id');
+        $city = new City($validated);
+        $city->id = $nextId;
+        $city->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_cities");

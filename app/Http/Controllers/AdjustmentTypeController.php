@@ -25,7 +25,10 @@ class AdjustmentTypeController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate(AdjustmentType::$rules);
-        $adjustmentType = AdjustmentType::create($validated);
+        $nextId = $this->computeNextAvailableId(AdjustmentType::class, 'id');
+        $adjustmentType = new AdjustmentType($validated);
+        $adjustmentType->id = $nextId;
+        $adjustmentType->save();
         Cache::forget('adjustment_types_'.tenant('id'));
 
         return response()->json($adjustmentType, 201);

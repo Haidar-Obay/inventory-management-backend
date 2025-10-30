@@ -50,7 +50,10 @@ class TransportationChannelController extends Controller
         }
 
         $tenantId = tenant('id');
-        $transportationChannel = TransportationChannel::create($validated);
+        $nextId = $this->computeNextAvailableId(TransportationChannel::class, 'id');
+        $transportationChannel = new TransportationChannel($validated);
+        $transportationChannel->id = $nextId;
+        $transportationChannel->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_transportation_channels");
 
         return response()->json([

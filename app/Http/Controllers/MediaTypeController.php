@@ -25,7 +25,11 @@ class MediaTypeController extends Controller
 
     public function store(StoreMediaTypeRequest $request): JsonResponse
     {
-        $row = MediaType::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(MediaType::class, 'id');
+        $row = new MediaType($data);
+        $row->id = $nextId;
+        $row->save();
 
         return response()->json($row, 201);
     }

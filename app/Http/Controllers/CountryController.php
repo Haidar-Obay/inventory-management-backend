@@ -41,7 +41,10 @@ class CountryController extends Controller
             'name' => 'required|string|max:255|unique:countries,name',
         ]);
 
-        $country = Country::create($validated);
+        $nextId = $this->computeNextAvailableId(Country::class, 'id');
+        $country = new Country($validated);
+        $country->id = $nextId;
+        $country->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_countries");

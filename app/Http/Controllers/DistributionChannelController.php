@@ -50,7 +50,10 @@ class DistributionChannelController extends Controller
         }
 
         $tenantId = tenant('id');
-        $distributionChannel = DistributionChannel::create($validated);
+        $nextId = $this->computeNextAvailableId(DistributionChannel::class, 'id');
+        $distributionChannel = new DistributionChannel($validated);
+        $distributionChannel->id = $nextId;
+        $distributionChannel->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_distribution_channels");
 
         return response()->json([

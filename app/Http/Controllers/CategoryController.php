@@ -59,7 +59,11 @@ class CategoryController extends Controller
             }
         }
 
-        $category = Category::create($request->all());
+        $data = $request->all();
+        $nextId = $this->computeNextAvailableId(Category::class, 'id');
+        $category = new Category($data);
+        $category->id = $nextId;
+        $category->save();
         $tenantId = tenant('id');
         $key = "tenant_{$tenantId}_categories";
 

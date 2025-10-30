@@ -87,8 +87,11 @@ class SupplierController extends Controller
         try {
             // bar_code is the canonical input
 
-            // Create the supplier
-            $supplier = Supplier::create($request->validated());
+            // Create the supplier with explicit sequential ID
+            $nextId = $this->computeNextAvailableId(Supplier::class, 'id');
+            $supplier = new Supplier($request->validated());
+            $supplier->id = $nextId;
+            $supplier->save();
 
             // Handle addresses
             $hasAnyBilling = $request->filled('billing_address_line1');
@@ -1206,7 +1209,9 @@ class SupplierController extends Controller
     private function createContacts($supplier, $request)
     {
         foreach ($request->contacts as $contactData) {
-            $contact = $supplier->contacts()->create([
+            $nextContactId = $this->computeNextAvailableId(\App\Models\SupplierContact::class, 'id');
+            $contact = new \App\Models\SupplierContact([
+                'supplier_id' => $supplier->id,
                 'title' => $contactData['title'] ?? null,
                 'name' => $contactData['name'],
                 'work_phone' => $contactData['work_phone'] ?? null,
@@ -1215,6 +1220,8 @@ class SupplierController extends Controller
                 'extension' => $contactData['extension'] ?? null,
                 'is_primary' => $contactData['is_primary'] ?? false,
             ]);
+            $contact->id = $nextContactId;
+            $contact->save();
 
             if ($contactData['is_primary'] ?? false) {
                 $supplier->setPrimaryContact($contact->id);

@@ -7,7 +7,8 @@ use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use App\Models\Trade;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use App\Http\Requests\Trade\StoreTradeRequest;
+use App\Http\Requests\Trade\UpdateTradeRequest;
 use Maatwebsite\Excel\Facades\Excel;
 
 class TradeController extends Controller
@@ -31,15 +32,14 @@ class TradeController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+	public function store(StoreTradeRequest $request)
     {
-        $validated = $request->validate([
-            'code' => 'required|string|max:255|unique:trades,code',
-            'name' => 'required|string|max:255',
-            'active' => 'boolean',
-        ]);
+		$validated = $request->validated();
 
-        $trade = Trade::create($validated);
+        $nextId = $this->computeNextAvailableId(Trade::class, 'id');
+        $trade = new Trade($validated);
+        $trade->id = $nextId;
+        $trade->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_trades");
@@ -70,18 +70,9 @@ class TradeController extends Controller
         ]);
     }
 
-    public function update(Request $request, Trade $trade)
+	public function update(UpdateTradeRequest $request, Trade $trade)
     {
-        $validated = $request->validate([
-            'code' => [
-                'sometimes',
-                'string',
-                'max:255',
-                Rule::unique('trades', 'code')->ignore($trade->id),
-            ],
-            'name' => 'sometimes|string|max:255',
-            'active' => 'boolean',
-        ]);
+		$validated = $request->validated();
 
         $trade->update($validated);
 
@@ -98,16 +89,39 @@ class TradeController extends Controller
 
     public function destroy(Trade $trade)
     {
-        $trade->delete();
+		// Prevent deletion if related customers exist
+		if ($trade->customers()->exists()) {
+			return response()->json([
+				'status' => false,
+				'message' => 'Cannot delete trade. It is being used by one or more customers.',
+			], 409);
+		}
 
-        $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_trades");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_trade_{$trade->id}");
+		try {
+			$trade->delete();
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Trade deleted successfully.',
-        ]);
+			$tenantId = tenant('id');
+			app('cache')->store('database')->forget("tenant_{$tenantId}_trades");
+			app('cache')->store('database')->forget("tenant_{$tenantId}_trade_{$trade->id}");
+
+			return response()->json([
+				'status' => true,
+				'message' => 'Trade deleted successfully.',
+			]);
+		} catch (\Illuminate\Database\QueryException $e) {
+			// Handle FK constraint violations from the DB as a safety net
+			if ($e->getCode() === '23503' || str_contains(strtolower($e->getMessage()), 'foreign key')) {
+				return response()->json([
+					'status' => false,
+					'message' => 'Cannot delete trade. It is being used by one or more customers.',
+				], 409);
+			}
+
+			return response()->json([
+				'status' => false,
+				'message' => 'Unable to delete trade due to a database error.',
+			], 422);
+		}
     }
 
     public function bulkDelete(Request $request)

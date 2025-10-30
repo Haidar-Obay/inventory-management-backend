@@ -41,7 +41,10 @@ class SupplierGroupController extends Controller
             'active' => 'boolean',
         ]);
 
-        $supplierGroup = SupplierGroup::create($validated);
+        $nextId = $this->computeNextAvailableId(SupplierGroup::class, 'id');
+        $supplierGroup = new SupplierGroup($validated);
+        $supplierGroup->id = $nextId;
+        $supplierGroup->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_groups");

@@ -55,7 +55,12 @@ class ReferrerServiceCommissionController extends Controller
 
                         continue;
                     }
-                    $created[] = ReferrerServiceCommission::create($validator->validated())
+                    $rowData = $validator->validated();
+                    $nextId = $this->computeNextAvailableId(ReferrerServiceCommission::class, 'id');
+                    $newRow = new ReferrerServiceCommission($rowData);
+                    $newRow->id = $nextId;
+                    $newRow->save();
+                    $created[] = $newRow
                         ->load(['referrer:id,name', 'service:id,name']);
                 }
                 if (! empty($errors) && empty($created)) {
@@ -87,7 +92,11 @@ class ReferrerServiceCommissionController extends Controller
             'commission_percent' => ['nullable', 'numeric', 'min:0'],
         ]);
         $validator->validate();
-        $row = ReferrerServiceCommission::create($validator->validated());
+        $data = $validator->validated();
+        $nextId = $this->computeNextAvailableId(ReferrerServiceCommission::class, 'id');
+        $row = new ReferrerServiceCommission($data);
+        $row->id = $nextId;
+        $row->save();
         $row->load(['referrer:id,name', 'service:id,name']);
 
         return response()->json([

@@ -40,7 +40,11 @@ class ServiceCategoryController extends Controller
 
     public function store(StoreServiceCategoryRequest $request): JsonResponse
     {
-        $category = ServiceCategory::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(ServiceCategory::class, 'id');
+        $category = new ServiceCategory($data);
+        $category->id = $nextId;
+        $category->save();
 
         return response()->json($category, 201);
     }
