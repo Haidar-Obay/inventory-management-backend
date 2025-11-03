@@ -87,12 +87,21 @@ class SalesmanController extends Controller
 
     public function destroy(Salesman $salesman)
     {
-        // Check if salesman has associated customers
-        if ($salesman->customers()->exists()) {
+        // Check if salesman has associated customers (via multiple roles); include helpful details
+        $customersCount = $salesman->customers()->count();
+        if ($customersCount > 0) {
+            $sampleIds = $salesman->customers()->select('customers.id')->limit(1)->pluck('id');
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete salesman. There are customers associated with this salesman. Please reassign or delete the customers first.',
-            ], 422);
+                'message' => 'Cannot delete salesman. It is referenced by existing customers.',
+                'details' => [
+                    'customers' => [
+                        'count' => $customersCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
 
         $tenantId = tenant('id');

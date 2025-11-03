@@ -99,6 +99,35 @@ class BusinessTypeController extends Controller
 
     public function destroy(BusinessType $businessType)
     {
+        // Prevent deletion if related customers or suppliers exist; include helpful details
+        $customersCount = $businessType->customers()->count();
+        $suppliersCount = \App\Models\Supplier::where('business_type_id', $businessType->id)->count();
+
+        if ($customersCount > 0 || $suppliersCount > 0) {
+            $details = [];
+            if ($customersCount > 0) {
+                $details['customers'] = [
+                    'count' => $customersCount,
+                    'sample_ids' => $businessType->customers()->select('customers.id')->limit(1)->pluck('id'),
+                ];
+            }
+            if ($suppliersCount > 0) {
+                $details['suppliers'] = [
+                    'count' => $suppliersCount,
+                    'sample_ids' => \App\Models\Supplier::where('business_type_id', $businessType->id)
+                        ->select('suppliers.id')
+                        ->limit(1)
+                        ->pluck('id'),
+                ];
+            }
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete business type. It is referenced by existing customers or suppliers.',
+                'details' => $details,
+            ], 409);
+        }
+
         $businessType->delete();
 
         $tenantId = tenant('id');

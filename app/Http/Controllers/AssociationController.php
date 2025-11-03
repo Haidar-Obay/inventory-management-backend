@@ -77,6 +77,23 @@ class AssociationController extends Controller
 
     public function destroy(Association $association): JsonResponse
     {
+        // Prevent deletion if related customers exist; include helpful details
+        $customersCount = $association->customers()->count();
+        if ($customersCount > 0) {
+            $sampleIds = $association->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete association. It is referenced by existing customers.',
+                'details' => [
+                    'customers' => [
+                        'count' => $customersCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $association->delete();
 
         return response()->json(['message' => 'Deleted']);

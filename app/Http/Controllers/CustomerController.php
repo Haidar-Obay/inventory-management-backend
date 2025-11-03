@@ -9,6 +9,7 @@ use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Address;
 use App\Models\Customer;
+use App\Models\Project;
 use App\Models\CustomerAttachment;
 use App\Models\PaymentTerm;
 use Illuminate\Http\Request;
@@ -1095,6 +1096,26 @@ class CustomerController extends Controller
 
     public function destroy(Customer $customer)
     {
+        // Block deletion if the customer has projects; include helpful details
+        $projectsCount = Project::where('customer_id', $customer->id)->count();
+        if ($projectsCount > 0) {
+            $sampleProjectIds = Project::where('customer_id', $customer->id)
+                ->select('projects.id')
+                ->limit(1)
+                ->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete customer. It is referenced by existing projects.',
+                'details' => [
+                    'projects' => [
+                        'count' => $projectsCount,
+                        'sample_ids' => $sampleProjectIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         // Capture current address IDs to evaluate orphan cleanup after delete
         $addressIds = $customer->addresses()->pluck('addresses.id')->all();
 
@@ -1139,6 +1160,19 @@ class CustomerController extends Controller
                 // Collect address IDs for this customer
                 $customer = Customer::with('addresses:id')->find($id);
                 $addressIds = $customer ? $customer->addresses()->pluck('addresses.id')->all() : [];
+
+                // Skip if customer has projects
+                if ($customer) {
+                    $projectsCount = Project::where('customer_id', $customer->id)->count();
+                    if ($projectsCount > 0) {
+                        $skipped[] = [
+                            'id' => $id,
+                            'reason' => 'Cannot delete customer. It is referenced by existing projects.',
+                        ];
+
+                        continue;
+                    }
+                }
 
                 $deleted += Customer::where('id', $id)->delete();
 

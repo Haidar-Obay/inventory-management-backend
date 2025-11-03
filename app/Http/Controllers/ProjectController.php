@@ -79,13 +79,24 @@ class ProjectController extends Controller
 
     public function destroy(Project $project)
     {
-        $tenantId = tenant('id');
+        // Prevent deletion if related jobs exist; include helpful details
         if ($project->jobs()->exists()) {
+            $count = $project->jobs()->count();
+            $sampleIds = $project->jobs()->select('projects_jobs.id')->limit(1)->pluck('id');
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete project with associated jobs',
-            ], 422);
+                'message' => 'Cannot delete project. It is referenced by existing jobs.',
+                'details' => [
+                    'jobs' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
+
+        $tenantId = tenant('id');
 
         $project->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_projects");

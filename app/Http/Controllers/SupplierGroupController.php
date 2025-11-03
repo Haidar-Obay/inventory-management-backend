@@ -103,12 +103,21 @@ class SupplierGroupController extends Controller
 
     public function destroy(SupplierGroup $supplierGroup)
     {
-        // Check if supplier group has suppliers
+        // Check if supplier group has suppliers; include helpful details
         if ($supplierGroup->suppliers()->exists()) {
+            $count = $supplierGroup->suppliers()->count();
+            $sampleIds = $supplierGroup->suppliers()->select('suppliers.id')->limit(1)->pluck('id');
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete supplier group with associated suppliers',
-            ], 422);
+                'message' => 'Cannot delete supplier group. It is referenced by existing suppliers.',
+                'details' => [
+                    'suppliers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
 
         $supplierGroup->delete();

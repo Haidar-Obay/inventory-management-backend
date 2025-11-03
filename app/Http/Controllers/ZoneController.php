@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
+use Illuminate\Support\Facades\DB;
 use App\Models\Zone;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -102,6 +103,49 @@ class ZoneController extends Controller
 
     public function destroy(Zone $zone)
     {
+        // Prevent deletion if referenced by customers or suppliers (via addresses)
+        $customerCount = DB::table('customer_addresses')
+            ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+            ->where('addresses.zone_id', $zone->id)
+            ->count();
+        $supplierCount = DB::table('supplier_addresses')
+            ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+            ->where('addresses.zone_id', $zone->id)
+            ->count();
+
+        if ($customerCount > 0 || $supplierCount > 0) {
+            $customerSample = DB::table('customer_addresses')
+                ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                ->where('addresses.zone_id', $zone->id)
+                ->limit(1)
+                ->pluck('customer_addresses.customer_id');
+            $supplierSample = DB::table('supplier_addresses')
+                ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                ->where('addresses.zone_id', $zone->id)
+                ->limit(1)
+                ->pluck('supplier_addresses.supplier_id');
+
+            $details = [];
+            if ($customerCount > 0) {
+                $details['customers'] = [
+                    'count' => $customerCount,
+                    'sample_ids' => $customerSample,
+                ];
+            }
+            if ($supplierCount > 0) {
+                $details['suppliers'] = [
+                    'count' => $supplierCount,
+                    'sample_ids' => $supplierSample,
+                ];
+            }
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete zone. It is referenced by existing customers or suppliers.',
+                'details' => $details,
+            ], 409);
+        }
+
         $zone->delete();
 
         $tenantId = tenant('id');

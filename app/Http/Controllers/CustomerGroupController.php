@@ -77,10 +77,19 @@ class CustomerGroupController extends Controller
     {
         // Check if customer group has associated customers
         if ($customerGroup->customers()->exists()) {
+            $count = $customerGroup->customers()->count();
+            $sampleIds = $customerGroup->customers()->select('customers.id')->limit(1)->pluck('id');
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete customer group. There are customers associated with this group. Please reassign or delete the customers first.',
-            ], 422);
+                'message' => 'Cannot delete customer group. It is referenced by existing customers.',
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
 
         $tenantId = tenant('id');

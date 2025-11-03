@@ -62,6 +62,23 @@ class ReferrerController extends Controller
 
     public function destroy(Referrer $referrer): JsonResponse
     {
+        // Block deletion if referenced by customers
+        if ($referrer->customers()->exists()) {
+            $count = $referrer->customers()->count();
+            $sampleIds = $referrer->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete referrer. It is referenced by existing customers.',
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $referrer->delete();
 
         return response()->json(['message' => 'Deleted']);

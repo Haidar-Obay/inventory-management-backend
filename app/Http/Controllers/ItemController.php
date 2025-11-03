@@ -120,6 +120,23 @@ class ItemController extends Controller
 
     public function destroy(Item $item)
     {
+        // Prevent deletion if item has child items (parent_id references)
+        $childrenCount = $item->children()->count();
+        if ($childrenCount > 0) {
+            $sampleIds = $item->children()->select('items.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete item. It is referenced by existing child items.',
+                'details' => [
+                    'child_items' => [
+                        'count' => $childrenCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $tenantId = tenant('id');
         $item->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");

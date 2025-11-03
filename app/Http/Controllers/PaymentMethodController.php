@@ -96,11 +96,33 @@ class PaymentMethodController extends Controller
 
     public function destroy(PaymentMethod $paymentMethod)
     {
-        if ($paymentMethod->customers()->exists()) {
+        // Prevent deletion if related customers or suppliers exist; include helpful details
+        $customersCount = $paymentMethod->customers()->count();
+        $suppliersCount = \App\Models\Supplier::where('payment_method_id', $paymentMethod->id)->count();
+
+        if ($customersCount > 0 || $suppliersCount > 0) {
+            $details = [];
+            if ($customersCount > 0) {
+                $details['customers'] = [
+                    'count' => $customersCount,
+                    'sample_ids' => $paymentMethod->customers()->select('customers.id')->limit(1)->pluck('id'),
+                ];
+            }
+            if ($suppliersCount > 0) {
+                $details['suppliers'] = [
+                    'count' => $suppliersCount,
+                    'sample_ids' => \App\Models\Supplier::where('payment_method_id', $paymentMethod->id)
+                        ->select('suppliers.id')
+                        ->limit(1)
+                        ->pluck('id'),
+                ];
+            }
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete payment method with associated customers',
-            ], 422);
+                'message' => 'Cannot delete payment method. It is referenced by existing customers or suppliers.',
+                'details' => $details,
+            ], 409);
         }
 
         $paymentMethod->delete();

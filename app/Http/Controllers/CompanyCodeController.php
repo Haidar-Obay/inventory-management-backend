@@ -99,6 +99,23 @@ class CompanyCodeController extends Controller
 
     public function destroy(CompanyCode $companyCode)
     {
+        // Prevent deletion if related customers exist; include helpful details
+        if ($companyCode->customers()->exists()) {
+            $count = $companyCode->customers()->count();
+            $sampleIds = $companyCode->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete company code. It is referenced by existing customers.',
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $companyCode->delete();
 
         $tenantId = tenant('id');

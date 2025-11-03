@@ -118,6 +118,23 @@ class SalesChannelController extends Controller
                 'message' => 'Cannot delete sales channel with associated sub-sales channels',
             ], 422);
         }
+
+        // Prevent deletion if related customers exist; include helpful details
+        if ($salesChannel->customers()->exists()) {
+            $count = $salesChannel->customers()->count();
+            $sampleIds = $salesChannel->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete sales channel. It is referenced by existing customers.',
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
         $salesChannel->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_sales_channels");
 

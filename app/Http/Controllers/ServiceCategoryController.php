@@ -68,12 +68,21 @@ class ServiceCategoryController extends Controller
 
     public function destroy(ServiceCategory $serviceCategory): JsonResponse
     {
-        // Check if there are any services linked to this category
-        if ($serviceCategory->services()->exists()) {
+        // Prevent deletion if related services exist; include helpful details
+        $servicesCount = $serviceCategory->services()->count();
+        if ($servicesCount > 0) {
+            $sampleIds = $serviceCategory->services()->select('services.id')->limit(1)->pluck('id');
+
             return response()->json([
-                'message' => 'Cannot delete service category. It is linked to one or more services.',
-                'error' => 'service_category_has_services',
-            ], 422);
+                'status' => false,
+                'message' => 'Cannot delete service category. It is referenced by existing services.',
+                'details' => [
+                    'services' => [
+                        'count' => $servicesCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
 
         $serviceCategory->delete();

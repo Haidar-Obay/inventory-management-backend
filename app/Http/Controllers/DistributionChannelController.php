@@ -118,6 +118,22 @@ class DistributionChannelController extends Controller
                 'message' => 'Cannot delete distribution channel with associated sub-distribution channels',
             ], 422);
         }
+        // Prevent deletion if related customers exist; include helpful details
+        if ($distributionChannel->customers()->exists()) {
+            $count = $distributionChannel->customers()->count();
+            $sampleIds = $distributionChannel->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete distribution channel. It is referenced by existing customers.',
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
         $distributionChannel->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_distribution_channels");
 

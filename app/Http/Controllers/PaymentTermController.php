@@ -94,11 +94,33 @@ class PaymentTermController extends Controller
 
     public function destroy(PaymentTerm $paymentTerm)
     {
-        if ($paymentTerm->customers()->exists()) {
+        // Prevent deletion if related customers or suppliers exist; include helpful details
+        $customersCount = $paymentTerm->customers()->count();
+        $suppliersCount = \App\Models\Supplier::where('payment_term_id', $paymentTerm->id)->count();
+
+        if ($customersCount > 0 || $suppliersCount > 0) {
+            $details = [];
+            if ($customersCount > 0) {
+                $details['customers'] = [
+                    'count' => $customersCount,
+                    'sample_ids' => $paymentTerm->customers()->select('customers.id')->limit(1)->pluck('id'),
+                ];
+            }
+            if ($suppliersCount > 0) {
+                $details['suppliers'] = [
+                    'count' => $suppliersCount,
+                    'sample_ids' => \App\Models\Supplier::where('payment_term_id', $paymentTerm->id)
+                        ->select('suppliers.id')
+                        ->limit(1)
+                        ->pluck('id'),
+                ];
+            }
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete payment term with associated customers',
-            ], 422);
+                'message' => 'Cannot delete payment term. It is referenced by existing customers or suppliers.',
+                'details' => $details,
+            ], 409);
         }
 
         $paymentTerm->delete();

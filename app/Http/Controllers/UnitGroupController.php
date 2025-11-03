@@ -81,6 +81,23 @@ class UnitGroupController extends Controller
 
     public function destroy(UnitGroup $unitGroup)
     {
+        // Prevent deletion if related unit of measurements exist; include helpful details
+        if ($unitGroup->unitOfMeasurements()->exists()) {
+            $count = $unitGroup->unitOfMeasurements()->count();
+            $sampleIds = $unitGroup->unitOfMeasurements()->select('unit_of_measurements.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete unit group. It is referenced by existing unit of measurements.',
+                'details' => [
+                    'unit_of_measurements' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $tenantId = tenant('id');
         $unitGroup->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_unit_groups");

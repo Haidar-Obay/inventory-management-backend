@@ -50,6 +50,40 @@ class MediaTypeController extends Controller
 
     public function destroy(MediaType $media_type): JsonResponse
     {
+        // Block deletion if referenced by customers
+        if ($media_type->customers()->exists()) {
+            $count = $media_type->customers()->count();
+            $sampleIds = $media_type->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete media type. It is referenced by existing customers.',
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
+        // Block deletion if it has children (sub-media types)
+        if ($media_type->children()->exists()) {
+            $count = $media_type->children()->count();
+            $sampleIds = $media_type->children()->select('id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete media type. It has sub-media types linked to it.',
+                'details' => [
+                    'children' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $media_type->delete();
 
         return response()->json(['message' => 'Deleted']);

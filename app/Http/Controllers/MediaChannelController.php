@@ -118,6 +118,22 @@ class MediaChannelController extends Controller
                 'message' => 'Cannot delete media channel with associated sub-media channels',
             ], 422);
         }
+        // Prevent deletion if related customers exist; include helpful details
+        if ($mediaChannel->customers()->exists()) {
+            $count = $mediaChannel->customers()->count();
+            $sampleIds = $mediaChannel->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete media channel. It is referenced by existing customers.',
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
         $mediaChannel->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_media_channels");
 

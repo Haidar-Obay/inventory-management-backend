@@ -81,6 +81,31 @@ class UnitOfMeasurementController extends Controller
 
     public function destroy(UnitOfMeasurement $unitOfMeasurement)
     {
+        // Prevent deletion if referenced by items (via pivot or direct foreign keys)
+        $pivotItemIds = $unitOfMeasurement->items()->pluck('items.id');
+        $directItemIds = \App\Models\Item::where(function ($query) use ($unitOfMeasurement) {
+            $query->where('base_uom_id', $unitOfMeasurement->id)
+                  ->orWhere('purchase_uom_id', $unitOfMeasurement->id)
+                  ->orWhere('sales_uom_id', $unitOfMeasurement->id);
+        })->pluck('items.id');
+        $allItemIds = $pivotItemIds->merge($directItemIds)->unique();
+        $totalItemCount = $allItemIds->count();
+
+        if ($totalItemCount > 0) {
+            $sampleIds = $allItemIds->take(1)->values()->all();
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete unit of measurement. It is referenced by existing items.',
+                'details' => [
+                    'items' => [
+                        'count' => $totalItemCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $tenantId = tenant('id');
         $unitOfMeasurement->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_unit_of_measurements");
