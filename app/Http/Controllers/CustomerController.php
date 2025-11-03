@@ -1095,7 +1095,27 @@ class CustomerController extends Controller
 
     public function destroy(Customer $customer)
     {
+        // Capture current address IDs to evaluate orphan cleanup after delete
+        $addressIds = $customer->addresses()->pluck('addresses.id')->all();
+
         $customer->delete();
+
+        // Remove addresses that became orphaned (not linked to any customer or supplier)
+        if (! empty($addressIds)) {
+            DB::table('addresses')
+                ->whereIn('id', $addressIds)
+                ->whereNotExists(function ($q) {
+                    $q->select(DB::raw(1))
+                      ->from('customer_addresses')
+                      ->whereColumn('customer_addresses.address_id', 'addresses.id');
+                })
+                ->whereNotExists(function ($q) {
+                    $q->select(DB::raw(1))
+                      ->from('supplier_addresses')
+                      ->whereColumn('supplier_addresses.address_id', 'addresses.id');
+                })
+                ->delete();
+        }
 
         return response()->json([
             'status' => true,
@@ -1116,7 +1136,28 @@ class CustomerController extends Controller
 
         foreach ($request->ids as $id) {
             try {
+                // Collect address IDs for this customer
+                $customer = Customer::with('addresses:id')->find($id);
+                $addressIds = $customer ? $customer->addresses()->pluck('addresses.id')->all() : [];
+
                 $deleted += Customer::where('id', $id)->delete();
+
+                // Cleanup orphaned addresses for this customer
+                if (! empty($addressIds)) {
+                    DB::table('addresses')
+                        ->whereIn('id', $addressIds)
+                        ->whereNotExists(function ($q) {
+                            $q->select(DB::raw(1))
+                              ->from('customer_addresses')
+                              ->whereColumn('customer_addresses.address_id', 'addresses.id');
+                        })
+                        ->whereNotExists(function ($q) {
+                            $q->select(DB::raw(1))
+                              ->from('supplier_addresses')
+                              ->whereColumn('supplier_addresses.address_id', 'addresses.id');
+                        })
+                        ->delete();
+                }
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }

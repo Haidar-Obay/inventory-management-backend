@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Supplier;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateSupplierRequest extends FormRequest
 {
@@ -35,6 +36,7 @@ class UpdateSupplierRequest extends FormRequest
      */
     public function rules(): array
     {
+        $supplierId = $this->route('supplier');
         return [
             // Personal Information
             'title' => ['nullable', 'string', 'in:Mr.,Mrs.,Ms.,Dr.,Prof.'],
@@ -43,12 +45,12 @@ class UpdateSupplierRequest extends FormRequest
             'last_name' => ['sometimes', 'required', 'string', 'max:255'],
             'display_name' => ['nullable', 'string', 'max:255'],
             'company_name' => ['nullable', 'string', 'max:255'],
-            'phone1' => ['sometimes', 'required', 'string', 'max:20'],
-            'phone2' => ['nullable', 'string', 'max:20'],
-            'phone3' => ['nullable', 'string', 'max:20'],
+            'phone1' => ['sometimes', 'required', 'string', 'max:20', Rule::unique('suppliers', 'phone1')->ignore($supplierId)],
+            'phone2' => ['nullable', 'string', 'max:20', Rule::unique('suppliers', 'phone2')->ignore($supplierId)],
+            'phone3' => ['nullable', 'string', 'max:20', Rule::unique('suppliers', 'phone3')->ignore($supplierId)],
 
             // Business Information
-            'file_number' => ['nullable', 'string', 'max:255'],
+            'file_number' => ['nullable', 'string', 'max:255', Rule::unique('suppliers', 'file_number')->ignore($supplierId)],
             'bar_code' => ['nullable', 'string', 'max:255'],
             'search_terms' => ['nullable', 'array'],
             'search_terms.*' => ['string', 'max:100'],
@@ -124,7 +126,7 @@ class UpdateSupplierRequest extends FormRequest
             'billing_address_notes' => ['nullable', 'string'],
 
             'shipping_addresses' => ['nullable', 'array'],
-            'shipping_addresses.*.address_line1' => ['required', 'string', 'max:255'],
+            'shipping_addresses.*.address_line1' => ['sometimes', 'nullable', 'string', 'max:255'],
             'shipping_addresses.*.address_line2' => ['nullable', 'string', 'max:255'],
             'shipping_addresses.*.country_id' => ['nullable', 'exists:countries,id'],
             'shipping_addresses.*.city_id' => ['nullable', 'exists:cities,id'],

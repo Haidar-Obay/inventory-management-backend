@@ -327,7 +327,7 @@ class StoreCustomerRequest extends FormRequest
 
             // Shipping addresses
             'shipping_addresses' => 'nullable|array',
-            'shipping_addresses.*.address_line1' => 'required|string|max:255',
+            'shipping_addresses.*.address_line1' => 'sometimes|nullable|string|max:255',
             'shipping_addresses.*.address_line2' => 'nullable|string|max:255',
             'shipping_addresses.*.country_id' => 'nullable|exists:countries,id',
             'shipping_addresses.*.city_id' => 'nullable|exists:cities,id',

@@ -43,12 +43,12 @@ class StoreSupplierRequest extends FormRequest
             'last_name' => ['required', 'string', 'max:255'],
             'display_name' => ['nullable', 'string', 'max:255'],
             'company_name' => ['nullable', 'string', 'max:255'],
-            'phone1' => ['required', 'string', 'max:20'],
-            'phone2' => ['nullable', 'string', 'max:20'],
-            'phone3' => ['nullable', 'string', 'max:20'],
+            'phone1' => ['required', 'string', 'max:20', 'unique:suppliers,phone1'],
+            'phone2' => ['nullable', 'string', 'max:20', 'unique:suppliers,phone2'],
+            'phone3' => ['nullable', 'string', 'max:20', 'unique:suppliers,phone3'],
 
             // Business Information
-            'file_number' => ['nullable', 'string', 'max:255'],
+            'file_number' => ['nullable', 'string', 'max:255', 'unique:suppliers,file_number'],
             'bar_code' => ['nullable', 'string', 'max:255'],
             'search_terms' => ['nullable', 'array'],
             'search_terms.*' => ['string', 'max:100'],
@@ -124,7 +124,7 @@ class StoreSupplierRequest extends FormRequest
             'billing_address_notes' => ['nullable', 'string'],
 
             'shipping_addresses' => ['nullable', 'array'],
-            'shipping_addresses.*.address_line1' => ['required', 'string', 'max:255'],
+            'shipping_addresses.*.address_line1' => ['sometimes', 'nullable', 'string', 'max:255'],
             'shipping_addresses.*.address_line2' => ['nullable', 'string', 'max:255'],
             'shipping_addresses.*.country_id' => ['nullable', 'exists:countries,id'],
             'shipping_addresses.*.city_id' => ['nullable', 'exists:cities,id'],
