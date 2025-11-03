@@ -26,11 +26,11 @@ class Item extends Model implements Auditable
         'parent_id',
         'price',
         'unit',
-        'trade',
-        'company_code',
-        'product_line',
-        'category',
-        'brand',
+        'trade_id',
+        'company_code_id',
+        'product_line_id',
+        'category_id',
+        'brand_id',
         'discount_percent',
         'max_discount',
         'purchase_parameters',
@@ -99,6 +99,31 @@ class Item extends Model implements Auditable
     public function salesUom()
     {
         return $this->belongsTo(UnitOfMeasurement::class, 'sales_uom_id');
+    }
+
+    public function trade()
+    {
+        return $this->belongsTo(Trade::class, 'trade_id');
+    }
+
+    public function companyCode()
+    {
+        return $this->belongsTo(CompanyCode::class, 'company_code_id');
+    }
+
+    public function productLine()
+    {
+        return $this->belongsTo(ProductLine::class, 'product_line_id');
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'category_id');
+    }
+
+    public function brand()
+    {
+        return $this->belongsTo(Brand::class, 'brand_id');
     }
 
     public function unitOfMeasurements()

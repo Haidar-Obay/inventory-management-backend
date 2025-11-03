@@ -20,11 +20,11 @@ return new class extends Migration
             $table->foreignId('base_uom_id')->nullable()->constrained('unit_of_measurements')->nullOnDelete();
             $table->decimal('price', 10, 2);
             $table->string('unit')->nullable();
-            $table->string('trade')->nullable();
-            $table->string('company_code')->nullable()->index();
-            $table->string('product_line')->nullable();
-            $table->string('category')->nullable()->index();
-            $table->string('brand')->nullable()->index();
+            $table->foreignId('trade_id')->nullable()->constrained('trades')->nullOnDelete();
+            $table->foreignId('company_code_id')->nullable()->constrained('company_codes')->nullOnDelete();
+            $table->foreignId('product_line_id')->nullable()->constrained('product_lines')->nullOnDelete();
+            $table->foreignId('category_id')->nullable()->constrained('categories')->nullOnDelete();
+            $table->foreignId('brand_id')->nullable()->constrained('brands')->nullOnDelete();
             $table->decimal('discount_percent', 5, 2)->default(0); // 0-100
             $table->decimal('max_discount', 10, 2)->nullable();
             $table->json('purchase_parameters')->nullable();
