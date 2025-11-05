@@ -141,7 +141,7 @@ class ZoneController extends Controller
 
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete zone. It is referenced by existing customers or suppliers.',
+                'message' => "Cannot delete zone \"{$zone->name}\" (ID: {$zone->id}). It is referenced by existing customers or suppliers.",
                 'details' => $details,
             ], 409);
         }
@@ -210,6 +210,7 @@ class ZoneController extends Controller
 
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $zone->name ?? "ID: {$id}",
                     'reason' => 'Cannot delete zone. It is referenced by existing customers or suppliers.',
                     'details' => $details,
                 ];
@@ -259,13 +260,20 @@ class ZoneController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $zone = Zone::find($id);
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $zone?->name ?? "ID: {$id}",
                         'reason' => 'Cannot delete zone. It is referenced by existing customers or suppliers.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $zone = Zone::find($id);
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $zone?->name ?? "ID: {$id}",
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

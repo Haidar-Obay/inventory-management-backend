@@ -94,9 +94,11 @@ class UnitOfMeasurementController extends Controller
         if ($totalItemCount > 0) {
             $sampleIds = $allItemIds->take(1)->values()->all();
 
+            $identifier = $unitOfMeasurement->name ?? $unitOfMeasurement->code ?? "ID: {$unitOfMeasurement->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete unit of measurement. It is referenced by existing items.',
+                'message' => "Cannot delete unit of measurement \"{$identifier}\" (ID: {$unitOfMeasurement->id}). It is referenced by existing items.",
                 'details' => [
                     'items' => [
                         'count' => $totalItemCount,

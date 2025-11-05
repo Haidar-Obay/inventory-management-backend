@@ -111,9 +111,11 @@ class TradeController extends Controller
                 ];
             }
 
+            $identifier = $trade->name ?? $trade->code ?? "ID: {$trade->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete trade. It is referenced by existing customers or suppliers.',
+                'message' => "Cannot delete trade \"{$identifier}\" (ID: {$trade->id}). It is referenced by existing customers or suppliers.",
                 'details' => $details,
             ], 409);
         }
@@ -204,8 +206,10 @@ class TradeController extends Controller
                     ];
                 }
 
+                $identifier = $trade->name ?? $trade->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => 'Cannot delete trade. It is referenced by existing records.',
                     'details' => $details,
                 ];
@@ -239,13 +243,22 @@ class TradeController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $trade = Trade::find($id);
+                    $identifier = $trade?->name ?? $trade?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete trade. It is referenced by existing records.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $trade = Trade::find($id);
+                    $identifier = $trade?->name ?? $trade?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

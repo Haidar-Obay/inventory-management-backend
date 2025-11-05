@@ -150,9 +150,11 @@ class CategoryController extends Controller
             $count = $category->subcategories()->count();
             $sampleIds = $category->subcategories()->select('categories.id')->limit(1)->pluck('id');
 
+            $identifier = $category->name ?? $category->code ?? "ID: {$category->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete category. It is referenced by existing subcategories.',
+                'message' => "Cannot delete category \"{$identifier}\" (ID: {$category->id}). It is referenced by existing subcategories.",
                 'details' => [
                     'subcategories' => [
                         'count' => $count,
@@ -208,8 +210,10 @@ class CategoryController extends Controller
                         ],
                     ];
 
+                    $identifier = $category->name ?? $category->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete category. It is referenced by existing subcategories.',
                         'details' => $details,
                     ];
@@ -237,22 +241,31 @@ class CategoryController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $category = Category::find($id);
+                    $identifier = $category?->name ?? $category?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete category. It is referenced by existing subcategories.',
                         'details' => $details,
                     ];
                 } else {
                     Log::error('Error deleting category '.$id.': '.$e->getMessage());
+                    $category = Category::find($id);
+                    $identifier = $category?->name ?? $category?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => $e->getMessage(),
                     ];
                 }
             } catch (\Exception $e) {
                 Log::error('Error deleting category '.$id.': '.$e->getMessage());
+                $category = Category::find($id);
+                $identifier = $category?->name ?? $category?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

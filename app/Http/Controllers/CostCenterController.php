@@ -117,9 +117,11 @@ class CostCenterController extends Controller
             $count = $costCenter->children()->count();
             $sampleIds = $costCenter->children()->select('cost_centers.id')->limit(1)->pluck('id');
 
+            $identifier = $costCenter->name ?? $costCenter->code ?? "ID: {$costCenter->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete cost center. It is referenced by existing sub-cost centers.',
+                'message' => "Cannot delete cost center \"{$identifier}\" (ID: {$costCenter->id}). It is referenced by existing sub-cost centers.",
                 'details' => [
                     'sub_cost_centers' => [
                         'count' => $count,
@@ -155,6 +157,7 @@ class CostCenterController extends Controller
                 if (! $costCenter) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Cost center not found.',
                     ];
 
@@ -171,8 +174,10 @@ class CostCenterController extends Controller
                         ],
                     ];
 
+                    $identifier = $costCenter->name ?? $costCenter->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete cost center. It is referenced by existing sub-cost centers.',
                         'details' => $details,
                     ];
@@ -187,8 +192,11 @@ class CostCenterController extends Controller
 
             } catch (\Exception $e) {
                 Log::error('Error deleting cost center '.$id.': '.$e->getMessage());
+                $costCenter = CostCenter::find($id);
+                $identifier = $costCenter?->name ?? $costCenter?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

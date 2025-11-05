@@ -116,9 +116,11 @@ class PaymentTermController extends Controller
                 ];
             }
 
+            $identifier = $paymentTerm->name ?? $paymentTerm->code ?? "ID: {$paymentTerm->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete payment term. It is referenced by existing customers or suppliers.',
+                'message' => "Cannot delete payment term \"{$identifier}\" (ID: {$paymentTerm->id}). It is referenced by existing customers or suppliers.",
                 'details' => $details,
             ], 409);
         }
@@ -150,6 +152,7 @@ class PaymentTermController extends Controller
             if (! $term) {
                 $skipped[] = [
                     'id' => $id,
+                    'name' => "ID: {$id}",
                     'reason' => 'Payment term not found.',
                 ];
 
@@ -178,8 +181,10 @@ class PaymentTermController extends Controller
                     ];
                 }
 
+                $identifier = $term->name ?? $term->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => 'Cannot delete payment term. It is referenced by existing customers or suppliers.',
                     'details' => $details,
                 ];
@@ -217,13 +222,22 @@ class PaymentTermController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $term = PaymentTerm::find($id);
+                    $identifier = $term?->name ?? $term?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete payment term. It is referenced by existing customers or suppliers.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $term = PaymentTerm::find($id);
+                    $identifier = $term?->name ?? $term?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

@@ -80,9 +80,11 @@ class CustomerGroupController extends Controller
             $count = $customerGroup->customers()->count();
             $sampleIds = $customerGroup->customers()->select('customers.id')->limit(1)->pluck('id');
 
+            $identifier = $customerGroup->name ?? $customerGroup->code ?? "ID: {$customerGroup->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete customer group. It is referenced by existing customers.',
+                'message' => "Cannot delete customer group \"{$identifier}\" (ID: {$customerGroup->id}). It is referenced by existing customers.",
                 'details' => [
                     'customers' => [
                         'count' => $count,
@@ -120,6 +122,7 @@ class CustomerGroupController extends Controller
                 if (! $customerGroup) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Customer group not found.',
                     ];
 
@@ -136,8 +139,10 @@ class CustomerGroupController extends Controller
                         ],
                     ];
 
+                    $identifier = $customerGroup->name ?? $customerGroup->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete customer group. It is referenced by existing customers.',
                         'details' => $details,
                     ];
@@ -150,8 +155,11 @@ class CustomerGroupController extends Controller
 
             } catch (\Exception $e) {
                 Log::error('Error deleting customer group '.$id.': '.$e->getMessage());
+                $customerGroup = CustomerGroup::find($id);
+                $identifier = $customerGroup?->name ?? $customerGroup?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

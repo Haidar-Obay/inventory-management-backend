@@ -117,9 +117,11 @@ class DistributionChannelController extends Controller
             $subDistributionChannelsCount = $distributionChannel->children()->count();
             $subDistributionChannelsSampleIds = $distributionChannel->children()->select('distribution_channels.id')->limit(1)->pluck('id');
 
+            $identifier = $distributionChannel->name ?? $distributionChannel->code ?? "ID: {$distributionChannel->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete distribution channel. It is referenced by existing sub-distribution channels.',
+                'message' => "Cannot delete distribution channel \"{$identifier}\" (ID: {$distributionChannel->id}). It is referenced by existing sub-distribution channels.",
                 'details' => [
                     'sub_distribution_channels' => [
                         'count' => $subDistributionChannelsCount,
@@ -132,10 +134,11 @@ class DistributionChannelController extends Controller
         if ($distributionChannel->customers()->exists()) {
             $count = $distributionChannel->customers()->count();
             $sampleIds = $distributionChannel->customers()->select('customers.id')->limit(1)->pluck('id');
+            $identifier = $distributionChannel->name ?? $distributionChannel->code ?? "ID: {$distributionChannel->id}";
 
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete distribution channel. It is referenced by existing customers.',
+                'message' => "Cannot delete distribution channel \"{$identifier}\" (ID: {$distributionChannel->id}). It is referenced by existing customers.",
                 'details' => [
                     'customers' => [
                         'count' => $count,
@@ -171,6 +174,7 @@ class DistributionChannelController extends Controller
                 if (! $distributionChannel) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Distribution channel not found.',
                     ];
 
@@ -187,8 +191,10 @@ class DistributionChannelController extends Controller
                         ],
                     ];
 
+                    $identifier = $distributionChannel->name ?? $distributionChannel->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete distribution channel. It is referenced by existing sub-distribution channels.',
                         'details' => $details,
                     ];
@@ -206,8 +212,10 @@ class DistributionChannelController extends Controller
                         ],
                     ];
 
+                    $identifier = $distributionChannel->name ?? $distributionChannel->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete distribution channel. It is referenced by existing customers.',
                         'details' => $details,
                     ];
@@ -244,22 +252,31 @@ class DistributionChannelController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $distributionChannel = DistributionChannel::find($id);
+                    $identifier = $distributionChannel?->name ?? $distributionChannel?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete distribution channel. It is referenced by existing customers or sub-distribution channels.',
                         'details' => $details,
                     ];
                 } else {
                     Log::error('Error deleting distribution channel '.$id.': '.$e->getMessage());
+                    $distributionChannel = DistributionChannel::find($id);
+                    $identifier = $distributionChannel?->name ?? $distributionChannel?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => $e->getMessage(),
                     ];
                 }
             } catch (\Exception $e) {
                 Log::error('Error deleting distribution channel '.$id.': '.$e->getMessage());
+                $distributionChannel = DistributionChannel::find($id);
+                $identifier = $distributionChannel?->name ?? $distributionChannel?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

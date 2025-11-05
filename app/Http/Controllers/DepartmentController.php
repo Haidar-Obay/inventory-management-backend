@@ -117,9 +117,11 @@ class DepartmentController extends Controller
             $count = $department->children()->count();
             $sampleIds = $department->children()->select('departments.id')->limit(1)->pluck('id');
 
+            $identifier = $department->name ?? $department->code ?? "ID: {$department->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete department. It is referenced by existing sub-departments.',
+                'message' => "Cannot delete department \"{$identifier}\" (ID: {$department->id}). It is referenced by existing sub-departments.",
                 'details' => [
                     'sub_departments' => [
                         'count' => $count,
@@ -155,6 +157,7 @@ class DepartmentController extends Controller
                 if (! $department) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Department not found.',
                     ];
 
@@ -171,8 +174,10 @@ class DepartmentController extends Controller
                         ],
                     ];
 
+                    $identifier = $department->name ?? $department->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete department. It is referenced by existing sub-departments.',
                         'details' => $details,
                     ];
@@ -187,8 +192,11 @@ class DepartmentController extends Controller
 
             } catch (\Exception $e) {
                 Log::error('Error deleting department '.$id.': '.$e->getMessage());
+                $department = Department::find($id);
+                $identifier = $department?->name ?? $department?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

@@ -55,9 +55,11 @@ class MediaTypeController extends Controller
             $count = $media_type->customers()->count();
             $sampleIds = $media_type->customers()->select('customers.id')->limit(1)->pluck('id');
 
+            $identifier = $media_type->name ?? "ID: {$media_type->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete media type. It is referenced by existing customers.',
+                'message' => "Cannot delete media type \"{$identifier}\" (ID: {$media_type->id}). It is referenced by existing customers.",
                 'details' => [
                     'customers' => [
                         'count' => $count,
@@ -71,10 +73,11 @@ class MediaTypeController extends Controller
         if ($media_type->children()->exists()) {
             $count = $media_type->children()->count();
             $sampleIds = $media_type->children()->select('id')->limit(1)->pluck('id');
+            $identifier = $media_type->name ?? "ID: {$media_type->id}";
 
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete media type. It is referenced by existing sub-media types.',
+                'message' => "Cannot delete media type \"{$identifier}\" (ID: {$media_type->id}). It is referenced by existing sub-media types.",
                 'details' => [
                     'sub_media_types' => [
                         'count' => $count,
@@ -97,6 +100,16 @@ class MediaTypeController extends Controller
         foreach ($request->ids as $id) {
             $mediaType = MediaType::find($id);
 
+            if (! $mediaType) {
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => "ID: {$id}",
+                    'reason' => 'Media type not found.',
+                ];
+
+                continue;
+            }
+
             // Check if the media type has any customers linked to it and include details
             if ($mediaType->customers()->exists()) {
                 $customersCount = $mediaType->customers()->count();
@@ -107,8 +120,10 @@ class MediaTypeController extends Controller
                     ],
                 ];
 
+                $identifier = $mediaType->name ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => 'Cannot delete media type. It is referenced by existing customers.',
                     'details' => $details,
                 ];
@@ -126,8 +141,10 @@ class MediaTypeController extends Controller
                     ],
                 ];
 
+                $identifier = $mediaType->name ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => 'Cannot delete media type. It is referenced by existing sub-media types.',
                     'details' => $details,
                 ];
@@ -161,13 +178,22 @@ class MediaTypeController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $mediaType = MediaType::find($id);
+                    $identifier = $mediaType?->name ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete media type. It is referenced by existing customers or sub-media types.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $mediaType = MediaType::find($id);
+                    $identifier = $mediaType?->name ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

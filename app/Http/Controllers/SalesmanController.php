@@ -92,9 +92,11 @@ class SalesmanController extends Controller
         if ($customersCount > 0) {
             $sampleIds = $salesman->customers()->select('customers.id')->limit(1)->pluck('id');
 
+            $identifier = $salesman->name ?? $salesman->code ?? "ID: {$salesman->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete salesman. It is referenced by existing customers.',
+                'message' => "Cannot delete salesman \"{$identifier}\" (ID: {$salesman->id}). It is referenced by existing customers.",
                 'details' => [
                     'customers' => [
                         'count' => $customersCount,
@@ -129,7 +131,18 @@ class SalesmanController extends Controller
         foreach ($request->ids as $id) {
             try {
                 $salesman = Salesman::find($id);
-                if ($salesman && $salesman->customers()->exists()) {
+
+                if (! $salesman) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => "ID: {$id}",
+                        'reason' => 'Salesman not found.',
+                    ];
+
+                    continue;
+                }
+
+                if ($salesman->customers()->exists()) {
                     $customersCount = $salesman->customers()->count();
                     $details = [
                         'customers' => [
@@ -138,8 +151,10 @@ class SalesmanController extends Controller
                         ],
                     ];
 
+                    $identifier = $salesman->name ?? $salesman->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete salesman. It is referenced by existing customers.',
                         'details' => $details,
                     ];
@@ -165,13 +180,22 @@ class SalesmanController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $salesman = Salesman::find($id);
+                    $identifier = $salesman?->name ?? $salesman?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete salesman. It is referenced by existing customers.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $salesman = Salesman::find($id);
+                    $identifier = $salesman?->name ?? $salesman?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

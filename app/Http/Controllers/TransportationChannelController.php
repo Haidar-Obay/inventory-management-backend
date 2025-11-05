@@ -117,9 +117,11 @@ class TransportationChannelController extends Controller
             $count = $transportationChannel->children()->count();
             $sampleIds = $transportationChannel->children()->select('transportation_channels.id')->limit(1)->pluck('id');
 
+            $identifier = $transportationChannel->name ?? $transportationChannel->code ?? "ID: {$transportationChannel->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete transportation channel. It is referenced by existing sub-transportation channels.',
+                'message' => "Cannot delete transportation channel \"{$identifier}\" (ID: {$transportationChannel->id}). It is referenced by existing sub-transportation channels.",
                 'details' => [
                     'sub_transportation_channels' => [
                         'count' => $count,
@@ -159,6 +161,7 @@ class TransportationChannelController extends Controller
                 if (! $transportationChannel) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Transportation channel not found.',
                     ];
 
@@ -175,8 +178,10 @@ class TransportationChannelController extends Controller
                         ],
                     ];
 
+                    $identifier = $transportationChannel->name ?? $transportationChannel->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete transportation channel. It is referenced by existing sub-transportation channels.',
                         'details' => $details,
                     ];
@@ -205,22 +210,31 @@ class TransportationChannelController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $transportationChannel = TransportationChannel::find($id);
+                    $identifier = $transportationChannel?->name ?? $transportationChannel?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete transportation channel. It is referenced by existing sub-transportation channels.',
                         'details' => $details,
                     ];
                 } else {
                     Log::error('Error deleting transportation channel '.$id.': '.$e->getMessage());
+                    $transportationChannel = TransportationChannel::find($id);
+                    $identifier = $transportationChannel?->name ?? $transportationChannel?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => $e->getMessage(),
                     ];
                 }
             } catch (\Exception $e) {
                 Log::error('Error deleting transportation channel '.$id.': '.$e->getMessage());
+                $transportationChannel = TransportationChannel::find($id);
+                $identifier = $transportationChannel?->name ?? $transportationChannel?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

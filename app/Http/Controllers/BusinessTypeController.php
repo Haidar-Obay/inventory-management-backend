@@ -121,9 +121,11 @@ class BusinessTypeController extends Controller
                 ];
             }
 
+            $identifier = $businessType->name ?? $businessType->code ?? "ID: {$businessType->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete business type. It is referenced by existing customers or suppliers.',
+                'message' => "Cannot delete business type \"{$identifier}\" (ID: {$businessType->id}). It is referenced by existing customers or suppliers.",
                 'details' => $details,
             ], 409);
         }
@@ -176,8 +178,10 @@ class BusinessTypeController extends Controller
                     ];
                 }
 
+                $identifier = $businessType->name ?? $businessType->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => 'Cannot delete business type. It is referenced by existing customers or suppliers.',
                     'details' => $details,
                 ];
@@ -214,13 +218,22 @@ class BusinessTypeController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $businessType = BusinessType::find($id);
+                    $identifier = $businessType?->name ?? $businessType?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete business type. It is referenced by existing customers or suppliers.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $businessType = BusinessType::find($id);
+                    $identifier = $businessType?->name ?? $businessType?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

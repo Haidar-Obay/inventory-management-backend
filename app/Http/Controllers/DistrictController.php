@@ -141,7 +141,7 @@ class DistrictController extends Controller
 
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete district. It is referenced by existing customers or suppliers.',
+                'message' => "Cannot delete district \"{$district->name}\" (ID: {$district->id}). It is referenced by existing customers or suppliers.",
                 'details' => $details,
             ], 409);
         }
@@ -210,6 +210,7 @@ class DistrictController extends Controller
 
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $district->name ?? "ID: {$id}",
                     'reason' => 'Cannot delete district. It is referenced by existing customers or suppliers.',
                     'details' => $details,
                 ];
@@ -259,13 +260,20 @@ class DistrictController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $district = District::find($id);
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $district?->name ?? "ID: {$id}",
                         'reason' => 'Cannot delete district. It is referenced by existing customers or suppliers.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $district = District::find($id);
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $district?->name ?? "ID: {$id}",
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

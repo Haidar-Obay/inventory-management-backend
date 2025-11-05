@@ -125,9 +125,11 @@ class ItemController extends Controller
         if ($childrenCount > 0) {
             $sampleIds = $item->children()->select('items.id')->limit(1)->pluck('id');
 
+            $identifier = $item->name ?? $item->code ?? "ID: {$item->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete item. It is referenced by existing child items.',
+                'message' => "Cannot delete item \"{$identifier}\" (ID: {$item->id}). It is referenced by existing child items.",
                 'details' => [
                     'child_items' => [
                         'count' => $childrenCount,
@@ -166,6 +168,7 @@ class ItemController extends Controller
                 if (! $item) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Item not found.',
                     ];
 
@@ -182,8 +185,10 @@ class ItemController extends Controller
                         ],
                     ];
 
+                    $identifier = $item->name ?? $item->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete item. It is referenced by existing child items.',
                         'details' => $details,
                     ];
@@ -212,22 +217,31 @@ class ItemController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $item = Item::find($id);
+                    $identifier = $item?->name ?? $item?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete item. It is referenced by existing child items.',
                         'details' => $details,
                     ];
                 } else {
                     Log::error('Error deleting item '.$id.': '.$e->getMessage());
+                    $item = Item::find($id);
+                    $identifier = $item?->name ?? $item?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => $e->getMessage(),
                     ];
                 }
             } catch (\Exception $e) {
                 Log::error('Error deleting item '.$id.': '.$e->getMessage());
+                $item = Item::find($id);
+                $identifier = $item?->name ?? $item?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

@@ -199,9 +199,11 @@ class CurrencyController extends Controller
                 ];
             }
 
+            $identifier = $currency->name ?? $currency->code ?? $currency->iso_code ?? "ID: {$currency->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete currency. It is referenced by existing records (suppliers, customers, or their limits/balances).',
+                'message' => "Cannot delete currency \"{$identifier}\" (ID: {$currency->id}). It is referenced by existing records (suppliers, customers, or their limits/balances).",
                 'details' => $details,
             ], 409);
         }
@@ -228,6 +230,16 @@ class CurrencyController extends Controller
 
         foreach ($request->ids as $id) {
             $currency = Currency::find($id);
+
+            if (! $currency) {
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => "ID: {$id}",
+                    'reason' => 'Currency not found.',
+                ];
+
+                continue;
+            }
 
             // Check if referenced by suppliers, customers, or any limit/balance tables and include details
             $suppliersCount = \App\Models\Supplier::where('currency_id', $id)->count();
@@ -307,8 +319,10 @@ class CurrencyController extends Controller
                     ];
                 }
 
+                $identifier = $currency->name ?? $currency->code ?? $currency->iso_code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => 'Cannot delete currency. It is referenced by existing records (suppliers, customers, or their limits/balances).',
                     'details' => $details,
                 ];
@@ -399,13 +413,22 @@ class CurrencyController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $currency = Currency::find($id);
+                    $identifier = $currency?->name ?? $currency?->code ?? $currency?->iso_code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete currency. It is referenced by existing records (suppliers, customers, or their limits/balances).',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $currency = Currency::find($id);
+                    $identifier = $currency?->name ?? $currency?->code ?? $currency?->iso_code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

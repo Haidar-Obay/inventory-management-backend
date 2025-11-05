@@ -118,9 +118,11 @@ class PaymentMethodController extends Controller
                 ];
             }
 
+            $identifier = $paymentMethod->name ?? $paymentMethod->code ?? "ID: {$paymentMethod->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete payment method. It is referenced by existing customers or suppliers.',
+                'message' => "Cannot delete payment method \"{$identifier}\" (ID: {$paymentMethod->id}). It is referenced by existing customers or suppliers.",
                 'details' => $details,
             ], 409);
         }
@@ -152,6 +154,7 @@ class PaymentMethodController extends Controller
             if (! $method) {
                 $skipped[] = [
                     'id' => $id,
+                    'name' => "ID: {$id}",
                     'reason' => 'Payment method not found.',
                 ];
 
@@ -180,8 +183,10 @@ class PaymentMethodController extends Controller
                     ];
                 }
 
+                $identifier = $method->name ?? $method->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => 'Cannot delete payment method. It is referenced by existing customers or suppliers.',
                     'details' => $details,
                 ];
@@ -219,13 +224,22 @@ class PaymentMethodController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $method = PaymentMethod::find($id);
+                    $identifier = $method?->name ?? $method?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete payment method. It is referenced by existing customers or suppliers.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $method = PaymentMethod::find($id);
+                    $identifier = $method?->name ?? $method?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

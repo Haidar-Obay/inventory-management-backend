@@ -142,7 +142,7 @@ class CountryController extends Controller
 
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete country. It is referenced by existing customers or suppliers.',
+                'message' => "Cannot delete country \"{$country->name}\" (ID: {$country->id}). It is referenced by existing customers or suppliers.",
                 'details' => $details,
             ], 409);
         }
@@ -211,6 +211,7 @@ class CountryController extends Controller
 
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $country->name ?? "ID: {$id}",
                     'reason' => 'Cannot delete country. It is referenced by existing customers or suppliers.',
                     'details' => $details,
                 ];
@@ -260,13 +261,20 @@ class CountryController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $country = Country::find($id);
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $country?->name ?? "ID: {$id}",
                         'reason' => 'Cannot delete country. It is referenced by existing customers or suppliers.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $country = Country::find($id);
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $country?->name ?? "ID: {$id}",
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

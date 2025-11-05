@@ -73,9 +73,11 @@ class ServiceCategoryController extends Controller
         if ($servicesCount > 0) {
             $sampleIds = $serviceCategory->services()->select('services.id')->limit(1)->pluck('id');
 
+            $identifier = $serviceCategory->name ?? "ID: {$serviceCategory->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete service category. It is referenced by existing services.',
+                'message' => "Cannot delete service category \"{$identifier}\" (ID: {$serviceCategory->id}). It is referenced by existing services.",
                 'details' => [
                     'services' => [
                         'count' => $servicesCount,
@@ -295,6 +297,16 @@ class ServiceCategoryController extends Controller
         foreach ($request->ids as $id) {
             $serviceCategory = ServiceCategory::find($id);
 
+            if (! $serviceCategory) {
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => "ID: {$id}",
+                    'reason' => 'Service category not found.',
+                ];
+
+                continue;
+            }
+
             // Check if there are any services linked to this category and include details
             if ($serviceCategory->services()->exists()) {
                 $servicesCount = $serviceCategory->services()->count();
@@ -305,8 +317,10 @@ class ServiceCategoryController extends Controller
                     ],
                 ];
 
+                $identifier = $serviceCategory->name ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => 'Cannot delete service category. It is referenced by existing services.',
                     'details' => $details,
                 ];
@@ -333,13 +347,22 @@ class ServiceCategoryController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $serviceCategory = ServiceCategory::find($id);
+                    $identifier = $serviceCategory?->name ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete service category. It is referenced by existing services.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $serviceCategory = ServiceCategory::find($id);
+                    $identifier = $serviceCategory?->name ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

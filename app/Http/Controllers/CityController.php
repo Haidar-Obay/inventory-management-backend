@@ -141,7 +141,7 @@ class CityController extends Controller
 
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete city. It is referenced by existing customers or suppliers.',
+                'message' => "Cannot delete city \"{$city->name}\" (ID: {$city->id}). It is referenced by existing customers or suppliers.",
                 'details' => $details,
             ], 409);
         }
@@ -210,6 +210,7 @@ class CityController extends Controller
 
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $city->name ?? "ID: {$id}",
                     'reason' => 'Cannot delete city. It is referenced by existing customers or suppliers.',
                     'details' => $details,
                 ];
@@ -259,13 +260,20 @@ class CityController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $city = City::find($id);
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $city?->name ?? "ID: {$id}",
                         'reason' => 'Cannot delete city. It is referenced by existing customers or suppliers.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $city = City::find($id);
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $city?->name ?? "ID: {$id}",
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

@@ -82,9 +82,11 @@ class AssociationController extends Controller
         if ($customersCount > 0) {
             $sampleIds = $association->customers()->select('customers.id')->limit(1)->pluck('id');
 
+            $identifier = $association->name ?? "ID: {$association->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete association. It is referenced by existing customers.',
+                'message' => "Cannot delete association \"{$identifier}\" (ID: {$association->id}). It is referenced by existing customers.",
                 'details' => [
                     'customers' => [
                         'count' => $customersCount,
@@ -110,8 +112,18 @@ class AssociationController extends Controller
         foreach ($request->ids as $id) {
             $association = Association::find($id);
 
+            if (! $association) {
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => "ID: {$id}",
+                    'reason' => 'Association not found.',
+                ];
+
+                continue;
+            }
+
             // Check if association has any customers linked to it and include details
-            if ($association && $association->customers()->exists()) {
+            if ($association->customers()->exists()) {
                 $customersCount = $association->customers()->count();
                 $details = [
                     'customers' => [
@@ -120,8 +132,10 @@ class AssociationController extends Controller
                     ],
                 ];
 
+                $identifier = $association->name ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => 'Cannot delete association. It is referenced by existing customers.',
                     'details' => $details,
                 ];
@@ -148,13 +162,22 @@ class AssociationController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $association = Association::find($id);
+                    $identifier = $association?->name ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete association. It is referenced by existing customers.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $association = Association::find($id);
+                    $identifier = $association?->name ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

@@ -104,9 +104,11 @@ class CompanyCodeController extends Controller
             $count = $companyCode->customers()->count();
             $sampleIds = $companyCode->customers()->select('customers.id')->limit(1)->pluck('id');
 
+            $identifier = $companyCode->name ?? $companyCode->code ?? "ID: {$companyCode->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete company code. It is referenced by existing customers.',
+                'message' => "Cannot delete company code \"{$identifier}\" (ID: {$companyCode->id}). It is referenced by existing customers.",
                 'details' => [
                     'customers' => [
                         'count' => $count,
@@ -142,6 +144,16 @@ class CompanyCodeController extends Controller
         foreach ($request->ids as $id) {
             $companyCode = CompanyCode::find($id);
 
+            if (! $companyCode) {
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => "ID: {$id}",
+                    'reason' => 'Company code not found.',
+                ];
+
+                continue;
+            }
+
             // Check if the company code has any customers linked to it and include details
             if ($companyCode->customers()->exists()) {
                 $customersCount = $companyCode->customers()->count();
@@ -152,8 +164,10 @@ class CompanyCodeController extends Controller
                     ],
                 ];
 
+                $identifier = $companyCode->name ?? $companyCode->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => 'Cannot delete company code. It is referenced by existing customers.',
                     'details' => $details,
                 ];
@@ -180,13 +194,22 @@ class CompanyCodeController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $companyCode = CompanyCode::find($id);
+                    $identifier = $companyCode?->name ?? $companyCode?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete company code. It is referenced by existing customers.',
                         'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $companyCode = CompanyCode::find($id);
+                    $identifier = $companyCode?->name ?? $companyCode?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

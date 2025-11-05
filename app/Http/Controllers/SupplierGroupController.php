@@ -108,9 +108,11 @@ class SupplierGroupController extends Controller
             $count = $supplierGroup->suppliers()->count();
             $sampleIds = $supplierGroup->suppliers()->select('suppliers.id')->limit(1)->pluck('id');
 
+            $identifier = $supplierGroup->name ?? $supplierGroup->code ?? "ID: {$supplierGroup->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete supplier group. It is referenced by existing suppliers.',
+                'message' => "Cannot delete supplier group \"{$identifier}\" (ID: {$supplierGroup->id}). It is referenced by existing suppliers.",
                 'details' => [
                     'suppliers' => [
                         'count' => $count,
@@ -150,6 +152,7 @@ class SupplierGroupController extends Controller
                 if (! $supplierGroup) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Supplier group not found.',
                     ];
 
@@ -166,8 +169,10 @@ class SupplierGroupController extends Controller
                         ],
                     ];
 
+                    $identifier = $supplierGroup->name ?? $supplierGroup->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete supplier group. It is referenced by existing suppliers.',
                         'details' => $details,
                     ];
@@ -180,8 +185,11 @@ class SupplierGroupController extends Controller
 
             } catch (\Exception $e) {
                 Log::error('Error deleting supplier group '.$id.': '.$e->getMessage());
+                $supplierGroup = SupplierGroup::find($id);
+                $identifier = $supplierGroup?->name ?? $supplierGroup?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

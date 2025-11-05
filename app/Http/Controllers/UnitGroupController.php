@@ -86,9 +86,11 @@ class UnitGroupController extends Controller
             $count = $unitGroup->unitOfMeasurements()->count();
             $sampleIds = $unitGroup->unitOfMeasurements()->select('unit_of_measurements.id')->limit(1)->pluck('id');
 
+            $identifier = $unitGroup->name ?? $unitGroup->code ?? "ID: {$unitGroup->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete unit group. It is referenced by existing unit of measurements.',
+                'message' => "Cannot delete unit group \"{$identifier}\" (ID: {$unitGroup->id}). It is referenced by existing unit of measurements.",
                 'details' => [
                     'unit_of_measurements' => [
                         'count' => $count,

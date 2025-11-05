@@ -117,9 +117,11 @@ class MediaChannelController extends Controller
             $subMediaChannelsCount = $mediaChannel->children()->count();
             $subMediaChannelsSampleIds = $mediaChannel->children()->select('media_channels.id')->limit(1)->pluck('id');
 
+            $identifier = $mediaChannel->name ?? $mediaChannel->code ?? "ID: {$mediaChannel->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete media channel. It is referenced by existing sub-media channels.',
+                'message' => "Cannot delete media channel \"{$identifier}\" (ID: {$mediaChannel->id}). It is referenced by existing sub-media channels.",
                 'details' => [
                     'sub_media_channels' => [
                         'count' => $subMediaChannelsCount,
@@ -132,10 +134,11 @@ class MediaChannelController extends Controller
         if ($mediaChannel->customers()->exists()) {
             $count = $mediaChannel->customers()->count();
             $sampleIds = $mediaChannel->customers()->select('customers.id')->limit(1)->pluck('id');
+            $identifier = $mediaChannel->name ?? $mediaChannel->code ?? "ID: {$mediaChannel->id}";
 
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete media channel. It is referenced by existing customers.',
+                'message' => "Cannot delete media channel \"{$identifier}\" (ID: {$mediaChannel->id}). It is referenced by existing customers.",
                 'details' => [
                     'customers' => [
                         'count' => $count,
@@ -171,6 +174,7 @@ class MediaChannelController extends Controller
                 if (! $mediaChannel) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Media channel not found.',
                     ];
 
@@ -187,8 +191,10 @@ class MediaChannelController extends Controller
                         ],
                     ];
 
+                    $identifier = $mediaChannel->name ?? $mediaChannel->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete media channel. It is referenced by existing sub-media channels.',
                         'details' => $details,
                     ];
@@ -206,8 +212,10 @@ class MediaChannelController extends Controller
                         ],
                     ];
 
+                    $identifier = $mediaChannel->name ?? $mediaChannel->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete media channel. It is referenced by existing customers.',
                         'details' => $details,
                     ];
@@ -244,22 +252,31 @@ class MediaChannelController extends Controller
                     } catch (\Throwable $ignored) {
                     }
 
+                    $mediaChannel = MediaChannel::find($id);
+                    $identifier = $mediaChannel?->name ?? $mediaChannel?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => 'Cannot delete media channel. It is referenced by existing customers or sub-media channels.',
                         'details' => $details,
                     ];
                 } else {
                     Log::error('Error deleting media channel '.$id.': '.$e->getMessage());
+                    $mediaChannel = MediaChannel::find($id);
+                    $identifier = $mediaChannel?->name ?? $mediaChannel?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => $e->getMessage(),
                     ];
                 }
             } catch (\Exception $e) {
                 Log::error('Error deleting media channel '.$id.': '.$e->getMessage());
+                $mediaChannel = MediaChannel::find($id);
+                $identifier = $mediaChannel?->name ?? $mediaChannel?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }
