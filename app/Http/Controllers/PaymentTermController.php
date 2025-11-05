@@ -147,15 +147,84 @@ class PaymentTermController extends Controller
 
         foreach ($request->ids as $id) {
             $term = PaymentTerm::find($id);
-            if ($term && ! $term->customers()->exists()) {
+            if (! $term) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Payment term not found.',
+                ];
+
+                continue;
+            }
+
+            // Check if the payment term has any customers or suppliers linked to it and include details
+            $customersCount = $term->customers()->count();
+            $suppliersCount = \App\Models\Supplier::where('payment_term_id', $term->id)->count();
+
+            if ($customersCount > 0 || $suppliersCount > 0) {
+                $details = [];
+                if ($customersCount > 0) {
+                    $details['customers'] = [
+                        'count' => $customersCount,
+                        'sample_ids' => $term->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ];
+                }
+                if ($suppliersCount > 0) {
+                    $details['suppliers'] = [
+                        'count' => $suppliersCount,
+                        'sample_ids' => \App\Models\Supplier::where('payment_term_id', $term->id)
+                            ->select('suppliers.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete payment term. It is referenced by existing customers or suppliers.',
+                    'details' => $details,
+                ];
+
+                continue;
+            }
+
+            try {
                 $term->delete();
                 $deleted++;
                 app('cache')->store('database')->forget("tenant_{$tenantId}_payment_term_{$id}");
-            } else {
-                $skipped[] = [
-                    'id' => $id,
-                    'reason' => $term ? 'Has associated customers' : 'Not found',
-                ];
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customersCount = $term?->customers()->count() ?? 0;
+                        $suppliersCount = $term ? \App\Models\Supplier::where('payment_term_id', $term->id)->count() : 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $term->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                        if ($suppliersCount > 0) {
+                            $details['suppliers'] = [
+                                'count' => $suppliersCount,
+                                'sample_ids' => \App\Models\Supplier::where('payment_term_id', $term->id)
+                                    ->select('suppliers.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete payment term. It is referenced by existing customers or suppliers.',
+                        'details' => $details,
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
         app('cache')->store('database')->forget("tenant_{$tenantId}_payment_terms");

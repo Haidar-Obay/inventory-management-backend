@@ -112,11 +112,21 @@ class DepartmentController extends Controller
     public function destroy(Department $department)
     {
         $tenantId = tenant('id');
+        // Prevent deletion if related sub-departments exist; include helpful details
         if ($department->hasSubDepartments()) {
+            $count = $department->children()->count();
+            $sampleIds = $department->children()->select('departments.id')->limit(1)->pluck('id');
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete department with associated sub-departments',
-            ], 422);
+                'message' => 'Cannot delete department. It is referenced by existing sub-departments.',
+                'details' => [
+                    'sub_departments' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
         $department->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
@@ -151,11 +161,20 @@ class DepartmentController extends Controller
                     continue;
                 }
 
-                // Check if department has sub-departments
+                // Check if department has sub-departments and include details
                 if ($department->hasSubDepartments()) {
+                    $subDepartmentsCount = $department->children()->count();
+                    $details = [
+                        'sub_departments' => [
+                            'count' => $subDepartmentsCount,
+                            'sample_ids' => $department->children()->select('departments.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete department. It has sub-departments.',
+                        'reason' => 'Cannot delete department. It is referenced by existing sub-departments.',
+                        'details' => $details,
                     ];
 
                     continue;

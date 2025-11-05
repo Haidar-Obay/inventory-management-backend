@@ -154,11 +154,32 @@ class BusinessTypeController extends Controller
         foreach ($request->ids as $id) {
             $businessType = BusinessType::find($id);
 
-            // Check if the business type has any customers linked to it
-            if ($businessType->customers()->exists()) {
+            // Check if the business type has any customers or suppliers linked to it and include details
+            $customersCount = $businessType->customers()->count();
+            $suppliersCount = \App\Models\Supplier::where('business_type_id', $businessType->id)->count();
+
+            if ($customersCount > 0 || $suppliersCount > 0) {
+                $details = [];
+                if ($customersCount > 0) {
+                    $details['customers'] = [
+                        'count' => $customersCount,
+                        'sample_ids' => $businessType->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ];
+                }
+                if ($suppliersCount > 0) {
+                    $details['suppliers'] = [
+                        'count' => $suppliersCount,
+                        'sample_ids' => \App\Models\Supplier::where('business_type_id', $businessType->id)
+                            ->select('suppliers.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete business type. It is being used by one or more customers.',
+                    'reason' => 'Cannot delete business type. It is referenced by existing customers or suppliers.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -168,11 +189,35 @@ class BusinessTypeController extends Controller
                 $deleted += $businessType->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_business_type_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customersCount = $businessType?->customers()->count() ?? 0;
+                        $suppliersCount = $businessType ? \App\Models\Supplier::where('business_type_id', $businessType->id)->count() : 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $businessType->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                        if ($suppliersCount > 0) {
+                            $details['suppliers'] = [
+                                'count' => $suppliersCount,
+                                'sample_ids' => \App\Models\Supplier::where('business_type_id', $businessType->id)
+                                    ->select('suppliers.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete business type. It is being used by one or more customers.',
+                        'reason' => 'Cannot delete business type. It is referenced by existing customers or suppliers.',
+                        'details' => $details,
                     ];
                 } else {
                     $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];

@@ -112,11 +112,21 @@ class CostCenterController extends Controller
     public function destroy(CostCenter $costCenter)
     {
         $tenantId = tenant('id');
+        // Prevent deletion if related sub-cost centers exist; include helpful details
         if ($costCenter->hasSubCostCenters()) {
+            $count = $costCenter->children()->count();
+            $sampleIds = $costCenter->children()->select('cost_centers.id')->limit(1)->pluck('id');
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete cost center with associated sub-cost centers',
-            ], 422);
+                'message' => 'Cannot delete cost center. It is referenced by existing sub-cost centers.',
+                'details' => [
+                    'sub_cost_centers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
         $costCenter->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
@@ -151,11 +161,20 @@ class CostCenterController extends Controller
                     continue;
                 }
 
-                // Check if cost center has sub-cost centers
+                // Check if cost center has sub-cost centers and include details
                 if ($costCenter->hasSubCostCenters()) {
+                    $subCostCentersCount = $costCenter->children()->count();
+                    $details = [
+                        'sub_cost_centers' => [
+                            'count' => $subCostCentersCount,
+                            'sample_ids' => $costCenter->children()->select('cost_centers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete cost center. It has sub-cost centers.',
+                        'reason' => 'Cannot delete cost center. It is referenced by existing sub-cost centers.',
+                        'details' => $details,
                     ];
 
                     continue;

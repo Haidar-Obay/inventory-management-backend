@@ -108,10 +108,54 @@ class AssociationController extends Controller
         $skipped = [];
         $deleted = 0;
         foreach ($request->ids as $id) {
+            $association = Association::find($id);
+
+            // Check if association has any customers linked to it and include details
+            if ($association && $association->customers()->exists()) {
+                $customersCount = $association->customers()->count();
+                $details = [
+                    'customers' => [
+                        'count' => $customersCount,
+                        'sample_ids' => $association->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ],
+                ];
+
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete association. It is referenced by existing customers.',
+                    'details' => $details,
+                ];
+
+                continue;
+            }
+
             try {
                 $deleted += Association::where('id', $id)->delete();
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $association = Association::find($id);
+                        $customersCount = $association?->customers()->count() ?? 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $association->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete association. It is referenced by existing customers.',
+                        'details' => $details,
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

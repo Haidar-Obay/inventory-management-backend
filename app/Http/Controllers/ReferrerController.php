@@ -92,11 +92,20 @@ class ReferrerController extends Controller
         foreach ($request->ids as $id) {
             $referrer = Referrer::find($id);
 
-            // Check if the referrer has any customers linked to it
+            // Check if the referrer has any customers linked to it and include details
             if ($referrer->customers()->exists()) {
+                $customersCount = $referrer->customers()->count();
+                $details = [
+                    'customers' => [
+                        'count' => $customersCount,
+                        'sample_ids' => $referrer->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ],
+                ];
+
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete referrer. It is being used by one or more customers.',
+                    'reason' => 'Cannot delete referrer. It is referenced by existing customers.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -105,11 +114,25 @@ class ReferrerController extends Controller
             try {
                 $deleted += $referrer->delete();
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customersCount = $referrer?->customers()->count() ?? 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $referrer->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete referrer. It is being used by one or more customers.',
+                        'reason' => 'Cannot delete referrer. It is referenced by existing customers.',
+                        'details' => $details,
                     ];
                 } else {
                     $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];

@@ -37,6 +37,7 @@ class UpdateSupplierRequest extends FormRequest
     public function rules(): array
     {
         $supplierId = $this->route('supplier');
+
         return [
             // Personal Information
             'title' => ['nullable', 'string', 'in:Mr.,Mrs.,Ms.,Dr.,Prof.'],

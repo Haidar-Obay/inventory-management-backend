@@ -113,7 +113,7 @@ class CreateDefaultTableTemplates
             'referrers' => [
                 'id', 'name', 'address', 'phone1', 'phone2', 'email', 'active', 'commission_percent', 'created_at', 'updated_at',
             ],
-            
+
         ];
 
         $timestampFields = ['created_at', 'updated_at', 'deleted_at'];

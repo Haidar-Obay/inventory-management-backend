@@ -295,11 +295,20 @@ class ServiceCategoryController extends Controller
         foreach ($request->ids as $id) {
             $serviceCategory = ServiceCategory::find($id);
 
-            // Check if there are any services linked to this category
+            // Check if there are any services linked to this category and include details
             if ($serviceCategory->services()->exists()) {
+                $servicesCount = $serviceCategory->services()->count();
+                $details = [
+                    'services' => [
+                        'count' => $servicesCount,
+                        'sample_ids' => $serviceCategory->services()->select('services.id')->limit(1)->pluck('id'),
+                    ],
+                ];
+
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete service category. It is linked to one or more services.',
+                    'reason' => 'Cannot delete service category. It is referenced by existing services.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -308,7 +317,30 @@ class ServiceCategoryController extends Controller
             try {
                 $deleted += $serviceCategory->delete();
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $serviceCategory = ServiceCategory::find($id);
+                        $servicesCount = $serviceCategory?->services()->count() ?? 0;
+                        if ($servicesCount > 0) {
+                            $details['services'] = [
+                                'count' => $servicesCount,
+                                'sample_ids' => $serviceCategory->services()->select('services.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete service category. It is referenced by existing services.',
+                        'details' => $details,
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

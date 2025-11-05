@@ -122,11 +122,20 @@ class ProjectController extends Controller
         foreach ($ids as $id) {
             $project = Project::find($id);
 
-            // Check if project has associated jobs
+            // Check if project has associated jobs and include details
             if ($project && $project->jobs()->exists()) {
+                $jobsCount = $project->jobs()->count();
+                $details = [
+                    'jobs' => [
+                        'count' => $jobsCount,
+                        'sample_ids' => $project->jobs()->select('projects_jobs.id')->limit(1)->pluck('id'),
+                    ],
+                ];
+
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete project. It has associated jobs.',
+                    'reason' => 'Cannot delete project. It is referenced by existing jobs.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -138,7 +147,29 @@ class ProjectController extends Controller
                     $deleted++;
                 }
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $jobsCount = $project?->jobs()->count() ?? 0;
+                        if ($jobsCount > 0) {
+                            $details['jobs'] = [
+                                'count' => $jobsCount,
+                                'sample_ids' => $project->jobs()->select('projects_jobs.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete project. It is referenced by existing jobs.',
+                        'details' => $details,
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

@@ -59,7 +59,12 @@ class CategoryController extends Controller
             }
         }
 
+        // Normalize subcategory_of: convert empty string to null
         $data = $request->all();
+        if (isset($data['subcategory_of']) && $data['subcategory_of'] === '') {
+            $data['subcategory_of'] = null;
+        }
+
         $nextId = $this->computeNextAvailableId(Category::class, 'id');
         $category = new Category($data);
         $category->id = $nextId;
@@ -119,7 +124,13 @@ class CategoryController extends Controller
             }
         }
 
-        $category->update($request->all());
+        // Normalize subcategory_of: convert empty string to null
+        $data = $request->all();
+        if (isset($data['subcategory_of']) && $data['subcategory_of'] === '') {
+            $data['subcategory_of'] = null;
+        }
+
+        $category->update($data);
         $tenantId = tenant('id');
         $key = "tenant_{$tenantId}_categories";
 
@@ -134,9 +145,21 @@ class CategoryController extends Controller
 
     public function destroy(Category $category)
     {
-        // Check if category has subcategories
+        // Prevent deletion if related subcategories exist; include helpful details
         if ($category->subcategories()->exists()) {
-            return response()->json(['message' => 'Cannot delete category with subcategories'], 422);
+            $count = $category->subcategories()->count();
+            $sampleIds = $category->subcategories()->select('categories.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete category. It is referenced by existing subcategories.',
+                'details' => [
+                    'subcategories' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
 
         $category->delete();
@@ -175,11 +198,20 @@ class CategoryController extends Controller
                     continue;
                 }
 
-                // Check if category has subcategories
+                // Check if category has subcategories and include details
                 if ($category->subcategories()->exists()) {
+                    $subcategoriesCount = $category->subcategories()->count();
+                    $details = [
+                        'subcategories' => [
+                            'count' => $subcategoriesCount,
+                            'sample_ids' => $category->subcategories()->select('categories.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete category. It has subcategories.',
+                        'reason' => 'Cannot delete category. It is referenced by existing subcategories.',
+                        'details' => $details,
                     ];
 
                     continue;
@@ -188,6 +220,35 @@ class CategoryController extends Controller
                 $category->delete();
                 $deleted++;
 
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $category = Category::find($id);
+                        $subcategoriesCount = $category?->subcategories()->count() ?? 0;
+                        if ($subcategoriesCount > 0) {
+                            $details['subcategories'] = [
+                                'count' => $subcategoriesCount,
+                                'sample_ids' => $category->subcategories()->select('categories.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete category. It is referenced by existing subcategories.',
+                        'details' => $details,
+                    ];
+                } else {
+                    Log::error('Error deleting category '.$id.': '.$e->getMessage());
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => $e->getMessage(),
+                    ];
+                }
             } catch (\Exception $e) {
                 Log::error('Error deleting category '.$id.': '.$e->getMessage());
                 $skipped[] = [

@@ -142,11 +142,20 @@ class CompanyCodeController extends Controller
         foreach ($request->ids as $id) {
             $companyCode = CompanyCode::find($id);
 
-            // Check if the company code has any customers linked to it
+            // Check if the company code has any customers linked to it and include details
             if ($companyCode->customers()->exists()) {
+                $customersCount = $companyCode->customers()->count();
+                $details = [
+                    'customers' => [
+                        'count' => $customersCount,
+                        'sample_ids' => $companyCode->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ],
+                ];
+
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete company code. It is being used by one or more customers.',
+                    'reason' => 'Cannot delete company code. It is referenced by existing customers.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -156,11 +165,25 @@ class CompanyCodeController extends Controller
                 $deleted += $companyCode->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_company_code_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customersCount = $companyCode?->customers()->count() ?? 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $companyCode->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete company code. It is being used by one or more customers.',
+                        'reason' => 'Cannot delete company code. It is referenced by existing customers.',
+                        'details' => $details,
                     ];
                 } else {
                     $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];

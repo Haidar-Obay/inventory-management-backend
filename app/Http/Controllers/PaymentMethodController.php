@@ -149,15 +149,84 @@ class PaymentMethodController extends Controller
 
         foreach ($request->ids as $id) {
             $method = PaymentMethod::find($id);
-            if ($method && ! $method->customers()->exists()) {
+            if (! $method) {
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Payment method not found.',
+                ];
+
+                continue;
+            }
+
+            // Check if the payment method has any customers or suppliers linked to it and include details
+            $customersCount = $method->customers()->count();
+            $suppliersCount = \App\Models\Supplier::where('payment_method_id', $method->id)->count();
+
+            if ($customersCount > 0 || $suppliersCount > 0) {
+                $details = [];
+                if ($customersCount > 0) {
+                    $details['customers'] = [
+                        'count' => $customersCount,
+                        'sample_ids' => $method->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ];
+                }
+                if ($suppliersCount > 0) {
+                    $details['suppliers'] = [
+                        'count' => $suppliersCount,
+                        'sample_ids' => \App\Models\Supplier::where('payment_method_id', $method->id)
+                            ->select('suppliers.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete payment method. It is referenced by existing customers or suppliers.',
+                    'details' => $details,
+                ];
+
+                continue;
+            }
+
+            try {
                 $method->delete();
                 $deleted++;
                 app('cache')->store('database')->forget("tenant_{$tenantId}_payment_method_{$id}");
-            } else {
-                $skipped[] = [
-                    'id' => $id,
-                    'reason' => $method ? 'Has associated customers' : 'Not found',
-                ];
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customersCount = $method?->customers()->count() ?? 0;
+                        $suppliersCount = $method ? \App\Models\Supplier::where('payment_method_id', $method->id)->count() : 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $method->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                        if ($suppliersCount > 0) {
+                            $details['suppliers'] = [
+                                'count' => $suppliersCount,
+                                'sample_ids' => \App\Models\Supplier::where('payment_method_id', $method->id)
+                                    ->select('suppliers.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete payment method. It is referenced by existing customers or suppliers.',
+                        'details' => $details,
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
         app('cache')->store('database')->forget("tenant_{$tenantId}_payment_methods");

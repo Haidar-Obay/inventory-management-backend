@@ -694,13 +694,13 @@ class SupplierController extends Controller
                     ->whereIn('id', $addressIds)
                     ->whereNotExists(function ($q) {
                         $q->select(DB::raw(1))
-                          ->from('customer_addresses')
-                          ->whereColumn('customer_addresses.address_id', 'addresses.id');
+                            ->from('customer_addresses')
+                            ->whereColumn('customer_addresses.address_id', 'addresses.id');
                     })
                     ->whereNotExists(function ($q) {
                         $q->select(DB::raw(1))
-                          ->from('supplier_addresses')
-                          ->whereColumn('supplier_addresses.address_id', 'addresses.id');
+                            ->from('supplier_addresses')
+                            ->whereColumn('supplier_addresses.address_id', 'addresses.id');
                     })
                     ->delete();
             }
@@ -758,13 +758,13 @@ class SupplierController extends Controller
                         ->whereIn('id', $addressIds)
                         ->whereNotExists(function ($q) {
                             $q->select(DB::raw(1))
-                              ->from('customer_addresses')
-                              ->whereColumn('customer_addresses.address_id', 'addresses.id');
+                                ->from('customer_addresses')
+                                ->whereColumn('customer_addresses.address_id', 'addresses.id');
                         })
                         ->whereNotExists(function ($q) {
                             $q->select(DB::raw(1))
-                              ->from('supplier_addresses')
-                              ->whereColumn('supplier_addresses.address_id', 'addresses.id');
+                                ->from('supplier_addresses')
+                                ->whereColumn('supplier_addresses.address_id', 'addresses.id');
                         })
                         ->delete();
                 }

@@ -112,11 +112,21 @@ class MediaChannelController extends Controller
     public function destroy(MediaChannel $mediaChannel)
     {
         $tenantId = tenant('id');
+        // Prevent deletion if related sub-media channels exist; include helpful details
         if ($mediaChannel->hasSubMediaChannels()) {
+            $subMediaChannelsCount = $mediaChannel->children()->count();
+            $subMediaChannelsSampleIds = $mediaChannel->children()->select('media_channels.id')->limit(1)->pluck('id');
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete media channel with associated sub-media channels',
-            ], 422);
+                'message' => 'Cannot delete media channel. It is referenced by existing sub-media channels.',
+                'details' => [
+                    'sub_media_channels' => [
+                        'count' => $subMediaChannelsCount,
+                        'sample_ids' => $subMediaChannelsSampleIds,
+                    ],
+                ],
+            ], 409);
         }
         // Prevent deletion if related customers exist; include helpful details
         if ($mediaChannel->customers()->exists()) {
@@ -167,21 +177,39 @@ class MediaChannelController extends Controller
                     continue;
                 }
 
-                // Check if media channel has sub-media channels
+                // Check if media channel has sub-media channels and include details
                 if ($mediaChannel->hasSubMediaChannels()) {
+                    $subMediaChannelsCount = $mediaChannel->children()->count();
+                    $details = [
+                        'sub_media_channels' => [
+                            'count' => $subMediaChannelsCount,
+                            'sample_ids' => $mediaChannel->children()->select('media_channels.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete media channel. It has sub-media channels.',
+                        'reason' => 'Cannot delete media channel. It is referenced by existing sub-media channels.',
+                        'details' => $details,
                     ];
 
                     continue;
                 }
 
-                // Check if the media channel has any customers linked to it
+                // Check if the media channel has any customers linked to it and include details
                 if ($mediaChannel->customers()->exists()) {
+                    $customersCount = $mediaChannel->customers()->count();
+                    $details = [
+                        'customers' => [
+                            'count' => $customersCount,
+                            'sample_ids' => $mediaChannel->customers()->select('customers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete media channel. It is being used by one or more customers.',
+                        'reason' => 'Cannot delete media channel. It is referenced by existing customers.',
+                        'details' => $details,
                     ];
 
                     continue;
@@ -193,11 +221,33 @@ class MediaChannelController extends Controller
                 $deleted++;
 
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $mediaChannel = MediaChannel::find($id);
+                        $customersCount = $mediaChannel?->customers()->count() ?? 0;
+                        $subMediaChannelsCount = $mediaChannel?->children()->count() ?? 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $mediaChannel->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                        if ($subMediaChannelsCount > 0) {
+                            $details['sub_media_channels'] = [
+                                'count' => $subMediaChannelsCount,
+                                'sample_ids' => $mediaChannel->children()->select('media_channels.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete media channel. It is being used by other records in the system.',
+                        'reason' => 'Cannot delete media channel. It is referenced by existing customers or sub-media channels.',
+                        'details' => $details,
                     ];
                 } else {
                     Log::error('Error deleting media channel '.$id.': '.$e->getMessage());

@@ -85,8 +85,8 @@ class UnitOfMeasurementController extends Controller
         $pivotItemIds = $unitOfMeasurement->items()->pluck('items.id');
         $directItemIds = \App\Models\Item::where(function ($query) use ($unitOfMeasurement) {
             $query->where('base_uom_id', $unitOfMeasurement->id)
-                  ->orWhere('purchase_uom_id', $unitOfMeasurement->id)
-                  ->orWhere('sales_uom_id', $unitOfMeasurement->id);
+                ->orWhere('purchase_uom_id', $unitOfMeasurement->id)
+                ->orWhere('sales_uom_id', $unitOfMeasurement->id);
         })->pluck('items.id');
         $allItemIds = $pivotItemIds->merge($directItemIds)->unique();
         $totalItemCount = $allItemIds->count();

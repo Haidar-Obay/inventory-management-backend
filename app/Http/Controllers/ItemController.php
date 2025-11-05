@@ -172,10 +172,58 @@ class ItemController extends Controller
                     continue;
                 }
 
+                // Check if item has child items and include details
+                if ($item->children()->exists()) {
+                    $childrenCount = $item->children()->count();
+                    $details = [
+                        'child_items' => [
+                            'count' => $childrenCount,
+                            'sample_ids' => $item->children()->select('items.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete item. It is referenced by existing child items.',
+                        'details' => $details,
+                    ];
+
+                    continue;
+                }
+
                 $item->delete();
                 $deleted++;
                 app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$id}");
 
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $item = Item::find($id);
+                        $childrenCount = $item?->children()->count() ?? 0;
+                        if ($childrenCount > 0) {
+                            $details['child_items'] = [
+                                'count' => $childrenCount,
+                                'sample_ids' => $item->children()->select('items.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete item. It is referenced by existing child items.',
+                        'details' => $details,
+                    ];
+                } else {
+                    Log::error('Error deleting item '.$id.': '.$e->getMessage());
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => $e->getMessage(),
+                    ];
+                }
             } catch (\Exception $e) {
                 Log::error('Error deleting item '.$id.': '.$e->getMessage());
                 $skipped[] = [

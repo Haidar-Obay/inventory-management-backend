@@ -112,11 +112,21 @@ class DistributionChannelController extends Controller
     public function destroy(DistributionChannel $distributionChannel)
     {
         $tenantId = tenant('id');
+        // Prevent deletion if related sub-distribution channels exist; include helpful details
         if ($distributionChannel->hasSubDistributionChannels()) {
+            $subDistributionChannelsCount = $distributionChannel->children()->count();
+            $subDistributionChannelsSampleIds = $distributionChannel->children()->select('distribution_channels.id')->limit(1)->pluck('id');
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete distribution channel with associated sub-distribution channels',
-            ], 422);
+                'message' => 'Cannot delete distribution channel. It is referenced by existing sub-distribution channels.',
+                'details' => [
+                    'sub_distribution_channels' => [
+                        'count' => $subDistributionChannelsCount,
+                        'sample_ids' => $subDistributionChannelsSampleIds,
+                    ],
+                ],
+            ], 409);
         }
         // Prevent deletion if related customers exist; include helpful details
         if ($distributionChannel->customers()->exists()) {
@@ -167,21 +177,39 @@ class DistributionChannelController extends Controller
                     continue;
                 }
 
-                // Check if distribution channel has sub-distribution channels
+                // Check if distribution channel has sub-distribution channels and include details
                 if ($distributionChannel->hasSubDistributionChannels()) {
+                    $subDistributionChannelsCount = $distributionChannel->children()->count();
+                    $details = [
+                        'sub_distribution_channels' => [
+                            'count' => $subDistributionChannelsCount,
+                            'sample_ids' => $distributionChannel->children()->select('distribution_channels.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete distribution channel. It has sub-distribution channels.',
+                        'reason' => 'Cannot delete distribution channel. It is referenced by existing sub-distribution channels.',
+                        'details' => $details,
                     ];
 
                     continue;
                 }
 
-                // Check if the distribution channel has any customers linked to it
+                // Check if the distribution channel has any customers linked to it and include details
                 if ($distributionChannel->customers()->exists()) {
+                    $customersCount = $distributionChannel->customers()->count();
+                    $details = [
+                        'customers' => [
+                            'count' => $customersCount,
+                            'sample_ids' => $distributionChannel->customers()->select('customers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete distribution channel. It is being used by one or more customers.',
+                        'reason' => 'Cannot delete distribution channel. It is referenced by existing customers.',
+                        'details' => $details,
                     ];
 
                     continue;
@@ -193,11 +221,33 @@ class DistributionChannelController extends Controller
                 $deleted++;
 
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $distributionChannel = DistributionChannel::find($id);
+                        $customersCount = $distributionChannel?->customers()->count() ?? 0;
+                        $subDistributionChannelsCount = $distributionChannel?->children()->count() ?? 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $distributionChannel->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                        if ($subDistributionChannelsCount > 0) {
+                            $details['sub_distribution_channels'] = [
+                                'count' => $subDistributionChannelsCount,
+                                'sample_ids' => $distributionChannel->children()->select('distribution_channels.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete distribution channel. It is being used by other records in the system.',
+                        'reason' => 'Cannot delete distribution channel. It is referenced by existing customers or sub-distribution channels.',
+                        'details' => $details,
                     ];
                 } else {
                     Log::error('Error deleting distribution channel '.$id.': '.$e->getMessage());

@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\Trade\StoreTradeRequest;
+use App\Http\Requests\Trade\UpdateTradeRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Trade;
 use Illuminate\Http\Request;
-use App\Http\Requests\Trade\StoreTradeRequest;
-use App\Http\Requests\Trade\UpdateTradeRequest;
 use Maatwebsite\Excel\Facades\Excel;
 
 class TradeController extends Controller
@@ -32,9 +32,9 @@ class TradeController extends Controller
         ]);
     }
 
-	public function store(StoreTradeRequest $request)
+    public function store(StoreTradeRequest $request)
     {
-		$validated = $request->validated();
+        $validated = $request->validated();
 
         $nextId = $this->computeNextAvailableId(Trade::class, 'id');
         $trade = new Trade($validated);
@@ -70,9 +70,9 @@ class TradeController extends Controller
         ]);
     }
 
-	public function update(UpdateTradeRequest $request, Trade $trade)
+    public function update(UpdateTradeRequest $request, Trade $trade)
     {
-		$validated = $request->validated();
+        $validated = $request->validated();
 
         $trade->update($validated);
 
@@ -89,85 +89,86 @@ class TradeController extends Controller
 
     public function destroy(Trade $trade)
     {
-		// Prevent deletion if related customers or suppliers exist, and return helpful details
-		$customersCount = $trade->customers()->count();
-		$suppliersCount = \App\Models\Supplier::where('trade_id', $trade->id)->count();
+        // Prevent deletion if related customers or suppliers exist, and return helpful details
+        $customersCount = $trade->customers()->count();
+        $suppliersCount = \App\Models\Supplier::where('trade_id', $trade->id)->count();
 
-		if ($customersCount > 0 || $suppliersCount > 0) {
-			$details = [];
-			if ($customersCount > 0) {
-				$details['customers'] = [
-					'count' => $customersCount,
-					'sample_ids' => $trade->customers()->select('customers.id')->limit(1)->pluck('id'),
-				];
-			}
-			if ($suppliersCount > 0) {
-				$details['suppliers'] = [
-					'count' => $suppliersCount,
-					'sample_ids' => \App\Models\Supplier::where('trade_id', $trade->id)
-						->select('suppliers.id')
-						->limit(1)
-						->pluck('id'),
-				];
-			}
+        if ($customersCount > 0 || $suppliersCount > 0) {
+            $details = [];
+            if ($customersCount > 0) {
+                $details['customers'] = [
+                    'count' => $customersCount,
+                    'sample_ids' => $trade->customers()->select('customers.id')->limit(1)->pluck('id'),
+                ];
+            }
+            if ($suppliersCount > 0) {
+                $details['suppliers'] = [
+                    'count' => $suppliersCount,
+                    'sample_ids' => \App\Models\Supplier::where('trade_id', $trade->id)
+                        ->select('suppliers.id')
+                        ->limit(1)
+                        ->pluck('id'),
+                ];
+            }
 
-			return response()->json([
-				'status' => false,
-				'message' => 'Cannot delete trade. It is referenced by existing customers or suppliers.',
-				'details' => $details,
-			], 409);
-		}
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete trade. It is referenced by existing customers or suppliers.',
+                'details' => $details,
+            ], 409);
+        }
 
-		try {
-			$trade->delete();
+        try {
+            $trade->delete();
 
-			$tenantId = tenant('id');
-			app('cache')->store('database')->forget("tenant_{$tenantId}_trades");
-			app('cache')->store('database')->forget("tenant_{$tenantId}_trade_{$trade->id}");
+            $tenantId = tenant('id');
+            app('cache')->store('database')->forget("tenant_{$tenantId}_trades");
+            app('cache')->store('database')->forget("tenant_{$tenantId}_trade_{$trade->id}");
 
-			return response()->json([
-				'status' => true,
-				'message' => 'Trade deleted successfully.',
-			]);
-		} catch (\Illuminate\Database\QueryException $e) {
-			// Handle FK constraint violations from the DB as a safety net
-			if ($e->getCode() === '23503' || str_contains(strtolower($e->getMessage()), 'foreign key')) {
-				// Best-effort detail in case pre-check missed something
-				$details = [];
-				try {
-					$customersCount = $trade->customers()->count();
-					if ($customersCount > 0) {
-						$details['customers'] = [
-							'count' => $customersCount,
-							'sample_ids' => $trade->customers()->select('customers.id')->limit(1)->pluck('id'),
-						];
-					}
-					$suppliersCount = \App\Models\Supplier::where('trade_id', $trade->id)->count();
-					if ($suppliersCount > 0) {
-						$details['suppliers'] = [
-							'count' => $suppliersCount,
-							'sample_ids' => \App\Models\Supplier::where('trade_id', $trade->id)
-								->select('suppliers.id')
-								->limit(1)
-								->pluck('id'),
-						];
-					}
-				} catch (\Throwable $ignored) {
-					// If we cannot compute details here, just fall back to generic message
-				}
+            return response()->json([
+                'status' => true,
+                'message' => 'Trade deleted successfully.',
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Handle FK constraint violations from the DB as a safety net
+            if ($e->getCode() === '23503' || str_contains(strtolower($e->getMessage()), 'foreign key')) {
+                // Best-effort detail in case pre-check missed something
+                $details = [];
 
-				return response()->json([
-					'status' => false,
-					'message' => 'Cannot delete trade. It is referenced by related records.',
-					'details' => $details,
-				], 409);
-			}
+                try {
+                    $customersCount = $trade->customers()->count();
+                    if ($customersCount > 0) {
+                        $details['customers'] = [
+                            'count' => $customersCount,
+                            'sample_ids' => $trade->customers()->select('customers.id')->limit(1)->pluck('id'),
+                        ];
+                    }
+                    $suppliersCount = \App\Models\Supplier::where('trade_id', $trade->id)->count();
+                    if ($suppliersCount > 0) {
+                        $details['suppliers'] = [
+                            'count' => $suppliersCount,
+                            'sample_ids' => \App\Models\Supplier::where('trade_id', $trade->id)
+                                ->select('suppliers.id')
+                                ->limit(1)
+                                ->pluck('id'),
+                        ];
+                    }
+                } catch (\Throwable $ignored) {
+                    // If we cannot compute details here, just fall back to generic message
+                }
 
-			return response()->json([
-				'status' => false,
-				'message' => 'Unable to delete trade due to a database error.',
-			], 422);
-		}
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Cannot delete trade. It is referenced by related records.',
+                    'details' => $details,
+                ], 409);
+            }
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Unable to delete trade due to a database error.',
+            ], 422);
+        }
     }
 
     public function bulkDelete(Request $request)
@@ -184,11 +185,29 @@ class TradeController extends Controller
         foreach ($request->ids as $id) {
             $trade = Trade::find($id);
 
-            // Check if the trade has any customers linked to it
-            if ($trade->customers()->exists()) {
+            // Check if the trade has any customers/suppliers linked to it and include details
+            if ($trade && ($trade->customers()->exists() || \App\Models\Supplier::where('trade_id', $trade->id)->exists())) {
+                $customersCount = $trade->customers()->count();
+                $suppliersCount = \App\Models\Supplier::where('trade_id', $trade->id)->count();
+
+                $details = [];
+                if ($customersCount > 0) {
+                    $details['customers'] = [
+                        'count' => $customersCount,
+                        'sample_ids' => $trade->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ];
+                }
+                if ($suppliersCount > 0) {
+                    $details['suppliers'] = [
+                        'count' => $suppliersCount,
+                        'sample_ids' => \App\Models\Supplier::where('trade_id', $trade->id)->select('suppliers.id')->limit(1)->pluck('id'),
+                    ];
+                }
+
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete trade. It is being used by one or more customers.',
+                    'reason' => 'Cannot delete trade. It is referenced by existing records.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -198,11 +217,32 @@ class TradeController extends Controller
                 $deleted += $trade->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_trade_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customersCount = $trade?->customers()->count() ?? 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $trade->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                        $suppliersCount = $trade ? \App\Models\Supplier::where('trade_id', $trade->id)->count() : 0;
+                        if ($suppliersCount > 0) {
+                            $details['suppliers'] = [
+                                'count' => $suppliersCount,
+                                'sample_ids' => \App\Models\Supplier::where('trade_id', $trade->id)->select('suppliers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete trade. It is being used by one or more customers.',
+                        'reason' => 'Cannot delete trade. It is referenced by existing records.',
+                        'details' => $details,
                     ];
                 } else {
                     $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];

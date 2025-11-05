@@ -120,7 +120,7 @@ class CurrencyController extends Controller
     public function destroy($id)
     {
         $currency = Currency::findOrFail($id);
-        
+
         // Prevent deletion if referenced by suppliers, customers, or any limit/balance tables
         $suppliersCount = \App\Models\Supplier::where('currency_id', $currency->id)->count();
         $customerCreditLimitsCount = \App\Models\CustomerCreditLimit::where('currency_id', $currency->id)->count();
@@ -130,10 +130,10 @@ class CurrencyController extends Controller
         $supplierChequeLimitsCount = \App\Models\SupplierChequeLimit::where('currency_id', $currency->id)->count();
         $supplierOpeningBalancesCount = \App\Models\SupplierOpeningBalance::where('currency_id', $currency->id)->count();
 
-        if ($suppliersCount > 0 || $customerCreditLimitsCount > 0 || $customerChequeLimitsCount > 0 || 
-            $customerOpeningBalancesCount > 0 || $supplierCreditLimitsCount > 0 || 
+        if ($suppliersCount > 0 || $customerCreditLimitsCount > 0 || $customerChequeLimitsCount > 0 ||
+            $customerOpeningBalancesCount > 0 || $supplierCreditLimitsCount > 0 ||
             $supplierChequeLimitsCount > 0 || $supplierOpeningBalancesCount > 0) {
-            
+
             $details = [];
             if ($suppliersCount > 0) {
                 $details['suppliers'] = [
@@ -227,11 +227,186 @@ class CurrencyController extends Controller
         $tenantId = tenant('id');
 
         foreach ($request->ids as $id) {
+            $currency = Currency::find($id);
+
+            // Check if referenced by suppliers, customers, or any limit/balance tables and include details
+            $suppliersCount = \App\Models\Supplier::where('currency_id', $id)->count();
+            $customerCreditLimitsCount = \App\Models\CustomerCreditLimit::where('currency_id', $id)->count();
+            $customerChequeLimitsCount = \App\Models\CustomerChequeLimit::where('currency_id', $id)->count();
+            $customerOpeningBalancesCount = \App\Models\CustomerOpeningBalance::where('currency_id', $id)->count();
+            $supplierCreditLimitsCount = \App\Models\SupplierCreditLimit::where('currency_id', $id)->count();
+            $supplierChequeLimitsCount = \App\Models\SupplierChequeLimit::where('currency_id', $id)->count();
+            $supplierOpeningBalancesCount = \App\Models\SupplierOpeningBalance::where('currency_id', $id)->count();
+
+            if ($suppliersCount > 0 || $customerCreditLimitsCount > 0 || $customerChequeLimitsCount > 0 ||
+                $customerOpeningBalancesCount > 0 || $supplierCreditLimitsCount > 0 ||
+                $supplierChequeLimitsCount > 0 || $supplierOpeningBalancesCount > 0) {
+
+                $details = [];
+                if ($suppliersCount > 0) {
+                    $details['suppliers'] = [
+                        'count' => $suppliersCount,
+                        'sample_ids' => \App\Models\Supplier::where('currency_id', $id)
+                            ->select('suppliers.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+                if ($customerCreditLimitsCount > 0) {
+                    $details['customer_credit_limits'] = [
+                        'count' => $customerCreditLimitsCount,
+                        'sample_ids' => \App\Models\CustomerCreditLimit::where('currency_id', $id)
+                            ->select('customer_credit_limits.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+                if ($customerChequeLimitsCount > 0) {
+                    $details['customer_cheque_limits'] = [
+                        'count' => $customerChequeLimitsCount,
+                        'sample_ids' => \App\Models\CustomerChequeLimit::where('currency_id', $id)
+                            ->select('customer_cheque_limits.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+                if ($customerOpeningBalancesCount > 0) {
+                    $details['customer_opening_balances'] = [
+                        'count' => $customerOpeningBalancesCount,
+                        'sample_ids' => \App\Models\CustomerOpeningBalance::where('currency_id', $id)
+                            ->select('customer_opening_balances.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+                if ($supplierCreditLimitsCount > 0) {
+                    $details['supplier_credit_limits'] = [
+                        'count' => $supplierCreditLimitsCount,
+                        'sample_ids' => \App\Models\SupplierCreditLimit::where('currency_id', $id)
+                            ->select('supplier_credit_limits.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+                if ($supplierChequeLimitsCount > 0) {
+                    $details['supplier_cheque_limits'] = [
+                        'count' => $supplierChequeLimitsCount,
+                        'sample_ids' => \App\Models\SupplierChequeLimit::where('currency_id', $id)
+                            ->select('supplier_cheque_limits.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+                if ($supplierOpeningBalancesCount > 0) {
+                    $details['supplier_opening_balances'] = [
+                        'count' => $supplierOpeningBalancesCount,
+                        'sample_ids' => \App\Models\SupplierOpeningBalance::where('currency_id', $id)
+                            ->select('supplier_opening_balances.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+
+                $skipped[] = [
+                    'id' => $id,
+                    'reason' => 'Cannot delete currency. It is referenced by existing records (suppliers, customers, or their limits/balances).',
+                    'details' => $details,
+                ];
+
+                continue;
+            }
+
             try {
                 $deleted += Currency::where('id', $id)->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_currency_show_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $suppliersCount = \App\Models\Supplier::where('currency_id', $id)->count();
+                        $customerCreditLimitsCount = \App\Models\CustomerCreditLimit::where('currency_id', $id)->count();
+                        $customerChequeLimitsCount = \App\Models\CustomerChequeLimit::where('currency_id', $id)->count();
+                        $customerOpeningBalancesCount = \App\Models\CustomerOpeningBalance::where('currency_id', $id)->count();
+                        $supplierCreditLimitsCount = \App\Models\SupplierCreditLimit::where('currency_id', $id)->count();
+                        $supplierChequeLimitsCount = \App\Models\SupplierChequeLimit::where('currency_id', $id)->count();
+                        $supplierOpeningBalancesCount = \App\Models\SupplierOpeningBalance::where('currency_id', $id)->count();
+
+                        if ($suppliersCount > 0) {
+                            $details['suppliers'] = [
+                                'count' => $suppliersCount,
+                                'sample_ids' => \App\Models\Supplier::where('currency_id', $id)
+                                    ->select('suppliers.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                        if ($customerCreditLimitsCount > 0) {
+                            $details['customer_credit_limits'] = [
+                                'count' => $customerCreditLimitsCount,
+                                'sample_ids' => \App\Models\CustomerCreditLimit::where('currency_id', $id)
+                                    ->select('customer_credit_limits.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                        if ($customerChequeLimitsCount > 0) {
+                            $details['customer_cheque_limits'] = [
+                                'count' => $customerChequeLimitsCount,
+                                'sample_ids' => \App\Models\CustomerChequeLimit::where('currency_id', $id)
+                                    ->select('customer_cheque_limits.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                        if ($customerOpeningBalancesCount > 0) {
+                            $details['customer_opening_balances'] = [
+                                'count' => $customerOpeningBalancesCount,
+                                'sample_ids' => \App\Models\CustomerOpeningBalance::where('currency_id', $id)
+                                    ->select('customer_opening_balances.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                        if ($supplierCreditLimitsCount > 0) {
+                            $details['supplier_credit_limits'] = [
+                                'count' => $supplierCreditLimitsCount,
+                                'sample_ids' => \App\Models\SupplierCreditLimit::where('currency_id', $id)
+                                    ->select('supplier_credit_limits.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                        if ($supplierChequeLimitsCount > 0) {
+                            $details['supplier_cheque_limits'] = [
+                                'count' => $supplierChequeLimitsCount,
+                                'sample_ids' => \App\Models\SupplierChequeLimit::where('currency_id', $id)
+                                    ->select('supplier_cheque_limits.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                        if ($supplierOpeningBalancesCount > 0) {
+                            $details['supplier_opening_balances'] = [
+                                'count' => $supplierOpeningBalancesCount,
+                                'sample_ids' => \App\Models\SupplierOpeningBalance::where('currency_id', $id)
+                                    ->select('supplier_opening_balances.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete currency. It is referenced by existing records (suppliers, customers, or their limits/balances).',
+                        'details' => $details,
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

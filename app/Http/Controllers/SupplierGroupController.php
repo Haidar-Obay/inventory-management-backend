@@ -156,11 +156,20 @@ class SupplierGroupController extends Controller
                     continue;
                 }
 
-                // Check if supplier group has associated suppliers
+                // Check if supplier group has associated suppliers and include details
                 if ($supplierGroup->suppliers()->exists()) {
+                    $suppliersCount = $supplierGroup->suppliers()->count();
+                    $details = [
+                        'suppliers' => [
+                            'count' => $suppliersCount,
+                            'sample_ids' => $supplierGroup->suppliers()->select('suppliers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete supplier group. It is being used by one or more suppliers.',
+                        'reason' => 'Cannot delete supplier group. It is referenced by existing suppliers.',
+                        'details' => $details,
                     ];
 
                     continue;

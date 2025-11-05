@@ -126,11 +126,20 @@ class CustomerGroupController extends Controller
                     continue;
                 }
 
-                // Check if customer group has associated customers
+                // Check if customer group has associated customers and include details
                 if ($customerGroup->customers()->exists()) {
+                    $customersCount = $customerGroup->customers()->count();
+                    $details = [
+                        'customers' => [
+                            'count' => $customersCount,
+                            'sample_ids' => $customerGroup->customers()->select('customers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete customer group. It is being used by one or more customers.',
+                        'reason' => 'Cannot delete customer group. It is referenced by existing customers.',
+                        'details' => $details,
                     ];
 
                     continue;
