@@ -18,7 +18,10 @@ class SpecialityController extends Controller
 
     public function store(StoreSpecialityRequest $request): JsonResponse
     {
-        $speciality = Speciality::create($request->validated());
+        $nextId = $this->computeNextAvailableId(Speciality::class, 'id');
+        $speciality = new Speciality($request->validated());
+        $speciality->id = $nextId;
+        $speciality->save();
 
         return response()->json($speciality, 201);
     }

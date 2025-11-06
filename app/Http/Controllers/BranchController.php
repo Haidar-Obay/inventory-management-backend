@@ -25,7 +25,10 @@ class BranchController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate(Branch::$rules);
-        $branch = Branch::create($validated);
+        $nextId = $this->computeNextAvailableId(Branch::class, 'id');
+        $branch = new Branch($validated);
+        $branch->id = $nextId;
+        $branch->save();
         Cache::forget('branches_'.tenant('id'));
 
         return response()->json($branch, 201);

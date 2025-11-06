@@ -54,7 +54,11 @@ class SalesmanController extends Controller
 
     public function store(StoreSalesmanRequest $request)
     {
-        $salesman = Salesman::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(Salesman::class, 'id');
+        $salesman = new Salesman($data);
+        $salesman->id = $nextId;
+        $salesman->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_salesmen");
@@ -83,12 +87,23 @@ class SalesmanController extends Controller
 
     public function destroy(Salesman $salesman)
     {
-        // Check if salesman has associated customers
-        if ($salesman->customers()->exists()) {
+        // Check if salesman has associated customers (via multiple roles); include helpful details
+        $customersCount = $salesman->customers()->count();
+        if ($customersCount > 0) {
+            $sampleIds = $salesman->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            $identifier = $salesman->name ?? $salesman->code ?? "ID: {$salesman->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete salesman. There are customers associated with this salesman. Please reassign or delete the customers first.',
-            ], 422);
+                'message' => "Cannot delete salesman \"{$identifier}\" (ID: {$salesman->id}). It is referenced by existing customers.",
+                'details' => [
+                    'customers' => [
+                        'count' => $customersCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
 
         $tenantId = tenant('id');
@@ -116,15 +131,72 @@ class SalesmanController extends Controller
         foreach ($request->ids as $id) {
             try {
                 $salesman = Salesman::find($id);
+
+                if (! $salesman) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => "ID: {$id}",
+                        'reason' => 'Salesman not found.',
+                    ];
+
+                    continue;
+                }
+
                 if ($salesman->customers()->exists()) {
-                    $skipped[] = ['id' => $id, 'reason' => 'Salesman has associated customers'];
+                    $customersCount = $salesman->customers()->count();
+                    $details = [
+                        'customers' => [
+                            'count' => $customersCount,
+                            'sample_ids' => $salesman->customers()->select('customers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $identifier = $salesman->name ?? $salesman->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete salesman. It is referenced by existing customers.',
+                        'details' => $details,
+                    ];
 
                     continue;
                 }
                 $deleted += $salesman->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_salesman_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $salesman = Salesman::find($id);
+                        $customersCount = $salesman?->customers()->count() ?? 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $salesman->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $salesman = Salesman::find($id);
+                    $identifier = $salesman?->name ?? $salesman?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete salesman. It is referenced by existing customers.',
+                        'details' => $details,
+                    ];
+                } else {
+                    $salesman = Salesman::find($id);
+                    $identifier = $salesman?->name ?? $salesman?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
+                }
             }
         }
 

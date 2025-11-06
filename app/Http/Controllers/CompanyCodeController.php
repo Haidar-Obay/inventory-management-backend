@@ -38,7 +38,10 @@ class CompanyCodeController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $companyCode = CompanyCode::create($validated);
+        $nextId = $this->computeNextAvailableId(CompanyCode::class, 'id');
+        $companyCode = new CompanyCode($validated);
+        $companyCode->id = $nextId;
+        $companyCode->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_company_codes");
@@ -96,6 +99,25 @@ class CompanyCodeController extends Controller
 
     public function destroy(CompanyCode $companyCode)
     {
+        // Prevent deletion if related customers exist; include helpful details
+        if ($companyCode->customers()->exists()) {
+            $count = $companyCode->customers()->count();
+            $sampleIds = $companyCode->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            $identifier = $companyCode->name ?? $companyCode->code ?? "ID: {$companyCode->id}";
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete company code \"{$identifier}\" (ID: {$companyCode->id}). It is referenced by existing customers.",
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $companyCode->delete();
 
         $tenantId = tenant('id');
@@ -122,11 +144,32 @@ class CompanyCodeController extends Controller
         foreach ($request->ids as $id) {
             $companyCode = CompanyCode::find($id);
 
-            // Check if the company code has any customers linked to it
-            if ($companyCode->customers()->exists()) {
+            if (! $companyCode) {
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete company code. It is being used by one or more customers.',
+                    'name' => "ID: {$id}",
+                    'reason' => 'Company code not found.',
+                ];
+
+                continue;
+            }
+
+            // Check if the company code has any customers linked to it and include details
+            if ($companyCode->customers()->exists()) {
+                $customersCount = $companyCode->customers()->count();
+                $details = [
+                    'customers' => [
+                        'count' => $customersCount,
+                        'sample_ids' => $companyCode->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ],
+                ];
+
+                $identifier = $companyCode->name ?? $companyCode->code ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => 'Cannot delete company code. It is referenced by existing customers.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -136,14 +179,37 @@ class CompanyCodeController extends Controller
                 $deleted += $companyCode->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_company_code_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customersCount = $companyCode?->customers()->count() ?? 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $companyCode->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $companyCode = CompanyCode::find($id);
+                    $identifier = $companyCode?->name ?? $companyCode?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete company code. It is being used by one or more customers.',
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete company code. It is referenced by existing customers.',
+                        'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $companyCode = CompanyCode::find($id);
+                    $identifier = $companyCode?->name ?? $companyCode?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

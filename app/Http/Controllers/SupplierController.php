@@ -13,6 +13,7 @@ use App\Models\Supplier;
 use App\Models\SupplierAttachment;
 use App\Services\OpeningBalanceService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -87,8 +88,11 @@ class SupplierController extends Controller
         try {
             // bar_code is the canonical input
 
-            // Create the supplier
-            $supplier = Supplier::create($request->validated());
+            // Create the supplier with explicit sequential ID
+            $nextId = $this->computeNextAvailableId(Supplier::class, 'id');
+            $supplier = new Supplier($request->validated());
+            $supplier->id = $nextId;
+            $supplier->save();
 
             // Handle addresses
             $hasAnyBilling = $request->filled('billing_address_line1');
@@ -672,6 +676,9 @@ class SupplierController extends Controller
     public function destroy(Supplier $supplier)
     {
         try {
+            // Capture current address IDs to evaluate orphan cleanup after delete
+            $addressIds = $supplier->addresses()->pluck('addresses.id')->all();
+
             // Delete related records first
             $supplier->addresses()->detach();
             $supplier->contacts()->delete();
@@ -680,6 +687,23 @@ class SupplierController extends Controller
 
             // Delete the supplier
             $supplier->delete();
+
+            // Remove addresses that became orphaned (not linked to any customer or supplier)
+            if (! empty($addressIds)) {
+                DB::table('addresses')
+                    ->whereIn('id', $addressIds)
+                    ->whereNotExists(function ($q) {
+                        $q->select(DB::raw(1))
+                            ->from('customer_addresses')
+                            ->whereColumn('customer_addresses.address_id', 'addresses.id');
+                    })
+                    ->whereNotExists(function ($q) {
+                        $q->select(DB::raw(1))
+                            ->from('supplier_addresses')
+                            ->whereColumn('supplier_addresses.address_id', 'addresses.id');
+                    })
+                    ->delete();
+            }
 
             return response()->json([
                 'status' => 'success',
@@ -719,11 +743,31 @@ class SupplierController extends Controller
                     continue;
                 }
 
+                // Capture current address IDs to evaluate orphan cleanup after delete
+                $addressIds = $supplier->addresses()->pluck('addresses.id')->all();
+
                 // Delete related data
                 $supplier->addresses()->detach();
                 $supplier->contacts()->delete();
                 $supplier->attachments()->delete();
                 $supplier->delete();
+
+                // Remove addresses that became orphaned
+                if (! empty($addressIds)) {
+                    DB::table('addresses')
+                        ->whereIn('id', $addressIds)
+                        ->whereNotExists(function ($q) {
+                            $q->select(DB::raw(1))
+                                ->from('customer_addresses')
+                                ->whereColumn('customer_addresses.address_id', 'addresses.id');
+                        })
+                        ->whereNotExists(function ($q) {
+                            $q->select(DB::raw(1))
+                                ->from('supplier_addresses')
+                                ->whereColumn('supplier_addresses.address_id', 'addresses.id');
+                        })
+                        ->delete();
+                }
                 $deleted++;
 
             } catch (\Exception $e) {
@@ -1152,6 +1196,38 @@ class SupplierController extends Controller
         }
     }
 
+    public function getBrief()
+    {
+        try {
+            $suppliers = Supplier::select('id', 'display_name', 'company_name', 'phone1', 'supplier_group_id')
+                ->where('active', true)
+                ->with(['supplierGroup:id,name'])
+                ->orderBy('display_name')
+                ->get()
+                ->map(function ($supplier) {
+                    return [
+                        'id' => $supplier->id,
+                        'name' => $supplier->display_name ?: $supplier->company_name ?: '',
+                        'company_name' => $supplier->company_name,
+                        'phone1' => $supplier->phone1,
+                        'supplier_group_name' => $supplier->supplierGroup ? $supplier->supplierGroup->name : null,
+                        'supplier_group' => $supplier->supplierGroup ? [
+                            'name' => $supplier->supplierGroup->name,
+                        ] : null,
+                    ];
+                });
+
+            return response()->json($suppliers);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve supplier brief list',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     // Helper methods for address management
     private function createBillingAddress($supplier, $request)
     {
@@ -1206,7 +1282,9 @@ class SupplierController extends Controller
     private function createContacts($supplier, $request)
     {
         foreach ($request->contacts as $contactData) {
-            $contact = $supplier->contacts()->create([
+            $nextContactId = $this->computeNextAvailableId(\App\Models\SupplierContact::class, 'id');
+            $contact = new \App\Models\SupplierContact([
+                'supplier_id' => $supplier->id,
                 'title' => $contactData['title'] ?? null,
                 'name' => $contactData['name'],
                 'work_phone' => $contactData['work_phone'] ?? null,
@@ -1215,6 +1293,8 @@ class SupplierController extends Controller
                 'extension' => $contactData['extension'] ?? null,
                 'is_primary' => $contactData['is_primary'] ?? false,
             ]);
+            $contact->id = $nextContactId;
+            $contact->save();
 
             if ($contactData['is_primary'] ?? false) {
                 $supplier->setPrimaryContact($contact->id);

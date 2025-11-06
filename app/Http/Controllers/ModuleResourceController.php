@@ -40,7 +40,10 @@ class ModuleResourceController extends Controller
             return response()->json(['errors' => ['code' => ['Code must be unique per module']]], 422);
         }
 
-        $resource = $module->resources()->create($request->only(['name', 'code', 'description', 'migration_class', 'enabled', 'version']));
+        $nextId = $this->computeNextAvailableId(\App\Models\ModuleResource::class, 'id');
+        $resource = new \App\Models\ModuleResource($request->only(['name', 'code', 'description', 'migration_class', 'enabled', 'version']));
+        $resource->id = $nextId;
+        $module->resources()->save($resource);
 
         return response()->json([
             'message' => 'Module resource created successfully',

@@ -49,6 +49,14 @@ class DatabaseSeeder extends Seeder
                     AssociationPricingSeeder::class,
                     AssociationContactSeeder::class,
                     ReferrerSeeder::class,
+                    // Item-related seeders (must be in order due to dependencies)
+                    UnitGroupSeeder::class,
+                    UnitOfMeasurementSeeder::class,
+                    ProductLineSeeder::class,
+                    CategorySeeder::class,
+                    BrandSeeder::class,
+                    SupplierSeeder::class,
+                    ItemSeeder::class,
                 ]);
             });
         }

@@ -69,13 +69,16 @@ class CustomerMasterListController extends Controller
                 ], 422);
             }
 
-            // Create header
-            $customerMasterList = CustomerMasterList::create([
+            // Create header with explicit sequential ID
+            $nextId = $this->computeNextAvailableId(CustomerMasterList::class, 'id');
+            $customerMasterList = new CustomerMasterList([
                 'date' => $validated['date'],
                 'name' => $validated['name'],
                 'valid_from' => $validated['valid_from'],
                 'valid_till' => $validated['valid_till'],
             ]);
+            $customerMasterList->id = $nextId;
+            $customerMasterList->save();
 
             // Attach items with pivot attributes
             $attach = [];
@@ -630,12 +633,15 @@ class CustomerMasterListController extends Controller
                     }
 
                     // Create the master list
-                    $customerMasterList = CustomerMasterList::create([
+                    $nextId = $this->computeNextAvailableId(CustomerMasterList::class, 'id');
+                    $customerMasterList = new CustomerMasterList([
                         'date' => $masterListData['date'],
                         'name' => $masterListData['name'],
                         'valid_from' => $masterListData['valid_from'],
                         'valid_till' => $masterListData['valid_till'],
                     ]);
+                    $customerMasterList->id = $nextId;
+                    $customerMasterList->save();
 
                     // Attach items with pivot data
                     $attach = [];

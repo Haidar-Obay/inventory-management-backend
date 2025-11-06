@@ -50,7 +50,10 @@ class DepartmentController extends Controller
         }
 
         $tenantId = tenant('id');
-        $department = Department::create($validated);
+        $nextId = $this->computeNextAvailableId(Department::class, 'id');
+        $department = new Department($validated);
+        $department->id = $nextId;
+        $department->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
 
         return response()->json([
@@ -109,11 +112,23 @@ class DepartmentController extends Controller
     public function destroy(Department $department)
     {
         $tenantId = tenant('id');
+        // Prevent deletion if related sub-departments exist; include helpful details
         if ($department->hasSubDepartments()) {
+            $count = $department->children()->count();
+            $sampleIds = $department->children()->select('departments.id')->limit(1)->pluck('id');
+
+            $identifier = $department->name ?? $department->code ?? "ID: {$department->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete department with associated sub-departments',
-            ], 422);
+                'message' => "Cannot delete department \"{$identifier}\" (ID: {$department->id}). It is referenced by existing sub-departments.",
+                'details' => [
+                    'sub_departments' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
         $department->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_departments");
@@ -142,17 +157,29 @@ class DepartmentController extends Controller
                 if (! $department) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Department not found.',
                     ];
 
                     continue;
                 }
 
-                // Check if department has sub-departments
+                // Check if department has sub-departments and include details
                 if ($department->hasSubDepartments()) {
+                    $subDepartmentsCount = $department->children()->count();
+                    $details = [
+                        'sub_departments' => [
+                            'count' => $subDepartmentsCount,
+                            'sample_ids' => $department->children()->select('departments.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $identifier = $department->name ?? $department->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete department. It has sub-departments.',
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete department. It is referenced by existing sub-departments.',
+                        'details' => $details,
                     ];
 
                     continue;
@@ -165,8 +192,11 @@ class DepartmentController extends Controller
 
             } catch (\Exception $e) {
                 Log::error('Error deleting department '.$id.': '.$e->getMessage());
+                $department = Department::find($id);
+                $identifier = $department?->name ?? $department?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

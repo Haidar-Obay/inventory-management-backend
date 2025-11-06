@@ -35,7 +35,11 @@ class CustomerGroupController extends Controller
     public function store(Request $request)
     {
         $tenantId = tenant('id');
-        $customerGroup = CustomerGroup::create($request->all());
+        $data = $request->all();
+        $nextId = $this->computeNextAvailableId(CustomerGroup::class, 'id');
+        $customerGroup = new CustomerGroup($data);
+        $customerGroup->id = $nextId;
+        $customerGroup->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
 
         return response()->json([
@@ -73,10 +77,21 @@ class CustomerGroupController extends Controller
     {
         // Check if customer group has associated customers
         if ($customerGroup->customers()->exists()) {
+            $count = $customerGroup->customers()->count();
+            $sampleIds = $customerGroup->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            $identifier = $customerGroup->name ?? $customerGroup->code ?? "ID: {$customerGroup->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete customer group. There are customers associated with this group. Please reassign or delete the customers first.',
-            ], 422);
+                'message' => "Cannot delete customer group \"{$identifier}\" (ID: {$customerGroup->id}). It is referenced by existing customers.",
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
 
         $tenantId = tenant('id');
@@ -107,17 +122,29 @@ class CustomerGroupController extends Controller
                 if (! $customerGroup) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Customer group not found.',
                     ];
 
                     continue;
                 }
 
-                // Check if customer group has associated customers
+                // Check if customer group has associated customers and include details
                 if ($customerGroup->customers()->exists()) {
+                    $customersCount = $customerGroup->customers()->count();
+                    $details = [
+                        'customers' => [
+                            'count' => $customersCount,
+                            'sample_ids' => $customerGroup->customers()->select('customers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $identifier = $customerGroup->name ?? $customerGroup->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete customer group. It is being used by one or more customers.',
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete customer group. It is referenced by existing customers.',
+                        'details' => $details,
                     ];
 
                     continue;
@@ -128,8 +155,11 @@ class CustomerGroupController extends Controller
 
             } catch (\Exception $e) {
                 Log::error('Error deleting customer group '.$id.': '.$e->getMessage());
+                $customerGroup = CustomerGroup::find($id);
+                $identifier = $customerGroup?->name ?? $customerGroup?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

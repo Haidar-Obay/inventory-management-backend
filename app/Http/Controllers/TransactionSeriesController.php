@@ -26,7 +26,11 @@ class TransactionSeriesController extends Controller
 
     public function store(StoreTransactionSeriesRequest $request)
     {
-        $transactionSeries = TransactionSeries::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(TransactionSeries::class, 'id');
+        $transactionSeries = new TransactionSeries($data);
+        $transactionSeries->id = $nextId;
+        $transactionSeries->save();
         Cache::forget('transaction_series_'.tenant('id'));
 
         $transactionSeries->load(['companyCode', 'trade']);

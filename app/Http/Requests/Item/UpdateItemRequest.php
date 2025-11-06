@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Item;
 
+use App\Enums\ItemType;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateItemRequest extends FormRequest
 {
@@ -16,9 +18,23 @@ class UpdateItemRequest extends FormRequest
         return [
             'code' => 'sometimes|string',
             'name' => 'sometimes|string',
-            'price' => 'sometimes|numeric|min:0',
-            'unit' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
+            'type' => ['sometimes', Rule::enum(ItemType::class)],
+            'base_uom_id' => 'nullable|integer|exists:unit_of_measurements,id',
+            'discount_percent' => 'nullable|numeric|min:0|max:100',
+            'max_discount' => 'nullable|numeric|min:0',
+            'purchase_parameters' => 'nullable|array',
+            'purchase_description' => 'nullable|string',
+            'purchase_uom_id' => 'nullable|integer|exists:unit_of_measurements,id',
+            'sales_parameters' => 'nullable|array',
+            'sales_description' => 'nullable|string',
+            'pos_description' => 'nullable|string',
+            'sales_uom_id' => 'nullable|integer|exists:unit_of_measurements,id',
+            'trade_id' => 'nullable|integer|exists:trades,id',
+            'company_code_id' => 'nullable|integer|exists:company_codes,id',
+            'product_line_id' => 'nullable|integer|exists:product_lines,id',
+            'category_id' => 'nullable|integer|exists:categories,id',
+            'brand_id' => 'nullable|integer|exists:brands,id',
+            'parent_id' => 'nullable|integer|exists:items,id',
         ];
     }
 
@@ -28,9 +44,6 @@ class UpdateItemRequest extends FormRequest
             'code.required' => 'The item code is required.',
             'code.unique' => 'The code has already been taken.',
             'name.required' => 'The item name is required.',
-            'price.required' => 'The item price is required.',
-            'price.numeric' => 'The price must be a number.',
-            'price.min' => 'The price cannot be negative.',
         ];
     }
 }

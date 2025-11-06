@@ -50,7 +50,10 @@ class TransportationChannelController extends Controller
         }
 
         $tenantId = tenant('id');
-        $transportationChannel = TransportationChannel::create($validated);
+        $nextId = $this->computeNextAvailableId(TransportationChannel::class, 'id');
+        $transportationChannel = new TransportationChannel($validated);
+        $transportationChannel->id = $nextId;
+        $transportationChannel->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_transportation_channels");
 
         return response()->json([
@@ -109,11 +112,23 @@ class TransportationChannelController extends Controller
     public function destroy(TransportationChannel $transportationChannel)
     {
         $tenantId = tenant('id');
+        // Prevent deletion if related sub-transportation channels exist; include helpful details
         if ($transportationChannel->hasSubTransportationChannels()) {
+            $count = $transportationChannel->children()->count();
+            $sampleIds = $transportationChannel->children()->select('transportation_channels.id')->limit(1)->pluck('id');
+
+            $identifier = $transportationChannel->name ?? $transportationChannel->code ?? "ID: {$transportationChannel->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete transportation channel with associated sub-transportation channels',
-            ], 422);
+                'message' => "Cannot delete transportation channel \"{$identifier}\" (ID: {$transportationChannel->id}). It is referenced by existing sub-transportation channels.",
+                'details' => [
+                    'sub_transportation_channels' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
         $transportationChannel->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_transportation_channels");
@@ -136,29 +151,100 @@ class TransportationChannelController extends Controller
             ], 400);
         }
 
-        try {
-            foreach ($ids as $id) {
-                $transportationChannel = TransportationChannel::findOrFail($id);
-                if ($transportationChannel->hasSubTransportationChannels()) {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'Cannot delete transportation channel with sub-transportation channels',
-                    ], 422);
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($ids as $id) {
+            try {
+                $transportationChannel = TransportationChannel::find($id);
+
+                if (! $transportationChannel) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => "ID: {$id}",
+                        'reason' => 'Transportation channel not found.',
+                    ];
+
+                    continue;
                 }
+
+                // Check if transportation channel has sub-transportation channels and include details
+                if ($transportationChannel->hasSubTransportationChannels()) {
+                    $subTransportationChannelsCount = $transportationChannel->children()->count();
+                    $details = [
+                        'sub_transportation_channels' => [
+                            'count' => $subTransportationChannelsCount,
+                            'sample_ids' => $transportationChannel->children()->select('transportation_channels.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $identifier = $transportationChannel->name ?? $transportationChannel->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete transportation channel. It is referenced by existing sub-transportation channels.',
+                        'details' => $details,
+                    ];
+
+                    continue;
+                }
+
                 $transportationChannel->delete();
+                $deleted++;
                 Cache::forget('transportation_channels_'.tenant('id'));
                 Cache::forget("transportation_channel_{$transportationChannel->id}_".tenant('id'));
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $transportationChannel = TransportationChannel::find($id);
+                        $subTransportationChannelsCount = $transportationChannel?->children()->count() ?? 0;
+                        if ($subTransportationChannelsCount > 0) {
+                            $details['sub_transportation_channels'] = [
+                                'count' => $subTransportationChannelsCount,
+                                'sample_ids' => $transportationChannel->children()->select('transportation_channels.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $transportationChannel = TransportationChannel::find($id);
+                    $identifier = $transportationChannel?->name ?? $transportationChannel?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete transportation channel. It is referenced by existing sub-transportation channels.',
+                        'details' => $details,
+                    ];
+                } else {
+                    Log::error('Error deleting transportation channel '.$id.': '.$e->getMessage());
+                    $transportationChannel = TransportationChannel::find($id);
+                    $identifier = $transportationChannel?->name ?? $transportationChannel?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::error('Error deleting transportation channel '.$id.': '.$e->getMessage());
+                $transportationChannel = TransportationChannel::find($id);
+                $identifier = $transportationChannel?->name ?? $transportationChannel?->code ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
             }
-
-            return response()->json(null, 204);
-        } catch (\Exception $e) {
-            Log::error('Error in bulk delete: '.$e->getMessage());
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Failed to delete transportation channels',
-            ], 500);
         }
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()

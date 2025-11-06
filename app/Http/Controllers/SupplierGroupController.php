@@ -41,7 +41,10 @@ class SupplierGroupController extends Controller
             'active' => 'boolean',
         ]);
 
-        $supplierGroup = SupplierGroup::create($validated);
+        $nextId = $this->computeNextAvailableId(SupplierGroup::class, 'id');
+        $supplierGroup = new SupplierGroup($validated);
+        $supplierGroup->id = $nextId;
+        $supplierGroup->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_supplier_groups");
@@ -100,12 +103,23 @@ class SupplierGroupController extends Controller
 
     public function destroy(SupplierGroup $supplierGroup)
     {
-        // Check if supplier group has suppliers
+        // Check if supplier group has suppliers; include helpful details
         if ($supplierGroup->suppliers()->exists()) {
+            $count = $supplierGroup->suppliers()->count();
+            $sampleIds = $supplierGroup->suppliers()->select('suppliers.id')->limit(1)->pluck('id');
+
+            $identifier = $supplierGroup->name ?? $supplierGroup->code ?? "ID: {$supplierGroup->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete supplier group with associated suppliers',
-            ], 422);
+                'message' => "Cannot delete supplier group \"{$identifier}\" (ID: {$supplierGroup->id}). It is referenced by existing suppliers.",
+                'details' => [
+                    'suppliers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
 
         $supplierGroup->delete();
@@ -138,17 +152,29 @@ class SupplierGroupController extends Controller
                 if (! $supplierGroup) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Supplier group not found.',
                     ];
 
                     continue;
                 }
 
-                // Check if supplier group has associated suppliers
+                // Check if supplier group has associated suppliers and include details
                 if ($supplierGroup->suppliers()->exists()) {
+                    $suppliersCount = $supplierGroup->suppliers()->count();
+                    $details = [
+                        'suppliers' => [
+                            'count' => $suppliersCount,
+                            'sample_ids' => $supplierGroup->suppliers()->select('suppliers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $identifier = $supplierGroup->name ?? $supplierGroup->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete supplier group. It is being used by one or more suppliers.',
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete supplier group. It is referenced by existing suppliers.',
+                        'details' => $details,
                     ];
 
                     continue;
@@ -159,8 +185,11 @@ class SupplierGroupController extends Controller
 
             } catch (\Exception $e) {
                 Log::error('Error deleting supplier group '.$id.': '.$e->getMessage());
+                $supplierGroup = SupplierGroup::find($id);
+                $identifier = $supplierGroup?->name ?? $supplierGroup?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

@@ -38,7 +38,10 @@ class BusinessTypeController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $businessType = BusinessType::create($validated);
+        $nextId = $this->computeNextAvailableId(BusinessType::class, 'id');
+        $businessType = new BusinessType($validated);
+        $businessType->id = $nextId;
+        $businessType->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_business_types");
@@ -96,6 +99,37 @@ class BusinessTypeController extends Controller
 
     public function destroy(BusinessType $businessType)
     {
+        // Prevent deletion if related customers or suppliers exist; include helpful details
+        $customersCount = $businessType->customers()->count();
+        $suppliersCount = \App\Models\Supplier::where('business_type_id', $businessType->id)->count();
+
+        if ($customersCount > 0 || $suppliersCount > 0) {
+            $details = [];
+            if ($customersCount > 0) {
+                $details['customers'] = [
+                    'count' => $customersCount,
+                    'sample_ids' => $businessType->customers()->select('customers.id')->limit(1)->pluck('id'),
+                ];
+            }
+            if ($suppliersCount > 0) {
+                $details['suppliers'] = [
+                    'count' => $suppliersCount,
+                    'sample_ids' => \App\Models\Supplier::where('business_type_id', $businessType->id)
+                        ->select('suppliers.id')
+                        ->limit(1)
+                        ->pluck('id'),
+                ];
+            }
+
+            $identifier = $businessType->name ?? $businessType->code ?? "ID: {$businessType->id}";
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete business type \"{$identifier}\" (ID: {$businessType->id}). It is referenced by existing customers or suppliers.",
+                'details' => $details,
+            ], 409);
+        }
+
         $businessType->delete();
 
         $tenantId = tenant('id');
@@ -122,11 +156,34 @@ class BusinessTypeController extends Controller
         foreach ($request->ids as $id) {
             $businessType = BusinessType::find($id);
 
-            // Check if the business type has any customers linked to it
-            if ($businessType->customers()->exists()) {
+            // Check if the business type has any customers or suppliers linked to it and include details
+            $customersCount = $businessType->customers()->count();
+            $suppliersCount = \App\Models\Supplier::where('business_type_id', $businessType->id)->count();
+
+            if ($customersCount > 0 || $suppliersCount > 0) {
+                $details = [];
+                if ($customersCount > 0) {
+                    $details['customers'] = [
+                        'count' => $customersCount,
+                        'sample_ids' => $businessType->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ];
+                }
+                if ($suppliersCount > 0) {
+                    $details['suppliers'] = [
+                        'count' => $suppliersCount,
+                        'sample_ids' => \App\Models\Supplier::where('business_type_id', $businessType->id)
+                            ->select('suppliers.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+
+                $identifier = $businessType->name ?? $businessType->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete business type. It is being used by one or more customers.',
+                    'name' => $identifier,
+                    'reason' => 'Cannot delete business type. It is referenced by existing customers or suppliers.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -136,14 +193,47 @@ class BusinessTypeController extends Controller
                 $deleted += $businessType->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_business_type_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customersCount = $businessType?->customers()->count() ?? 0;
+                        $suppliersCount = $businessType ? \App\Models\Supplier::where('business_type_id', $businessType->id)->count() : 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $businessType->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                        if ($suppliersCount > 0) {
+                            $details['suppliers'] = [
+                                'count' => $suppliersCount,
+                                'sample_ids' => \App\Models\Supplier::where('business_type_id', $businessType->id)
+                                    ->select('suppliers.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $businessType = BusinessType::find($id);
+                    $identifier = $businessType?->name ?? $businessType?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete business type. It is being used by one or more customers.',
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete business type. It is referenced by existing customers or suppliers.',
+                        'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $businessType = BusinessType::find($id);
+                    $identifier = $businessType?->name ?? $businessType?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

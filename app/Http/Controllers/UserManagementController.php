@@ -87,7 +87,10 @@ class UserManagementController extends Controller
             $userData['password'] = Hash::make($validated['password']);
         }
 
-        $user = User::create($userData);
+        $nextId = $this->computeNextAvailableId(User::class, 'id');
+        $user = new User($userData);
+        $user->id = $nextId;
+        $user->save();
 
         // Comment out email verification
         // $user->sendEmailVerificationNotification();
@@ -117,7 +120,10 @@ class UserManagementController extends Controller
             $userData['password'] = Hash::make($validated['password']);
         }
 
-        $user = User::create($userData);
+        $nextId = $this->computeNextAvailableId(User::class, 'id');
+        $user = new User($userData);
+        $user->id = $nextId;
+        $user->save();
 
         CacheHelper::cacheInContext($this->getCacheKey('central_users'), null);
 

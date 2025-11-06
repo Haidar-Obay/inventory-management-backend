@@ -31,7 +31,10 @@ class SpecialistController extends Controller
     public function store(StoreSpecialistRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $specialist = Specialist::create(['name' => $data['name']]);
+        $nextId = $this->computeNextAvailableId(Specialist::class, 'id');
+        $specialist = new Specialist(['name' => $data['name']]);
+        $specialist->id = $nextId;
+        $specialist->save();
         if (! empty($data['speciality_ids'])) {
             $specialist->specialities()->sync($data['speciality_ids']);
         }

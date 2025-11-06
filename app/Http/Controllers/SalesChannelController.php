@@ -50,7 +50,10 @@ class SalesChannelController extends Controller
         }
 
         $tenantId = tenant('id');
-        $salesChannel = SalesChannel::create($validated);
+        $nextId = $this->computeNextAvailableId(SalesChannel::class, 'id');
+        $salesChannel = new SalesChannel($validated);
+        $salesChannel->id = $nextId;
+        $salesChannel->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_sales_channels");
 
         return response()->json([
@@ -109,11 +112,41 @@ class SalesChannelController extends Controller
     public function destroy(SalesChannel $salesChannel)
     {
         $tenantId = tenant('id');
+        // Prevent deletion if related sub-sales channels exist; include helpful details
         if ($salesChannel->hasSubSalesChannels()) {
+            $subSalesChannelsCount = $salesChannel->children()->count();
+            $subSalesChannelsSampleIds = $salesChannel->children()->select('sales_channels.id')->limit(1)->pluck('id');
+
+            $identifier = $salesChannel->name ?? $salesChannel->code ?? "ID: {$salesChannel->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete sales channel with associated sub-sales channels',
-            ], 422);
+                'message' => "Cannot delete sales channel \"{$identifier}\" (ID: {$salesChannel->id}). It is referenced by existing sub-sales channels.",
+                'details' => [
+                    'sub_sales_channels' => [
+                        'count' => $subSalesChannelsCount,
+                        'sample_ids' => $subSalesChannelsSampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
+        // Prevent deletion if related customers exist; include helpful details
+        if ($salesChannel->customers()->exists()) {
+            $count = $salesChannel->customers()->count();
+            $sampleIds = $salesChannel->customers()->select('customers.id')->limit(1)->pluck('id');
+            $identifier = $salesChannel->name ?? $salesChannel->code ?? "ID: {$salesChannel->id}";
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete sales channel \"{$identifier}\" (ID: {$salesChannel->id}). It is referenced by existing customers.",
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
         $salesChannel->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_sales_channels");
@@ -142,27 +175,50 @@ class SalesChannelController extends Controller
                 if (! $salesChannel) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Sales channel not found.',
                     ];
 
                     continue;
                 }
 
-                // Check if sales channel has sub-sales channels
+                // Check if sales channel has sub-sales channels and include details
                 if ($salesChannel->hasSubSalesChannels()) {
+                    $subSalesChannelsCount = $salesChannel->children()->count();
+                    $details = [
+                        'sub_sales_channels' => [
+                            'count' => $subSalesChannelsCount,
+                            'sample_ids' => $salesChannel->children()->select('sales_channels.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $identifier = $salesChannel->name ?? $salesChannel->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete sales channel. It has sub-sales channels.',
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete sales channel. It is referenced by existing sub-sales channels.',
+                        'details' => $details,
                     ];
 
                     continue;
                 }
 
-                // Check if the sales channel has any customers linked to it
+                // Check if the sales channel has any customers linked to it and include details
                 if ($salesChannel->customers()->exists()) {
+                    $customersCount = $salesChannel->customers()->count();
+                    $details = [
+                        'customers' => [
+                            'count' => $customersCount,
+                            'sample_ids' => $salesChannel->customers()->select('customers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $identifier = $salesChannel->name ?? $salesChannel->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete sales channel. It is being used by one or more customers.',
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete sales channel. It is referenced by existing customers.',
+                        'details' => $details,
                     ];
 
                     continue;
@@ -174,23 +230,54 @@ class SalesChannelController extends Controller
                 $deleted++;
 
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $salesChannel = SalesChannel::find($id);
+                        $customersCount = $salesChannel?->customers()->count() ?? 0;
+                        $subSalesChannelsCount = $salesChannel?->children()->count() ?? 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $salesChannel->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                        if ($subSalesChannelsCount > 0) {
+                            $details['sub_sales_channels'] = [
+                                'count' => $subSalesChannelsCount,
+                                'sample_ids' => $salesChannel->children()->select('sales_channels.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $salesChannel = SalesChannel::find($id);
+                    $identifier = $salesChannel?->name ?? $salesChannel?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete sales channel. It is being used by other records in the system.',
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete sales channel. It is referenced by existing customers or sub-sales channels.',
+                        'details' => $details,
                     ];
                 } else {
                     Log::error('Error deleting sales channel '.$id.': '.$e->getMessage());
+                    $salesChannel = SalesChannel::find($id);
+                    $identifier = $salesChannel?->name ?? $salesChannel?->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
+                        'name' => $identifier,
                         'reason' => $e->getMessage(),
                     ];
                 }
             } catch (\Exception $e) {
                 Log::error('Error deleting sales channel '.$id.': '.$e->getMessage());
+                $salesChannel = SalesChannel::find($id);
+                $identifier = $salesChannel?->name ?? $salesChannel?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

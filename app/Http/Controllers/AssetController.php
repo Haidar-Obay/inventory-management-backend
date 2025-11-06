@@ -38,7 +38,10 @@ class AssetController extends Controller
     {
         $validated = $request->validated();
 
-        $asset = Asset::create($validated);
+        $nextId = $this->computeNextAvailableId(Asset::class, 'id');
+        $asset = new Asset($validated);
+        $asset->id = $nextId;
+        $asset->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_assets");

@@ -88,7 +88,10 @@ class RoleController extends Controller
             $data = $request->validated();
             $data['created_by'] = Auth::user()->id;
 
-            $role = Role::create($data);
+            $nextId = $this->computeNextAvailableId(Role::class, 'id');
+            $role = new Role($data);
+            $role->id = $nextId;
+            $role->save();
 
             return response()->json([
                 'status' => 'success',

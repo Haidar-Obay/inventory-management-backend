@@ -11,6 +11,7 @@ use App\Models\Address;
 use App\Models\Customer;
 use App\Models\CustomerAttachment;
 use App\Models\PaymentTerm;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -202,7 +203,10 @@ class CustomerController extends Controller
                 $validated['showMessageField'] = true;
             }
 
-            $customer = Customer::create($validated);
+            $nextId = $this->computeNextAvailableId(Customer::class, 'id');
+            $customer = new Customer($validated);
+            $customer->id = $nextId;
+            $customer->save();
 
             // Attach billing address to customer
             if ($billingAddress) {
@@ -282,7 +286,9 @@ class CustomerController extends Controller
                 foreach ($request->input('contacts') as $contactData) {
                     $isPrimary = isset($contactData['is_primary']) && (bool) $contactData['is_primary'];
 
-                    $contact = $customer->contacts()->create([
+                    $nextContactId = $this->computeNextAvailableId(\App\Models\CustomerContact::class, 'id');
+                    $contact = new \App\Models\CustomerContact([
+                        'customer_id' => $customer->id,
                         'title' => $contactData['title'] ?? null,
                         'name' => $contactData['name'],
                         'work_phone' => $contactData['work_phone'] ?? null,
@@ -292,6 +298,8 @@ class CustomerController extends Controller
                         'extension' => $contactData['extension'] ?? null,
                         'is_primary' => $isPrimary,
                     ]);
+                    $contact->id = $nextContactId;
+                    $contact->save();
 
                     // Set as primary contact if specified (also updates customer.contacts_id)
                     if ($isPrimary) {
@@ -913,7 +921,9 @@ class CustomerController extends Controller
                         if (in_array($currencyCode, $openingBalanceCurrencies)) {
                             try {
                                 // Create credit limit directly instead of using setCreditLimit method
-                                $customer->creditLimits()->create([
+                                $nextCreditId = $this->computeNextAvailableId(\App\Models\CustomerCreditLimit::class, 'id');
+                                $customerCredit = new \App\Models\CustomerCreditLimit([
+                                    'customer_id' => $customer->id,
                                     'currency_id' => $currency->id,
                                     'credit_limit' => $amount,
                                     'used_credit' => 0,
@@ -921,6 +931,8 @@ class CustomerController extends Controller
                                     'notes' => null,
                                     'is_active' => true,
                                 ]);
+                                $customerCredit->id = $nextCreditId;
+                                $customerCredit->save();
                             } catch (\Exception $e) {
                                 // Re-throw the exception to trigger transaction rollback
                                 throw new \Exception('Credit limit validation failed: '.$e->getMessage());
@@ -955,7 +967,9 @@ class CustomerController extends Controller
                 $customer->contacts()->delete();
 
                 foreach ($request->input('contacts') as $contactData) {
-                    $contact = $customer->contacts()->create([
+                    $nextContactId = $this->computeNextAvailableId(\App\Models\CustomerContact::class, 'id');
+                    $contact = new \App\Models\CustomerContact([
+                        'customer_id' => $customer->id,
                         'title' => $contactData['title'] ?? null,
                         'name' => $contactData['name'],
                         'work_phone' => $contactData['work_phone'] ?? null,
@@ -964,6 +978,8 @@ class CustomerController extends Controller
                         'position' => $contactData['position'] ?? null,
                         'extension' => $contactData['extension'] ?? null,
                     ]);
+                    $contact->id = $nextContactId;
+                    $contact->save();
 
                     // Set as primary contact if specified
                     if (isset($contactData['is_primary']) && $contactData['is_primary']) {
@@ -1080,7 +1096,47 @@ class CustomerController extends Controller
 
     public function destroy(Customer $customer)
     {
+        // Block deletion if the customer has projects; include helpful details
+        $projectsCount = Project::where('customer_id', $customer->id)->count();
+        if ($projectsCount > 0) {
+            $sampleProjectIds = Project::where('customer_id', $customer->id)
+                ->select('projects.id')
+                ->limit(1)
+                ->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Cannot delete customer. It is referenced by existing projects.',
+                'details' => [
+                    'projects' => [
+                        'count' => $projectsCount,
+                        'sample_ids' => $sampleProjectIds,
+                    ],
+                ],
+            ], 409);
+        }
+
+        // Capture current address IDs to evaluate orphan cleanup after delete
+        $addressIds = $customer->addresses()->pluck('addresses.id')->all();
+
         $customer->delete();
+
+        // Remove addresses that became orphaned (not linked to any customer or supplier)
+        if (! empty($addressIds)) {
+            DB::table('addresses')
+                ->whereIn('id', $addressIds)
+                ->whereNotExists(function ($q) {
+                    $q->select(DB::raw(1))
+                        ->from('customer_addresses')
+                        ->whereColumn('customer_addresses.address_id', 'addresses.id');
+                })
+                ->whereNotExists(function ($q) {
+                    $q->select(DB::raw(1))
+                        ->from('supplier_addresses')
+                        ->whereColumn('supplier_addresses.address_id', 'addresses.id');
+                })
+                ->delete();
+        }
 
         return response()->json([
             'status' => true,
@@ -1101,9 +1157,80 @@ class CustomerController extends Controller
 
         foreach ($request->ids as $id) {
             try {
+                // Collect address IDs for this customer
+                $customer = Customer::with('addresses:id')->find($id);
+                $addressIds = $customer ? $customer->addresses()->pluck('addresses.id')->all() : [];
+
+                // Skip if customer has projects and include details
+                if ($customer) {
+                    $projectsCount = Project::where('customer_id', $customer->id)->count();
+                    if ($projectsCount > 0) {
+                        $details = [
+                            'projects' => [
+                                'count' => $projectsCount,
+                                'sample_ids' => Project::where('customer_id', $customer->id)
+                                    ->select('projects.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ],
+                        ];
+
+                        $skipped[] = [
+                            'id' => $id,
+                            'reason' => 'Cannot delete customer. It is referenced by existing projects.',
+                            'details' => $details,
+                        ];
+
+                        continue;
+                    }
+                }
+
                 $deleted += Customer::where('id', $id)->delete();
+
+                // Cleanup orphaned addresses for this customer
+                if (! empty($addressIds)) {
+                    DB::table('addresses')
+                        ->whereIn('id', $addressIds)
+                        ->whereNotExists(function ($q) {
+                            $q->select(DB::raw(1))
+                                ->from('customer_addresses')
+                                ->whereColumn('customer_addresses.address_id', 'addresses.id');
+                        })
+                        ->whereNotExists(function ($q) {
+                            $q->select(DB::raw(1))
+                                ->from('supplier_addresses')
+                                ->whereColumn('supplier_addresses.address_id', 'addresses.id');
+                        })
+                        ->delete();
+                }
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customer = Customer::find($id);
+                        $projectsCount = $customer ? Project::where('customer_id', $customer->id)->count() : 0;
+                        if ($projectsCount > 0) {
+                            $details['projects'] = [
+                                'count' => $projectsCount,
+                                'sample_ids' => Project::where('customer_id', $customer->id)
+                                    ->select('projects.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Cannot delete customer. It is referenced by existing projects.',
+                        'details' => $details,
+                    ];
+                } else {
+                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                }
             }
         }
 

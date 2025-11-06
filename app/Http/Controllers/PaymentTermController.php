@@ -39,7 +39,10 @@ class PaymentTermController extends Controller
             'active' => 'boolean',
         ]);
 
-        $paymentTerm = PaymentTerm::create($validated);
+        $nextId = $this->computeNextAvailableId(PaymentTerm::class, 'id');
+        $paymentTerm = new PaymentTerm($validated);
+        $paymentTerm->id = $nextId;
+        $paymentTerm->save();
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_payment_terms");
 
@@ -91,11 +94,35 @@ class PaymentTermController extends Controller
 
     public function destroy(PaymentTerm $paymentTerm)
     {
-        if ($paymentTerm->customers()->exists()) {
+        // Prevent deletion if related customers or suppliers exist; include helpful details
+        $customersCount = $paymentTerm->customers()->count();
+        $suppliersCount = \App\Models\Supplier::where('payment_term_id', $paymentTerm->id)->count();
+
+        if ($customersCount > 0 || $suppliersCount > 0) {
+            $details = [];
+            if ($customersCount > 0) {
+                $details['customers'] = [
+                    'count' => $customersCount,
+                    'sample_ids' => $paymentTerm->customers()->select('customers.id')->limit(1)->pluck('id'),
+                ];
+            }
+            if ($suppliersCount > 0) {
+                $details['suppliers'] = [
+                    'count' => $suppliersCount,
+                    'sample_ids' => \App\Models\Supplier::where('payment_term_id', $paymentTerm->id)
+                        ->select('suppliers.id')
+                        ->limit(1)
+                        ->pluck('id'),
+                ];
+            }
+
+            $identifier = $paymentTerm->name ?? $paymentTerm->code ?? "ID: {$paymentTerm->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete payment term with associated customers',
-            ], 422);
+                'message' => "Cannot delete payment term \"{$identifier}\" (ID: {$paymentTerm->id}). It is referenced by existing customers or suppliers.",
+                'details' => $details,
+            ], 409);
         }
 
         $paymentTerm->delete();
@@ -122,15 +149,96 @@ class PaymentTermController extends Controller
 
         foreach ($request->ids as $id) {
             $term = PaymentTerm::find($id);
-            if ($term && ! $term->customers()->exists()) {
+            if (! $term) {
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => "ID: {$id}",
+                    'reason' => 'Payment term not found.',
+                ];
+
+                continue;
+            }
+
+            // Check if the payment term has any customers or suppliers linked to it and include details
+            $customersCount = $term->customers()->count();
+            $suppliersCount = \App\Models\Supplier::where('payment_term_id', $term->id)->count();
+
+            if ($customersCount > 0 || $suppliersCount > 0) {
+                $details = [];
+                if ($customersCount > 0) {
+                    $details['customers'] = [
+                        'count' => $customersCount,
+                        'sample_ids' => $term->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ];
+                }
+                if ($suppliersCount > 0) {
+                    $details['suppliers'] = [
+                        'count' => $suppliersCount,
+                        'sample_ids' => \App\Models\Supplier::where('payment_term_id', $term->id)
+                            ->select('suppliers.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+
+                $identifier = $term->name ?? $term->code ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => 'Cannot delete payment term. It is referenced by existing customers or suppliers.',
+                    'details' => $details,
+                ];
+
+                continue;
+            }
+
+            try {
                 $term->delete();
                 $deleted++;
                 app('cache')->store('database')->forget("tenant_{$tenantId}_payment_term_{$id}");
-            } else {
-                $skipped[] = [
-                    'id' => $id,
-                    'reason' => $term ? 'Has associated customers' : 'Not found',
-                ];
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customersCount = $term?->customers()->count() ?? 0;
+                        $suppliersCount = $term ? \App\Models\Supplier::where('payment_term_id', $term->id)->count() : 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $term->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                        if ($suppliersCount > 0) {
+                            $details['suppliers'] = [
+                                'count' => $suppliersCount,
+                                'sample_ids' => \App\Models\Supplier::where('payment_term_id', $term->id)
+                                    ->select('suppliers.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $term = PaymentTerm::find($id);
+                    $identifier = $term?->name ?? $term?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete payment term. It is referenced by existing customers or suppliers.',
+                        'details' => $details,
+                    ];
+                } else {
+                    $term = PaymentTerm::find($id);
+                    $identifier = $term?->name ?? $term?->code ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
+                }
             }
         }
         app('cache')->store('database')->forget("tenant_{$tenantId}_payment_terms");

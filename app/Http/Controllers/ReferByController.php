@@ -35,7 +35,11 @@ class ReferByController extends Controller
 
     public function store(StoreReferByRequest $request): JsonResponse
     {
-        $referBy = ReferBy::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(ReferBy::class, 'id');
+        $referBy = new ReferBy($data);
+        $referBy->id = $nextId;
+        $referBy->save();
 
         app('cache')->store('database')->forget('tenant_'.tenant('id').'_refer_bies');
 
