@@ -18,8 +18,6 @@ return new class extends Migration
             $table->string('type')->index();
             $table->foreignId('parent_id')->nullable()->constrained('items')->nullOnDelete();
             $table->foreignId('base_uom_id')->nullable()->constrained('unit_of_measurements')->nullOnDelete();
-            $table->decimal('price', 10, 2);
-            $table->string('unit')->nullable();
             $table->foreignId('trade_id')->nullable()->constrained('trades')->nullOnDelete();
             $table->foreignId('company_code_id')->nullable()->constrained('company_codes')->nullOnDelete();
             $table->foreignId('product_line_id')->nullable()->constrained('product_lines')->nullOnDelete();
@@ -34,7 +32,6 @@ return new class extends Migration
             $table->text('sales_description')->nullable();
             $table->text('pos_description')->nullable();
             $table->foreignId('sales_uom_id')->nullable()->constrained('unit_of_measurements')->nullOnDelete();
-            $table->text('description')->nullable();
             $table->timestamps();
         });
     }

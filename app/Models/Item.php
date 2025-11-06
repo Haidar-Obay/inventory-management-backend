@@ -24,8 +24,6 @@ class Item extends Model implements Auditable
         'code',
         'name',
         'parent_id',
-        'price',
-        'unit',
         'trade_id',
         'company_code_id',
         'product_line_id',
@@ -40,13 +38,11 @@ class Item extends Model implements Auditable
         'sales_description',
         'pos_description',
         'sales_uom_id',
-        'description',
         'type',
         'base_uom_id',
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
         'type' => ItemType::class,
         'discount_percent' => 'decimal:2',
         'max_discount' => 'decimal:2',
@@ -57,11 +53,6 @@ class Item extends Model implements Auditable
     public function getFullNameAttribute()
     {
         return "{$this->code} - {$this->name}";
-    }
-
-    public function getFormattedPriceAttribute()
-    {
-        return number_format($this->price, 2);
     }
 
     public function parent()

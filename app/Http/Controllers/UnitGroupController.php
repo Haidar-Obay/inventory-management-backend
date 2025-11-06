@@ -87,4 +87,15 @@ class UnitGroupController extends Controller
             'message' => 'Unit group deleted successfully.',
         ]);
     }
+
+    public function units(UnitGroup $unitGroup)
+    {
+        $units = $unitGroup->unitOfMeasurements()->orderBy('name')->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Units fetched successfully.',
+            'data' => $units,
+        ]);
+    }
 }

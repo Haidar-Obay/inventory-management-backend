@@ -1152,6 +1152,38 @@ class SupplierController extends Controller
         }
     }
 
+    public function getBrief()
+    {
+        try {
+            $suppliers = Supplier::select('id', 'display_name', 'company_name', 'phone1', 'supplier_group_id')
+                ->where('active', true)
+                ->with(['supplierGroup:id,name'])
+                ->orderBy('display_name')
+                ->get()
+                ->map(function ($supplier) {
+                    return [
+                        'id' => $supplier->id,
+                        'name' => $supplier->display_name ?: $supplier->company_name ?: '',
+                        'company_name' => $supplier->company_name,
+                        'phone1' => $supplier->phone1,
+                        'supplier_group_name' => $supplier->supplierGroup ? $supplier->supplierGroup->name : null,
+                        'supplier_group' => $supplier->supplierGroup ? [
+                            'name' => $supplier->supplierGroup->name,
+                        ] : null,
+                    ];
+                });
+
+            return response()->json($suppliers);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve supplier brief list',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     // Helper methods for address management
     private function createBillingAddress($supplier, $request)
     {

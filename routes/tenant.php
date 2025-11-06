@@ -193,6 +193,9 @@ Route::middleware([
         Route::post('items/{item}/unit-of-measurements/{unitOfMeasurement}/update', [ItemController::class, 'updateUOM'])->middleware('check.permission:items,view');
         Route::post('items/{item}/unit-of-measurements/detach', [ItemController::class, 'detachUOM'])->middleware('check.permission:items,view');
         Route::apiResource('unit-groups', UnitGroupController::class);
+        Route::get('unit-groups/{unitGroup}/units', [\App\Http\Controllers\UnitGroupController::class, 'units']);
+        Route::get('units/{unitOfMeasurement}/operations', [\App\Http\Controllers\UnitOfMeasurementController::class, 'operations']);
+        Route::get('units/{unitOfMeasurement}/conversions', [\App\Http\Controllers\UnitOfMeasurementController::class, 'conversions']);
         Route::apiResource('unit-of-measurements', UnitOfMeasurementController::class);
         Route::apiResource('customer-master-lists', CustomerMasterListController::class);
         Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');
@@ -714,4 +717,6 @@ Route::middleware([
     Route::get('/names/salesmen', [SalesmanController::class, 'getNames']);
     Route::get('/names/trades', [TradeController::class, 'getNames']);
     Route::get('/names/items', [ItemController::class, 'getNames']);
+    Route::get('/names/suppliers', [SupplierController::class, 'getNames']);
+    Route::get('/names/suppliers-brief', [SupplierController::class, 'getBrief']);
 });

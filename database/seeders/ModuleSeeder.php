@@ -23,10 +23,7 @@ class ModuleSeeder extends Seeder
                 'sort_order' => 1,
                 'active' => true,
                 'pages' => [
-                    ['name' => 'Scheduler', 'code' => PageCode::SCHEDULER_PAGE->value, 'path' => '/main/scheduler', 'order' => 0, 'is_public' => false],
-                    ['name' => 'Dashboard', 'code' => PageCode::DASHBOARD_PAGE->value, 'path' => '/main/dashboard', 'order' => 1, 'is_public' => false],
-                    ['name' => 'Overview', 'code' => PageCode::DASHBOARD_OVERVIEW_PAGE->value, 'path' => '/main/dashboard/overview', 'order' => 2, 'is_public' => false],
-                    ['name' => 'Analytics', 'code' => PageCode::DASHBOARD_ANALYTICS_PAGE->value, 'path' => '/main/dashboard/analytics', 'order' => 3, 'is_public' => false],
+                    ['name' => 'Sche tics', 'code' => PageCode::DASHBOARD_ANALYTICS_PAGE->value, 'path' => '/main/dashboard/analytics', 'order' => 3, 'is_public' => false],
                     ['name' => 'Reports', 'code' => PageCode::DASHBOARD_REPORTS_PAGE->value, 'path' => '/main/dashboard/reports', 'order' => 4, 'is_public' => false],
                     ['name' => 'Service Categories', 'code' => PageCode::SERVICES_PAGE->value, 'path' => '/main/mainfiles/services?tab=0', 'order' => 10, 'is_public' => false],
                     ['name' => 'Services', 'code' => PageCode::SERVICES_PAGE->value, 'path' => '/main/mainfiles/services?tab=1', 'order' => 11, 'is_public' => false],

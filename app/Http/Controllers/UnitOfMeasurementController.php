@@ -87,4 +87,30 @@ class UnitOfMeasurementController extends Controller
             'message' => 'Unit of measurement deleted successfully.',
         ]);
     }
+
+    public function operations(UnitOfMeasurement $unitOfMeasurement)
+    {
+        return response()->json([
+            'status' => true,
+            'message' => 'Operations fetched successfully.',
+            'data' => [
+                ['name' => $unitOfMeasurement->operation],
+            ],
+        ]);
+    }
+
+    public function conversions(UnitOfMeasurement $unitOfMeasurement)
+    {
+        return response()->json([
+            'status' => true,
+            'message' => 'Conversions fetched successfully.',
+            'data' => [
+                [
+                    'from' => $unitOfMeasurement->unitGroup?->name,
+                    'to' => $unitOfMeasurement->name,
+                    'factor' => $unitOfMeasurement->conversion,
+                ],
+            ],
+        ]);
+    }
 }

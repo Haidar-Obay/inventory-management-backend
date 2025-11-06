@@ -32,17 +32,44 @@ class ItemController extends Controller
         $tenantId = tenant('id');
         $key = "tenant_{$tenantId}_items";
 
-        $items = app('cache')->store('database')->get($key);
+        // Always load relationships, even if cached
+        $items = Item::with([
+            'trade:id,name',
+            'companyCode:id,name',
+            'productLine:id,name',
+            'category:id,name',
+            'brand:id,name',
+            'baseUom:id,name',
+            'parent:id,code,name',
+        ])->orderBy('name')->get();
 
-        if (! $items) {
-            $items = Item::orderBy('name')->get();
-            app('cache')->store('database')->forever($key, $items);
-        }
+        // Transform relationships to snake_case for frontend compatibility
+        $transformedItems = $items->map(function ($item) {
+            $itemArray = $item->toArray();
+            // Map camelCase relationships to snake_case
+            if (isset($itemArray['companyCode'])) {
+                $itemArray['company_code'] = $itemArray['companyCode'];
+                unset($itemArray['companyCode']);
+            }
+            if (isset($itemArray['productLine'])) {
+                $itemArray['product_line'] = $itemArray['productLine'];
+                unset($itemArray['productLine']);
+            }
+            if (isset($itemArray['baseUom'])) {
+                $itemArray['base_uom'] = $itemArray['baseUom'];
+                unset($itemArray['baseUom']);
+            }
+
+            return $itemArray;
+        });
+
+        // Cache the items for future use
+        app('cache')->store('database')->put($key, $items, now()->addHours(1));
 
         return response()->json([
             'status' => true,
             'message' => 'Items fetched successfully.',
-            'data' => $items,
+            'data' => $transformedItems,
         ]);
     }
 
@@ -81,11 +108,20 @@ class ItemController extends Controller
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
 
         return response()->json([
             'status' => true,
             'message' => 'Item created successfully.',
-            'data' => $item,
+            'data' => $item->load([
+                'trade:id,name',
+                'companyCode:id,name',
+                'productLine:id,name',
+                'category:id,name',
+                'brand:id,name',
+                'baseUom:id,name',
+                'parent:id,code,name',
+            ]),
         ], 201);
     }
 
@@ -110,7 +146,15 @@ class ItemController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Item updated successfully.',
-            'data' => $item,
+            'data' => $item->load([
+                'trade:id,name',
+                'companyCode:id,name',
+                'productLine:id,name',
+                'category:id,name',
+                'brand:id,name',
+                'baseUom:id,name',
+                'parent:id,code,name',
+            ]),
         ]);
     }
 
