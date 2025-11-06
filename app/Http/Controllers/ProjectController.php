@@ -39,7 +39,11 @@ class ProjectController extends Controller
     public function store(StoreProjectRequest $request)
     {
         $tenantId = tenant('id');
-        $project = Project::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(Project::class, 'id');
+        $project = new Project($data);
+        $project->id = $nextId;
+        $project->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
 
         return response()->json([
@@ -75,13 +79,26 @@ class ProjectController extends Controller
 
     public function destroy(Project $project)
     {
-        $tenantId = tenant('id');
+        // Prevent deletion if related jobs exist; include helpful details
         if ($project->jobs()->exists()) {
+            $count = $project->jobs()->count();
+            $sampleIds = $project->jobs()->select('projects_jobs.id')->limit(1)->pluck('id');
+
+            $identifier = $project->name ?? "ID: {$project->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete project with associated jobs',
-            ], 422);
+                'message' => "Cannot delete project \"{$identifier}\" (ID: {$project->id}). It is referenced by existing jobs.",
+                'details' => [
+                    'jobs' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
+
+        $tenantId = tenant('id');
 
         $project->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_projects");
@@ -107,11 +124,32 @@ class ProjectController extends Controller
         foreach ($ids as $id) {
             $project = Project::find($id);
 
-            // Check if project has associated jobs
-            if ($project && $project->jobs()->exists()) {
+            if (! $project) {
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete project. It has associated jobs.',
+                    'name' => "ID: {$id}",
+                    'reason' => 'Project not found.',
+                ];
+
+                continue;
+            }
+
+            // Check if project has associated jobs and include details
+            if ($project->jobs()->exists()) {
+                $jobsCount = $project->jobs()->count();
+                $details = [
+                    'jobs' => [
+                        'count' => $jobsCount,
+                        'sample_ids' => $project->jobs()->select('projects_jobs.id')->limit(1)->pluck('id'),
+                    ],
+                ];
+
+                $identifier = $project->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => 'Cannot delete project. It is referenced by existing jobs.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -123,7 +161,38 @@ class ProjectController extends Controller
                     $deleted++;
                 }
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                // Check if it's a foreign key constraint error and include details
+                if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $jobsCount = $project?->jobs()->count() ?? 0;
+                        if ($jobsCount > 0) {
+                            $details['jobs'] = [
+                                'count' => $jobsCount,
+                                'sample_ids' => $project->jobs()->select('projects_jobs.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $project = Project::find($id);
+                    $identifier = $project?->name ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete project. It is referenced by existing jobs.',
+                        'details' => $details,
+                    ];
+                } else {
+                    $project = Project::find($id);
+                    $identifier = $project?->name ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
+                }
             }
         }
 

@@ -94,13 +94,17 @@ class CustomerOpeningBalanceController extends Controller
                 ], 409);
             }
 
-            $openingBalance = $customer->openingBalances()->create([
+            $nextId = $this->computeNextAvailableId(\App\Models\CustomerOpeningBalance::class, 'id');
+            $openingBalance = new \App\Models\CustomerOpeningBalance([
+                'customer_id' => $customer->id,
                 'currency_id' => $request->currency_id,
                 'opening_amount' => $request->opening_amount,
                 'opening_date' => $request->opening_date,
                 'notes' => $request->notes,
                 'is_active' => true,
             ]);
+            $openingBalance->id = $nextId;
+            $openingBalance->save();
 
             $openingBalance->load('currency');
 

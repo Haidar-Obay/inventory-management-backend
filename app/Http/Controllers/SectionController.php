@@ -38,7 +38,10 @@ class SectionController extends Controller
     {
         $validated = $request->validated();
 
-        $section = Section::create($validated);
+        $nextId = $this->computeNextAvailableId(Section::class, 'id');
+        $section = new Section($validated);
+        $section->id = $nextId;
+        $section->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_sections");

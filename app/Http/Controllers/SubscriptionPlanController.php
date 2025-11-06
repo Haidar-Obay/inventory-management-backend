@@ -63,7 +63,10 @@ class SubscriptionPlanController extends Controller
             ], 422);
         }
 
-        $plan = SubscriptionPlan::create($request->all());
+        $nextId = $this->computeNextAvailableId(SubscriptionPlan::class, 'id');
+        $plan = new SubscriptionPlan($request->all());
+        $plan->id = $nextId;
+        $plan->save();
 
         Cache::forget('subscription_plans_all');
 

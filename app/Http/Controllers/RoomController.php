@@ -38,7 +38,10 @@ class RoomController extends Controller
     {
         $validated = $request->validated();
 
-        $room = Room::create($validated);
+        $nextId = $this->computeNextAvailableId(Room::class, 'id');
+        $room = new Room($validated);
+        $room->id = $nextId;
+        $room->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_rooms");

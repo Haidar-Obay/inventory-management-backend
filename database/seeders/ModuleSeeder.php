@@ -55,7 +55,7 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Items', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 13, 'is_public' => false],
 
                     // Suppliers and Customers
-                    ['name' => 'Suppliers', 'code' => PageCode::SUPPLIERS_SUPPLIERS->value, 'path' => '/main/supplier?tab=1', 'order' => 20, 'is_public' => false],
+                    ['name' => 'Suppliers', 'code' => PageCode::SUPPLIERS_SUPPLIERS->value, 'path' => '/main/mainfiles/supplier?tab=1', 'order' => 20, 'is_public' => false],
                     ['name' => 'Customers', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer', 'order' => 21, 'is_public' => false],
 
                     // Settings pages

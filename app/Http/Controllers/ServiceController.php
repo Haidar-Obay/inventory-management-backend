@@ -79,7 +79,10 @@ class ServiceController extends Controller
             }
         }
 
-        $service = Service::create($data);
+        $nextId = $this->computeNextAvailableId(Service::class, 'id');
+        $service = new Service($data);
+        $service->id = $nextId;
+        $service->save();
         if (! empty($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }

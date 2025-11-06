@@ -53,8 +53,12 @@ class AssociationServicePriceController extends Controller
 
                         continue;
                     }
-                    $created[] = AssociationServicePrice::create($validator->validated())
-                        ->load(['association:id,name', 'service:id,name']);
+                    $rowData = $validator->validated();
+                    $nextId = $this->computeNextAvailableId(AssociationServicePrice::class, 'id');
+                    $newRow = new AssociationServicePrice($rowData);
+                    $newRow->id = $nextId;
+                    $newRow->save();
+                    $created[] = $newRow->load(['association:id,name', 'service:id,name']);
                 }
                 if (! empty($errors) && empty($created)) {
                     DB::rollBack();
@@ -78,7 +82,11 @@ class AssociationServicePriceController extends Controller
             'discount' => ['nullable', 'numeric', 'min:0'],
         ]);
         $validator->validate();
-        $row = AssociationServicePrice::create($validator->validated());
+        $data = $validator->validated();
+        $nextId = $this->computeNextAvailableId(AssociationServicePrice::class, 'id');
+        $row = new AssociationServicePrice($data);
+        $row->id = $nextId;
+        $row->save();
 
         return response()->json($row->load(['association:id,name', 'service:id,name']), 201);
     }

@@ -80,7 +80,10 @@ class CustomerRouteController extends Controller
                 ->where('active', true)
                 ->update(['active' => false]);
 
-            $route = CustomerRoute::create($request->validated());
+            $nextId = $this->computeNextAvailableId(CustomerRoute::class, 'id');
+            $route = new CustomerRoute($request->validated());
+            $route->id = $nextId;
+            $route->save();
 
             DB::commit();
 

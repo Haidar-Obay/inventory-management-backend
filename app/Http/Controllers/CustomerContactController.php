@@ -48,7 +48,10 @@ class CustomerContactController extends Controller
     public function store(StoreCustomerContactRequest $request): JsonResponse
     {
         try {
-            $contact = CustomerContact::create($request->validated());
+            $nextId = $this->computeNextAvailableId(CustomerContact::class, 'id');
+            $contact = new CustomerContact($request->validated());
+            $contact->id = $nextId;
+            $contact->save();
 
             return response()->json([
                 'success' => true,

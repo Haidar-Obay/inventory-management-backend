@@ -56,7 +56,10 @@ class AssignmentController extends Controller
             ], 422);
         }
 
-        $assignment = Assignment::create($validated);
+        $nextId = $this->computeNextAvailableId(Assignment::class, 'id');
+        $assignment = new Assignment($validated);
+        $assignment->id = $nextId;
+        $assignment->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_assignments");

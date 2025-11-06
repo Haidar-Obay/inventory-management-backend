@@ -110,7 +110,8 @@ class TableTemplateController extends Controller
             ], 409);
         }
 
-        $template = TableTemplate::create([
+        $nextId = $this->computeNextAvailableId(TableTemplate::class, 'id');
+        $template = (new TableTemplate([
             'name' => $request->input('name'),
             'table_name' => $tableName,
             'visible_columns' => $request->input('visible_columns'),
@@ -123,7 +124,9 @@ class TableTemplateController extends Controller
             'headerFontSize' => $request->input('headerFontSize'),
             'headerFontStyle' => $request->input('headerFontStyle'),
             'headerFontColor' => $request->input('headerFontColor'),
-        ]);
+        ]));
+        $template->id = $nextId;
+        $template->save();
 
         return response()->json($template, 201);
     }

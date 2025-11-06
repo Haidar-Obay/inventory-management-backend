@@ -48,7 +48,11 @@ class UnitOfMeasurementController extends Controller
 
     public function store(StoreUnitOfMeasurementRequest $request)
     {
-        $uom = UnitOfMeasurement::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(UnitOfMeasurement::class, 'id');
+        $uom = new UnitOfMeasurement($data);
+        $uom->id = $nextId;
+        $uom->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_unit_of_measurements");
@@ -77,6 +81,33 @@ class UnitOfMeasurementController extends Controller
 
     public function destroy(UnitOfMeasurement $unitOfMeasurement)
     {
+        // Prevent deletion if referenced by items (via pivot or direct foreign keys)
+        $pivotItemIds = $unitOfMeasurement->items()->pluck('items.id');
+        $directItemIds = \App\Models\Item::where(function ($query) use ($unitOfMeasurement) {
+            $query->where('base_uom_id', $unitOfMeasurement->id)
+                ->orWhere('purchase_uom_id', $unitOfMeasurement->id)
+                ->orWhere('sales_uom_id', $unitOfMeasurement->id);
+        })->pluck('items.id');
+        $allItemIds = $pivotItemIds->merge($directItemIds)->unique();
+        $totalItemCount = $allItemIds->count();
+
+        if ($totalItemCount > 0) {
+            $sampleIds = $allItemIds->take(1)->values()->all();
+
+            $identifier = $unitOfMeasurement->name ?? $unitOfMeasurement->code ?? "ID: {$unitOfMeasurement->id}";
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete unit of measurement \"{$identifier}\" (ID: {$unitOfMeasurement->id}). It is referenced by existing items.",
+                'details' => [
+                    'items' => [
+                        'count' => $totalItemCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $tenantId = tenant('id');
         $unitOfMeasurement->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_unit_of_measurements");

@@ -39,7 +39,11 @@ class ProductLineController extends Controller
             'active' => 'boolean',
         ]);
 
-        $productLine = ProductLine::create($request->all());
+        $data = $request->all();
+        $nextId = $this->computeNextAvailableId(ProductLine::class, 'id');
+        $productLine = new ProductLine($data);
+        $productLine->id = $nextId;
+        $productLine->save();
 
         // Invalidate cache after creating new product line
         $tenantId = tenant('id');

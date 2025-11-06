@@ -86,12 +86,34 @@ class CreateDefaultTableTemplates
             'mediaChannels' => [
                 'id', 'code', 'name', 'sub_media_of', 'created_at', 'updated_at',
             ],
+            'mediaTypes' => [
+                'id', 'name', 'sub_media_type_of', 'created_at', 'updated_at',
+            ],
             'businessTypes' => [
                 'id', 'code', 'name', 'created_at', 'updated_at',
+            ],
+            'serviceCategories' => [
+                'id', 'name', 'department_id', 'description', 'created_at', 'updated_at',
+            ],
+            'services' => [
+                'id', 'name', 'service_category_id', 'normal_price', 'cost_price', 'active', 'created_at', 'updated_at',
             ],
             'customerMasterLists' => [
                 'id', 'date', 'name', 'valid_from', 'valid_till', 'created_at', 'updated_at',
             ],
+            'suppliers' => [
+                'id', 'title', 'first_name', 'middle_name', 'last_name', 'display_name', 'company_name', 'phone1', 'phone2', 'phone3', 'file_number', 'bar_code', 'search_terms', 'trade_id', 'supplier_group_id', 'business_type_id', 'indicator', 'active', 'notes', 'created_at', 'updated_at',
+            ],
+            'supplierGroups' => [
+                'id', 'code', 'name', 'active', 'created_at', 'updated_at',
+            ],
+            'associations' => [
+                'id', 'name', 'phone1', 'phone2', 'email', 'website', 'markup_value', 'markup_type', 'markdown_value', 'markdown_type', 'allowed_to_pay_for_guests', 'active', 'created_at', 'updated_at',
+            ],
+            'referrers' => [
+                'id', 'name', 'address', 'phone1', 'phone2', 'email', 'active', 'commission_percent', 'created_at', 'updated_at',
+            ],
+
         ];
 
         $timestampFields = ['created_at', 'updated_at', 'deleted_at'];

@@ -7,6 +7,7 @@ use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use App\Models\District;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -40,7 +41,10 @@ class DistrictController extends Controller
             'name' => 'required|string|max:255|unique:districts,name',
         ]);
 
-        $district = District::create($validated);
+        $nextId = $this->computeNextAvailableId(District::class, 'id');
+        $district = new District($validated);
+        $district->id = $nextId;
+        $district->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_districts");
@@ -99,6 +103,49 @@ class DistrictController extends Controller
 
     public function destroy(District $district)
     {
+        // Prevent deletion if referenced by customers or suppliers (via addresses)
+        $customerCount = DB::table('customer_addresses')
+            ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+            ->where('addresses.district_id', $district->id)
+            ->count();
+        $supplierCount = DB::table('supplier_addresses')
+            ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+            ->where('addresses.district_id', $district->id)
+            ->count();
+
+        if ($customerCount > 0 || $supplierCount > 0) {
+            $customerSample = DB::table('customer_addresses')
+                ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                ->where('addresses.district_id', $district->id)
+                ->limit(1)
+                ->pluck('customer_addresses.customer_id');
+            $supplierSample = DB::table('supplier_addresses')
+                ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                ->where('addresses.district_id', $district->id)
+                ->limit(1)
+                ->pluck('supplier_addresses.supplier_id');
+
+            $details = [];
+            if ($customerCount > 0) {
+                $details['customers'] = [
+                    'count' => $customerCount,
+                    'sample_ids' => $customerSample,
+                ];
+            }
+            if ($supplierCount > 0) {
+                $details['suppliers'] = [
+                    'count' => $supplierCount,
+                    'sample_ids' => $supplierSample,
+                ];
+            }
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete district \"{$district->name}\" (ID: {$district->id}). It is referenced by existing customers or suppliers.",
+                'details' => $details,
+            ], 409);
+        }
+
         $district->delete();
 
         $tenantId = tenant('id');
@@ -125,11 +172,47 @@ class DistrictController extends Controller
         foreach ($request->ids as $id) {
             $district = District::find($id);
 
-            // Check if the district has any addresses linked to it
-            if ($district->addresses()->exists()) {
+            // Check if referenced by customers or suppliers (via addresses) and include details
+            $customerCount = DB::table('customer_addresses')
+                ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                ->where('addresses.district_id', $id)
+                ->count();
+            $supplierCount = DB::table('supplier_addresses')
+                ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                ->where('addresses.district_id', $id)
+                ->count();
+
+            if ($customerCount > 0 || $supplierCount > 0) {
+                $customerSample = DB::table('customer_addresses')
+                    ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                    ->where('addresses.district_id', $id)
+                    ->limit(1)
+                    ->pluck('customer_addresses.customer_id');
+                $supplierSample = DB::table('supplier_addresses')
+                    ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                    ->where('addresses.district_id', $id)
+                    ->limit(1)
+                    ->pluck('supplier_addresses.supplier_id');
+
+                $details = [];
+                if ($customerCount > 0) {
+                    $details['customers'] = [
+                        'count' => $customerCount,
+                        'sample_ids' => $customerSample,
+                    ];
+                }
+                if ($supplierCount > 0) {
+                    $details['suppliers'] = [
+                        'count' => $supplierCount,
+                        'sample_ids' => $supplierSample,
+                    ];
+                }
+
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete district. It is being used by one or more addresses.',
+                    'name' => $district->name ?? "ID: {$id}",
+                    'reason' => 'Cannot delete district. It is referenced by existing customers or suppliers.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -139,14 +222,58 @@ class DistrictController extends Controller
                 $deleted += $district->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_district_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customerCount = DB::table('customer_addresses')
+                            ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                            ->where('addresses.district_id', $id)
+                            ->count();
+                        $supplierCount = DB::table('supplier_addresses')
+                            ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                            ->where('addresses.district_id', $id)
+                            ->count();
+                        if ($customerCount > 0) {
+                            $customerSample = DB::table('customer_addresses')
+                                ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                                ->where('addresses.district_id', $id)
+                                ->limit(1)
+                                ->pluck('customer_addresses.customer_id');
+                            $details['customers'] = [
+                                'count' => $customerCount,
+                                'sample_ids' => $customerSample,
+                            ];
+                        }
+                        if ($supplierCount > 0) {
+                            $supplierSample = DB::table('supplier_addresses')
+                                ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                                ->where('addresses.district_id', $id)
+                                ->limit(1)
+                                ->pluck('supplier_addresses.supplier_id');
+                            $details['suppliers'] = [
+                                'count' => $supplierCount,
+                                'sample_ids' => $supplierSample,
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $district = District::find($id);
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete district. It is being used by one or more addresses.',
+                        'name' => $district?->name ?? "ID: {$id}",
+                        'reason' => 'Cannot delete district. It is referenced by existing customers or suppliers.',
+                        'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $district = District::find($id);
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $district?->name ?? "ID: {$id}",
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

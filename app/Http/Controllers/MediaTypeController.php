@@ -25,7 +25,11 @@ class MediaTypeController extends Controller
 
     public function store(StoreMediaTypeRequest $request): JsonResponse
     {
-        $row = MediaType::create($request->validated());
+        $data = $request->validated();
+        $nextId = $this->computeNextAvailableId(MediaType::class, 'id');
+        $row = new MediaType($data);
+        $row->id = $nextId;
+        $row->save();
 
         return response()->json($row, 201);
     }
@@ -46,6 +50,43 @@ class MediaTypeController extends Controller
 
     public function destroy(MediaType $media_type): JsonResponse
     {
+        // Block deletion if referenced by customers
+        if ($media_type->customers()->exists()) {
+            $count = $media_type->customers()->count();
+            $sampleIds = $media_type->customers()->select('customers.id')->limit(1)->pluck('id');
+
+            $identifier = $media_type->name ?? "ID: {$media_type->id}";
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete media type \"{$identifier}\" (ID: {$media_type->id}). It is referenced by existing customers.",
+                'details' => [
+                    'customers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
+        // Block deletion if it has children (sub-media types) and include details
+        if ($media_type->children()->exists()) {
+            $count = $media_type->children()->count();
+            $sampleIds = $media_type->children()->select('id')->limit(1)->pluck('id');
+            $identifier = $media_type->name ?? "ID: {$media_type->id}";
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete media type \"{$identifier}\" (ID: {$media_type->id}). It is referenced by existing sub-media types.",
+                'details' => [
+                    'sub_media_types' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $media_type->delete();
 
         return response()->json(['message' => 'Deleted']);
@@ -59,21 +100,53 @@ class MediaTypeController extends Controller
         foreach ($request->ids as $id) {
             $mediaType = MediaType::find($id);
 
-            // Check if the media type has any customers linked to it
-            if ($mediaType->customers()->exists()) {
+            if (! $mediaType) {
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete media type. It is being used by one or more customers.',
+                    'name' => "ID: {$id}",
+                    'reason' => 'Media type not found.',
                 ];
 
                 continue;
             }
 
-            // Check if the media type has any sub-media types
-            if ($mediaType->children()->exists()) {
+            // Check if the media type has any customers linked to it and include details
+            if ($mediaType->customers()->exists()) {
+                $customersCount = $mediaType->customers()->count();
+                $details = [
+                    'customers' => [
+                        'count' => $customersCount,
+                        'sample_ids' => $mediaType->customers()->select('customers.id')->limit(1)->pluck('id'),
+                    ],
+                ];
+
+                $identifier = $mediaType->name ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete media type. It has sub-media types linked to it.',
+                    'name' => $identifier,
+                    'reason' => 'Cannot delete media type. It is referenced by existing customers.',
+                    'details' => $details,
+                ];
+
+                continue;
+            }
+
+            // Check if the media type has any sub-media types and include details
+            if ($mediaType->children()->exists()) {
+                $subMediaTypesCount = $mediaType->children()->count();
+                $details = [
+                    'sub_media_types' => [
+                        'count' => $subMediaTypesCount,
+                        'sample_ids' => $mediaType->children()->select('media_types.id')->limit(1)->pluck('id'),
+                    ],
+                ];
+
+                $identifier = $mediaType->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => 'Cannot delete media type. It is referenced by existing sub-media types.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -82,14 +155,45 @@ class MediaTypeController extends Controller
             try {
                 $deleted += $mediaType->delete();
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $mediaType = MediaType::find($id);
+                        $customersCount = $mediaType?->customers()->count() ?? 0;
+                        $subMediaTypesCount = $mediaType?->children()->count() ?? 0;
+                        if ($customersCount > 0) {
+                            $details['customers'] = [
+                                'count' => $customersCount,
+                                'sample_ids' => $mediaType->customers()->select('customers.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                        if ($subMediaTypesCount > 0) {
+                            $details['sub_media_types'] = [
+                                'count' => $subMediaTypesCount,
+                                'sample_ids' => $mediaType->children()->select('media_types.id')->limit(1)->pluck('id'),
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $mediaType = MediaType::find($id);
+                    $identifier = $mediaType?->name ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete media type. It is being used by other records in the system.',
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete media type. It is referenced by existing customers or sub-media types.',
+                        'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $mediaType = MediaType::find($id);
+                    $identifier = $mediaType?->name ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

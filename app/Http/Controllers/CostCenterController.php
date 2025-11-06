@@ -50,7 +50,10 @@ class CostCenterController extends Controller
         }
 
         $tenantId = tenant('id');
-        $costCenter = CostCenter::create($validated);
+        $nextId = $this->computeNextAvailableId(CostCenter::class, 'id');
+        $costCenter = new CostCenter($validated);
+        $costCenter->id = $nextId;
+        $costCenter->save();
         app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
 
         return response()->json([
@@ -109,11 +112,23 @@ class CostCenterController extends Controller
     public function destroy(CostCenter $costCenter)
     {
         $tenantId = tenant('id');
+        // Prevent deletion if related sub-cost centers exist; include helpful details
         if ($costCenter->hasSubCostCenters()) {
+            $count = $costCenter->children()->count();
+            $sampleIds = $costCenter->children()->select('cost_centers.id')->limit(1)->pluck('id');
+
+            $identifier = $costCenter->name ?? $costCenter->code ?? "ID: {$costCenter->id}";
+
             return response()->json([
                 'status' => false,
-                'message' => 'Cannot delete cost center with associated sub-cost centers',
-            ], 422);
+                'message' => "Cannot delete cost center \"{$identifier}\" (ID: {$costCenter->id}). It is referenced by existing sub-cost centers.",
+                'details' => [
+                    'sub_cost_centers' => [
+                        'count' => $count,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
         $costCenter->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_cost_centers");
@@ -142,17 +157,29 @@ class CostCenterController extends Controller
                 if (! $costCenter) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Cost center not found.',
                     ];
 
                     continue;
                 }
 
-                // Check if cost center has sub-cost centers
+                // Check if cost center has sub-cost centers and include details
                 if ($costCenter->hasSubCostCenters()) {
+                    $subCostCentersCount = $costCenter->children()->count();
+                    $details = [
+                        'sub_cost_centers' => [
+                            'count' => $subCostCentersCount,
+                            'sample_ids' => $costCenter->children()->select('cost_centers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $identifier = $costCenter->name ?? $costCenter->code ?? "ID: {$id}";
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete cost center. It has sub-cost centers.',
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete cost center. It is referenced by existing sub-cost centers.',
+                        'details' => $details,
                     ];
 
                     continue;
@@ -165,8 +192,11 @@ class CostCenterController extends Controller
 
             } catch (\Exception $e) {
                 Log::error('Error deleting cost center '.$id.': '.$e->getMessage());
+                $costCenter = CostCenter::find($id);
+                $identifier = $costCenter?->name ?? $costCenter?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

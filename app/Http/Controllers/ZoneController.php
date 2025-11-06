@@ -7,6 +7,7 @@ use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use App\Models\Zone;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -40,7 +41,11 @@ class ZoneController extends Controller
             'name' => 'required|string|max:255|unique:zones,name',
         ]);
 
-        $zone = Zone::create($validated);
+        $nextId = $this->computeNextAvailableId(Zone::class, 'id');
+
+        $zone = new Zone($validated);
+        $zone->id = $nextId;
+        $zone->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_zones");
@@ -98,6 +103,49 @@ class ZoneController extends Controller
 
     public function destroy(Zone $zone)
     {
+        // Prevent deletion if referenced by customers or suppliers (via addresses)
+        $customerCount = DB::table('customer_addresses')
+            ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+            ->where('addresses.zone_id', $zone->id)
+            ->count();
+        $supplierCount = DB::table('supplier_addresses')
+            ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+            ->where('addresses.zone_id', $zone->id)
+            ->count();
+
+        if ($customerCount > 0 || $supplierCount > 0) {
+            $customerSample = DB::table('customer_addresses')
+                ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                ->where('addresses.zone_id', $zone->id)
+                ->limit(1)
+                ->pluck('customer_addresses.customer_id');
+            $supplierSample = DB::table('supplier_addresses')
+                ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                ->where('addresses.zone_id', $zone->id)
+                ->limit(1)
+                ->pluck('supplier_addresses.supplier_id');
+
+            $details = [];
+            if ($customerCount > 0) {
+                $details['customers'] = [
+                    'count' => $customerCount,
+                    'sample_ids' => $customerSample,
+                ];
+            }
+            if ($supplierCount > 0) {
+                $details['suppliers'] = [
+                    'count' => $supplierCount,
+                    'sample_ids' => $supplierSample,
+                ];
+            }
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete zone \"{$zone->name}\" (ID: {$zone->id}). It is referenced by existing customers or suppliers.",
+                'details' => $details,
+            ], 409);
+        }
+
         $zone->delete();
 
         $tenantId = tenant('id');
@@ -124,11 +172,47 @@ class ZoneController extends Controller
         foreach ($request->ids as $id) {
             $zone = Zone::find($id);
 
-            // Check if the zone has any addresses linked to it
-            if ($zone->addresses()->exists()) {
+            // Check if referenced by customers or suppliers (via addresses) and include details
+            $customerCount = DB::table('customer_addresses')
+                ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                ->where('addresses.zone_id', $id)
+                ->count();
+            $supplierCount = DB::table('supplier_addresses')
+                ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                ->where('addresses.zone_id', $id)
+                ->count();
+
+            if ($customerCount > 0 || $supplierCount > 0) {
+                $customerSample = DB::table('customer_addresses')
+                    ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                    ->where('addresses.zone_id', $id)
+                    ->limit(1)
+                    ->pluck('customer_addresses.customer_id');
+                $supplierSample = DB::table('supplier_addresses')
+                    ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                    ->where('addresses.zone_id', $id)
+                    ->limit(1)
+                    ->pluck('supplier_addresses.supplier_id');
+
+                $details = [];
+                if ($customerCount > 0) {
+                    $details['customers'] = [
+                        'count' => $customerCount,
+                        'sample_ids' => $customerSample,
+                    ];
+                }
+                if ($supplierCount > 0) {
+                    $details['suppliers'] = [
+                        'count' => $supplierCount,
+                        'sample_ids' => $supplierSample,
+                    ];
+                }
+
                 $skipped[] = [
                     'id' => $id,
-                    'reason' => 'Cannot delete zone. It is being used by one or more addresses.',
+                    'name' => $zone->name ?? "ID: {$id}",
+                    'reason' => 'Cannot delete zone. It is referenced by existing customers or suppliers.',
+                    'details' => $details,
                 ];
 
                 continue;
@@ -138,14 +222,58 @@ class ZoneController extends Controller
                 $deleted += $zone->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_zone_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                // Check if it's a foreign key constraint error
+                // Check if it's a foreign key constraint error and include details
                 if ($e->getCode() == '23503') {
+                    $details = [];
+
+                    try {
+                        $customerCount = DB::table('customer_addresses')
+                            ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                            ->where('addresses.zone_id', $id)
+                            ->count();
+                        $supplierCount = DB::table('supplier_addresses')
+                            ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                            ->where('addresses.zone_id', $id)
+                            ->count();
+                        if ($customerCount > 0) {
+                            $customerSample = DB::table('customer_addresses')
+                                ->join('addresses', 'customer_addresses.address_id', '=', 'addresses.id')
+                                ->where('addresses.zone_id', $id)
+                                ->limit(1)
+                                ->pluck('customer_addresses.customer_id');
+                            $details['customers'] = [
+                                'count' => $customerCount,
+                                'sample_ids' => $customerSample,
+                            ];
+                        }
+                        if ($supplierCount > 0) {
+                            $supplierSample = DB::table('supplier_addresses')
+                                ->join('addresses', 'supplier_addresses.address_id', '=', 'addresses.id')
+                                ->where('addresses.zone_id', $id)
+                                ->limit(1)
+                                ->pluck('supplier_addresses.supplier_id');
+                            $details['suppliers'] = [
+                                'count' => $supplierCount,
+                                'sample_ids' => $supplierSample,
+                            ];
+                        }
+                    } catch (\Throwable $ignored) {
+                    }
+
+                    $zone = Zone::find($id);
                     $skipped[] = [
                         'id' => $id,
-                        'reason' => 'Cannot delete zone. It is being used by one or more addresses.',
+                        'name' => $zone?->name ?? "ID: {$id}",
+                        'reason' => 'Cannot delete zone. It is referenced by existing customers or suppliers.',
+                        'details' => $details,
                     ];
                 } else {
-                    $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                    $zone = Zone::find($id);
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $zone?->name ?? "ID: {$id}",
+                        'reason' => $e->getMessage(),
+                    ];
                 }
             }
         }

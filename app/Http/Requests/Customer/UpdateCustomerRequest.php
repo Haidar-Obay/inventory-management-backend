@@ -369,7 +369,7 @@ class UpdateCustomerRequest extends FormRequest
 
             // Addresses (handled separately in controller)
             'addresses' => 'sometimes|array|min:1',
-            'addresses.*.address_line1' => 'required|string|max:255',
+            'addresses.*.address_line1' => 'sometimes|nullable|string|max:255',
             'addresses.*.address_line2' => 'nullable|string|max:255',
             'addresses.*.country_id' => 'nullable|exists:countries,id',
             'addresses.*.city_id' => 'nullable|exists:cities,id',
@@ -388,7 +388,7 @@ class UpdateCustomerRequest extends FormRequest
 
             // Shipping addresses array
             'shipping_addresses' => 'sometimes|nullable|array',
-            'shipping_addresses.*.address_line1' => 'required|string|max:255',
+            'shipping_addresses.*.address_line1' => 'sometimes|nullable|string|max:255',
             'shipping_addresses.*.address_line2' => 'nullable|string|max:255',
             'shipping_addresses.*.country_id' => 'nullable|exists:countries,id',
             'shipping_addresses.*.city_id' => 'nullable|exists:cities,id',
