@@ -166,6 +166,8 @@ class JobController extends Controller
             'projects_jobs.start_date',
             'projects_jobs.expected_date',
             'projects_jobs.end_date',
+            'projects_jobs.created_at',
+            'projects_jobs.updated_at',
         ])
             ->join('projects', 'projects_jobs.project_id', '=', 'projects.id');
 

@@ -325,7 +325,7 @@ class SalesChannelController extends Controller
                 'sales_channels.code',
                 'sales_channels.name',
                 'parent.code as parent_code',
-                'created_at', 'updated_at'])
+                'sales_channels.created_at', 'sales_channels.updated_at'])
             ->get();
 
         if ($salesChannels->isEmpty()) {

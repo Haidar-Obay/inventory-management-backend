@@ -248,7 +248,7 @@ class CostCenterController extends Controller
                 'cost_centers.name',
                 'parent.code as parent_code',
                 'cost_centers.active',
-                'created_at', 'updated_at'])
+                'cost_centers.created_at', 'cost_centers.updated_at'])
             ->get();
 
         if ($costCenters->isEmpty()) {
