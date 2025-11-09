@@ -179,6 +179,8 @@ Route::middleware([
         Route::apiResource('distribution-channels', DistributionChannelController::class);
         Route::apiResource('transportation-channels', TransportationChannelController::class);
         Route::apiResource('media-channels', MediaChannelController::class);
+        Route::get('items/services/list', [ItemController::class, 'getServiceItems'])->middleware('check.permission:items,view');
+        Route::get('items/all', [ItemController::class, 'getAllItems'])->middleware('check.permission:items,view');
         Route::apiResource('items', ItemController::class)->middleware('check.permission:items,view');
         Route::post('items/{item}/attachments', [ItemController::class, 'uploadAttachment'])->middleware('check.permission:items,view');
         Route::get('items/{item}/attachments', [ItemController::class, 'getAttachments'])->middleware('check.permission:items,view');
