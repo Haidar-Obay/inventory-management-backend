@@ -19,6 +19,8 @@ return new class extends Migration
             $table->boolean('can_add')->default(false);
             $table->boolean('can_edit')->default(false);
             $table->boolean('can_delete')->default(false);
+            $table->boolean('can_import')->default(false);
+            $table->boolean('can_export')->default(false);
             $table->timestamps();
 
             $table->foreign('role_id')->references('id')->on('roles')->onDelete('cascade');

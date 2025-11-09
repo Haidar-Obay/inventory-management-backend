@@ -17,6 +17,8 @@ class PermissionService
             'add' => 'can_add',
             'edit' => 'can_edit',
             'delete' => 'can_delete',
+            'import' => 'can_import',
+            'export' => 'can_export',
             default => null,
         };
 

@@ -27,7 +27,7 @@ class Permission extends Model
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'role_permissions')
-            ->withPivot(['can_view', 'can_add', 'can_edit', 'can_delete'])
+            ->withPivot(['can_view', 'can_add', 'can_edit', 'can_delete', 'can_import', 'can_export'])
             ->withTimestamps();
     }
 

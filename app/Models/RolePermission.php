@@ -26,6 +26,8 @@ class RolePermission extends Model
         'can_add',
         'can_edit',
         'can_delete',
+        'can_import',
+        'can_export',
     ];
 
     /**
@@ -38,6 +40,8 @@ class RolePermission extends Model
         'can_add' => 'boolean',
         'can_edit' => 'boolean',
         'can_delete' => 'boolean',
+        'can_import' => 'boolean',
+        'can_export' => 'boolean',
     ];
 
     /**
@@ -61,7 +65,7 @@ class RolePermission extends Model
      */
     public function hasAnyPermission(): bool
     {
-        return $this->can_view || $this->can_add || $this->can_edit || $this->can_delete;
+        return $this->can_view || $this->can_add || $this->can_edit || $this->can_delete || $this->can_import || $this->can_export;
     }
 
     /**
@@ -69,6 +73,6 @@ class RolePermission extends Model
      */
     public function hasAllPermissions(): bool
     {
-        return $this->can_view && $this->can_add && $this->can_edit && $this->can_delete;
+        return $this->can_view && $this->can_add && $this->can_edit && $this->can_delete && $this->can_import && $this->can_export;
     }
 }

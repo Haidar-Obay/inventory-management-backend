@@ -46,6 +46,8 @@ class RolePermissionController extends Controller
                     'can_add' => $permission->pivot->can_add,
                     'can_edit' => $permission->pivot->can_edit,
                     'can_delete' => $permission->pivot->can_delete,
+                    'can_import' => $permission->pivot->can_import,
+                    'can_export' => $permission->pivot->can_export,
                 ];
             });
 
@@ -80,6 +82,8 @@ class RolePermissionController extends Controller
                 'permissions.*.can_add' => 'boolean',
                 'permissions.*.can_edit' => 'boolean',
                 'permissions.*.can_delete' => 'boolean',
+                'permissions.*.can_import' => 'boolean',
+                'permissions.*.can_export' => 'boolean',
             ]);
 
             $permissionsData = $request->input('permissions');
@@ -102,6 +106,8 @@ class RolePermissionController extends Controller
                     'can_add' => $permissionData['can_add'] ?? false,
                     'can_edit' => $permissionData['can_edit'] ?? false,
                     'can_delete' => $permissionData['can_delete'] ?? false,
+                    'can_import' => $permissionData['can_import'] ?? false,
+                    'can_export' => $permissionData['can_export'] ?? false,
                 ]);
             }
 
@@ -123,6 +129,8 @@ class RolePermissionController extends Controller
                             'can_add' => $permission->pivot->can_add,
                             'can_edit' => $permission->pivot->can_edit,
                             'can_delete' => $permission->pivot->can_delete,
+                            'can_import' => $permission->pivot->can_import,
+                            'can_export' => $permission->pivot->can_export,
                         ];
                     }),
                 ],
@@ -147,6 +155,8 @@ class RolePermissionController extends Controller
                 'can_add' => 'boolean',
                 'can_edit' => 'boolean',
                 'can_delete' => 'boolean',
+                'can_import' => 'boolean',
+                'can_export' => 'boolean',
             ]);
 
             // Enforce: Admin cannot edit Owner or Admin roles
@@ -163,6 +173,8 @@ class RolePermissionController extends Controller
                 'can_add' => $request->input('can_add', false),
                 'can_edit' => $request->input('can_edit', false),
                 'can_delete' => $request->input('can_delete', false),
+                'can_import' => $request->input('can_import', false),
+                'can_export' => $request->input('can_export', false),
             ]);
 
             return response()->json([
@@ -179,6 +191,8 @@ class RolePermissionController extends Controller
                         'can_add' => $request->input('can_add', false),
                         'can_edit' => $request->input('can_edit', false),
                         'can_delete' => $request->input('can_delete', false),
+                        'can_import' => $request->input('can_import', false),
+                        'can_export' => $request->input('can_export', false),
                     ],
                 ],
             ]);
@@ -238,6 +252,8 @@ class RolePermissionController extends Controller
                     'can_add' => $role->pivot->can_add,
                     'can_edit' => $role->pivot->can_edit,
                     'can_delete' => $role->pivot->can_delete,
+                    'can_import' => $role->pivot->can_import,
+                    'can_export' => $role->pivot->can_export,
                 ];
             });
 
@@ -268,7 +284,7 @@ class RolePermissionController extends Controller
         try {
             $request->validate([
                 'resource_key' => 'required|string|exists:permissions,resource_key',
-                'action' => 'required|string|in:view,add,edit,delete',
+                'action' => 'required|string|in:view,add,edit,delete,import,export',
             ]);
 
             $resourceKey = $request->input('resource_key');
@@ -306,6 +322,14 @@ class RolePermissionController extends Controller
                     break;
                 case 'delete':
                     $hasPermission = $permission->pivot->can_delete;
+
+                    break;
+                case 'import':
+                    $hasPermission = $permission->pivot->can_import;
+
+                    break;
+                case 'export':
+                    $hasPermission = $permission->pivot->can_export;
 
                     break;
             }

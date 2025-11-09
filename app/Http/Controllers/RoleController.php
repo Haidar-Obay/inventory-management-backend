@@ -178,6 +178,8 @@ class RoleController extends Controller
                         'can_add' => (bool) ($perm['can_add'] ?? false),
                         'can_edit' => (bool) ($perm['can_edit'] ?? false),
                         'can_delete' => (bool) ($perm['can_delete'] ?? false),
+                        'can_import' => (bool) ($perm['can_import'] ?? false),
+                        'can_export' => (bool) ($perm['can_export'] ?? false),
                     ];
                 }
 
@@ -214,6 +216,8 @@ class RoleController extends Controller
                         'can_add' => (bool) $perm->pivot->can_add,
                         'can_edit' => (bool) $perm->pivot->can_edit,
                         'can_delete' => (bool) $perm->pivot->can_delete,
+                        'can_import' => (bool) $perm->pivot->can_import,
+                        'can_export' => (bool) $perm->pivot->can_export,
                     ];
                 })->values(),
                 'updated_at' => $role->updated_at,
