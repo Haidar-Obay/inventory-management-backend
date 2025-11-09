@@ -33,6 +33,7 @@ class ItemController extends Controller
         $key = "tenant_{$tenantId}_items";
 
         // Always load relationships, even if cached
+        // Exclude service items (they are mirrored from services table)
         $items = Item::with([
             'trade:id,name',
             'companyCode:id,name',
@@ -41,7 +42,9 @@ class ItemController extends Controller
             'brand:id,name',
             'baseUom:id,name',
             'parent:id,code,name',
-        ])->orderBy('name')->get();
+        ])->where('type', '!=', ItemType::SERVICE)
+          ->where('type', '!=', ItemType::MEDICAL_SERVICE)
+          ->orderBy('name')->get();
 
         // Transform relationships to snake_case for frontend compatibility
         $transformedItems = $items->map(function ($item) {
@@ -824,6 +827,98 @@ class ItemController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Unit of measurements detached successfully.',
+        ]);
+    }
+
+    /**
+     * Fetch service items (items mirrored from services table)
+     * These are items with type='service' or type='medical_service'
+     */
+    public function getServiceItems()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_service_items";
+
+        $items = app('cache')->store('database')->get($key);
+
+        if (! $items) {
+            $items = Item::with(['service:id,name'])
+                ->whereIn('type', [ItemType::SERVICE, ItemType::MEDICAL_SERVICE])
+                ->orderBy('name')
+                ->get();
+
+            app('cache')->store('database')->put($key, $items, now()->addHours(1));
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Service items fetched successfully.',
+            'data' => $items,
+        ]);
+    }
+
+    /**
+     * Fetch all items including both regular items and service items
+     * This combines regular items with service-mirrored items
+     */
+    public function getAllItems()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_all_items";
+
+        $items = app('cache')->store('database')->get($key);
+
+        if (! $items) {
+            // Get regular items (excluding services)
+            $regularItems = Item::with([
+                'trade:id,name',
+                'companyCode:id,name',
+                'productLine:id,name',
+                'category:id,name',
+                'brand:id,name',
+                'baseUom:id,name',
+                'parent:id,code,name',
+            ])->where('type', '!=', ItemType::SERVICE)
+              ->where('type', '!=', ItemType::MEDICAL_SERVICE)
+              ->orderBy('name')
+              ->get();
+
+            // Get service items (with service relationship)
+            $serviceItems = Item::with(['service:id,name'])
+                ->whereIn('type', [ItemType::SERVICE, ItemType::MEDICAL_SERVICE])
+                ->orderBy('name')
+                ->get();
+
+            // Combine both collections
+            $items = $regularItems->concat($serviceItems)->sortBy('name')->values();
+
+            app('cache')->store('database')->put($key, $items, now()->addHours(1));
+        }
+
+        // Transform relationships to snake_case for frontend compatibility
+        $transformedItems = $items->map(function ($item) {
+            $itemArray = $item->toArray();
+            // Map camelCase relationships to snake_case
+            if (isset($itemArray['companyCode'])) {
+                $itemArray['company_code'] = $itemArray['companyCode'];
+                unset($itemArray['companyCode']);
+            }
+            if (isset($itemArray['productLine'])) {
+                $itemArray['product_line'] = $itemArray['productLine'];
+                unset($itemArray['productLine']);
+            }
+            if (isset($itemArray['baseUom'])) {
+                $itemArray['base_uom'] = $itemArray['baseUom'];
+                unset($itemArray['baseUom']);
+            }
+
+            return $itemArray;
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'All items fetched successfully.',
+            'data' => $transformedItems,
         ]);
     }
 }

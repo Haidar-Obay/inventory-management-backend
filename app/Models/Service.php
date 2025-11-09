@@ -15,6 +15,7 @@ class Service extends Model
     protected $fillable = [
         'name',
         'service_category_id',
+        'item_id',
         'result_after_days',
         'needs_specialist',
         'needs_asset',
@@ -73,5 +74,10 @@ class Service extends Model
     public function referrerRules(): HasMany
     {
         return $this->hasMany(ReferrerServiceCommission::class);
+    }
+
+    public function item(): BelongsTo
+    {
+        return $this->belongsTo(Item::class, 'item_id');
     }
 }

@@ -136,4 +136,9 @@ class Item extends Model implements Auditable
         return $this->belongsToMany(CustomerMasterList::class, 'customer_master_list_item')
             ->withTimestamps();
     }
+
+    public function service()
+    {
+        return $this->hasOne(Service::class, 'item_id');
+    }
 }
