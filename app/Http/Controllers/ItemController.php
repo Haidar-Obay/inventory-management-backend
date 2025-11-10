@@ -42,9 +42,11 @@ class ItemController extends Controller
             'brand:id,name',
             'baseUom:id,name',
             'parent:id,code,name',
-        ])->where('type', '!=', ItemType::SERVICE)
+        ])
+            ->where('type', '!=', ItemType::SERVICE)
             ->where('type', '!=', ItemType::MEDICAL_SERVICE)
-            ->orderBy('name')->get();
+            ->orderBy('name')
+            ->get();
 
         // Transform relationships to snake_case for frontend compatibility
         $transformedItems = $items->map(function ($item) {
@@ -878,7 +880,8 @@ class ItemController extends Controller
                 'brand:id,name',
                 'baseUom:id,name',
                 'parent:id,code,name',
-            ])->where('type', '!=', ItemType::SERVICE)
+            ])
+                ->where('type', '!=', ItemType::SERVICE)
                 ->where('type', '!=', ItemType::MEDICAL_SERVICE)
                 ->orderBy('name')
                 ->get();
