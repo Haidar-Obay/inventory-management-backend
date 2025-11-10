@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ItemType;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Http\Requests\StoreServiceRequest;
 use App\Http\Requests\UpdateServiceRequest;
 use App\Imports\DynamicExcelImport;
-use App\Enums\ItemType;
 use App\Models\Item;
 use App\Models\Service;
 use App\Models\ServiceNeededItem;
@@ -558,13 +558,38 @@ class ServiceController extends Controller
 
         $skipped = [];
         $deleted = 0;
+        $itemIds = [];
 
         foreach ($request->ids as $id) {
             try {
-                $deleted += Service::where('id', $id)->delete();
+                $service = Service::find($id);
+                if ($service) {
+                    // Collect item IDs before deletion
+                    if ($service->item_id) {
+                        $itemIds[] = $service->item_id;
+                    }
+
+                    // Delete linked item if it exists
+                    if ($service->item_id && $service->item) {
+                        $service->item->delete();
+                    }
+
+                    // Delete the service
+                    $deleted += $service->delete();
+                }
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
+        }
+
+        // Clear item caches after bulk delete
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
+        // Clear individual item caches
+        foreach ($itemIds as $itemId) {
+            app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$itemId}");
         }
 
         return response()->json([
