@@ -481,6 +481,7 @@ class CategoryController extends Controller
             $tenantId = tenant('id');
             if (! $tenantId) {
                 Log::error('Tenant context not initialized when fetching category names');
+
                 return response()->json([
                     'status' => false,
                     'message' => 'Tenant context not initialized.',
@@ -510,7 +511,7 @@ class CategoryController extends Controller
             // Database-specific errors (table doesn't exist, column doesn't exist, etc.)
             $errorCode = $e->getCode();
             $errorMessage = $e->getMessage();
-            
+
             Log::error('Database error fetching category names', [
                 'tenant_id' => tenant('id'),
                 'error_code' => $errorCode,
