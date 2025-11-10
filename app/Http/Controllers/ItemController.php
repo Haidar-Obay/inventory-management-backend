@@ -43,8 +43,8 @@ class ItemController extends Controller
             'baseUom:id,name',
             'parent:id,code,name',
         ])->where('type', '!=', ItemType::SERVICE)
-          ->where('type', '!=', ItemType::MEDICAL_SERVICE)
-          ->orderBy('name')->get();
+            ->where('type', '!=', ItemType::MEDICAL_SERVICE)
+            ->orderBy('name')->get();
 
         // Transform relationships to snake_case for frontend compatibility
         $transformedItems = $items->map(function ($item) {
@@ -879,9 +879,9 @@ class ItemController extends Controller
                 'baseUom:id,name',
                 'parent:id,code,name',
             ])->where('type', '!=', ItemType::SERVICE)
-              ->where('type', '!=', ItemType::MEDICAL_SERVICE)
-              ->orderBy('name')
-              ->get();
+                ->where('type', '!=', ItemType::MEDICAL_SERVICE)
+                ->orderBy('name')
+                ->get();
 
             // Get service items (with service relationship)
             $serviceItems = Item::with(['service:id,name'])
