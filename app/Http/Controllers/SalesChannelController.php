@@ -491,23 +491,51 @@ class SalesChannelController extends Controller
 
     public function getNames()
     {
-        $salesChannels = SalesChannel::whereNull('sub_sales_of')
-            ->select('id', 'name', 'created_at', 'updated_at')
-            ->orderBy('name')
-            ->get()
-            ->map(function ($salesChannel) {
-                return [
-                    'id' => $salesChannel->id,
-                    'name' => $salesChannel->name,
-                    'created_at' => $salesChannel->created_at,
-                    'updated_at' => $salesChannel->updated_at,
-                ];
-            });
+        try {
+            // Verify tenant context is initialized
+            $tenantId = tenant('id');
+            if (! $tenantId) {
+                Log::error('SalesChannelController::getNames() - Tenant context not initialized');
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Sales channel names fetched successfully.',
-            'data' => $salesChannels,
-        ]);
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tenant context not initialized',
+                    'data' => [],
+                ], 500);
+            }
+
+            $salesChannels = SalesChannel::whereNull('sub_sales_of')
+                ->select('id', 'name', 'created_at', 'updated_at')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($salesChannel) {
+                    return [
+                        'id' => $salesChannel->id,
+                        'name' => $salesChannel->name,
+                        'created_at' => $salesChannel->created_at,
+                        'updated_at' => $salesChannel->updated_at,
+                    ];
+                });
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Sales channel names fetched successfully.',
+                'data' => $salesChannels,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('SalesChannelController::getNames() failed', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'tenant_id' => tenant('id'),
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to fetch sales channel names: '.$e->getMessage(),
+                'data' => [],
+            ], 500);
+        }
     }
 }
