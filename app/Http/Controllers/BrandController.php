@@ -137,12 +137,12 @@ class BrandController extends Controller
     public function destroy(Brand $brand)
     {
         $identifier = $brand->name ?? $brand->code ?? "ID: {$brand->id}";
-        
+
         // Check if brand has subbrands
         if ($brand->subbrands()->exists()) {
             $subbrandsCount = $brand->subbrands()->count();
             $sampleIds = $brand->subbrands()->select('brands.id')->limit(1)->pluck('id');
-            
+
             return response()->json([
                 'status' => false,
                 'message' => "Cannot delete brand \"{$identifier}\" (ID: {$brand->id}). It has subbrands.",
@@ -154,12 +154,12 @@ class BrandController extends Controller
                 ],
             ], 409);
         }
-        
+
         // Check if brand has items
         $itemsCount = \App\Models\Item::where('brand_id', $brand->id)->count();
         if ($itemsCount > 0) {
             $sampleIds = \App\Models\Item::where('brand_id', $brand->id)->select('items.id')->limit(1)->pluck('id');
-            
+
             return response()->json([
                 'status' => false,
                 'message' => "Cannot delete brand \"{$identifier}\" (ID: {$brand->id}). It is referenced by existing items.",
@@ -198,19 +198,20 @@ class BrandController extends Controller
         foreach ($request->ids as $id) {
             try {
                 $brand = Brand::find($id);
-                
-                if (!$brand) {
+
+                if (! $brand) {
                     $skipped[] = [
                         'id' => $id,
                         'name' => "ID: {$id}",
                         'reason' => 'Brand not found.',
                     ];
+
                     continue;
                 }
-                
+
                 $identifier = $brand->name ?? $brand->code ?? "ID: {$id}";
                 $details = [];
-                
+
                 // Check if brand has subbrands
                 if ($brand->subbrands()->exists()) {
                     $subbrandsCount = $brand->subbrands()->count();
@@ -219,7 +220,7 @@ class BrandController extends Controller
                         'sample_ids' => $brand->subbrands()->select('brands.id')->limit(1)->pluck('id'),
                     ];
                 }
-                
+
                 // Check if brand has items
                 $itemsCount = \App\Models\Item::where('brand_id', $id)->count();
                 if ($itemsCount > 0) {
@@ -228,17 +229,18 @@ class BrandController extends Controller
                         'sample_ids' => \App\Models\Item::where('brand_id', $id)->select('items.id')->limit(1)->pluck('id'),
                     ];
                 }
-                
-                if (!empty($details)) {
+
+                if (! empty($details)) {
                     $skipped[] = [
                         'id' => $id,
                         'name' => $identifier,
                         'reason' => 'Cannot delete brand. It is referenced by existing records.',
                         'details' => $details,
                     ];
+
                     continue;
                 }
-                
+
                 $deleted += $brand->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_brand_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {

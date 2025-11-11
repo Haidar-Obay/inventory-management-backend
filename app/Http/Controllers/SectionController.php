@@ -108,12 +108,12 @@ class SectionController extends Controller
     public function destroy(Section $section)
     {
         $identifier = $section->name ?? "ID: {$section->id}";
-        
+
         // Check if section has assets
         if ($section->assets()->exists()) {
             $assetsCount = $section->assets()->count();
             $sampleIds = $section->assets()->select('assets.id')->limit(1)->pluck('id');
-            
+
             return response()->json([
                 'status' => false,
                 'message' => "Cannot delete section \"{$identifier}\" (ID: {$section->id}). It is referenced by existing assets.",
@@ -152,18 +152,19 @@ class SectionController extends Controller
         foreach ($request->ids as $id) {
             try {
                 $section = Section::find($id);
-                
-                if (!$section) {
+
+                if (! $section) {
                     $skipped[] = [
                         'id' => $id,
                         'name' => "ID: {$id}",
                         'reason' => 'Section not found.',
                     ];
+
                     continue;
                 }
-                
+
                 $identifier = $section->name ?? "ID: {$id}";
-                
+
                 // Check if section has assets
                 if ($section->assets()->exists()) {
                     $assetsCount = $section->assets()->count();
@@ -173,16 +174,17 @@ class SectionController extends Controller
                             'sample_ids' => $section->assets()->select('assets.id')->limit(1)->pluck('id'),
                         ],
                     ];
-                    
+
                     $skipped[] = [
                         'id' => $id,
                         'name' => $identifier,
                         'reason' => 'Cannot delete section. It is referenced by existing assets.',
                         'details' => $details,
                     ];
+
                     continue;
                 }
-                
+
                 $deleted += $section->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_section_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {

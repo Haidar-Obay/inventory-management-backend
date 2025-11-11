@@ -177,7 +177,7 @@ class ItemController extends Controller
     {
         $identifier = $item->name ?? $item->code ?? "ID: {$item->id}";
         $details = [];
-        
+
         // Prevent deletion if item has child items (parent_id references)
         $childrenCount = $item->children()->count();
         if ($childrenCount > 0) {
@@ -186,7 +186,7 @@ class ItemController extends Controller
                 'sample_ids' => $item->children()->select('items.id')->limit(1)->pluck('id'),
             ];
         }
-        
+
         // Check if item is referenced by service needed items
         $serviceNeededItemsCount = \App\Models\ServiceNeededItem::where('item_id', $item->id)->count();
         if ($serviceNeededItemsCount > 0) {
@@ -198,8 +198,8 @@ class ItemController extends Controller
                     ->pluck('id'),
             ];
         }
-        
-        if (!empty($details)) {
+
+        if (! empty($details)) {
             return response()->json([
                 'status' => false,
                 'message' => "Cannot delete item \"{$identifier}\" (ID: {$item->id}). It is referenced by existing records.",
@@ -245,7 +245,7 @@ class ItemController extends Controller
 
                 $identifier = $item->name ?? $item->code ?? "ID: {$id}";
                 $details = [];
-                
+
                 // Check if item has child items and include details
                 if ($item->children()->exists()) {
                     $childrenCount = $item->children()->count();
@@ -254,7 +254,7 @@ class ItemController extends Controller
                         'sample_ids' => $item->children()->select('items.id')->limit(1)->pluck('id'),
                     ];
                 }
-                
+
                 // Check if item is referenced by service needed items
                 $serviceNeededItemsCount = \App\Models\ServiceNeededItem::where('item_id', $id)->count();
                 if ($serviceNeededItemsCount > 0) {
@@ -266,8 +266,8 @@ class ItemController extends Controller
                             ->pluck('id'),
                     ];
                 }
-                
-                if (!empty($details)) {
+
+                if (! empty($details)) {
                     $skipped[] = [
                         'id' => $id,
                         'name' => $identifier,
@@ -296,7 +296,7 @@ class ItemController extends Controller
                                 'sample_ids' => $item->children()->select('items.id')->limit(1)->pluck('id'),
                             ];
                         }
-                        
+
                         $serviceNeededItemsCount = \App\Models\ServiceNeededItem::where('item_id', $id)->count();
                         if ($serviceNeededItemsCount > 0) {
                             $details['service_needed_items'] = [

@@ -88,12 +88,12 @@ class WarehouseController extends Controller
     public function destroy(Warehouse $warehouse)
     {
         $identifier = $warehouse->name ?? $warehouse->code ?? "ID: {$warehouse->id}";
-        
+
         // Check if warehouse has sub-warehouses
         if ($warehouse->subWarehouses()->exists()) {
             $subWarehousesCount = $warehouse->subWarehouses()->count();
             $sampleIds = $warehouse->subWarehouses()->select('warehouses.id')->limit(1)->pluck('id');
-            
+
             return response()->json([
                 'status' => false,
                 'message' => "Cannot delete warehouse \"{$identifier}\" (ID: {$warehouse->id}). It has sub-warehouses.",
@@ -130,18 +130,19 @@ class WarehouseController extends Controller
         foreach ($ids as $id) {
             try {
                 $warehouse = Warehouse::find($id);
-                
-                if (!$warehouse) {
+
+                if (! $warehouse) {
                     $skipped[] = [
                         'id' => $id,
                         'name' => "ID: {$id}",
                         'reason' => 'Warehouse not found.',
                     ];
+
                     continue;
                 }
-                
+
                 $identifier = $warehouse->name ?? $warehouse->code ?? "ID: {$id}";
-                
+
                 // Check if warehouse has sub-warehouses
                 if ($warehouse->subWarehouses()->exists()) {
                     $subWarehousesCount = $warehouse->subWarehouses()->count();
@@ -151,16 +152,17 @@ class WarehouseController extends Controller
                             'sample_ids' => $warehouse->subWarehouses()->select('warehouses.id')->limit(1)->pluck('id'),
                         ],
                     ];
-                    
+
                     $skipped[] = [
                         'id' => $id,
                         'name' => $identifier,
                         'reason' => 'Cannot delete warehouse. It has sub-warehouses.',
                         'details' => $details,
                     ];
+
                     continue;
                 }
-                
+
                 $warehouse->delete();
                 $deleted++;
                 Cache::forget("warehouse_{$id}_".tenant('id'));

@@ -89,12 +89,12 @@ class ProductLineController extends Controller
     public function destroy(ProductLine $productLine)
     {
         $identifier = $productLine->name ?? $productLine->code ?? "ID: {$productLine->id}";
-        
+
         // Check if product line has items
         $itemsCount = \App\Models\Item::where('product_line_id', $productLine->id)->count();
         if ($itemsCount > 0) {
             $sampleIds = \App\Models\Item::where('product_line_id', $productLine->id)->select('items.id')->limit(1)->pluck('id');
-            
+
             return response()->json([
                 'status' => false,
                 'message' => "Cannot delete product line \"{$identifier}\" (ID: {$productLine->id}). It is referenced by existing items.",
@@ -143,9 +143,9 @@ class ProductLineController extends Controller
 
                     continue;
                 }
-                
+
                 $identifier = $productLine->name ?? $productLine->code ?? "ID: {$id}";
-                
+
                 // Check if product line has items
                 $itemsCount = \App\Models\Item::where('product_line_id', $id)->count();
                 if ($itemsCount > 0) {
@@ -155,13 +155,14 @@ class ProductLineController extends Controller
                             'sample_ids' => \App\Models\Item::where('product_line_id', $id)->select('items.id')->limit(1)->pluck('id'),
                         ],
                     ];
-                    
+
                     $skipped[] = [
                         'id' => $id,
                         'name' => $identifier,
                         'reason' => 'Cannot delete product line. It is referenced by existing items.',
                         'details' => $details,
                     ];
+
                     continue;
                 }
 
