@@ -16,6 +16,8 @@ class AttachUOMRequest extends FormRequest
         return [
             'unit_of_measurements' => 'required|array|min:1',
             'unit_of_measurements.*.unit_of_measurement_id' => 'required|integer|exists:unit_of_measurements,id',
+            'unit_of_measurements.*.operation' => 'required|string|in:multiply,divide',
+            'unit_of_measurements.*.conversion' => 'required|numeric|gt:0',
             'unit_of_measurements.*.barcodes' => 'nullable|array',
             'unit_of_measurements.*.barcodes.*' => 'string|max:255',
             'unit_of_measurements.*.price_1' => 'nullable|numeric|min:0',

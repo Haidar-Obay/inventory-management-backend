@@ -18,13 +18,9 @@ class UnitOfMeasurement extends Model implements Auditable
     protected $fillable = [
         'name',
         'unit_group_id',
-        'operation',
-        'conversion',
     ];
 
-    protected $casts = [
-        'conversion' => 'decimal:4',
-    ];
+    protected $casts = [];
 
     public function unitGroup()
     {
@@ -36,6 +32,7 @@ class UnitOfMeasurement extends Model implements Auditable
         return $this->belongsToMany(Item::class, 'item_unit_of_measurement')
             ->using(ItemUnitOfMeasurement::class)
             ->withPivot([
+                'operation', 'conversion',
                 'barcodes',
                 'price_1', 'price_2', 'price_3', 'price_4', 'price_5', 'price_6',
                 'gross_volume', 'gross_weight',
@@ -44,23 +41,5 @@ class UnitOfMeasurement extends Model implements Auditable
             ->withTimestamps();
     }
 
-    /**
-     * Calculate conversion value
-     */
-    public function convert($value)
-    {
-        return $this->operation === 'multiply'
-            ? $value * $this->conversion
-            : $value / $this->conversion;
-    }
-
-    /**
-     * Reverse conversion (convert back to base unit)
-     */
-    public function reverseConvert($value)
-    {
-        return $this->operation === 'multiply'
-            ? $value / $this->conversion
-            : $value * $this->conversion;
-    }
+    // Conversion is item-specific and lives on the pivot
 }

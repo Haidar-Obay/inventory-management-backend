@@ -73,6 +73,7 @@ use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ZoneController;
+use App\Http\Controllers\TenantPurgeController;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
@@ -511,6 +512,9 @@ Route::middleware([
         Route::get('transportation-channels/{transportationChannelId}/sub-transportation-channels', [TransportationChannelController::class, 'getSubTransportationChannels']);
         Route::get('media-channels/{mediaChannelId}/sub-media-channels', [MediaChannelController::class, 'getSubMediaChannels']);
 
+        // Hard purge selected tables for current tenant (force delete)
+        Route::post('purge', [TenantPurgeController::class, 'purge']);
+
         // Customer Routes
         Route::post('/customers', [CustomerController::class, 'store']);
         Route::get('/customers', [CustomerController::class, 'index']);
@@ -670,14 +674,14 @@ Route::middleware([
     //  Email Verification Routes
     Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
         $user = User::find($id);
-        if (! $user) {
+        if (!$user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
         Auth::login($user); // Log the user in manually in tenant context
-        if (! hash_equals((string) $id, (string) $user->getKey())) {
+        if (!hash_equals((string) $id, (string) $user->getKey())) {
             return response()->json(['message' => 'Invalid user ID.'], 403);
         }
-        if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
+        if (!hash_equals(sha1($user->getEmailForVerification()), $hash)) {
             return response()->json(['message' => 'Invalid email hash.'], 403);
         }
         if ($user->hasVerifiedEmail()) {

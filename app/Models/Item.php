@@ -122,6 +122,7 @@ class Item extends Model implements Auditable
         return $this->belongsToMany(UnitOfMeasurement::class, 'item_unit_of_measurement')
             ->using(ItemUnitOfMeasurement::class)
             ->withPivot([
+                'operation', 'conversion',
                 'barcodes',
                 'price_1', 'price_2', 'price_3', 'price_4', 'price_5', 'price_6',
                 'gross_volume', 'gross_weight',

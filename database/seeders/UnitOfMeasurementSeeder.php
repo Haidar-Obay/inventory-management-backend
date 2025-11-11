@@ -21,37 +21,36 @@ class UnitOfMeasurementSeeder extends Seeder
         $areaGroup = UnitGroup::firstOrCreate(['name' => 'Area']);
 
         $unitOfMeasurements = [
-            // Weight units
-            ['name' => 'Kilogram', 'unit_group_id' => $weightGroup->id, 'operation' => 'multiply', 'conversion' => 1.0000],
-            ['name' => 'Gram', 'unit_group_id' => $weightGroup->id, 'operation' => 'divide', 'conversion' => 1000.0000],
-            ['name' => 'Pound', 'unit_group_id' => $weightGroup->id, 'operation' => 'divide', 'conversion' => 2.2046],
-            ['name' => 'Ounce', 'unit_group_id' => $weightGroup->id, 'operation' => 'divide', 'conversion' => 35.2740],
+            // Weight units            ['name' => 'Kilogram', 'unit_group_id' => $weightGroup->id],
+            ['name' => 'Gram', 'unit_group_id' => $weightGroup->id],
+            ['name' => 'Pound', 'unit_group_id' => $weightGroup->id],
+            ['name' => 'Ounce', 'unit_group_id' => $weightGroup->id],
 
             // Volume units
-            ['name' => 'Liter', 'unit_group_id' => $volumeGroup->id, 'operation' => 'multiply', 'conversion' => 1.0000],
-            ['name' => 'Milliliter', 'unit_group_id' => $volumeGroup->id, 'operation' => 'divide', 'conversion' => 1000.0000],
-            ['name' => 'Gallon', 'unit_group_id' => $volumeGroup->id, 'operation' => 'divide', 'conversion' => 0.2642],
+            ['name' => 'Liter', 'unit_group_id' => $volumeGroup->id],
+            ['name' => 'Milliliter', 'unit_group_id' => $volumeGroup->id],
+            ['name' => 'Gallon', 'unit_group_id' => $volumeGroup->id],
 
             // Length units
-            ['name' => 'Meter', 'unit_group_id' => $lengthGroup->id, 'operation' => 'multiply', 'conversion' => 1.0000],
-            ['name' => 'Centimeter', 'unit_group_id' => $lengthGroup->id, 'operation' => 'divide', 'conversion' => 100.0000],
-            ['name' => 'Foot', 'unit_group_id' => $lengthGroup->id, 'operation' => 'divide', 'conversion' => 3.2808],
+            ['name' => 'Meter', 'unit_group_id' => $lengthGroup->id],
+            ['name' => 'Centimeter', 'unit_group_id' => $lengthGroup->id],
+            ['name' => 'Foot', 'unit_group_id' => $lengthGroup->id],
 
             // Count units
-            ['name' => 'Piece', 'unit_group_id' => $countGroup->id, 'operation' => 'multiply', 'conversion' => 1.0000],
-            ['name' => 'Box', 'unit_group_id' => $countGroup->id, 'operation' => 'multiply', 'conversion' => 1.0000],
-            ['name' => 'Pack', 'unit_group_id' => $countGroup->id, 'operation' => 'multiply', 'conversion' => 1.0000],
-            ['name' => 'Carton', 'unit_group_id' => $countGroup->id, 'operation' => 'multiply', 'conversion' => 1.0000],
+            ['name' => 'Piece', 'unit_group_id' => $countGroup->id],
+            ['name' => 'Box', 'unit_group_id' => $countGroup->id],
+            ['name' => 'Pack', 'unit_group_id' => $countGroup->id],
+            ['name' => 'Carton', 'unit_group_id' => $countGroup->id],
 
             // Area units
-            ['name' => 'Square Meter', 'unit_group_id' => $areaGroup->id, 'operation' => 'multiply', 'conversion' => 1.0000],
-            ['name' => 'Square Foot', 'unit_group_id' => $areaGroup->id, 'operation' => 'divide', 'conversion' => 10.7640],
+            ['name' => 'Square Meter', 'unit_group_id' => $areaGroup->id],
+            ['name' => 'Square Foot', 'unit_group_id' => $areaGroup->id],
         ];
 
         foreach ($unitOfMeasurements as $uom) {
             UnitOfMeasurement::firstOrCreate(
                 ['name' => $uom['name'], 'unit_group_id' => $uom['unit_group_id']],
-                $uom
+                ['name' => $uom['name'], 'unit_group_id' => $uom['unit_group_id']]
             );
         }
     }
