@@ -704,8 +704,10 @@ Route::middleware([
     Route::post('/reset-password', [AuthResetPasswordController::class, 'reset']);
 });
 
+// These routes use 'api' middleware instead of 'web' to avoid session/CSRF issues
+// when called from frontend API requests, especially concurrent requests
 Route::middleware([
-    'web',
+    'api',
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
 ])->group(function () {

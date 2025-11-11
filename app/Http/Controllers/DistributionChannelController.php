@@ -503,23 +503,51 @@ class DistributionChannelController extends Controller
 
     public function getNames()
     {
-        $distributionChannels = DistributionChannel::whereNull('sub_distribution_of')
-            ->select('id', 'name', 'created_at', 'updated_at')
-            ->orderBy('name')
-            ->get()
-            ->map(function ($distributionChannel) {
-                return [
-                    'id' => $distributionChannel->id,
-                    'name' => $distributionChannel->name,
-                    'created_at' => $distributionChannel->created_at,
-                    'updated_at' => $distributionChannel->updated_at,
-                ];
-            });
+        try {
+            // Verify tenant context is initialized
+            $tenantId = tenant('id');
+            if (! $tenantId) {
+                Log::error('DistributionChannelController::getNames() - Tenant context not initialized');
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Distribution channel names fetched successfully.',
-            'data' => $distributionChannels,
-        ]);
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tenant context not initialized',
+                    'data' => [],
+                ], 500);
+            }
+
+            $distributionChannels = DistributionChannel::whereNull('sub_distribution_of')
+                ->select('id', 'name', 'created_at', 'updated_at')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($distributionChannel) {
+                    return [
+                        'id' => $distributionChannel->id,
+                        'name' => $distributionChannel->name,
+                        'created_at' => $distributionChannel->created_at,
+                        'updated_at' => $distributionChannel->updated_at,
+                    ];
+                });
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Distribution channel names fetched successfully.',
+                'data' => $distributionChannels,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('DistributionChannelController::getNames() failed', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'tenant_id' => tenant('id'),
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to fetch distribution channel names: '.$e->getMessage(),
+                'data' => [],
+            ], 500);
+        }
     }
 }

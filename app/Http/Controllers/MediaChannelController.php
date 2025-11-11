@@ -535,23 +535,51 @@ class MediaChannelController extends Controller
 
     public function getNames()
     {
-        $mediaChannels = MediaChannel::whereNull('sub_media_of')
-            ->select('id', 'name', 'created_at', 'updated_at')
-            ->orderBy('name')
-            ->get()
-            ->map(function ($mediaChannel) {
-                return [
-                    'id' => $mediaChannel->id,
-                    'name' => $mediaChannel->name,
-                    'created_at' => $mediaChannel->created_at,
-                    'updated_at' => $mediaChannel->updated_at,
-                ];
-            });
+        try {
+            // Verify tenant context is initialized
+            $tenantId = tenant('id');
+            if (! $tenantId) {
+                Log::error('MediaChannelController::getNames() - Tenant context not initialized');
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Media channel names fetched successfully.',
-            'data' => $mediaChannels,
-        ]);
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tenant context not initialized',
+                    'data' => [],
+                ], 500);
+            }
+
+            $mediaChannels = MediaChannel::whereNull('sub_media_of')
+                ->select('id', 'name', 'created_at', 'updated_at')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($mediaChannel) {
+                    return [
+                        'id' => $mediaChannel->id,
+                        'name' => $mediaChannel->name,
+                        'created_at' => $mediaChannel->created_at,
+                        'updated_at' => $mediaChannel->updated_at,
+                    ];
+                });
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Media channel names fetched successfully.',
+                'data' => $mediaChannels,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('MediaChannelController::getNames() failed', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'tenant_id' => tenant('id'),
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to fetch media channel names: '.$e->getMessage(),
+                'data' => [],
+            ], 500);
+        }
     }
 }
