@@ -88,6 +88,25 @@ class ProductLineController extends Controller
 
     public function destroy(ProductLine $productLine)
     {
+        $identifier = $productLine->name ?? $productLine->code ?? "ID: {$productLine->id}";
+
+        // Check if product line has items
+        $itemsCount = \App\Models\Item::where('product_line_id', $productLine->id)->count();
+        if ($itemsCount > 0) {
+            $sampleIds = \App\Models\Item::where('product_line_id', $productLine->id)->select('items.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete product line \"{$identifier}\" (ID: {$productLine->id}). It is referenced by existing items.",
+                'details' => [
+                    'items' => [
+                        'count' => $itemsCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $productLine->delete();
 
         // Invalidate cache after deleting product line
@@ -118,7 +137,30 @@ class ProductLineController extends Controller
                 if (! $productLine) {
                     $skipped[] = [
                         'id' => $id,
+                        'name' => "ID: {$id}",
                         'reason' => 'Product line not found.',
+                    ];
+
+                    continue;
+                }
+
+                $identifier = $productLine->name ?? $productLine->code ?? "ID: {$id}";
+
+                // Check if product line has items
+                $itemsCount = \App\Models\Item::where('product_line_id', $id)->count();
+                if ($itemsCount > 0) {
+                    $details = [
+                        'items' => [
+                            'count' => $itemsCount,
+                            'sample_ids' => \App\Models\Item::where('product_line_id', $id)->select('items.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete product line. It is referenced by existing items.',
+                        'details' => $details,
                     ];
 
                     continue;
@@ -129,8 +171,11 @@ class ProductLineController extends Controller
 
             } catch (\Exception $e) {
                 Log::error('Error deleting product line '.$id.': '.$e->getMessage());
+                $productLine = ProductLine::find($id);
+                $identifier = $productLine?->name ?? $productLine?->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
+                    'name' => $identifier,
                     'reason' => $e->getMessage(),
                 ];
             }

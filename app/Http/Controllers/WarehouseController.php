@@ -87,43 +87,103 @@ class WarehouseController extends Controller
 
     public function destroy(Warehouse $warehouse)
     {
+        $identifier = $warehouse->name ?? $warehouse->code ?? "ID: {$warehouse->id}";
+
         // Check if warehouse has sub-warehouses
         if ($warehouse->subWarehouses()->exists()) {
-            return response()->json(['message' => 'Cannot delete warehouse with sub-warehouses'], 422);
+            $subWarehousesCount = $warehouse->subWarehouses()->count();
+            $sampleIds = $warehouse->subWarehouses()->select('warehouses.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete warehouse \"{$identifier}\" (ID: {$warehouse->id}). It has sub-warehouses.",
+                'details' => [
+                    'sub_warehouses' => [
+                        'count' => $subWarehousesCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
         }
 
         $warehouse->delete();
         Cache::forget('warehouses_'.tenant('id'));
         Cache::forget("warehouse_{$warehouse->id}_".tenant('id'));
 
-        return response()->json(null, 204);
+        return response()->json([
+            'status' => true,
+            'message' => 'Warehouse deleted successfully.',
+        ]);
     }
 
     public function bulkDelete(Request $request)
     {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:warehouses,id',
+        ]);
+
         $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
 
-        if (! $ids || ! is_array($ids)) {
-            return response()->json(['message' => 'No warehouses selected'], 400);
-        }
+        foreach ($ids as $id) {
+            try {
+                $warehouse = Warehouse::find($id);
 
-        $warehouses = Warehouse::whereIn('id', $ids)->get();
-        $errors = [];
+                if (! $warehouse) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => "ID: {$id}",
+                        'reason' => 'Warehouse not found.',
+                    ];
 
-        foreach ($warehouses as $warehouse) {
-            if ($warehouse->subWarehouses()->exists()) {
-                $errors[] = "Warehouse {$warehouse->name} has sub-warehouses and cannot be deleted";
+                    continue;
+                }
+
+                $identifier = $warehouse->name ?? $warehouse->code ?? "ID: {$id}";
+
+                // Check if warehouse has sub-warehouses
+                if ($warehouse->subWarehouses()->exists()) {
+                    $subWarehousesCount = $warehouse->subWarehouses()->count();
+                    $details = [
+                        'sub_warehouses' => [
+                            'count' => $subWarehousesCount,
+                            'sample_ids' => $warehouse->subWarehouses()->select('warehouses.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete warehouse. It has sub-warehouses.',
+                        'details' => $details,
+                    ];
+
+                    continue;
+                }
+
+                $warehouse->delete();
+                $deleted++;
+                Cache::forget("warehouse_{$id}_".tenant('id'));
+            } catch (\Exception $e) {
+                $warehouse = Warehouse::find($id);
+                $identifier = $warehouse?->name ?? $warehouse?->code ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
             }
         }
 
-        if (! empty($errors)) {
-            return response()->json(['message' => 'Some warehouses could not be deleted', 'errors' => $errors], 422);
-        }
-
-        Warehouse::whereIn('id', $ids)->delete();
         Cache::forget('warehouses_'.tenant('id'));
 
-        return response()->json(['message' => 'Warehouses deleted successfully']);
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
     }
 
     public function exportExcell()

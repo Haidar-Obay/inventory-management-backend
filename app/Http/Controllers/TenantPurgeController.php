@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class TenantPurgeController extends Controller
@@ -185,6 +187,15 @@ class TenantPurgeController extends Controller
             }
 
             DB::commit();
+
+            // Clear cache after successful purge
+            try {
+                Artisan::call('cache:clear');
+            } catch (\Throwable $cacheError) {
+                // Cache clearing failed, but purge was successful
+                // Log the error but don't fail the entire operation
+                Log::warning('Cache clear failed during purge: '.$cacheError->getMessage());
+            }
         } catch (\Throwable $e) {
             DB::rollBack();
 

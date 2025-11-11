@@ -245,7 +245,7 @@ class ProjectController extends Controller
                 'projects.start_date',
                 'projects.end_date',
                 'projects.expected_date',
-                'created_at', 'updated_at'])
+                'projects.created_at', 'projects.updated_at'])
             ->get();
 
         if ($projects->isEmpty()) {

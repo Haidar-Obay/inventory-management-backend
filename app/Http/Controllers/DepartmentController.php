@@ -248,7 +248,7 @@ class DepartmentController extends Controller
                 'departments.name',
                 'parent.code as parent_code',
                 'departments.active',
-                'created_at', 'updated_at'])
+                'departments.created_at', 'departments.updated_at'])
             ->get();
 
         if ($departments->isEmpty()) {

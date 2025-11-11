@@ -107,6 +107,25 @@ class SectionController extends Controller
 
     public function destroy(Section $section)
     {
+        $identifier = $section->name ?? "ID: {$section->id}";
+
+        // Check if section has assets
+        if ($section->assets()->exists()) {
+            $assetsCount = $section->assets()->count();
+            $sampleIds = $section->assets()->select('assets.id')->limit(1)->pluck('id');
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete section \"{$identifier}\" (ID: {$section->id}). It is referenced by existing assets.",
+                'details' => [
+                    'assets' => [
+                        'count' => $assetsCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $section->delete();
 
         $tenantId = tenant('id');
@@ -132,10 +151,50 @@ class SectionController extends Controller
 
         foreach ($request->ids as $id) {
             try {
-                $deleted += Section::where('id', $id)->delete();
+                $section = Section::find($id);
+
+                if (! $section) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => "ID: {$id}",
+                        'reason' => 'Section not found.',
+                    ];
+
+                    continue;
+                }
+
+                $identifier = $section->name ?? "ID: {$id}";
+
+                // Check if section has assets
+                if ($section->assets()->exists()) {
+                    $assetsCount = $section->assets()->count();
+                    $details = [
+                        'assets' => [
+                            'count' => $assetsCount,
+                            'sample_ids' => $section->assets()->select('assets.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete section. It is referenced by existing assets.',
+                        'details' => $details,
+                    ];
+
+                    continue;
+                }
+
+                $deleted += $section->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_section_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                $section = Section::find($id);
+                $identifier = $section?->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
             }
         }
 
