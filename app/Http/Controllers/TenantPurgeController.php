@@ -113,6 +113,7 @@ class TenantPurgeController extends Controller
         $isPostgreSQL = $driver === 'pgsql';
 
         DB::beginTransaction();
+
         try {
             // Step 1: Clear dependent tables first (tables that reference our target tables)
             foreach ($this->dependentTables as $table) {
@@ -153,6 +154,7 @@ class TenantPurgeController extends Controller
                         'table' => $table,
                         'reason' => 'Table does not exist',
                     ];
+
                     continue;
                 }
 
