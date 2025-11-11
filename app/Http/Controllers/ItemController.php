@@ -33,6 +33,7 @@ class ItemController extends Controller
         $key = "tenant_{$tenantId}_items";
 
         // Always load relationships, even if cached
+        // Exclude service items (they are mirrored from services table)
         $items = Item::with([
             'trade:id,name',
             'companyCode:id,name',
@@ -41,7 +42,11 @@ class ItemController extends Controller
             'brand:id,name',
             'baseUom:id,name',
             'parent:id,code,name',
-        ])->orderBy('name')->get();
+        ])
+            ->where('type', '!=', ItemType::SERVICE)
+            ->where('type', '!=', ItemType::MEDICAL_SERVICE)
+            ->orderBy('name')
+            ->get();
 
         // Transform relationships to snake_case for frontend compatibility
         $transformedItems = $items->map(function ($item) {
@@ -106,7 +111,10 @@ class ItemController extends Controller
                 ItemUnitOfMeasurement::updateOrCreate([
                     'item_id' => $item->id,
                     'unit_of_measurement_id' => $item->base_uom_id,
-                ], []);
+                ], [
+                    'operation' => 'multiply',
+                    'conversion' => 1,
+                ]);
             }
         }
 
@@ -139,7 +147,10 @@ class ItemController extends Controller
                 ItemUnitOfMeasurement::updateOrCreate([
                     'item_id' => $item->id,
                     'unit_of_measurement_id' => $item->base_uom_id,
-                ], []);
+                ], [
+                    'operation' => 'multiply',
+                    'conversion' => 1,
+                ]);
             }
         }
 
@@ -793,13 +804,39 @@ class ItemController extends Controller
         $validated = $request->validated();
         $payload = [];
 
+        // Require base UOM before attaching any UOMs
+        if (! $item->base_uom_id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Set base_uom_id on the item before attaching unit of measurements.',
+            ], 422);
+        }
+
+        // Ensure base UOM pivot exists with multiply/1
+        if (! $item->unitOfMeasurements()->where('unit_of_measurement_id', $item->base_uom_id)->exists()) {
+            ItemUnitOfMeasurement::updateOrCreate([
+                'item_id' => $item->id,
+                'unit_of_measurement_id' => $item->base_uom_id,
+            ], [
+                'operation' => 'multiply',
+                'conversion' => 1,
+            ]);
+        }
+
         foreach ($validated['unit_of_measurements'] as $row) {
+            // Enforce base UOM rule: multiply + 1
+            if ($item->base_uom_id && intval($row['unit_of_measurement_id']) === intval($item->base_uom_id)) {
+                $row['operation'] = 'multiply';
+                $row['conversion'] = 1;
+            }
             ItemUnitOfMeasurement::updateOrCreate(
                 [
                     'item_id' => $item->id,
                     'unit_of_measurement_id' => $row['unit_of_measurement_id'],
                 ],
                 [
+                    'operation' => $row['operation'],
+                    'conversion' => $row['conversion'],
                     'barcodes' => $row['barcodes'] ?? null,
                     'price_1' => $row['price_1'] ?? null,
                     'price_2' => $row['price_2'] ?? null,
@@ -834,6 +871,11 @@ class ItemController extends Controller
         }
 
         $data = $request->validated();
+        // Enforce base UOM rule: multiply + 1 regardless of client input
+        if ($item->base_uom_id && $unitOfMeasurement->id === intval($item->base_uom_id)) {
+            $data['operation'] = 'multiply';
+            $data['conversion'] = 1;
+        }
 
         ItemUnitOfMeasurement::updateOrCreate(
             [
@@ -862,6 +904,99 @@ class ItemController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Unit of measurements detached successfully.',
+        ]);
+    }
+
+    /**
+     * Fetch service items (items mirrored from services table)
+     * These are items with type='service' or type='medical_service'
+     */
+    public function getServiceItems()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_service_items";
+
+        $items = app('cache')->store('database')->get($key);
+
+        if (! $items) {
+            $items = Item::with(['service:id,name'])
+                ->whereIn('type', [ItemType::SERVICE, ItemType::MEDICAL_SERVICE])
+                ->orderBy('name')
+                ->get();
+
+            app('cache')->store('database')->put($key, $items, now()->addHours(1));
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Service items fetched successfully.',
+            'data' => $items,
+        ]);
+    }
+
+    /**
+     * Fetch all items including both regular items and service items
+     * This combines regular items with service-mirrored items
+     */
+    public function getAllItems()
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_all_items";
+
+        $items = app('cache')->store('database')->get($key);
+
+        if (! $items) {
+            // Get regular items (excluding services)
+            $regularItems = Item::with([
+                'trade:id,name',
+                'companyCode:id,name',
+                'productLine:id,name',
+                'category:id,name',
+                'brand:id,name',
+                'baseUom:id,name',
+                'parent:id,code,name',
+            ])
+                ->where('type', '!=', ItemType::SERVICE)
+                ->where('type', '!=', ItemType::MEDICAL_SERVICE)
+                ->orderBy('name')
+                ->get();
+
+            // Get service items (with service relationship)
+            $serviceItems = Item::with(['service:id,name'])
+                ->whereIn('type', [ItemType::SERVICE, ItemType::MEDICAL_SERVICE])
+                ->orderBy('name')
+                ->get();
+
+            // Combine both collections
+            $items = $regularItems->concat($serviceItems)->sortBy('name')->values();
+
+            app('cache')->store('database')->put($key, $items, now()->addHours(1));
+        }
+
+        // Transform relationships to snake_case for frontend compatibility
+        $transformedItems = $items->map(function ($item) {
+            $itemArray = $item->toArray();
+            // Map camelCase relationships to snake_case
+            if (isset($itemArray['companyCode'])) {
+                $itemArray['company_code'] = $itemArray['companyCode'];
+                unset($itemArray['companyCode']);
+            }
+            if (isset($itemArray['productLine'])) {
+                $itemArray['product_line'] = $itemArray['productLine'];
+                unset($itemArray['productLine']);
+            }
+            if (isset($itemArray['baseUom'])) {
+                $itemArray['base_uom'] = $itemArray['baseUom'];
+                unset($itemArray['baseUom']);
+            }
+
+            return $itemArray;
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'All items fetched successfully.',
+            'data' => $transformedItems,
         ]);
     }
 }

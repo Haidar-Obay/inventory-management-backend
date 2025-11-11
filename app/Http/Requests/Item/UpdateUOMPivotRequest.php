@@ -14,6 +14,8 @@ class UpdateUOMPivotRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'operation' => 'required|string|in:multiply,divide',
+            'conversion' => 'required|numeric|gt:0',
             'barcodes' => 'nullable|array',
             'barcodes.*' => 'string|max:255',
             'price_1' => 'nullable|numeric|min:0',

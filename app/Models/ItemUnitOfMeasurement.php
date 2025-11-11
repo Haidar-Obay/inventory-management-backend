@@ -11,6 +11,8 @@ class ItemUnitOfMeasurement extends Pivot
     protected $fillable = [
         'item_id',
         'unit_of_measurement_id',
+        'operation',
+        'conversion',
         'barcodes',
         'price_1', 'price_2', 'price_3', 'price_4', 'price_5', 'price_6',
         'gross_volume', 'gross_weight',
@@ -18,6 +20,7 @@ class ItemUnitOfMeasurement extends Pivot
     ];
 
     protected $casts = [
+        'conversion' => 'decimal:4',
         'barcodes' => 'array',
         'price_1' => 'decimal:2',
         'price_2' => 'decimal:2',

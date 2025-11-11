@@ -77,7 +77,7 @@ class BootstrapTenantRbac implements ShouldQueue
         foreach ($permissions as $permission) {
             RolePermission::updateOrCreate(
                 ['role_id' => $ownerRole->id, 'permission_id' => $permission->id],
-                ['can_view' => true, 'can_add' => true, 'can_edit' => true, 'can_delete' => true]
+                ['can_view' => true, 'can_add' => true, 'can_edit' => true, 'can_delete' => true, 'can_import' => true, 'can_export' => true]
             );
         }
 
@@ -85,7 +85,7 @@ class BootstrapTenantRbac implements ShouldQueue
         foreach ($permissions as $permission) {
             RolePermission::updateOrCreate(
                 ['role_id' => $adminRole->id, 'permission_id' => $permission->id],
-                ['can_view' => true, 'can_add' => true, 'can_edit' => true, 'can_delete' => true]
+                ['can_view' => true, 'can_add' => true, 'can_edit' => true, 'can_delete' => true, 'can_import' => true, 'can_export' => true]
             );
         }
 

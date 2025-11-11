@@ -12,11 +12,9 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->foreignId('unit_group_id')->constrained('unit_groups')->cascadeOnDelete();
-            $table->enum('operation', ['multiply', 'divide'])->default('multiply');
-            $table->decimal('conversion', 10, 4);
             $table->timestamps();
 
-            $table->index(['unit_group_id', 'operation']);
+            $table->index(['unit_group_id']);
         });
     }
 

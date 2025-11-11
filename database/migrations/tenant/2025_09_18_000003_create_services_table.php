@@ -17,6 +17,7 @@ return new class extends Migration
 
             // Foreign references
             $table->foreignId('service_category_id')->nullable()->constrained('service_categories')->nullOnDelete();
+            $table->foreignId('item_id')->nullable()->constrained('items')->nullOnDelete();
 
             $table->integer('result_after_days')->nullable();
 

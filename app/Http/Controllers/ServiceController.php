@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ItemType;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Http\Requests\StoreServiceRequest;
 use App\Http\Requests\UpdateServiceRequest;
 use App\Imports\DynamicExcelImport;
+use App\Models\Item;
 use App\Models\Service;
 use App\Models\ServiceNeededItem;
 use Illuminate\Http\JsonResponse;
@@ -83,13 +85,44 @@ class ServiceController extends Controller
         $service = new Service($data);
         $service->id = $nextId;
         $service->save();
+
+        // Create linked Item for invoice purposes
+        $itemCode = 'SVC-'.$service->id;
+        // Ensure code is unique
+        $counter = 1;
+        while (Item::where('code', $itemCode)->exists()) {
+            $itemCode = 'SVC-'.$service->id.'-'.$counter;
+            $counter++;
+        }
+
+        $itemNextId = $this->computeNextAvailableId(Item::class, 'id');
+        $item = new Item([
+            'code' => $itemCode,
+            'name' => $service->name,
+            'type' => ItemType::SERVICE,
+            'description' => null,
+        ]);
+        $item->id = $itemNextId;
+        $item->save();
+
+        // Link item to service
+        $service->item_id = $item->id;
+        $service->save();
+
+        // Clear item caches since we created a new item
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+
         if (! empty($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
         if (! empty($assetIds)) {
             $service->assets()->sync($assetIds);
         }
-        $service->load(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name']);
+        $service->load(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name', 'item:id,code,name']);
 
         return response()->json([
             'status' => true,
@@ -168,13 +201,28 @@ class ServiceController extends Controller
         }
 
         $service->update($data);
+
+        // Update linked Item if it exists
+        if ($service->item_id && $service->item) {
+            $service->item->update([
+                'name' => $service->name,
+            ]);
+
+            // Clear item caches since we updated the item
+            $tenantId = tenant('id');
+            app('cache')->store('database')->forget("tenant_{$tenantId}_items");
+            app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+            app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
+            app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$service->item->id}");
+        }
+
         if (is_array($specialistIds)) {
             $service->specialists()->sync($specialistIds);
         }
         if (is_array($assetIds)) {
             $service->assets()->sync($assetIds);
         }
-        $service->load(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name']);
+        $service->load(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name', 'item:id,code,name']);
 
         return response()->json([
             'status' => true,
@@ -185,7 +233,22 @@ class ServiceController extends Controller
 
     public function destroy(Service $service): JsonResponse
     {
+        // Delete linked Item if it exists
+        $itemId = $service->item_id;
+        if ($itemId && $service->item) {
+            $service->item->delete();
+        }
+
         $service->delete();
+
+        // Clear item caches since we deleted the item
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
+        if ($itemId) {
+            app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$itemId}");
+        }
 
         return response()->json(['message' => 'Deleted']);
     }
@@ -495,13 +558,38 @@ class ServiceController extends Controller
 
         $skipped = [];
         $deleted = 0;
+        $itemIds = [];
 
         foreach ($request->ids as $id) {
             try {
-                $deleted += Service::where('id', $id)->delete();
+                $service = Service::find($id);
+                if ($service) {
+                    // Collect item IDs before deletion
+                    if ($service->item_id) {
+                        $itemIds[] = $service->item_id;
+                    }
+
+                    // Delete linked item if it exists
+                    if ($service->item_id && $service->item) {
+                        $service->item->delete();
+                    }
+
+                    // Delete the service
+                    $deleted += $service->delete();
+                }
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
+        }
+
+        // Clear item caches after bulk delete
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
+        // Clear individual item caches
+        foreach ($itemIds as $itemId) {
+            app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$itemId}");
         }
 
         return response()->json([

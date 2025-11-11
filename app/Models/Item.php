@@ -122,6 +122,7 @@ class Item extends Model implements Auditable
         return $this->belongsToMany(UnitOfMeasurement::class, 'item_unit_of_measurement')
             ->using(ItemUnitOfMeasurement::class)
             ->withPivot([
+                'operation', 'conversion',
                 'barcodes',
                 'price_1', 'price_2', 'price_3', 'price_4', 'price_5', 'price_6',
                 'gross_volume', 'gross_weight',
@@ -135,5 +136,10 @@ class Item extends Model implements Auditable
     {
         return $this->belongsToMany(CustomerMasterList::class, 'customer_master_list_item')
             ->withTimestamps();
+    }
+
+    public function service()
+    {
+        return $this->hasOne(Service::class, 'item_id');
     }
 }
