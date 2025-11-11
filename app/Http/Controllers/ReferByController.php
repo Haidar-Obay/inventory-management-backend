@@ -85,6 +85,25 @@ class ReferByController extends Controller
 
     public function destroy(ReferBy $referBy): JsonResponse
     {
+        $identifier = $referBy->name ?? "ID: {$referBy->id}";
+        
+        // Check if refer by has customers
+        if ($referBy->customers()->exists()) {
+            $customersCount = $referBy->customers()->count();
+            $sampleIds = $referBy->customers()->select('customers.id')->limit(1)->pluck('id');
+            
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete refer by \"{$identifier}\" (ID: {$referBy->id}). It is referenced by existing customers.",
+                'details' => [
+                    'customers' => [
+                        'count' => $customersCount,
+                        'sample_ids' => $sampleIds,
+                    ],
+                ],
+            ], 409);
+        }
+
         $referBy->delete();
 
         $tenantId = tenant('id');
@@ -110,10 +129,48 @@ class ReferByController extends Controller
 
         foreach ($request->ids as $id) {
             try {
-                $deleted += ReferBy::where('id', $id)->delete();
+                $referBy = ReferBy::find($id);
+                
+                if (!$referBy) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => "ID: {$id}",
+                        'reason' => 'Refer By not found.',
+                    ];
+                    continue;
+                }
+                
+                $identifier = $referBy->name ?? "ID: {$id}";
+                
+                // Check if refer by has customers
+                if ($referBy->customers()->exists()) {
+                    $customersCount = $referBy->customers()->count();
+                    $details = [
+                        'customers' => [
+                            'count' => $customersCount,
+                            'sample_ids' => $referBy->customers()->select('customers.id')->limit(1)->pluck('id'),
+                        ],
+                    ];
+                    
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete refer by. It is referenced by existing customers.',
+                        'details' => $details,
+                    ];
+                    continue;
+                }
+                
+                $deleted += $referBy->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_refer_by_show_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                $referBy = ReferBy::find($id);
+                $identifier = $referBy?->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
             }
         }
 

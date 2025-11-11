@@ -164,22 +164,35 @@ class ItemController extends Controller
 
     public function destroy(Item $item)
     {
+        $identifier = $item->name ?? $item->code ?? "ID: {$item->id}";
+        $details = [];
+        
         // Prevent deletion if item has child items (parent_id references)
         $childrenCount = $item->children()->count();
         if ($childrenCount > 0) {
-            $sampleIds = $item->children()->select('items.id')->limit(1)->pluck('id');
-
-            $identifier = $item->name ?? $item->code ?? "ID: {$item->id}";
-
+            $details['child_items'] = [
+                'count' => $childrenCount,
+                'sample_ids' => $item->children()->select('items.id')->limit(1)->pluck('id'),
+            ];
+        }
+        
+        // Check if item is referenced by service needed items
+        $serviceNeededItemsCount = \App\Models\ServiceNeededItem::where('item_id', $item->id)->count();
+        if ($serviceNeededItemsCount > 0) {
+            $details['service_needed_items'] = [
+                'count' => $serviceNeededItemsCount,
+                'sample_ids' => \App\Models\ServiceNeededItem::where('item_id', $item->id)
+                    ->select('service_needed_items.id')
+                    ->limit(1)
+                    ->pluck('id'),
+            ];
+        }
+        
+        if (!empty($details)) {
             return response()->json([
                 'status' => false,
-                'message' => "Cannot delete item \"{$identifier}\" (ID: {$item->id}). It is referenced by existing child items.",
-                'details' => [
-                    'child_items' => [
-                        'count' => $childrenCount,
-                        'sample_ids' => $sampleIds,
-                    ],
-                ],
+                'message' => "Cannot delete item \"{$identifier}\" (ID: {$item->id}). It is referenced by existing records.",
+                'details' => $details,
             ], 409);
         }
 
@@ -219,21 +232,35 @@ class ItemController extends Controller
                     continue;
                 }
 
+                $identifier = $item->name ?? $item->code ?? "ID: {$id}";
+                $details = [];
+                
                 // Check if item has child items and include details
                 if ($item->children()->exists()) {
                     $childrenCount = $item->children()->count();
-                    $details = [
-                        'child_items' => [
-                            'count' => $childrenCount,
-                            'sample_ids' => $item->children()->select('items.id')->limit(1)->pluck('id'),
-                        ],
+                    $details['child_items'] = [
+                        'count' => $childrenCount,
+                        'sample_ids' => $item->children()->select('items.id')->limit(1)->pluck('id'),
                     ];
-
-                    $identifier = $item->name ?? $item->code ?? "ID: {$id}";
+                }
+                
+                // Check if item is referenced by service needed items
+                $serviceNeededItemsCount = \App\Models\ServiceNeededItem::where('item_id', $id)->count();
+                if ($serviceNeededItemsCount > 0) {
+                    $details['service_needed_items'] = [
+                        'count' => $serviceNeededItemsCount,
+                        'sample_ids' => \App\Models\ServiceNeededItem::where('item_id', $id)
+                            ->select('service_needed_items.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+                
+                if (!empty($details)) {
                     $skipped[] = [
                         'id' => $id,
                         'name' => $identifier,
-                        'reason' => 'Cannot delete item. It is referenced by existing child items.',
+                        'reason' => 'Cannot delete item. It is referenced by existing records.',
                         'details' => $details,
                     ];
 
@@ -258,6 +285,17 @@ class ItemController extends Controller
                                 'sample_ids' => $item->children()->select('items.id')->limit(1)->pluck('id'),
                             ];
                         }
+                        
+                        $serviceNeededItemsCount = \App\Models\ServiceNeededItem::where('item_id', $id)->count();
+                        if ($serviceNeededItemsCount > 0) {
+                            $details['service_needed_items'] = [
+                                'count' => $serviceNeededItemsCount,
+                                'sample_ids' => \App\Models\ServiceNeededItem::where('item_id', $id)
+                                    ->select('service_needed_items.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
                     } catch (\Throwable $ignored) {
                     }
 
@@ -266,7 +304,7 @@ class ItemController extends Controller
                     $skipped[] = [
                         'id' => $id,
                         'name' => $identifier,
-                        'reason' => 'Cannot delete item. It is referenced by existing child items.',
+                        'reason' => 'Cannot delete item. It is referenced by existing records.',
                         'details' => $details,
                     ];
                 } else {

@@ -107,6 +107,35 @@ class RoomController extends Controller
 
     public function destroy(Room $room)
     {
+        $identifier = $room->name ?? "ID: {$room->id}";
+        $details = [];
+        
+        // Check if room has sections
+        if ($room->sections()->exists()) {
+            $sectionsCount = $room->sections()->count();
+            $details['sections'] = [
+                'count' => $sectionsCount,
+                'sample_ids' => $room->sections()->select('sections.id')->limit(1)->pluck('id'),
+            ];
+        }
+        
+        // Check if room has assets (through sections)
+        if ($room->assets()->exists()) {
+            $assetsCount = $room->assets()->count();
+            $details['assets'] = [
+                'count' => $assetsCount,
+                'sample_ids' => $room->assets()->select('assets.id')->limit(1)->pluck('id'),
+            ];
+        }
+        
+        if (!empty($details)) {
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete room \"{$identifier}\" (ID: {$room->id}). It is referenced by existing records.",
+                'details' => $details,
+            ], 409);
+        }
+
         $room->delete();
 
         $tenantId = tenant('id');
@@ -132,10 +161,58 @@ class RoomController extends Controller
 
         foreach ($request->ids as $id) {
             try {
-                $deleted += Room::where('id', $id)->delete();
+                $room = Room::find($id);
+                
+                if (!$room) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => "ID: {$id}",
+                        'reason' => 'Room not found.',
+                    ];
+                    continue;
+                }
+                
+                $identifier = $room->name ?? "ID: {$id}";
+                $details = [];
+                
+                // Check if room has sections
+                if ($room->sections()->exists()) {
+                    $sectionsCount = $room->sections()->count();
+                    $details['sections'] = [
+                        'count' => $sectionsCount,
+                        'sample_ids' => $room->sections()->select('sections.id')->limit(1)->pluck('id'),
+                    ];
+                }
+                
+                // Check if room has assets (through sections)
+                if ($room->assets()->exists()) {
+                    $assetsCount = $room->assets()->count();
+                    $details['assets'] = [
+                        'count' => $assetsCount,
+                        'sample_ids' => $room->assets()->select('assets.id')->limit(1)->pluck('id'),
+                    ];
+                }
+                
+                if (!empty($details)) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete room. It is referenced by existing records.',
+                        'details' => $details,
+                    ];
+                    continue;
+                }
+                
+                $deleted += $room->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_room_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                $room = Room::find($id);
+                $identifier = $room?->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
             }
         }
 
