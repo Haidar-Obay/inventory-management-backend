@@ -674,14 +674,14 @@ Route::middleware([
     //  Email Verification Routes
     Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
         $user = User::find($id);
-        if (! $user) {
+        if (!$user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
         Auth::login($user); // Log the user in manually in tenant context
-        if (! hash_equals((string) $id, (string) $user->getKey())) {
+        if (!hash_equals((string) $id, (string) $user->getKey())) {
             return response()->json(['message' => 'Invalid user ID.'], 403);
         }
-        if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
+        if (!hash_equals(sha1($user->getEmailForVerification()), $hash)) {
             return response()->json(['message' => 'Invalid email hash.'], 403);
         }
         if ($user->hasVerifiedEmail()) {

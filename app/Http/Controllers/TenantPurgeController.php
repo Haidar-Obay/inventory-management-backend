@@ -79,7 +79,7 @@ class TenantPurgeController extends Controller
         'referrer_service_commissions', // references referrers, services
         'customer_master_list_items', // references customer_master_lists, items
         'projects', // might reference customers
-        'jobs', // references projects   
+        'jobs', // references projects
     ];
 
     public function purge(Request $request)
@@ -188,7 +188,7 @@ class TenantPurgeController extends Controller
 
             return response()->json([
                 'status' => false,
-                'message' => 'Purge failed: ' . $e->getMessage(),
+                'message' => 'Purge failed: '.$e->getMessage(),
             ], 500);
         }
 
@@ -270,5 +270,3 @@ class TenantPurgeController extends Controller
         return $ordered;
     }
 }
-
-
