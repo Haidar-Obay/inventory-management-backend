@@ -111,7 +111,10 @@ class ItemController extends Controller
                 ItemUnitOfMeasurement::updateOrCreate([
                     'item_id' => $item->id,
                     'unit_of_measurement_id' => $item->base_uom_id,
-                ], []);
+                ], [
+                    'operation' => 'multiply',
+                    'conversion' => 1,
+                ]);
             }
         }
 
@@ -144,7 +147,10 @@ class ItemController extends Controller
                 ItemUnitOfMeasurement::updateOrCreate([
                     'item_id' => $item->id,
                     'unit_of_measurement_id' => $item->base_uom_id,
-                ], []);
+                ], [
+                    'operation' => 'multiply',
+                    'conversion' => 1,
+                ]);
             }
         }
 
@@ -760,13 +766,39 @@ class ItemController extends Controller
         $validated = $request->validated();
         $payload = [];
 
+        // Require base UOM before attaching any UOMs
+        if (! $item->base_uom_id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Set base_uom_id on the item before attaching unit of measurements.',
+            ], 422);
+        }
+
+        // Ensure base UOM pivot exists with multiply/1
+        if (! $item->unitOfMeasurements()->where('unit_of_measurement_id', $item->base_uom_id)->exists()) {
+            ItemUnitOfMeasurement::updateOrCreate([
+                'item_id' => $item->id,
+                'unit_of_measurement_id' => $item->base_uom_id,
+            ], [
+                'operation' => 'multiply',
+                'conversion' => 1,
+            ]);
+        }
+
         foreach ($validated['unit_of_measurements'] as $row) {
+            // Enforce base UOM rule: multiply + 1
+            if ($item->base_uom_id && intval($row['unit_of_measurement_id']) === intval($item->base_uom_id)) {
+                $row['operation'] = 'multiply';
+                $row['conversion'] = 1;
+            }
             ItemUnitOfMeasurement::updateOrCreate(
                 [
                     'item_id' => $item->id,
                     'unit_of_measurement_id' => $row['unit_of_measurement_id'],
                 ],
                 [
+                    'operation' => $row['operation'],
+                    'conversion' => $row['conversion'],
                     'barcodes' => $row['barcodes'] ?? null,
                     'price_1' => $row['price_1'] ?? null,
                     'price_2' => $row['price_2'] ?? null,
@@ -801,6 +833,11 @@ class ItemController extends Controller
         }
 
         $data = $request->validated();
+        // Enforce base UOM rule: multiply + 1 regardless of client input
+        if ($item->base_uom_id && $unitOfMeasurement->id === intval($item->base_uom_id)) {
+            $data['operation'] = 'multiply';
+            $data['conversion'] = 1;
+        }
 
         ItemUnitOfMeasurement::updateOrCreate(
             [

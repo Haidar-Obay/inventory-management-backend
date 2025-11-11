@@ -476,72 +476,24 @@ class CategoryController extends Controller
 
     public function getNames()
     {
-        try {
-            // Check if tenant context is initialized
-            $tenantId = tenant('id');
-            if (! $tenantId) {
-                Log::error('Tenant context not initialized when fetching category names');
+        // Only get top-level categories (not subcategories)
+        $categories = Category::whereNull('subcategory_of')
+            ->select('id', 'name', 'created_at', 'updated_at')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'created_at' => $category->created_at,
+                    'updated_at' => $category->updated_at,
+                ];
+            });
 
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Tenant context not initialized.',
-                ], 500);
-            }
-
-            // Only get top-level categories (not subcategories)
-            $categories = Category::whereNull('subcategory_of')
-                ->select('id', 'name', 'created_at', 'updated_at')
-                ->orderBy('name')
-                ->get()
-                ->map(function ($category) {
-                    return [
-                        'id' => $category->id,
-                        'name' => $category->name,
-                        'created_at' => $category->created_at,
-                        'updated_at' => $category->updated_at,
-                    ];
-                });
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Category names fetched successfully.',
-                'data' => $categories,
-            ]);
-        } catch (\Illuminate\Database\QueryException $e) {
-            // Database-specific errors (table doesn't exist, column doesn't exist, etc.)
-            $errorCode = $e->getCode();
-            $errorMessage = $e->getMessage();
-
-            Log::error('Database error fetching category names', [
-                'tenant_id' => tenant('id'),
-                'error_code' => $errorCode,
-                'error_message' => $errorMessage,
-                'exception' => $e,
-            ]);
-
-            // Check for common database errors
-            if (str_contains($errorMessage, 'does not exist') || str_contains($errorMessage, 'relation') || str_contains($errorMessage, 'table')) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Database table not found. Please ensure migrations have been run for this tenant.',
-                ], 500);
-            }
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Database error occurred. Please check your database configuration.',
-            ], 500);
-        } catch (\Exception $e) {
-            Log::error('Error fetching category names: '.$e->getMessage(), [
-                'tenant_id' => tenant('id'),
-                'exception' => $e,
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'status' => false,
-                'message' => 'Error fetching category names. Please try again later.',
-            ], 500);
-        }
+        return response()->json([
+            'status' => true,
+            'message' => 'Category names fetched successfully.',
+            'data' => $categories,
+        ]);
     }
 }
