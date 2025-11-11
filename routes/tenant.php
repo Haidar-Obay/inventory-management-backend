@@ -73,6 +73,7 @@ use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ZoneController;
+use App\Http\Controllers\TenantPurgeController;
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\Request;
@@ -510,6 +511,9 @@ Route::middleware([
         Route::get('distribution-channels/{distributionChannelId}/sub-distribution-channels', [DistributionChannelController::class, 'getSubDistributionChannels']);
         Route::get('transportation-channels/{transportationChannelId}/sub-transportation-channels', [TransportationChannelController::class, 'getSubTransportationChannels']);
         Route::get('media-channels/{mediaChannelId}/sub-media-channels', [MediaChannelController::class, 'getSubMediaChannels']);
+
+        // Hard purge selected tables for current tenant (force delete)
+        Route::post('purge', [TenantPurgeController::class, 'purge']);
 
         // Customer Routes
         Route::post('/customers', [CustomerController::class, 'store']);
