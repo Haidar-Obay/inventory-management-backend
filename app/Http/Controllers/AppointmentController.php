@@ -4,46 +4,46 @@ namespace App\Http\Controllers;
 
 use App\Exports\Export;
 use App\Exports\ExportPDF;
-use App\Http\Requests\Assignment\StoreAssignmentRequest;
-use App\Http\Requests\Assignment\UpdateAssignmentRequest;
+use App\Http\Requests\Appointment\StoreAppointmentRequest;
+use App\Http\Requests\Appointment\UpdateAppointmentRequest;
 use App\Imports\DynamicExcelImport;
-use App\Models\Assignment;
+use App\Models\Appointment;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
-class AssignmentController extends Controller
+class AppointmentController extends Controller
 {
     public function index()
     {
         $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_assignments";
+        $key = "tenant_{$tenantId}_appointments";
 
-        $assignments = app('cache')->store('database')->get($key);
+        $appointments = app('cache')->store('database')->get($key);
 
-        if (! $assignments) {
-            $assignments = Assignment::with([
+        if (! $appointments) {
+            $appointments = Appointment::with([
                 'asset:id,name,type,status,section_id',
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
-                'user:id,name,email',
+                'specialist:id,name',
             ])->orderBy('start_at', 'desc')->get();
 
-            app('cache')->store('database')->forever($key, $assignments);
+            app('cache')->store('database')->forever($key, $appointments);
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'Assignments fetched successfully.',
-            'data' => $assignments,
+            'message' => 'Appointments fetched successfully.',
+            'data' => $appointments,
         ]);
     }
 
-    public function store(StoreAssignmentRequest $request)
+    public function store(StoreAppointmentRequest $request)
     {
         $validated = $request->validated();
 
-        // Check for overlapping assignments
-        $overlapping = Assignment::overlapping(
+        // Check for overlapping appointments
+        $overlapping = Appointment::overlapping(
             $validated['asset_id'],
             $validated['start_at'],
             $validated['end_at'] ?? null
@@ -56,66 +56,66 @@ class AssignmentController extends Controller
             ], 422);
         }
 
-        $nextId = $this->computeNextAvailableId(Assignment::class, 'id');
-        $assignment = new Assignment($validated);
-        $assignment->id = $nextId;
-        $assignment->save();
+        $nextId = $this->computeNextAvailableId(Appointment::class, 'id');
+        $appointment = new Appointment($validated);
+        $appointment->id = $nextId;
+        $appointment->save();
 
         $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_assignments");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
 
         return response()->json([
             'status' => true,
-            'message' => 'Assignment created successfully.',
-            'data' => $assignment->load([
+            'message' => 'Appointment created successfully.',
+            'data' => $appointment->load([
                 'asset:id,name,type,status,section_id',
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
-                'user:id,name,email',
+                'specialist:id,name',
             ]),
         ], 201);
     }
 
-    public function show(Assignment $assignment)
+    public function show(Appointment $appointment)
     {
         $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_assignment_{$assignment->id}";
+        $key = "tenant_{$tenantId}_appointment_{$appointment->id}";
 
-        $cachedAssignment = app('cache')->store('database')->get($key);
+        $cachedAppointment = app('cache')->store('database')->get($key);
 
-        if (! $cachedAssignment) {
-            $cachedAssignment = $assignment->load([
+        if (! $cachedAppointment) {
+            $cachedAppointment = $appointment->load([
                 'asset:id,name,type,status,section_id',
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
-                'user:id,name,email',
+                'specialist:id,name',
             ]);
 
-            app('cache')->store('database')->forever($key, $cachedAssignment);
+            app('cache')->store('database')->forever($key, $cachedAppointment);
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'Assignment details fetched successfully.',
-            'data' => $cachedAssignment,
+            'message' => 'Appointment details fetched successfully.',
+            'data' => $cachedAppointment,
         ]);
     }
 
-    public function update(UpdateAssignmentRequest $request, Assignment $assignment)
+    public function update(UpdateAppointmentRequest $request, Appointment $appointment)
     {
         $validated = $request->validated();
 
-        // Check for overlapping assignments (excluding current assignment)
+        // Check for overlapping appointments (excluding current appointment)
         if (isset($validated['asset_id']) || isset($validated['start_at']) || isset($validated['end_at'])) {
-            $assetId = $validated['asset_id'] ?? $assignment->asset_id;
-            $startAt = $validated['start_at'] ?? $assignment->start_at;
-            $endAt = $validated['end_at'] ?? $assignment->end_at;
+            $assetId = $validated['asset_id'] ?? $appointment->asset_id;
+            $startAt = $validated['start_at'] ?? $appointment->start_at;
+            $endAt = $validated['end_at'] ?? $appointment->end_at;
 
-            $overlapping = Assignment::overlapping(
+            $overlapping = Appointment::overlapping(
                 $assetId,
                 $startAt,
                 $endAt,
-                $assignment->id
+                $appointment->id
             )->exists();
 
             if ($overlapping) {
@@ -126,35 +126,35 @@ class AssignmentController extends Controller
             }
         }
 
-        $assignment->update($validated);
+        $appointment->update($validated);
 
         $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_assignments");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_assignment_{$assignment->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_appointment_{$appointment->id}");
 
         return response()->json([
             'status' => true,
-            'message' => 'Assignment updated successfully.',
-            'data' => $assignment->load([
+            'message' => 'Appointment updated successfully.',
+            'data' => $appointment->load([
                 'asset:id,name,type,status,section_id',
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
-                'user:id,name,email',
+                'specialist:id,name',
             ]),
         ]);
     }
 
-    public function destroy(Assignment $assignment)
+    public function destroy(Appointment $appointment)
     {
-        $assignment->delete();
+        $appointment->delete();
 
         $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_assignments");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_assignment_{$assignment->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_appointment_{$appointment->id}");
 
         return response()->json([
             'status' => true,
-            'message' => 'Assignment deleted successfully.',
+            'message' => 'Appointment deleted successfully.',
         ]);
     }
 
@@ -162,7 +162,7 @@ class AssignmentController extends Controller
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:assignments,id',
+            'ids.*' => 'exists:appointments,id',
         ]);
 
         $tenantId = tenant('id');
@@ -171,14 +171,14 @@ class AssignmentController extends Controller
 
         foreach ($request->ids as $id) {
             try {
-                $deleted += Assignment::where('id', $id)->delete();
-                app('cache')->store('database')->forget("tenant_{$tenantId}_assignment_{$id}");
+                $deleted += Appointment::where('id', $id)->delete();
+                app('cache')->store('database')->forget("tenant_{$tenantId}_appointment_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
 
-        app('cache')->store('database')->forget("tenant_{$tenantId}_assignments");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
 
         return response()->json([
             'status' => true,
@@ -192,53 +192,53 @@ class AssignmentController extends Controller
 
     public function exportExcell()
     {
-        $assignments = Assignment::with([
+        $appointments = Appointment::with([
             'asset:id,name,type,status,section_id',
             'asset.section:id,name,room_id',
             'asset.section.room:id,name,location',
-            'user:id,name,email',
+            'specialist:id,name',
         ])->orderBy('start_at', 'desc');
-        $collection = $assignments->get();
+        $collection = $appointments->get();
 
         if ($collection->isEmpty()) {
-            return response()->json(['message' => 'No assignments found.'], 404);
+            return response()->json(['message' => 'No appointments found.'], 404);
         }
 
-        $columns = ['id', 'asset_id', 'user_id', 'start_at', 'end_at', 'status', 'notes', 'created_at', 'updated_at'];
-        $headings = ['ID', 'Asset ID', 'User ID', 'Start At', 'End At', 'Status', 'Notes', 'Created At', 'Updated At'];
+        $columns = ['id', 'asset_id', 'specialist_id', 'start_at', 'end_at', 'status', 'notes', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Asset ID', 'Specialist ID', 'Start At', 'End At', 'Status', 'Notes', 'Created At', 'Updated At'];
 
-        return Excel::download(new Export($assignments, $columns, $headings), 'assignments.xlsx');
+        return Excel::download(new Export($appointments, $columns, $headings), 'appointments.xlsx');
     }
 
     public function exportPdf()
     {
-        $assignments = Assignment::with([
+        $appointments = Appointment::with([
             'asset:id,name,type,status,section_id',
             'asset.section:id,name,room_id',
             'asset.section.room:id,name,location',
-            'user:id,name,email',
-        ])->select('id', 'asset_id', 'user_id', 'start_at', 'end_at', 'status', 'notes')->get();
+            'specialist:id,name',
+        ])->select('id', 'asset_id', 'specialist_id', 'start_at', 'end_at', 'status', 'notes')->get();
 
-        if ($assignments->isEmpty()) {
-            return response()->json(['message' => 'No assignments found.'], 404);
+        if ($appointments->isEmpty()) {
+            return response()->json(['message' => 'No appointments found.'], 404);
         }
 
-        $title = 'Assignment Report';
+        $title = 'Appointment Report';
         $headers = [
-            'id' => 'Assignment ID',
+            'id' => 'Appointment ID',
             'asset_id' => 'Asset ID',
-            'user_id' => 'User ID',
+            'specialist_id' => 'Specialist ID',
             'start_at' => 'Start At',
             'end_at' => 'End At',
             'status' => 'Status',
             'notes' => 'Notes',
         ];
-        $data = $assignments->toArray();
+        $data = $appointments->toArray();
 
         $pdfService = new ExportPDF;
         $pdf = $pdfService->generatePdf($title, $headers, $data);
 
-        return $pdf->download('Assignments.pdf');
+        return $pdf->download('Appointments.pdf');
     }
 
     public function importFromExcel(Request $request)
@@ -257,26 +257,26 @@ class AssignmentController extends Controller
 
         // If type is 'fresh', delete all records first
         if ($request->input('type') === 'fresh') {
-            Assignment::truncate();
+            Appointment::truncate();
         }
 
         // If type is 'mapping', use provided mapping, else use default
         $mapping = $request->input('mapping');
-        $fields = $mapping ? array_values($mapping) : ['asset_id', 'user_id', 'start_at', 'end_at', 'status', 'notes'];
+        $fields = $mapping ? array_values($mapping) : ['asset_id', 'specialist_id', 'start_at', 'end_at', 'status', 'notes'];
 
         $import = new DynamicExcelImport(
-            Assignment::class,
+            Appointment::class,
             $fields,
             function ($row) use ($mapping) {
                 $errors = [];
                 $assetIdKey = $mapping ? array_search('asset_id', $mapping) : 'asset_id';
-                $userIdKey = $mapping ? array_search('user_id', $mapping) : 'user_id';
+                $specialistIdKey = $mapping ? array_search('specialist_id', $mapping) : 'specialist_id';
 
                 if (empty($row[$assetIdKey])) {
                     $errors[] = 'Missing asset_id';
                 }
-                if (empty($row[$userIdKey])) {
-                    $errors[] = 'Missing user_id';
+                if (empty($row[$specialistIdKey])) {
+                    $errors[] = 'Missing specialist_id';
                 }
                 $startAtKey = $mapping ? array_search('start_at', $mapping) : 'start_at';
                 if (empty($row[$startAtKey])) {
@@ -287,7 +287,7 @@ class AssignmentController extends Controller
             },
             function ($row) use ($mapping) {
                 $assetIdKey = $mapping ? array_search('asset_id', $mapping) : 'asset_id';
-                $userIdKey = $mapping ? array_search('user_id', $mapping) : 'user_id';
+                $specialistIdKey = $mapping ? array_search('specialist_id', $mapping) : 'specialist_id';
                 $startAtKey = $mapping ? array_search('start_at', $mapping) : 'start_at';
                 $endAtKey = $mapping ? array_search('end_at', $mapping) : 'end_at';
                 $statusKey = $mapping ? array_search('status', $mapping) : 'status';
@@ -295,7 +295,7 @@ class AssignmentController extends Controller
 
                 return [
                     'asset_id' => $row[$assetIdKey] ?? null,
-                    'user_id' => $row[$userIdKey] ?? null,
+                    'specialist_id' => $row[$specialistIdKey] ?? null,
                     'start_at' => $row[$startAtKey] ?? null,
                     'end_at' => $row[$endAtKey] ?? null,
                     'status' => $row[$statusKey] ?? 'active',
@@ -324,7 +324,7 @@ class AssignmentController extends Controller
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_'.tenant('id').'_assignments');
+        app('cache')->store('database')->forget('tenant_'.tenant('id').'_appointments');
 
         return response()->json([
             'status' => true,
@@ -340,84 +340,84 @@ class AssignmentController extends Controller
     public function byAsset($assetId)
     {
         $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_asset_{$assetId}_assignments";
+        $key = "tenant_{$tenantId}_asset_{$assetId}_appointments";
 
-        $assignments = app('cache')->store('database')->get($key);
+        $appointments = app('cache')->store('database')->get($key);
 
-        if (! $assignments) {
-            $assignments = Assignment::byAsset($assetId)
+        if (! $appointments) {
+            $appointments = Appointment::byAsset($assetId)
                 ->with([
                     'asset:id,name,type,status,section_id',
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
-                    'user:id,name,email',
+                    'specialist:id,name',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();
 
-            app('cache')->store('database')->forever($key, $assignments);
+            app('cache')->store('database')->forever($key, $appointments);
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'Assignments for asset fetched successfully.',
-            'data' => $assignments,
+            'message' => 'Appointments for asset fetched successfully.',
+            'data' => $appointments,
         ]);
     }
 
-    public function byUser($userId)
+    public function bySpecialist($specialistId)
     {
         $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_user_{$userId}_assignments";
+        $key = "tenant_{$tenantId}_specialist_{$specialistId}_appointments";
 
-        $assignments = app('cache')->store('database')->get($key);
+        $appointments = app('cache')->store('database')->get($key);
 
-        if (! $assignments) {
-            $assignments = Assignment::byUser($userId)
+        if (! $appointments) {
+            $appointments = Appointment::bySpecialist($specialistId)
                 ->with([
                     'asset:id,name,type,status,section_id',
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
-                    'user:id,name,email',
+                    'specialist:id,name',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();
 
-            app('cache')->store('database')->forever($key, $assignments);
+            app('cache')->store('database')->forever($key, $appointments);
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'Assignments for user fetched successfully.',
-            'data' => $assignments,
+            'message' => 'Appointments for specialist fetched successfully.',
+            'data' => $appointments,
         ]);
     }
 
     public function active()
     {
         $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_active_assignments";
+        $key = "tenant_{$tenantId}_active_appointments";
 
-        $assignments = app('cache')->store('database')->get($key);
+        $appointments = app('cache')->store('database')->get($key);
 
-        if (! $assignments) {
-            $assignments = Assignment::active()
+        if (! $appointments) {
+            $appointments = Appointment::active()
                 ->with([
                     'asset:id,name,type,status,section_id',
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
-                    'user:id,name,email',
+                    'specialist:id,name',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();
 
-            app('cache')->store('database')->forever($key, $assignments);
+            app('cache')->store('database')->forever($key, $appointments);
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'Active assignments fetched successfully.',
-            'data' => $assignments,
+            'message' => 'Active appointments fetched successfully.',
+            'data' => $appointments,
         ]);
     }
 }

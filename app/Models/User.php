@@ -67,11 +67,19 @@ class User extends Authenticatable implements AuditableContract
     }
 
     /**
-     * Get the assignments for this user.
+     * Get the tasks for this user.
      */
-    public function assignments()
+    public function tasks()
     {
-        return $this->hasMany(Assignment::class);
+        return $this->morphMany(Task::class, 'schedulable');
+    }
+
+    /**
+     * Get the events for this user.
+     */
+    public function events()
+    {
+        return $this->morphMany(Event::class, 'schedulable');
     }
 
     /**

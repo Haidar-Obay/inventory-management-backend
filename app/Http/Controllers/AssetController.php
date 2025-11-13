@@ -64,7 +64,7 @@ class AssetController extends Controller
             $cachedAsset = $asset->load([
                 'section:id,name,room_id',
                 'section.room:id,name,location',
-                'assignments:id,user_id,start_at,end_at,status',
+                'appointments:id,specialist_id,start_at,end_at,status',
             ]);
 
             app('cache')->store('database')->forever($key, $cachedAsset);
