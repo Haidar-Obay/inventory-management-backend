@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UnitGroup\StoreUnitGroupRequest;
 use App\Http\Requests\UnitGroup\UpdateUnitGroupRequest;
 use App\Models\UnitGroup;
+use Illuminate\Http\Request;
 
 class UnitGroupController extends Controller
 {
@@ -119,6 +120,81 @@ class UnitGroupController extends Controller
             'status' => true,
             'message' => 'Units fetched successfully.',
             'data' => $units,
+        ]);
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:unit_groups,id',
+        ]);
+
+        $ids = $request->input('ids');
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($ids as $id) {
+            try {
+                $unitGroup = UnitGroup::find($id);
+
+                if (! $unitGroup) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'reason' => 'Unit group not found.',
+                    ];
+                    continue;
+                }
+
+                // Check if unit group has unit of measurements
+                if ($unitGroup->unitOfMeasurements()->exists()) {
+                    $count = $unitGroup->unitOfMeasurements()->count();
+                    $sampleIds = $unitGroup->unitOfMeasurements()->select('unit_of_measurements.id')->limit(1)->pluck('id');
+
+                    $identifier = $unitGroup->name ?? "ID: {$id}";
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete unit group. It is referenced by existing unit of measurements.',
+                        'details' => [
+                            'unit_of_measurements' => [
+                                'count' => $count,
+                                'sample_ids' => $sampleIds,
+                            ],
+                        ],
+                    ];
+                    continue;
+                }
+
+                $unitGroup->delete();
+                $deleted++;
+
+            } catch (\Illuminate\Database\QueryException $e) {
+                $unitGroup = UnitGroup::find($id);
+                $identifier = $unitGroup?->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
+            } catch (\Exception $e) {
+                $unitGroup = UnitGroup::find($id);
+                $identifier = $unitGroup?->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
+            }
+        }
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_unit_groups");
+
+        return response()->json([
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
         ]);
     }
 }

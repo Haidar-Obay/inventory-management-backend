@@ -16,8 +16,6 @@ class UpdateUnitOfMeasurementRequest extends FormRequest
         return [
             'name' => 'sometimes|string|max:255',
             'unit_group_id' => 'sometimes|integer|exists:unit_groups,id',
-            'operation' => 'sometimes|string|in:multiply,divide',
-            'conversion' => 'sometimes|numeric|min:0.0001',
         ];
     }
 }

@@ -36,4 +36,28 @@ class Specialist extends Model
     {
         return $this->belongsToMany(Service::class, 'service_specialist')->withTimestamps();
     }
+
+    /**
+     * Get the appointments for this specialist.
+     */
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class);
+    }
+
+    /**
+     * Get the tasks for this specialist.
+     */
+    public function tasks()
+    {
+        return $this->morphMany(Task::class, 'schedulable');
+    }
+
+    /**
+     * Get the events for this specialist.
+     */
+    public function events()
+    {
+        return $this->morphMany(Event::class, 'schedulable');
+    }
 }

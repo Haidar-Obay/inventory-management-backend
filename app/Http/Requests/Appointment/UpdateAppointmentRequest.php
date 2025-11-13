@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Assignment;
+namespace App\Http\Requests\Appointment;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateAssignmentRequest extends FormRequest
+class UpdateAppointmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,21 +15,7 @@ class UpdateAssignmentRequest extends FormRequest
     {
         return [
             'asset_id' => 'sometimes|exists:assets,id',
-            'user_id' => [
-                'sometimes',
-                'exists:users,id',
-                function ($attribute, $value, $fail) {
-                    if ($value) {
-                        $user = \App\Models\User::with('roles')->find($value);
-                        if ($user) {
-                            $roleNames = $user->roles->pluck('name')->toArray();
-                            if (in_array('owner', $roleNames) || in_array('admin', $roleNames)) {
-                                $fail('Cannot assign assets to users with owner or admin roles.');
-                            }
-                        }
-                    }
-                },
-            ],
+            'specialist_id' => 'sometimes|exists:specialists,id',
             'start_at' => 'sometimes|date',
             'end_at' => 'nullable|date|after:start_at',
             'status' => 'sometimes|in:active,completed,cancelled,overdue',
@@ -42,7 +28,7 @@ class UpdateAssignmentRequest extends FormRequest
     {
         return [
             'asset_id.exists' => 'The selected asset does not exist.',
-            'user_id.exists' => 'The selected user does not exist.',
+            'specialist_id.exists' => 'The selected specialist does not exist.',
             'start_at.date' => 'The start date must be a valid date.',
             'end_at.date' => 'The end date must be a valid date.',
             'end_at.after' => 'The end date must be after the start date.',
@@ -53,3 +39,4 @@ class UpdateAssignmentRequest extends FormRequest
         ];
     }
 }
+

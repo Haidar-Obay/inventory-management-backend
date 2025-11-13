@@ -36,10 +36,26 @@ class Room extends Model implements Auditable
         return $this->hasManyThrough(Asset::class, Section::class);
     }
 
-    public function assignments()
+    public function appointments()
     {
-        return $this->hasManyThrough(Assignment::class, Asset::class, 'section_id', 'asset_id', 'id', 'section_id')
+        return $this->hasManyThrough(Appointment::class, Asset::class, 'section_id', 'asset_id', 'id', 'section_id')
             ->join('sections', 'sections.id', '=', 'assets.section_id')
             ->where('sections.room_id', '=', 'rooms.id');
+    }
+
+    /**
+     * Get the tasks for this room.
+     */
+    public function tasks()
+    {
+        return $this->morphMany(Task::class, 'schedulable');
+    }
+
+    /**
+     * Get the events for this room.
+     */
+    public function events()
+    {
+        return $this->morphMany(Event::class, 'schedulable');
     }
 }

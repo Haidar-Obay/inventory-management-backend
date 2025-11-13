@@ -7,13 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 use OwenIt\Auditing\Contracts\Auditable;
 
-class Assignment extends Model implements Auditable
+class Appointment extends Model implements Auditable
 {
     use AuditableTrait, HasFactory;
 
     protected $fillable = [
         'asset_id',
-        'user_id',
+        'specialist_id',
         'start_at',
         'end_at',
         'status',
@@ -21,7 +21,7 @@ class Assignment extends Model implements Auditable
         'color',
     ];
 
-    protected $table = 'assignments';
+    protected $table = 'appointments';
 
     protected $primaryKey = 'id';
 
@@ -36,7 +36,7 @@ class Assignment extends Model implements Auditable
     // Validation rules for the model
     public static $rules = [
         'asset_id' => 'required|exists:assets,id',
-        'user_id' => 'required|exists:users,id',
+        'specialist_id' => 'required|exists:specialists,id',
         'start_at' => 'required|date',
         'end_at' => 'nullable|date|after:start_at',
         'status' => 'required|in:active,completed,cancelled,overdue',
@@ -49,9 +49,9 @@ class Assignment extends Model implements Auditable
         return $this->belongsTo(Asset::class);
     }
 
-    public function user()
+    public function specialist()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Specialist::class);
     }
 
     public function section()
@@ -82,9 +82,9 @@ class Assignment extends Model implements Auditable
         return $query->where('asset_id', $assetId);
     }
 
-    public function scopeByUser($query, $userId)
+    public function scopeBySpecialist($query, $specialistId)
     {
-        return $query->where('user_id', $userId);
+        return $query->where('specialist_id', $specialistId);
     }
 
     public function scopeOverlapping($query, $assetId, $startAt, $endAt, $excludeId = null)
@@ -107,3 +107,4 @@ class Assignment extends Model implements Auditable
         return $query;
     }
 }
+

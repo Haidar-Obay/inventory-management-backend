@@ -55,6 +55,10 @@ class BootstrapTenantRbac implements ShouldQueue
             ['resource_key' => 'projects', 'resource_label' => 'Project Management'],
             ['resource_key' => 'jobs', 'resource_label' => 'Job Management'],
             ['resource_key' => 'product_lines', 'resource_label' => 'Product Line Management'],
+            
+            // Units
+            ['resource_key' => 'unit_groups', 'resource_label' => 'Unit Group Management'],
+            ['resource_key' => 'unit_of_measurements', 'resource_label' => 'Unit Of Measurement Management'],
         ];
 
         foreach ($permissionKeys as $perm) {

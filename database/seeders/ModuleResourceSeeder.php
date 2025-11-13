@@ -27,18 +27,29 @@ class ModuleResourceSeeder extends Seeder
             PageCode::ADDRESS_CODES_DISTRICTS->value => 'districts',
             PageCode::ADDRESS_CODES_ZONES->value => 'zones',
 
-            // Services (granularity handled by module-specific resources too)
-            PageCode::SERVICES_PAGE->value => 'services',
+            // Services
+            PageCode::SERVICES_CATEGORIES->value => 'service_categories',
+            PageCode::SERVICES_SERVICES->value => 'services',
 
-            // Items (granularity handled below)
-            PageCode::ITEMS_PAGE->value => 'items',
+            // Items
+            PageCode::ITEMS_PRODUCT_LINES->value => 'product_lines',
+            PageCode::ITEMS_CATEGORIES->value => 'categories',
+            PageCode::ITEMS_BRANDS->value => 'brands',
+            PageCode::ITEMS_ITEMS->value => 'items',
+
+            // Units
+            PageCode::UNITS_GROUPS->value => 'unit_groups',
+            PageCode::UNITS_MEASUREMENTS->value => 'unit_of_measurements',
 
             // Suppliers
             PageCode::SUPPLIERS_GROUPS->value => 'suppliers',
             PageCode::SUPPLIERS_SUPPLIERS->value => 'suppliers',
 
             // Customers
-            PageCode::CUSTOMERS_PAGE->value => 'customers',
+            PageCode::CUSTOMERS_GROUPS->value => 'customer_groups',
+            PageCode::CUSTOMERS_SALESMEN->value => 'salesmen',
+            PageCode::CUSTOMERS_CUSTOMERS->value => 'customers',
+            PageCode::CUSTOMERS_MASTER_LISTS->value => 'customer_master_lists',
 
             // Relations
             PageCode::RELATIONS_ASSOCIATIONS->value => 'associations',
@@ -96,7 +107,7 @@ class ModuleResourceSeeder extends Seeder
             $moduleSpecificResources = [
                 // Do NOT hard-add 'suppliers' here; it will be added only if a supplier page code exists
 
-                'stock_management' => ['product_lines', 'categories', 'brands', 'items', 'supplier_groups', 'customers'],
+                'stock_management' => ['product_lines', 'categories', 'brands', 'items', 'supplier_groups', 'customers', 'unit_groups', 'unit_of_measurements'],
                 'beauty_center' => [
                     'service_categories',
                     'services',
@@ -120,6 +131,8 @@ class ModuleResourceSeeder extends Seeder
                     'product_lines',
                     'categories',
                     'brands',
+                    'unit_groups',
+                    'unit_of_measurements',
                     'items',
                     'suppliers',
                     'supplier_groups',
@@ -151,6 +164,8 @@ class ModuleResourceSeeder extends Seeder
                     'sections',
                     'assets',
                     'table_templates',
+                    'unit_groups',
+                    'unit_of_measurements',
                 ],
             ];
 

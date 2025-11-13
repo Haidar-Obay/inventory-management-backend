@@ -25,10 +25,12 @@ class ModuleSeeder extends Seeder
                 'pages' => [
                     ['name' => 'Sche tics', 'code' => PageCode::DASHBOARD_ANALYTICS_PAGE->value, 'path' => '/main/dashboard/analytics', 'order' => 3, 'is_public' => false],
                     ['name' => 'Reports', 'code' => PageCode::DASHBOARD_REPORTS_PAGE->value, 'path' => '/main/dashboard/reports', 'order' => 4, 'is_public' => false],
-                    ['name' => 'Service Categories', 'code' => PageCode::SERVICES_PAGE->value, 'path' => '/main/mainfiles/services?tab=0', 'order' => 10, 'is_public' => false],
-                    ['name' => 'Services', 'code' => PageCode::SERVICES_PAGE->value, 'path' => '/main/mainfiles/services?tab=1', 'order' => 11, 'is_public' => false],
-                    ['name' => 'Customers', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer?tab=0', 'order' => 12, 'is_public' => false],
-                    ['name' => 'Customer Master Lists', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer?tab=3', 'order' => 13, 'is_public' => false],
+                    ['name' => 'Service Categories', 'code' => PageCode::SERVICES_CATEGORIES->value, 'path' => '/main/mainfiles/services?tab=0', 'order' => 10, 'is_public' => false],
+                    ['name' => 'Services', 'code' => PageCode::SERVICES_SERVICES->value, 'path' => '/main/mainfiles/services?tab=1', 'order' => 11, 'is_public' => false],
+                    ['name' => 'Customer Groups', 'code' => PageCode::CUSTOMERS_GROUPS->value, 'path' => '/main/mainfiles/customer?tab=0', 'order' => 12, 'is_public' => false],
+                    ['name' => 'Salesmen', 'code' => PageCode::CUSTOMERS_SALESMEN->value, 'path' => '/main/mainfiles/customer?tab=1', 'order' => 13, 'is_public' => false],
+                    ['name' => 'Customers', 'code' => PageCode::CUSTOMERS_CUSTOMERS->value, 'path' => '/main/mainfiles/customer?tab=2', 'order' => 14, 'is_public' => false],
+                    ['name' => 'Customer Master Lists', 'code' => PageCode::CUSTOMERS_MASTER_LISTS->value, 'path' => '/main/mainfiles/customer?tab=3', 'order' => 15, 'is_public' => false],
                     // Settings pages
                     ['name' => 'User Management', 'code' => PageCode::USER_MANAGEMENT_PAGE->value, 'path' => '/main/settings/userManagement?tab=0', 'order' => 90, 'is_public' => false],
                     ['name' => 'Permission', 'code' => PageCode::PERMISSIONS_PAGE->value, 'path' => '/main/settings/userManagement?tab=1', 'order' => 91, 'is_public' => false],
@@ -49,14 +51,17 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Overview', 'code' => PageCode::DASHBOARD_OVERVIEW_PAGE->value, 'path' => '/main/dashboard/overview', 'order' => 1, 'is_public' => false],
 
                     // Inventory Management
-                    ['name' => 'Product Lines', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=0', 'order' => 10, 'is_public' => false],
-                    ['name' => 'Categories', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 11, 'is_public' => false],
-                    ['name' => 'Brands', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 12, 'is_public' => false],
-                    ['name' => 'Items', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 13, 'is_public' => false],
+                    ['name' => 'Product Lines', 'code' => PageCode::ITEMS_PRODUCT_LINES->value, 'path' => '/main/mainfiles/items?tab=0', 'order' => 10, 'is_public' => false],
+                    ['name' => 'Categories', 'code' => PageCode::ITEMS_CATEGORIES->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 11, 'is_public' => false],
+                    ['name' => 'Brands', 'code' => PageCode::ITEMS_BRANDS->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 12, 'is_public' => false],
+                    ['name' => 'Items', 'code' => PageCode::ITEMS_ITEMS->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 13, 'is_public' => false],
 
                     // Suppliers and Customers
                     ['name' => 'Suppliers', 'code' => PageCode::SUPPLIERS_SUPPLIERS->value, 'path' => '/main/mainfiles/supplier?tab=1', 'order' => 20, 'is_public' => false],
-                    ['name' => 'Customers', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer', 'order' => 21, 'is_public' => false],
+                    ['name' => 'Customer Groups', 'code' => PageCode::CUSTOMERS_GROUPS->value, 'path' => '/main/mainfiles/customer?tab=0', 'order' => 21, 'is_public' => false],
+                    ['name' => 'Salesmen', 'code' => PageCode::CUSTOMERS_SALESMEN->value, 'path' => '/main/mainfiles/customer?tab=1', 'order' => 22, 'is_public' => false],
+                    ['name' => 'Customers', 'code' => PageCode::CUSTOMERS_CUSTOMERS->value, 'path' => '/main/mainfiles/customer?tab=2', 'order' => 23, 'is_public' => false],
+                    ['name' => 'Customer Master Lists', 'code' => PageCode::CUSTOMERS_MASTER_LISTS->value, 'path' => '/main/mainfiles/customer?tab=3', 'order' => 24, 'is_public' => false],
 
                     // Settings pages
                     ['name' => 'User Management', 'code' => PageCode::USER_MANAGEMENT_PAGE->value, 'path' => '/main/settings/userManagement?tab=0', 'order' => 90, 'is_public' => false],
@@ -92,18 +97,20 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Reports', 'code' => PageCode::DASHBOARD_REPORTS_PAGE->value, 'path' => '/main/dashboard/reports', 'order' => 4, 'is_public' => false],
 
                     // Main Files - Services
-                    ['name' => 'Service Categories', 'code' => PageCode::SERVICES_PAGE->value, 'path' => '/main/mainfiles/services?tab=0', 'order' => 10, 'is_public' => false],
-                    ['name' => 'Services', 'code' => PageCode::SERVICES_PAGE->value, 'path' => '/main/mainfiles/services?tab=1', 'order' => 11, 'is_public' => false],
+                    ['name' => 'Service Categories', 'code' => PageCode::SERVICES_CATEGORIES->value, 'path' => '/main/mainfiles/services?tab=0', 'order' => 10, 'is_public' => false],
+                    ['name' => 'Services', 'code' => PageCode::SERVICES_SERVICES->value, 'path' => '/main/mainfiles/services?tab=1', 'order' => 11, 'is_public' => false],
 
                     // Main Files - Items
-                    ['name' => 'Product Lines', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=0', 'order' => 20, 'is_public' => false],
-                    ['name' => 'Categories', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 21, 'is_public' => false],
-                    ['name' => 'Brands', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 22, 'is_public' => false],
-                    ['name' => 'Items', 'code' => PageCode::ITEMS_PAGE->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 23, 'is_public' => false],
+                    ['name' => 'Product Lines', 'code' => PageCode::ITEMS_PRODUCT_LINES->value, 'path' => '/main/mainfiles/items?tab=0', 'order' => 20, 'is_public' => false],
+                    ['name' => 'Categories', 'code' => PageCode::ITEMS_CATEGORIES->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 21, 'is_public' => false],
+                    ['name' => 'Brands', 'code' => PageCode::ITEMS_BRANDS->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 22, 'is_public' => false],
+                    ['name' => 'Items', 'code' => PageCode::ITEMS_ITEMS->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 23, 'is_public' => false],
 
                     // Main Files - Customers
-                    ['name' => 'Customers', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer', 'order' => 30, 'is_public' => false],
-                    ['name' => 'Customer Master Lists', 'code' => PageCode::CUSTOMERS_PAGE->value, 'path' => '/main/mainfiles/customer?tab=3', 'order' => 31, 'is_public' => false],
+                    ['name' => 'Customer Groups', 'code' => PageCode::CUSTOMERS_GROUPS->value, 'path' => '/main/mainfiles/customer?tab=0', 'order' => 30, 'is_public' => false],
+                    ['name' => 'Salesmen', 'code' => PageCode::CUSTOMERS_SALESMEN->value, 'path' => '/main/mainfiles/customer?tab=1', 'order' => 31, 'is_public' => false],
+                    ['name' => 'Customers', 'code' => PageCode::CUSTOMERS_CUSTOMERS->value, 'path' => '/main/mainfiles/customer?tab=2', 'order' => 32, 'is_public' => false],
+                    ['name' => 'Customer Master Lists', 'code' => PageCode::CUSTOMERS_MASTER_LISTS->value, 'path' => '/main/mainfiles/customer?tab=3', 'order' => 33, 'is_public' => false],
 
                     // Suppliers
                     ['name' => 'Supplier Groups', 'code' => PageCode::SUPPLIERS_GROUPS->value, 'path' => '/main/mainfiles/supplier?tab=0', 'order' => 40, 'is_public' => false],
@@ -118,6 +125,10 @@ class ModuleSeeder extends Seeder
                     // Payment
                     ['name' => 'Payment Terms', 'code' => PageCode::PAYMENT_TERMS->value, 'path' => '/main/mainfiles/payment?tab=0', 'order' => 60, 'is_public' => false],
                     ['name' => 'Payment Methods', 'code' => PageCode::PAYMENT_METHODS->value, 'path' => '/main/mainfiles/payment?tab=1', 'order' => 61, 'is_public' => false],
+
+                    // Units
+                    ['name' => 'Unit Groups', 'code' => PageCode::UNITS_GROUPS->value, 'path' => '/main/mainfiles/units?tab=0', 'order' => 62, 'is_public' => false],
+                    ['name' => 'Unit Of Measurements', 'code' => PageCode::UNITS_MEASUREMENTS->value, 'path' => '/main/mainfiles/units?tab=1', 'order' => 63, 'is_public' => false],
 
                     // General Files
                     ['name' => 'Business Types', 'code' => PageCode::GENERAL_FILES_BUSINESS_TYPES->value, 'path' => '/main/mainfiles/generalfiles?tab=0', 'order' => 70, 'is_public' => false],

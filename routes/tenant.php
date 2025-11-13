@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AdjustmentTypeController;
 use App\Http\Controllers\AssetController;
-use App\Http\Controllers\AssignmentController;
+use App\Http\Controllers\AppointmentController;
+use App\Http\Controllers\EventController;
 use App\Http\Controllers\AssociationContactController;
 use App\Http\Controllers\AssociationController;
 use App\Http\Controllers\AssociationServicePriceController;
@@ -54,6 +55,7 @@ use App\Http\Controllers\SalesChannelController;
 use App\Http\Controllers\SalesmanController;
 use App\Http\Controllers\SectionController;
 use App\Http\Controllers\ServiceAdvancedPricingController;
+use App\Http\Controllers\SchedulerUnitController;
 use App\Http\Controllers\ServiceCategoryController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\ServiceNeededItemController;
@@ -62,6 +64,7 @@ use App\Http\Controllers\SpecialityController;
 use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierGroupController;
+use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TableTemplateController;
 use App\Http\Controllers\TenantModuleController;
 use App\Http\Controllers\TenantPurgeController;
@@ -169,7 +172,9 @@ Route::middleware([
         Route::get('/assets/available', [AssetController::class, 'available']);
 
         Route::apiResource('assets', AssetController::class);
-        Route::apiResource('assignments', AssignmentController::class);
+        Route::apiResource('appointments', AppointmentController::class);
+        Route::apiResource('tasks', TaskController::class);
+        Route::apiResource('events', EventController::class);
         Route::apiResource('business-types', BusinessTypeController::class);
         Route::apiResource('projects', ProjectController::class)->middleware('check.permission:projects,view');
         Route::apiResource('jobs', JobController::class)->middleware('check.permission:jobs,view');
@@ -195,11 +200,11 @@ Route::middleware([
         Route::post('items/{item}/unit-of-measurements/attach', [ItemController::class, 'attachUOM'])->middleware('check.permission:items,view');
         Route::post('items/{item}/unit-of-measurements/{unitOfMeasurement}/update', [ItemController::class, 'updateUOM'])->middleware('check.permission:items,view');
         Route::post('items/{item}/unit-of-measurements/detach', [ItemController::class, 'detachUOM'])->middleware('check.permission:items,view');
-        Route::apiResource('unit-groups', UnitGroupController::class);
-        Route::get('unit-groups/{unitGroup}/units', [\App\Http\Controllers\UnitGroupController::class, 'units']);
-        Route::get('units/{unitOfMeasurement}/operations', [\App\Http\Controllers\UnitOfMeasurementController::class, 'operations']);
-        Route::get('units/{unitOfMeasurement}/conversions', [\App\Http\Controllers\UnitOfMeasurementController::class, 'conversions']);
-        Route::apiResource('unit-of-measurements', UnitOfMeasurementController::class);
+        Route::apiResource('unit-groups', UnitGroupController::class)->middleware('check.permission:unit_groups,view');
+        Route::get('unit-groups/{unitGroup}/units', [\App\Http\Controllers\UnitGroupController::class, 'units'])->middleware('check.permission:unit_groups,view');
+        Route::get('units/{unitOfMeasurement}/operations', [\App\Http\Controllers\UnitOfMeasurementController::class, 'operations'])->middleware('check.permission:unit_of_measurements,view');
+        Route::get('units/{unitOfMeasurement}/conversions', [\App\Http\Controllers\UnitOfMeasurementController::class, 'conversions'])->middleware('check.permission:unit_of_measurements,view');
+        Route::apiResource('unit-of-measurements', UnitOfMeasurementController::class)->middleware('check.permission:unit_of_measurements,view');
         Route::apiResource('customer-master-lists', CustomerMasterListController::class);
         Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');
         Route::apiResource('specialists', SpecialistController::class)->middleware('check.permission:specialists,view');
@@ -267,7 +272,7 @@ Route::middleware([
             Route::get('rooms', [RoomController::class, 'exportExcell'])->middleware('check.permission:rooms,export');
             Route::get('sections', [SectionController::class, 'exportExcell'])->middleware('check.permission:sections,export');
             Route::get('assets', [AssetController::class, 'exportExcell'])->middleware('check.permission:assets,export');
-            Route::get('assignments', [AssignmentController::class, 'exportExcell'])->middleware('check.permission:assignments,export');
+            Route::get('appointments', [AppointmentController::class, 'exportExcell'])->middleware('check.permission:appointments,export');
             Route::get('business-types', [BusinessTypeController::class, 'exportExcell'])->middleware('check.permission:business_types,export');
             Route::get('projects', [ProjectController::class, 'exportExcel'])->middleware('check.permission:projects,export');
             Route::get('jobs', [JobController::class, 'exportExcell'])->middleware('check.permission:jobs,export');
@@ -323,7 +328,7 @@ Route::middleware([
             Route::get('/rooms', [RoomController::class, 'exportPdf'])->middleware('check.permission:rooms,export');
             Route::get('/sections', [SectionController::class, 'exportPdf'])->middleware('check.permission:sections,export');
             Route::get('/assets', [AssetController::class, 'exportPdf'])->middleware('check.permission:assets,export');
-            Route::get('/assignments', [AssignmentController::class, 'exportPdf'])->middleware('check.permission:assignments,export');
+            Route::get('/appointments', [AppointmentController::class, 'exportPdf'])->middleware('check.permission:appointments,export');
             Route::get('/business-types', [BusinessTypeController::class, 'exportPdf'])->middleware('check.permission:business_types,export');
             Route::get('/projects', [ProjectController::class, 'exportPdf'])->middleware('check.permission:projects,export');
             Route::get('/jobs', [JobController::class, 'exportPdf'])->middleware('check.permission:jobs,export');
@@ -382,7 +387,7 @@ Route::middleware([
             Route::post('/rooms', [RoomController::class, 'importFromExcel'])->middleware('check.permission:rooms,import');
             Route::post('/sections', [SectionController::class, 'importFromExcel'])->middleware('check.permission:sections,import');
             Route::post('/assets', [AssetController::class, 'importFromExcel'])->middleware('check.permission:assets,import');
-            Route::post('/assignments', [AssignmentController::class, 'importFromExcel'])->middleware('check.permission:assignments,import');
+            Route::post('/appointments', [AppointmentController::class, 'importFromExcel'])->middleware('check.permission:appointments,import');
             Route::post('/business-types', [BusinessTypeController::class, 'importFromExcel'])->middleware('check.permission:business_types,import');
             Route::post('/projects', [ProjectController::class, 'importFromExcel'])->middleware('check.permission:projects,import');
             Route::post('/jobs', [JobController::class, 'importFromExcel'])->middleware('check.permission:jobs,import');
@@ -430,6 +435,8 @@ Route::middleware([
             Route::delete('/brands', [BrandController::class, 'bulkDelete']);
             Route::delete('/product-lines', [ProductLineController::class, 'bulkDelete']);
             Route::delete('/categories', [CategoryController::class, 'bulkDelete']);
+            Route::delete('/unit-groups', [UnitGroupController::class, 'bulkDelete']);
+            Route::delete('/unit-of-measurements', [UnitOfMeasurementController::class, 'bulkDelete']);
             Route::delete('/supplier-groups', [SupplierGroupController::class, 'bulkDelete']);
             Route::delete('/suppliers', [SupplierController::class, 'bulkDelete']);
             Route::delete('/branches', [BranchController::class, 'bulkDelete']);
@@ -438,7 +445,7 @@ Route::middleware([
             Route::delete('/rooms', [RoomController::class, 'bulkDelete']);
             Route::delete('/sections', [SectionController::class, 'bulkDelete']);
             Route::delete('/assets', [AssetController::class, 'bulkDelete']);
-            Route::delete('/assignments', [AssignmentController::class, 'bulkDelete']);
+            Route::delete('/appointments', [AppointmentController::class, 'bulkDelete']);
 
             // Custom routes for sections
             Route::get('/rooms/{room}/sections', [SectionController::class, 'byRoom']);
@@ -446,10 +453,21 @@ Route::middleware([
             // Custom routes for assets
             Route::get('/sections/{section}/assets', [AssetController::class, 'bySection']);
 
-            // Custom routes for assignments
-            Route::get('/assets/{asset}/assignments', [AssignmentController::class, 'byAsset']);
-            Route::get('/users/{user}/assignments', [AssignmentController::class, 'byUser']);
-            Route::get('/assignments/active', [AssignmentController::class, 'active']);
+            // Custom routes for appointments
+            Route::get('/assets/{asset}/appointments', [AppointmentController::class, 'byAsset']);
+            Route::get('/specialists/{specialist}/appointments', [AppointmentController::class, 'bySpecialist']);
+            Route::get('/appointments/active', [AppointmentController::class, 'active']);
+
+            // Custom routes for tasks
+            Route::get('/tasks/for/{schedulableType}/{schedulableId}', [TaskController::class, 'forSchedulable']);
+
+            // Custom routes for events
+            Route::get('/events/for/{schedulableType}/{schedulableId}', [EventController::class, 'forSchedulable']);
+
+            // Scheduler Unit routes (aggregated data)
+            Route::get('/scheduler-units/{schedulableType}/{schedulableId}', [SchedulerUnitController::class, 'show']);
+            Route::get('/scheduler-units/{schedulableType}/{schedulableId}/timeline', [SchedulerUnitController::class, 'timeline']);
+
             Route::delete('/business-types', [BusinessTypeController::class, 'bulkDelete']);
             Route::delete('/projects', [ProjectController::class, 'bulkDelete']);
             Route::delete('/jobs', [JobController::class, 'bulkDelete']);
