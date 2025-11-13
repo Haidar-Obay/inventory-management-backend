@@ -17,9 +17,8 @@ class SchedulerUnitController extends Controller
     /**
      * Get scheduler data for a specific entity
      *
-     * @param Request $request
-     * @param string $schedulableType The model class (e.g., 'User', 'Specialist', 'Asset')
-     * @param int $schedulableId The entity ID
+     * @param  string  $schedulableType  The model class (e.g., 'User', 'Specialist', 'Asset')
+     * @param  int  $schedulableId  The entity ID
      * @return \Illuminate\Http\JsonResponse
      */
     public function show(Request $request, string $schedulableType, int $schedulableId)
@@ -36,7 +35,7 @@ class SchedulerUnitController extends Controller
         if (! isset($allowedTypes[$schedulableType])) {
             return response()->json([
                 'status' => false,
-                'message' => 'Invalid schedulable type. Allowed types: ' . implode(', ', array_keys($allowedTypes)),
+                'message' => 'Invalid schedulable type. Allowed types: '.implode(', ', array_keys($allowedTypes)),
             ], 422);
         }
 
@@ -154,4 +153,3 @@ class SchedulerUnitController extends Controller
         }
     }
 }
-

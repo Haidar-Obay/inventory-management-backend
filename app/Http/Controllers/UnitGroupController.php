@@ -143,6 +143,7 @@ class UnitGroupController extends Controller
                         'id' => $id,
                         'reason' => 'Unit group not found.',
                     ];
+
                     continue;
                 }
 
@@ -163,6 +164,7 @@ class UnitGroupController extends Controller
                             ],
                         ],
                     ];
+
                     continue;
                 }
 

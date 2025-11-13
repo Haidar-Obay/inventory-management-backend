@@ -88,4 +88,3 @@ class Task extends Model implements Auditable
             ->where('schedulable_id', $schedulableId);
     }
 }
-

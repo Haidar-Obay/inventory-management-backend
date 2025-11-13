@@ -43,4 +43,3 @@ class UpdateTaskRequest extends FormRequest
         ];
     }
 }
-

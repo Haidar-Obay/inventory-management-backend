@@ -421,4 +421,3 @@ class AppointmentController extends Controller
         ]);
     }
 }
-

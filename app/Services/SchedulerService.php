@@ -5,16 +5,15 @@ namespace App\Services;
 use App\Models\Appointment;
 use App\Models\Event;
 use App\Models\Task;
-use Carbon\Carbon;
 
 class SchedulerService
 {
     /**
      * Get all scheduler data for a given entity
      *
-     * @param string $schedulableType The model class (e.g., 'App\Models\User')
-     * @param int $schedulableId The entity ID
-     * @param array $filters Optional filters (date_from, date_to, status, type)
+     * @param  string  $schedulableType  The model class (e.g., 'App\Models\User')
+     * @param  int  $schedulableId  The entity ID
+     * @param  array  $filters  Optional filters (date_from, date_to, status, type)
      * @return array Unified scheduler data
      */
     public function getSchedulerData(string $schedulableType, int $schedulableId, array $filters = []): array
@@ -136,7 +135,7 @@ class SchedulerService
         return [
             'id' => $appointment->id,
             'type' => 'appointment',
-            'title' => ($appointment->asset->name ?? 'Asset') . ' - ' . ($appointment->specialist->name ?? 'Specialist'),
+            'title' => ($appointment->asset->name ?? 'Asset').' - '.($appointment->specialist->name ?? 'Specialist'),
             'description' => $appointment->notes,
             'start_at' => $appointment->start_at->toIso8601String(),
             'end_at' => $appointment->end_at?->toIso8601String(),
@@ -296,4 +295,3 @@ class SchedulerService
         app('cache')->store('database')->forget("tenant_{$tenantId}_scheduler_{$type}_{$schedulableId}");
     }
 }
-

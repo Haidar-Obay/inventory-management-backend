@@ -99,4 +99,3 @@ class Event extends Model implements Auditable
         return $query;
     }
 }
-

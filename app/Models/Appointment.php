@@ -107,4 +107,3 @@ class Appointment extends Model implements Auditable
         return $query;
     }
 }
-

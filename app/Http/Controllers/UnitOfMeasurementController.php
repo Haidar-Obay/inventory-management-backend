@@ -162,6 +162,7 @@ class UnitOfMeasurementController extends Controller
                         'id' => $id,
                         'reason' => 'Unit of measurement not found.',
                     ];
+
                     continue;
                 }
 
@@ -189,6 +190,7 @@ class UnitOfMeasurementController extends Controller
                             ],
                         ],
                     ];
+
                     continue;
                 }
 
