@@ -43,14 +43,30 @@ class Asset extends Model implements Auditable
         return $this->hasOneThrough(Room::class, Section::class, 'id', 'id', 'section_id', 'room_id');
     }
 
-    public function assignments()
+    public function appointments()
     {
-        return $this->hasMany(Assignment::class);
+        return $this->hasMany(Appointment::class);
     }
 
-    public function activeAssignments()
+    public function activeAppointments()
     {
-        return $this->hasMany(Assignment::class)->where('status', 'active');
+        return $this->hasMany(Appointment::class)->where('status', 'active');
+    }
+
+    /**
+     * Get the tasks for this asset.
+     */
+    public function tasks()
+    {
+        return $this->morphMany(Task::class, 'schedulable');
+    }
+
+    /**
+     * Get the events for this asset.
+     */
+    public function events()
+    {
+        return $this->morphMany(Event::class, 'schedulable');
     }
 
     // Scopes
@@ -72,6 +88,6 @@ class Asset extends Model implements Auditable
     public function scopeAvailable($query)
     {
         return $query->where('status', 'active')
-            ->whereDoesntHave('activeAssignments');
+            ->whereDoesntHave('activeAppointments');
     }
 }

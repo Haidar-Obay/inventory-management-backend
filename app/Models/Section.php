@@ -41,6 +41,22 @@ class Section extends Model implements Auditable
         return $this->hasMany(Asset::class);
     }
 
+    /**
+     * Get the tasks for this section.
+     */
+    public function tasks()
+    {
+        return $this->morphMany(Task::class, 'schedulable');
+    }
+
+    /**
+     * Get the events for this section.
+     */
+    public function events()
+    {
+        return $this->morphMany(Event::class, 'schedulable');
+    }
+
     // Scopes
     public function scopeOrdered($query)
     {

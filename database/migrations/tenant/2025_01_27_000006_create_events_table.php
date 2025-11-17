@@ -11,21 +11,24 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('assignments', function (Blueprint $table) {
+        Schema::create('events', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('asset_id')->constrained('assets')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->morphs('schedulable'); // Creates schedulable_id and schedulable_type
+            $table->string('title');
+            $table->text('description')->nullable();
             $table->timestamp('start_at');
             $table->timestamp('end_at')->nullable();
-            $table->enum('status', ['active', 'completed', 'cancelled', 'overdue'])->default('active');
+            $table->enum('status', ['scheduled', 'ongoing', 'completed', 'cancelled'])->default('scheduled');
+            $table->string('location')->nullable();
             $table->text('notes')->nullable();
             $table->string('color', 7)->nullable(); // Hex color code (e.g., #FF5733)
+            $table->boolean('is_all_day')->default(false);
             $table->timestamps();
 
-            // Add index for better performance on date queries
+            // Add indexes for better performance
             $table->index(['start_at', 'end_at']);
-            $table->index(['asset_id', 'status']);
-            $table->index(['user_id', 'status']);
+            $table->index(['schedulable_id', 'schedulable_type']);
+            $table->index(['status']);
         });
     }
 
@@ -34,6 +37,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('assignments');
+        Schema::dropIfExists('events');
     }
 };

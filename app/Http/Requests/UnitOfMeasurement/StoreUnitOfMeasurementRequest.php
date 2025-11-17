@@ -16,8 +16,6 @@ class StoreUnitOfMeasurementRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'unit_group_id' => 'required|integer|exists:unit_groups,id',
-            'operation' => 'required|string|in:multiply,divide',
-            'conversion' => 'required|numeric|min:0.0001',
         ];
     }
 }
