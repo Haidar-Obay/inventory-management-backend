@@ -115,4 +115,28 @@ class Tenant extends BaseTenant implements Auditable, TenantWithDatabase
 
         return $base + $modulesTotal;
     }
+
+    /**
+     * Get scheduler mode from subscription plan
+     */
+    public function getSchedulerMode(): string
+    {
+        return $this->subscriptionPlan?->getSchedulerMode() ?? 'basic';
+    }
+
+    /**
+     * Check if tenant uses advanced scheduler mode
+     */
+    public function usesAdvancedScheduler(): bool
+    {
+        return $this->subscriptionPlan?->hasAdvancedScheduler() ?? false;
+    }
+
+    /**
+     * Check if tenant uses basic scheduler mode
+     */
+    public function usesBasicScheduler(): bool
+    {
+        return $this->subscriptionPlan?->hasBasicScheduler() ?? true;
+    }
 }

@@ -132,7 +132,6 @@ class ModuleResourceSeeder extends Seeder
                     'categories',
                     'brands',
                     'unit_groups',
-                    'unit_of_measurements',
                     'items',
                     'suppliers',
                     'supplier_groups',

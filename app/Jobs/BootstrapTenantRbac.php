@@ -27,6 +27,7 @@ class BootstrapTenantRbac implements ShouldQueue
             ['resource_key' => 'roles', 'resource_label' => 'Role Management'],
             ['resource_key' => 'permissions', 'resource_label' => 'Permission Management'],
 
+            
             // Core Business Entities
             ['resource_key' => 'customers', 'resource_label' => 'Customer Management'],
             ['resource_key' => 'suppliers', 'resource_label' => 'Supplier Management'],

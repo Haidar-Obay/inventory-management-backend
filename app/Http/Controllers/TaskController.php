@@ -5,10 +5,18 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Task\StoreTaskRequest;
 use App\Http\Requests\Task\UpdateTaskRequest;
 use App\Models\Task;
+use App\Services\SchedulerService;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
+    protected SchedulerService $schedulerService;
+
+    public function __construct(SchedulerService $schedulerService)
+    {
+        $this->schedulerService = $schedulerService;
+    }
+
     public function index()
     {
         $tenantId = tenant('id');
@@ -40,6 +48,9 @@ class TaskController extends Controller
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_tasks");
+
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($task->schedulable_type, $task->schedulable_id);
 
         return response()->json([
             'status' => true,
@@ -78,6 +89,9 @@ class TaskController extends Controller
         app('cache')->store('database')->forget("tenant_{$tenantId}_tasks");
         app('cache')->store('database')->forget("tenant_{$tenantId}_task_{$task->id}");
 
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($task->schedulable_type, $task->schedulable_id);
+
         return response()->json([
             'status' => true,
             'message' => 'Task updated successfully.',
@@ -87,11 +101,17 @@ class TaskController extends Controller
 
     public function destroy(Task $task)
     {
+        $schedulableType = $task->schedulable_type;
+        $schedulableId = $task->schedulable_id;
+
         $task->delete();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_tasks");
         app('cache')->store('database')->forget("tenant_{$tenantId}_task_{$task->id}");
+
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($schedulableType, $schedulableId);
 
         return response()->json([
             'status' => true,

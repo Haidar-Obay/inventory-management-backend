@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('specialists', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->integer('capacity_per_hour')->nullable()->default(1); // How many appointments per hour
+            $table->integer('capacity_per_day')->nullable(); // Max appointments per day (null = unlimited)
             $table->timestamps();
             $table->unique(['name']);
         });
