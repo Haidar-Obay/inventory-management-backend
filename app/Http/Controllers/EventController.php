@@ -5,10 +5,18 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Event\StoreEventRequest;
 use App\Http\Requests\Event\UpdateEventRequest;
 use App\Models\Event;
+use App\Services\SchedulerService;
 use Illuminate\Http\Request;
 
 class EventController extends Controller
 {
+    protected SchedulerService $schedulerService;
+
+    public function __construct(SchedulerService $schedulerService)
+    {
+        $this->schedulerService = $schedulerService;
+    }
+
     public function index()
     {
         $tenantId = tenant('id');
@@ -40,6 +48,9 @@ class EventController extends Controller
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_events");
+
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($event->schedulable_type, $event->schedulable_id);
 
         return response()->json([
             'status' => true,
@@ -78,6 +89,9 @@ class EventController extends Controller
         app('cache')->store('database')->forget("tenant_{$tenantId}_events");
         app('cache')->store('database')->forget("tenant_{$tenantId}_event_{$event->id}");
 
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($event->schedulable_type, $event->schedulable_id);
+
         return response()->json([
             'status' => true,
             'message' => 'Event updated successfully.',
@@ -87,11 +101,17 @@ class EventController extends Controller
 
     public function destroy(Event $event)
     {
+        $schedulableType = $event->schedulable_type;
+        $schedulableId = $event->schedulable_id;
+
         $event->delete();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_events");
         app('cache')->store('database')->forget("tenant_{$tenantId}_event_{$event->id}");
+
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($schedulableType, $schedulableId);
 
         return response()->json([
             'status' => true,

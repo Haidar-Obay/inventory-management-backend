@@ -128,6 +128,7 @@ Route::middleware([
 
         // Subscription Status Check
         Route::get('/subscription/status', [SubscriptionPlanController::class, 'checkCurrentUserSubscription']);
+        Route::get('/subscription/scheduler-mode', [SubscriptionPlanController::class, 'getSchedulerMode']);
 
         // Resource APIs
         Route::apiResource('cities', CityController::class);

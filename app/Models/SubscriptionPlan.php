@@ -18,6 +18,7 @@ class SubscriptionPlan extends Model
         'max_currencies',
         'max_users',
         'max_customers',
+        'scheduler_mode',
         'is_default',
     ];
 
@@ -26,6 +27,7 @@ class SubscriptionPlan extends Model
         'is_active' => 'boolean',
         'is_default' => 'boolean',
         'price' => 'decimal:2',
+        'scheduler_mode' => 'string',
     ];
 
     public function tenants(): HasMany
@@ -66,5 +68,29 @@ class SubscriptionPlan extends Model
     public function canAddCustomer(int $currentCount = 0): bool
     {
         return $this->max_customers === null || $currentCount < $this->max_customers;
+    }
+
+    /**
+     * Get scheduler mode for this plan
+     */
+    public function getSchedulerMode(): string
+    {
+        return $this->scheduler_mode ?? 'basic';
+    }
+
+    /**
+     * Check if plan has advanced scheduler
+     */
+    public function hasAdvancedScheduler(): bool
+    {
+        return $this->getSchedulerMode() === 'advanced';
+    }
+
+    /**
+     * Check if plan has basic scheduler
+     */
+    public function hasBasicScheduler(): bool
+    {
+        return $this->getSchedulerMode() === 'basic';
     }
 }

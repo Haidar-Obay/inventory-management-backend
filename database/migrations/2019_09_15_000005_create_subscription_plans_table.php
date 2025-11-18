@@ -20,6 +20,7 @@ return new class extends Migration
             $table->integer('max_currencies')->default(1);
             $table->integer('max_users')->nullable();
             $table->integer('max_customers')->nullable();
+            $table->enum('scheduler_mode', ['basic', 'advanced'])->default('basic');
             $table->boolean('is_default')->default(false);
             $table->timestamps();
         });

@@ -16,7 +16,6 @@ class Appointment extends Model implements Auditable
         'specialist_id',
         'start_at',
         'end_at',
-        'status',
         'notes',
         'color',
     ];
@@ -33,15 +32,52 @@ class Appointment extends Model implements Auditable
         'status' => 'string',
     ];
 
-    // Validation rules for the model
+    // Validation rules for the model (basic - no restrictions)
     public static $rules = [
-        'asset_id' => 'required|exists:assets,id',
-        'specialist_id' => 'required|exists:specialists,id',
+        'asset_id' => 'nullable|exists:assets,id',
+        'specialist_id' => 'nullable|exists:specialists,id',
         'start_at' => 'required|date',
-        'end_at' => 'nullable|date|after:start_at',
-        'status' => 'required|in:active,completed,cancelled,overdue',
+        'end_at' => 'required|date|after:start_at',
         'notes' => 'nullable|string|max:1000',
     ];
+
+    /**
+     * Calculate status based on current time
+     * - active: current time is before start_at
+     * - in_progress: current time is between start_at and end_at
+     * - completed: current time is after end_at
+     */
+    public function calculateStatus(): string
+    {
+        $now = now();
+        $startAt = $this->start_at;
+        $endAt = $this->end_at;
+
+        if ($now->lt($startAt)) {
+            return 'active';
+        } elseif ($now->gte($startAt) && $now->lte($endAt)) {
+            return 'in_progress';
+        } else {
+            return 'completed';
+        }
+    }
+
+    /**
+     * Boot method to auto-calculate status
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($appointment) {
+            // Always auto-calculate status based on current time
+            // Status is never set manually, always calculated
+            // Recalculate on every save to ensure it's up-to-date
+            if ($appointment->start_at && $appointment->end_at) {
+                $appointment->status = $appointment->calculateStatus();
+            }
+        });
+    }
 
     // Relationships
     public function asset()
@@ -72,6 +108,16 @@ class Appointment extends Model implements Auditable
         return $query->where('status', 'active');
     }
 
+    public function scopeInProgress($query)
+    {
+        return $query->where('status', 'in_progress');
+    }
+
+    public function scopeCompleted($query)
+    {
+        return $query->where('status', 'completed');
+    }
+
     public function scopeByStatus($query, $status)
     {
         return $query->where('status', $status);
@@ -89,16 +135,19 @@ class Appointment extends Model implements Auditable
 
     public function scopeOverlapping($query, $assetId, $startAt, $endAt, $excludeId = null)
     {
-        $query->where('asset_id', $assetId)
-            ->where('status', '!=', 'cancelled')
-            ->where(function ($q) use ($startAt, $endAt) {
-                $q->whereBetween('start_at', [$startAt, $endAt])
-                    ->orWhereBetween('end_at', [$startAt, $endAt])
-                    ->orWhere(function ($q2) use ($startAt, $endAt) {
-                        $q2->where('start_at', '<=', $startAt)
-                            ->where('end_at', '>=', $endAt);
-                    });
-            });
+        if ($assetId) {
+            $query->where('asset_id', $assetId);
+        }
+        
+        // Don't filter by status for overlapping check - check all appointments
+        $query->where(function ($q) use ($startAt, $endAt) {
+            $q->whereBetween('start_at', [$startAt, $endAt])
+                ->orWhereBetween('end_at', [$startAt, $endAt])
+                ->orWhere(function ($q2) use ($startAt, $endAt) {
+                    $q2->where('start_at', '<=', $startAt)
+                        ->where('end_at', '>=', $endAt);
+                });
+        });
 
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);

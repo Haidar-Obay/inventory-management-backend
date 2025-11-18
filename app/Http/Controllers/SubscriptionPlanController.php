@@ -53,6 +53,7 @@ class SubscriptionPlanController extends Controller
             'max_currencies' => 'required|integer|min:1',
             'max_users' => 'nullable|integer|min:1',
             'max_customers' => 'nullable|integer|min:1',
+            'scheduler_mode' => 'nullable|in:basic,advanced',
             'features' => 'nullable|array',
             'is_default' => 'boolean',
         ]);
@@ -89,6 +90,7 @@ class SubscriptionPlanController extends Controller
             'max_currencies' => 'sometimes|required|integer|min:1',
             'max_users' => 'nullable|integer|min:1',
             'max_customers' => 'nullable|integer|min:1',
+            'scheduler_mode' => 'nullable|in:basic,advanced',
             'features' => 'nullable|array',
             'is_default' => 'boolean',
         ]);
@@ -184,6 +186,41 @@ class SubscriptionPlanController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to check subscription status: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get current tenant's scheduler mode
+     */
+    public function getSchedulerMode(): JsonResponse
+    {
+        try {
+            $tenant = tenant();
+
+            if (! $tenant) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tenant not found',
+                ], 404);
+            }
+
+            $schedulerMode = $tenant->getSchedulerMode();
+            $isAdvanced = $tenant->usesAdvancedScheduler();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'scheduler_mode' => $schedulerMode,
+                    'is_advanced' => $isAdvanced,
+                    'is_basic' => !$isAdvanced,
+                ],
+                'message' => 'Scheduler mode fetched successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch scheduler mode: '.$e->getMessage(),
             ], 500);
         }
     }

@@ -132,24 +132,38 @@ class SchedulerService
      */
     protected function formatAppointment(Appointment $appointment): array
     {
+        $assetName = $appointment->asset?->name ?? 'No Asset';
+        $specialistName = $appointment->specialist?->name ?? 'No Specialist';
+        
+        // Build title based on what's available
+        if ($appointment->asset_id && $appointment->specialist_id) {
+            $title = "{$assetName} - {$specialistName}";
+        } elseif ($appointment->asset_id) {
+            $title = $assetName;
+        } elseif ($appointment->specialist_id) {
+            $title = $specialistName;
+        } else {
+            $title = 'Appointment';
+        }
+
         return [
             'id' => $appointment->id,
             'type' => 'appointment',
-            'title' => ($appointment->asset->name ?? 'Asset').' - '.($appointment->specialist->name ?? 'Specialist'),
+            'title' => $title,
             'description' => $appointment->notes,
             'start_at' => $appointment->start_at->toIso8601String(),
             'end_at' => $appointment->end_at?->toIso8601String(),
             'status' => $appointment->status,
-            'color' => $appointment->color ?? $this->getStatusColor($appointment->status),
+            'color' => $appointment->color ?? '#10b981', // Use user's color or default, don't override with status
             'is_all_day' => false,
             'location' => null,
             'priority' => null,
             'due_at' => null,
             'metadata' => [
                 'asset_id' => $appointment->asset_id,
-                'asset_name' => $appointment->asset->name ?? null,
+                'asset_name' => $appointment->asset?->name ?? null,
                 'specialist_id' => $appointment->specialist_id,
-                'specialist_name' => $appointment->specialist->name ?? null,
+                'specialist_name' => $appointment->specialist?->name ?? null,
             ],
             'raw_data' => $appointment->toArray(),
         ];
@@ -247,11 +261,10 @@ class SchedulerService
     protected function getStatusColor(string $status): string
     {
         return match ($status) {
-            'active', 'scheduled', 'pending', 'in_progress' => '#10b981',
-            'completed' => '#3b82f6',
-            'cancelled' => '#ef4444',
-            'overdue' => '#f59e0b',
-            default => '#6b7280',
+            'active' => '#10b981',        // Green - before start time
+            'in_progress' => '#3b82f6',   // Blue - currently happening
+            'completed' => '#6b7280',     // Gray - after end time
+            default => '#10b981',
         };
     }
 
