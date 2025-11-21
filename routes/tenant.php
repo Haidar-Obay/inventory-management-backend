@@ -66,6 +66,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierGroupController;
 use App\Http\Controllers\TableTemplateController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\TaskStatusController;
 use App\Http\Controllers\TenantModuleController;
 use App\Http\Controllers\TenantPurgeController;
 use App\Http\Controllers\TradeController;
@@ -175,6 +176,7 @@ Route::middleware([
         Route::apiResource('assets', AssetController::class);
         Route::apiResource('appointments', AppointmentController::class);
         Route::apiResource('tasks', TaskController::class);
+        Route::patch('tasks/{task}/status', [TaskStatusController::class, 'update']);
         Route::apiResource('events', EventController::class);
         Route::apiResource('business-types', BusinessTypeController::class);
         Route::apiResource('projects', ProjectController::class)->middleware('check.permission:projects,view');

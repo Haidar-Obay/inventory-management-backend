@@ -14,8 +14,6 @@ class StoreEventRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'schedulable_id' => 'required|integer',
-            'schedulable_type' => 'required|string|in:App\Models\User,App\Models\Specialist,App\Models\Asset,App\Models\Room,App\Models\Section',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
             'start_at' => 'required|date',
@@ -31,9 +29,6 @@ class StoreEventRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'schedulable_id.required' => 'The schedulable ID is required.',
-            'schedulable_type.required' => 'The schedulable type is required.',
-            'schedulable_type.in' => 'The schedulable type must be one of: User, Specialist, Asset, Room, Section.',
             'title.required' => 'The title is required.',
             'title.max' => 'The title cannot exceed 255 characters.',
             'start_at.required' => 'The start date is required.',

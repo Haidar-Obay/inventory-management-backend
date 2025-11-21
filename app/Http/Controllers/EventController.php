@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Event\StoreEventRequest;
 use App\Http\Requests\Event\UpdateEventRequest;
 use App\Models\Event;
+use App\Models\User;
 use App\Services\SchedulerService;
 use Illuminate\Http\Request;
 
@@ -39,7 +40,18 @@ class EventController extends Controller
 
     public function store(StoreEventRequest $request)
     {
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Authentication required to create events.',
+            ], 401);
+        }
+
         $validated = $request->validated();
+        $validated['schedulable_type'] = User::class;
+        $validated['schedulable_id'] = $user->id;
 
         $nextId = $this->computeNextAvailableId(Event::class, 'id');
         $event = new Event($validated);
@@ -81,7 +93,25 @@ class EventController extends Controller
 
     public function update(UpdateEventRequest $request, Event $event)
     {
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Authentication required to update events.',
+            ], 401);
+        }
+
+        if ($event->schedulable_type !== User::class || $event->schedulable_id !== $user->id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'You are not allowed to modify this event.',
+            ], 403);
+        }
+
         $validated = $request->validated();
+        $validated['schedulable_type'] = User::class;
+        $validated['schedulable_id'] = $user->id;
 
         $event->update($validated);
 
@@ -99,8 +129,24 @@ class EventController extends Controller
         ]);
     }
 
-    public function destroy(Event $event)
+    public function destroy(Request $request, Event $event)
     {
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Authentication required to delete events.',
+            ], 401);
+        }
+
+        if ($event->schedulable_type !== User::class || $event->schedulable_id !== $user->id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'You are not allowed to delete this event.',
+            ], 403);
+        }
+
         $schedulableType = $event->schedulable_type;
         $schedulableId = $event->schedulable_id;
 

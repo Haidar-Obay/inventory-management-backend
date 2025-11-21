@@ -14,8 +14,6 @@ class UpdateEventRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'schedulable_id' => 'sometimes|integer',
-            'schedulable_type' => 'sometimes|string|in:App\Models\User,App\Models\Specialist,App\Models\Asset,App\Models\Room,App\Models\Section',
             'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string|max:2000',
             'start_at' => 'sometimes|date',
@@ -31,7 +29,6 @@ class UpdateEventRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'schedulable_type.in' => 'The schedulable type must be one of: User, Specialist, Asset, Room, Section.',
             'title.max' => 'The title cannot exceed 255 characters.',
             'start_at.date' => 'The start date must be a valid date.',
             'end_at.date' => 'The end date must be a valid date.',
