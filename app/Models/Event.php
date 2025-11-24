@@ -18,11 +18,11 @@ class Event extends Model implements Auditable
         'description',
         'start_at',
         'end_at',
-        'status',
         'location',
         'notes',
         'color',
         'is_all_day',
+        // Note: 'status' is NOT in fillable - it's auto-calculated
     ];
 
     protected $table = 'events';
@@ -46,12 +46,61 @@ class Event extends Model implements Auditable
         'description' => 'nullable|string|max:2000',
         'start_at' => 'required|date',
         'end_at' => 'nullable|date|after:start_at',
-        'status' => 'required|in:scheduled,ongoing,completed,cancelled',
+        'status' => 'nullable|in:scheduled,ongoing,completed,cancelled', // Optional - will be auto-calculated if not provided
         'location' => 'nullable|string|max:255',
         'notes' => 'nullable|string|max:1000',
         'color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
         'is_all_day' => 'boolean',
     ];
+
+    /**
+     * Calculate status based on current time
+     * - scheduled: current time is before start_at
+     * - ongoing: current time is between start_at and end_at
+     * - completed: current time is after end_at
+     * Note: 'cancelled' status can only be set manually via status toggle
+     */
+    public function calculateStatus(): string
+    {
+        // If status is manually set to 'cancelled', don't override it
+        if ($this->status === 'cancelled') {
+            return 'cancelled';
+        }
+
+        $now = now();
+        $startAt = $this->start_at;
+        $endAt = $this->end_at;
+
+        if ($now->lt($startAt)) {
+            return 'scheduled';
+        } elseif ($endAt && $now->gte($startAt) && $now->lte($endAt)) {
+            return 'ongoing';
+        } else {
+            return 'completed';
+        }
+    }
+
+    /**
+     * Boot method to auto-calculate status
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($event) {
+            // Auto-calculate status based on current time
+            // Only skip auto-calculation if status is explicitly set to 'cancelled'
+            // This allows the status toggle to work (setting to cancelled)
+            // but auto-calculates for all other cases
+            if ($event->start_at) {
+                // If status is not 'cancelled', calculate it based on time
+                // This handles both new events and updates (unless status is 'cancelled')
+                if ($event->status !== 'cancelled') {
+                    $event->status = $event->calculateStatus();
+                }
+            }
+        });
+    }
 
     // Polymorphic relationship
     public function schedulable()

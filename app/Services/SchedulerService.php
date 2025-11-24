@@ -95,11 +95,11 @@ class SchedulerService
             ->with('schedulable');
 
         // Get date range from filters or use default (current month ± 1 month)
-        $startDate = isset($filters['date_from']) 
-            ? Carbon::parse($filters['date_from']) 
+        $startDate = isset($filters['date_from'])
+            ? Carbon::parse($filters['date_from'])
             : Carbon::now()->subMonth();
-        $endDate = isset($filters['date_to']) 
-            ? Carbon::parse($filters['date_to']) 
+        $endDate = isset($filters['date_to'])
+            ? Carbon::parse($filters['date_to'])
             : Carbon::now()->addMonths(2);
 
         // For recurring tasks, we need to include them even if master date is outside range
@@ -143,7 +143,7 @@ class SchedulerService
         $recurrenceService = app(RecurrenceService::class);
 
         foreach ($formattedTasks as $task) {
-            if (!empty($task['repeat']) && !empty($task['repeat']['frequency'])) {
+            if (! empty($task['repeat']) && ! empty($task['repeat']['frequency'])) {
                 // Expand recurring task into instances
                 $instances = $recurrenceService->generateInstances($task, $startDate, $endDate);
                 $expandedTasks = array_merge($expandedTasks, $instances);
@@ -185,7 +185,7 @@ class SchedulerService
     {
         $assetName = $appointment->asset?->name ?? 'No Asset';
         $specialistName = $appointment->specialist?->name ?? 'No Specialist';
-        
+
         // Build title based on what's available
         if ($appointment->asset_id && $appointment->specialist_id) {
             $title = "{$assetName} - {$specialistName}";
@@ -228,13 +228,13 @@ class SchedulerService
         // Combine date and time for start_at
         $startAt = null;
         if ($task->date) {
-            if ($task->is_all_day || !$task->time) {
+            if ($task->is_all_day || ! $task->time) {
                 // All-day task: use date at midnight
                 $startAt = $task->date->copy()->setTime(0, 0, 0);
             } else {
                 // Combine date and time
                 $timeParts = explode(':', $task->time);
-                $startAt = $task->date->copy()->setTime((int)$timeParts[0], (int)($timeParts[1] ?? 0), 0);
+                $startAt = $task->date->copy()->setTime((int) $timeParts[0], (int) ($timeParts[1] ?? 0), 0);
             }
         }
 

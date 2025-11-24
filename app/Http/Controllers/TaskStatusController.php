@@ -9,9 +9,7 @@ use Illuminate\Http\Request;
 
 class TaskStatusController extends Controller
 {
-    public function __construct(protected SchedulerService $schedulerService)
-    {
-    }
+    public function __construct(protected SchedulerService $schedulerService) {}
 
     public function update(Request $request, Task $task)
     {
@@ -51,4 +49,3 @@ class TaskStatusController extends Controller
         ]);
     }
 }
-

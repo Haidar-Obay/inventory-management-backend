@@ -35,6 +35,7 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\DistributionChannelController;
 use App\Http\Controllers\DistrictController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventStatusController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\MediaChannelController;
@@ -177,6 +178,7 @@ Route::middleware([
         Route::apiResource('appointments', AppointmentController::class);
         Route::apiResource('tasks', TaskController::class);
         Route::patch('tasks/{task}/status', [TaskStatusController::class, 'update']);
+        Route::patch('events/{event}/status', [EventStatusController::class, 'toggleStatus']);
         Route::apiResource('events', EventController::class);
         Route::apiResource('business-types', BusinessTypeController::class);
         Route::apiResource('projects', ProjectController::class)->middleware('check.permission:projects,view');

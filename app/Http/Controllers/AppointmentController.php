@@ -62,7 +62,7 @@ class AppointmentController extends Controller
     {
         $now = now();
         $updated = false;
-        
+
         // Only check appointments that might need status updates
         // This avoids unnecessary calculations for appointments that can't have changed
         foreach ($appointments as $appointment) {
@@ -70,13 +70,13 @@ class AppointmentController extends Controller
             // Only check appointments near current time or that might have transitioned
             $startAt = $appointment->start_at;
             $endAt = $appointment->end_at;
-            
+
             // Only recalculate if:
             // 1. Status is 'active' and start_at has passed (might be in_progress or completed)
             // 2. Status is 'in_progress' and end_at has passed (might be completed)
             // 3. Status is 'completed' but end_at hasn't passed yet (shouldn't happen, but check anyway)
             $needsCheck = false;
-            
+
             if ($appointment->status === 'active' && $now->gte($startAt)) {
                 $needsCheck = true;
             } elseif ($appointment->status === 'in_progress' && $endAt && $now->gt($endAt)) {
@@ -84,7 +84,7 @@ class AppointmentController extends Controller
             } elseif ($appointment->status === 'completed' && $endAt && $now->lte($endAt)) {
                 $needsCheck = true; // Edge case: shouldn't be completed if not past end
             }
-            
+
             if ($needsCheck) {
                 $newStatus = $appointment->calculateStatus();
                 if ($appointment->status !== $newStatus) {
@@ -94,7 +94,7 @@ class AppointmentController extends Controller
                 }
             }
         }
-        
+
         // Clear cache if any statuses were updated
         if ($updated) {
             $tenantId = tenant('id');

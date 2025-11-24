@@ -18,7 +18,7 @@ class UpdateEventRequest extends FormRequest
             'description' => 'nullable|string|max:2000',
             'start_at' => 'sometimes|date',
             'end_at' => 'nullable|date|after:start_at',
-            'status' => 'sometimes|in:scheduled,ongoing,completed,cancelled',
+            'status' => 'nullable|in:scheduled,ongoing,completed,cancelled', // Optional - will be auto-calculated unless 'cancelled'
             'location' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:1000',
             'color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',

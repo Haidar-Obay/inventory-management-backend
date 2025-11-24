@@ -53,9 +53,14 @@ class EventController extends Controller
         $validated['schedulable_type'] = User::class;
         $validated['schedulable_id'] = $user->id;
 
+        // Remove status from validated data - it will be auto-calculated by the model
+        // (unless it's 'cancelled', which can only be set via status toggle)
+        unset($validated['status']);
+
         $nextId = $this->computeNextAvailableId(Event::class, 'id');
         $event = new Event($validated);
         $event->id = $nextId;
+        // Status will be auto-calculated in the saving event
         $event->save();
 
         $tenantId = tenant('id');
@@ -113,7 +118,14 @@ class EventController extends Controller
         $validated['schedulable_type'] = User::class;
         $validated['schedulable_id'] = $user->id;
 
-        $event->update($validated);
+        // Remove status from validated data - it will be auto-calculated by the model
+        // (unless it's 'cancelled', which can only be set via status toggle)
+        unset($validated['status']);
+
+        // Only update fields that were provided
+        $event->fill($validated);
+        // Status will be auto-calculated in the saving event
+        $event->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_events");

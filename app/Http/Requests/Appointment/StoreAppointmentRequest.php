@@ -15,6 +15,7 @@ class StoreAppointmentRequest extends FormRequest
     public function rules(): array
     {
         $validationService = app(AppointmentValidationService::class);
+
         return $validationService->getValidationRules();
     }
 

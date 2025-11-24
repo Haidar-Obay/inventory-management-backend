@@ -12,8 +12,8 @@ class AppointmentRestrictionService
     /**
      * Validate appointment restrictions for advanced scheduler
      *
-     * @param array $data Appointment data
-     * @param int|null $excludeAppointmentId Appointment ID to exclude (for updates)
+     * @param  array  $data  Appointment data
+     * @param  int|null  $excludeAppointmentId  Appointment ID to exclude (for updates)
      * @return array ['valid' => bool, 'errors' => array]
      */
     public function validateRestrictions(array $data, ?int $excludeAppointmentId = null): array
@@ -205,4 +205,3 @@ class AppointmentRestrictionService
         return null;
     }
 }
-
