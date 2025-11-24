@@ -41,6 +41,21 @@ class SchedulerUnitController extends Controller
 
         $fullType = $allowedTypes[$schedulableType];
 
+        // When the requester is viewing their own scheduler ensure we always scope
+        // the response to the authenticated user regardless of the provided ID.
+        if ($fullType === 'App\Models\User') {
+            $user = $request->user();
+
+            if (! $user) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Authentication required to view personal scheduler.',
+                ], 401);
+            }
+
+            $schedulableId = $user->id;
+        }
+
         // Build filters from request
         $filters = [];
         if ($request->has('date_from')) {
@@ -98,6 +113,19 @@ class SchedulerUnitController extends Controller
         }
 
         $fullType = $allowedTypes[$schedulableType];
+
+        if ($fullType === 'App\Models\User') {
+            $user = $request->user();
+
+            if (! $user) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Authentication required to view personal scheduler.',
+                ], 401);
+            }
+
+            $schedulableId = $user->id;
+        }
 
         // Build filters
         $filters = [];

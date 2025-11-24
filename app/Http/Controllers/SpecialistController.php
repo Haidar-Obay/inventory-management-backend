@@ -23,9 +23,13 @@ class SpecialistController extends Controller
                 $q->where('asset_id', $request->integer('asset_id'));
             });
         }
-        $specialists = $query->orderBy('name')->paginate();
+        $specialists = $query->orderBy('name')->get();
 
-        return response()->json($specialists);
+        return response()->json([
+            'status' => true,
+            'message' => 'Specialists fetched successfully.',
+            'data' => $specialists,
+        ]);
     }
 
     public function store(StoreSpecialistRequest $request): JsonResponse

@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('appointments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('asset_id')->constrained('assets')->onDelete('cascade');
-            $table->foreignId('specialist_id')->constrained('specialists')->onDelete('cascade');
+            $table->foreignId('asset_id')->nullable()->constrained('assets')->onDelete('cascade');
+            $table->foreignId('specialist_id')->nullable()->constrained('specialists')->onDelete('cascade');
             $table->timestamp('start_at');
-            $table->timestamp('end_at')->nullable();
-            $table->enum('status', ['active', 'completed', 'cancelled', 'overdue'])->default('active');
+            $table->timestamp('end_at');
+            $table->enum('status', ['active', 'in_progress', 'completed'])->default('active');
             $table->text('notes')->nullable();
             $table->string('color', 7)->nullable(); // Hex color code (e.g., #FF5733)
             $table->timestamps();

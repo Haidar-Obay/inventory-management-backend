@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Appointment;
 use App\Models\Event;
 use App\Models\Task;
+use Carbon\Carbon;
 
 class SchedulerService
 {
@@ -93,19 +94,69 @@ class SchedulerService
         $query = Task::forSchedulable($schedulableType, $schedulableId)
             ->with('schedulable');
 
-        // Apply filters
-        $this->applyDateFilters($query, $filters);
+        // Get date range from filters or use default (current month ± 1 month)
+        $startDate = isset($filters['date_from'])
+            ? Carbon::parse($filters['date_from'])
+            : Carbon::now()->subMonth();
+        $endDate = isset($filters['date_to'])
+            ? Carbon::parse($filters['date_to'])
+            : Carbon::now()->addMonths(2);
+
+        // For recurring tasks, we need to include them even if master date is outside range
+        // So we modify the date filter to include tasks with repeat rules
+        if (isset($filters['date_from']) || isset($filters['date_to'])) {
+            $query->where(function ($q) use ($filters, $startDate, $endDate) {
+                // Include tasks within date range
+                if (isset($filters['date_from'])) {
+                    $q->where('date', '>=', $filters['date_from']);
+                }
+                if (isset($filters['date_to'])) {
+                    $q->where('date', '<=', $filters['date_to']);
+                }
+                // Also include recurring tasks that might have instances in the range
+                $q->orWhere(function ($subQ) use ($startDate, $endDate) {
+                    $subQ->whereNotNull('repeat')
+                        ->where('date', '<=', $endDate->format('Y-m-d'));
+                    // Check if recurrence end_date extends into our range, or has no end
+                    $subQ->where(function ($repeatQ) use ($startDate) {
+                        $repeatQ->whereRaw("JSON_EXTRACT(repeat, '$.end_date') IS NULL")
+                            ->orWhereRaw("JSON_EXTRACT(repeat, '$.end_date') >= ?", [$startDate->format('Y-m-d')]);
+                    });
+                });
+            });
+        }
+
         $this->applyStatusFilter($query, $filters, 'status');
 
         if (isset($filters['priority'])) {
             $query->where('priority', $filters['priority']);
         }
 
-        $tasks = $query->orderBy('start_at', 'asc')->get();
+        $tasks = $query->orderBy('date', 'asc')->orderBy('time', 'asc')->get();
 
-        return $tasks->map(function ($task) {
+        $formattedTasks = $tasks->map(function ($task) {
             return $this->formatTask($task);
         })->toArray();
+
+        // Expand recurring tasks into instances
+        $expandedTasks = [];
+        $recurrenceService = app(RecurrenceService::class);
+
+        foreach ($formattedTasks as $task) {
+            if (! empty($task['repeat']) && ! empty($task['repeat']['frequency'])) {
+                // Expand recurring task into instances
+                $instances = $recurrenceService->generateInstances($task, $startDate, $endDate);
+                $expandedTasks = array_merge($expandedTasks, $instances);
+            } else {
+                // Regular task, only add if within date range
+                $taskDate = Carbon::parse($task['date']);
+                if ($taskDate->gte($startDate) && $taskDate->lte($endDate)) {
+                    $expandedTasks[] = $task;
+                }
+            }
+        }
+
+        return $expandedTasks;
     }
 
     /**
@@ -132,24 +183,38 @@ class SchedulerService
      */
     protected function formatAppointment(Appointment $appointment): array
     {
+        $assetName = $appointment->asset?->name ?? 'No Asset';
+        $specialistName = $appointment->specialist?->name ?? 'No Specialist';
+
+        // Build title based on what's available
+        if ($appointment->asset_id && $appointment->specialist_id) {
+            $title = "{$assetName} - {$specialistName}";
+        } elseif ($appointment->asset_id) {
+            $title = $assetName;
+        } elseif ($appointment->specialist_id) {
+            $title = $specialistName;
+        } else {
+            $title = 'Appointment';
+        }
+
         return [
             'id' => $appointment->id,
             'type' => 'appointment',
-            'title' => ($appointment->asset->name ?? 'Asset').' - '.($appointment->specialist->name ?? 'Specialist'),
+            'title' => $title,
             'description' => $appointment->notes,
             'start_at' => $appointment->start_at->toIso8601String(),
             'end_at' => $appointment->end_at?->toIso8601String(),
             'status' => $appointment->status,
-            'color' => $appointment->color ?? $this->getStatusColor($appointment->status),
+            'color' => $appointment->color ?? '#10b981', // Use user's color or default, don't override with status
             'is_all_day' => false,
             'location' => null,
             'priority' => null,
             'due_at' => null,
             'metadata' => [
                 'asset_id' => $appointment->asset_id,
-                'asset_name' => $appointment->asset->name ?? null,
+                'asset_name' => $appointment->asset?->name ?? null,
                 'specialist_id' => $appointment->specialist_id,
-                'specialist_name' => $appointment->specialist->name ?? null,
+                'specialist_name' => $appointment->specialist?->name ?? null,
             ],
             'raw_data' => $appointment->toArray(),
         ];
@@ -160,19 +225,43 @@ class SchedulerService
      */
     protected function formatTask(Task $task): array
     {
+        // Combine date and time for start_at
+        $startAt = null;
+        if ($task->date) {
+            if ($task->is_all_day || ! $task->time) {
+                // All-day task: use date at midnight
+                $startAt = $task->date->copy()->setTime(0, 0, 0);
+            } else {
+                // Combine date and time
+                $timeParts = explode(':', $task->time);
+                $startAt = $task->date->copy()->setTime((int) $timeParts[0], (int) ($timeParts[1] ?? 0), 0);
+            }
+        }
+
+        // For end_at, if all-day, use end of day; otherwise use start_at + 1 hour
+        $endAt = null;
+        if ($startAt) {
+            if ($task->is_all_day) {
+                $endAt = $startAt->copy()->setTime(23, 59, 59);
+            } else {
+                $endAt = $startAt->copy()->addHour();
+            }
+        }
+
         return [
             'id' => $task->id,
             'type' => 'task',
             'title' => $task->title,
             'description' => $task->description,
-            'start_at' => $task->start_at->toIso8601String(),
-            'end_at' => $task->end_at?->toIso8601String(),
+            'start_at' => $startAt?->toIso8601String(),
+            'end_at' => $endAt?->toIso8601String(),
             'status' => $task->status,
             'color' => $task->color ?? $this->getPriorityColor($task->priority),
-            'is_all_day' => false,
+            'is_all_day' => $task->is_all_day ?? false,
             'location' => null,
             'priority' => $task->priority,
             'due_at' => $task->due_at?->toIso8601String(),
+            'repeat' => $task->repeat,
             'metadata' => [
                 'schedulable_type' => $task->schedulable_type,
                 'schedulable_id' => $task->schedulable_id,
@@ -247,11 +336,10 @@ class SchedulerService
     protected function getStatusColor(string $status): string
     {
         return match ($status) {
-            'active', 'scheduled', 'pending', 'in_progress' => '#10b981',
-            'completed' => '#3b82f6',
-            'cancelled' => '#ef4444',
-            'overdue' => '#f59e0b',
-            default => '#6b7280',
+            'active' => '#10b981',        // Green - before start time
+            'in_progress' => '#3b82f6',   // Blue - currently happening
+            'completed' => '#6b7280',     // Gray - after end time
+            default => '#10b981',
         };
     }
 

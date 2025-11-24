@@ -5,10 +5,19 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Task\StoreTaskRequest;
 use App\Http\Requests\Task\UpdateTaskRequest;
 use App\Models\Task;
+use App\Models\User;
+use App\Services\SchedulerService;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
+    protected SchedulerService $schedulerService;
+
+    public function __construct(SchedulerService $schedulerService)
+    {
+        $this->schedulerService = $schedulerService;
+    }
+
     public function index()
     {
         $tenantId = tenant('id');
@@ -17,7 +26,7 @@ class TaskController extends Controller
         $tasks = app('cache')->store('database')->get($key);
 
         if (! $tasks) {
-            $tasks = Task::with('schedulable')->orderBy('start_at', 'desc')->get();
+            $tasks = Task::with('schedulable')->orderBy('date', 'desc')->orderBy('time', 'desc')->get();
 
             app('cache')->store('database')->forever($key, $tasks);
         }
@@ -31,7 +40,18 @@ class TaskController extends Controller
 
     public function store(StoreTaskRequest $request)
     {
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Authentication required to create tasks.',
+            ], 401);
+        }
+
         $validated = $request->validated();
+        $validated['schedulable_type'] = User::class;
+        $validated['schedulable_id'] = $user->id;
 
         $nextId = $this->computeNextAvailableId(Task::class, 'id');
         $task = new Task($validated);
@@ -40,6 +60,9 @@ class TaskController extends Controller
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_tasks");
+
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($task->schedulable_type, $task->schedulable_id);
 
         return response()->json([
             'status' => true,
@@ -70,13 +93,34 @@ class TaskController extends Controller
 
     public function update(UpdateTaskRequest $request, Task $task)
     {
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Authentication required to update tasks.',
+            ], 401);
+        }
+
+        if ($task->schedulable_type !== User::class || $task->schedulable_id !== $user->id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'You are not allowed to modify this task.',
+            ], 403);
+        }
+
         $validated = $request->validated();
+        $validated['schedulable_type'] = User::class;
+        $validated['schedulable_id'] = $user->id;
 
         $task->update($validated);
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_tasks");
         app('cache')->store('database')->forget("tenant_{$tenantId}_task_{$task->id}");
+
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($task->schedulable_type, $task->schedulable_id);
 
         return response()->json([
             'status' => true,
@@ -85,13 +129,35 @@ class TaskController extends Controller
         ]);
     }
 
-    public function destroy(Task $task)
+    public function destroy(Request $request, Task $task)
     {
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Authentication required to delete tasks.',
+            ], 401);
+        }
+
+        if ($task->schedulable_type !== User::class || $task->schedulable_id !== $user->id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'You are not allowed to delete this task.',
+            ], 403);
+        }
+
+        $schedulableType = $task->schedulable_type;
+        $schedulableId = $task->schedulable_id;
+
         $task->delete();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_tasks");
         app('cache')->store('database')->forget("tenant_{$tenantId}_task_{$task->id}");
+
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($schedulableType, $schedulableId);
 
         return response()->json([
             'status' => true,
@@ -109,7 +175,8 @@ class TaskController extends Controller
         if (! $tasks) {
             $tasks = Task::forSchedulable($schedulableType, $schedulableId)
                 ->with('schedulable')
-                ->orderBy('start_at', 'desc')
+                ->orderBy('date', 'desc')
+                ->orderBy('time', 'desc')
                 ->get();
 
             app('cache')->store('database')->forever($key, $tasks);

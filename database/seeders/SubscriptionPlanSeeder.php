@@ -21,6 +21,7 @@ class SubscriptionPlanSeeder extends Seeder
             'max_currencies' => 1,
             'max_users' => 5,
             'max_customers' => 100,
+            'scheduler_mode' => 'basic',
             'features' => [
                 'basic_inventory' => true,
                 'customer_management' => true,
@@ -47,6 +48,7 @@ class SubscriptionPlanSeeder extends Seeder
             'max_currencies' => 10,
             'max_users' => 50,
             'max_customers' => 1000,
+            'scheduler_mode' => 'advanced',
             'features' => [
                 'basic_inventory' => true,
                 'customer_management' => true,

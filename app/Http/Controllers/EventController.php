@@ -5,10 +5,19 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Event\StoreEventRequest;
 use App\Http\Requests\Event\UpdateEventRequest;
 use App\Models\Event;
+use App\Models\User;
+use App\Services\SchedulerService;
 use Illuminate\Http\Request;
 
 class EventController extends Controller
 {
+    protected SchedulerService $schedulerService;
+
+    public function __construct(SchedulerService $schedulerService)
+    {
+        $this->schedulerService = $schedulerService;
+    }
+
     public function index()
     {
         $tenantId = tenant('id');
@@ -31,15 +40,34 @@ class EventController extends Controller
 
     public function store(StoreEventRequest $request)
     {
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Authentication required to create events.',
+            ], 401);
+        }
+
         $validated = $request->validated();
+        $validated['schedulable_type'] = User::class;
+        $validated['schedulable_id'] = $user->id;
+
+        // Remove status from validated data - it will be auto-calculated by the model
+        // (unless it's 'cancelled', which can only be set via status toggle)
+        unset($validated['status']);
 
         $nextId = $this->computeNextAvailableId(Event::class, 'id');
         $event = new Event($validated);
         $event->id = $nextId;
+        // Status will be auto-calculated in the saving event
         $event->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_events");
+
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($event->schedulable_type, $event->schedulable_id);
 
         return response()->json([
             'status' => true,
@@ -70,13 +98,41 @@ class EventController extends Controller
 
     public function update(UpdateEventRequest $request, Event $event)
     {
-        $validated = $request->validated();
+        $user = $request->user();
 
-        $event->update($validated);
+        if (! $user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Authentication required to update events.',
+            ], 401);
+        }
+
+        if ($event->schedulable_type !== User::class || $event->schedulable_id !== $user->id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'You are not allowed to modify this event.',
+            ], 403);
+        }
+
+        $validated = $request->validated();
+        $validated['schedulable_type'] = User::class;
+        $validated['schedulable_id'] = $user->id;
+
+        // Remove status from validated data - it will be auto-calculated by the model
+        // (unless it's 'cancelled', which can only be set via status toggle)
+        unset($validated['status']);
+
+        // Only update fields that were provided
+        $event->fill($validated);
+        // Status will be auto-calculated in the saving event
+        $event->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_events");
         app('cache')->store('database')->forget("tenant_{$tenantId}_event_{$event->id}");
+
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($event->schedulable_type, $event->schedulable_id);
 
         return response()->json([
             'status' => true,
@@ -85,13 +141,35 @@ class EventController extends Controller
         ]);
     }
 
-    public function destroy(Event $event)
+    public function destroy(Request $request, Event $event)
     {
+        $user = $request->user();
+
+        if (! $user) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Authentication required to delete events.',
+            ], 401);
+        }
+
+        if ($event->schedulable_type !== User::class || $event->schedulable_id !== $user->id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'You are not allowed to delete this event.',
+            ], 403);
+        }
+
+        $schedulableType = $event->schedulable_type;
+        $schedulableId = $event->schedulable_id;
+
         $event->delete();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_events");
         app('cache')->store('database')->forget("tenant_{$tenantId}_event_{$event->id}");
+
+        // Clear scheduler cache for this entity
+        $this->schedulerService->clearCache($schedulableType, $schedulableId);
 
         return response()->json([
             'status' => true,

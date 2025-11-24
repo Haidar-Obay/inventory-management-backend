@@ -12,6 +12,13 @@ class Specialist extends Model
 
     protected $fillable = [
         'name',
+        'capacity_per_hour',
+        'capacity_per_day',
+    ];
+
+    protected $casts = [
+        'capacity_per_hour' => 'integer',
+        'capacity_per_day' => 'integer',
     ];
 
     /**

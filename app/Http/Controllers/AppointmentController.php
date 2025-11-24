@@ -8,11 +8,19 @@ use App\Http\Requests\Appointment\StoreAppointmentRequest;
 use App\Http\Requests\Appointment\UpdateAppointmentRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Appointment;
+use App\Services\SchedulerService;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
 class AppointmentController extends Controller
 {
+    protected SchedulerService $schedulerService;
+
+    public function __construct(SchedulerService $schedulerService)
+    {
+        $this->schedulerService = $schedulerService;
+    }
+
     public function index()
     {
         $tenantId = tenant('id');
@@ -28,7 +36,15 @@ class AppointmentController extends Controller
                 'specialist:id,name',
             ])->orderBy('start_at', 'desc')->get();
 
-            app('cache')->store('database')->forever($key, $appointments);
+            // Recalculate status for appointments that might have changed
+            $this->updateAppointmentStatuses($appointments);
+
+            // Cache for 5 minutes (allows status updates to be reflected reasonably quickly)
+            app('cache')->store('database')->put($key, $appointments, 300);
+        } else {
+            // Only recalculate status for cached appointments that might have changed
+            // This is much more efficient than checking all appointments every time
+            $this->updateAppointmentStatuses($appointments);
         }
 
         return response()->json([
@@ -38,31 +54,78 @@ class AppointmentController extends Controller
         ]);
     }
 
+    /**
+     * Update appointment statuses based on current time
+     * Only checks appointments that might have changed status (performance optimization)
+     */
+    protected function updateAppointmentStatuses($appointments): void
+    {
+        $now = now();
+        $updated = false;
+
+        // Only check appointments that might need status updates
+        // This avoids unnecessary calculations for appointments that can't have changed
+        foreach ($appointments as $appointment) {
+            // Skip if appointment is far in the future or far in the past (won't change)
+            // Only check appointments near current time or that might have transitioned
+            $startAt = $appointment->start_at;
+            $endAt = $appointment->end_at;
+
+            // Only recalculate if:
+            // 1. Status is 'active' and start_at has passed (might be in_progress or completed)
+            // 2. Status is 'in_progress' and end_at has passed (might be completed)
+            // 3. Status is 'completed' but end_at hasn't passed yet (shouldn't happen, but check anyway)
+            $needsCheck = false;
+
+            if ($appointment->status === 'active' && $now->gte($startAt)) {
+                $needsCheck = true;
+            } elseif ($appointment->status === 'in_progress' && $endAt && $now->gt($endAt)) {
+                $needsCheck = true;
+            } elseif ($appointment->status === 'completed' && $endAt && $now->lte($endAt)) {
+                $needsCheck = true; // Edge case: shouldn't be completed if not past end
+            }
+
+            if ($needsCheck) {
+                $newStatus = $appointment->calculateStatus();
+                if ($appointment->status !== $newStatus) {
+                    $appointment->status = $newStatus;
+                    $appointment->saveQuietly(); // Save without triggering events to avoid recursion
+                    $updated = true;
+                }
+            }
+        }
+
+        // Clear cache if any statuses were updated
+        if ($updated) {
+            $tenantId = tenant('id');
+            app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
+        }
+    }
+
     public function store(StoreAppointmentRequest $request)
     {
         $validated = $request->validated();
 
-        // Check for overlapping appointments
-        $overlapping = Appointment::overlapping(
-            $validated['asset_id'],
-            $validated['start_at'],
-            $validated['end_at'] ?? null
-        )->exists();
-
-        if ($overlapping) {
-            return response()->json([
-                'status' => false,
-                'message' => 'This asset is already assigned during the specified time period.',
-            ], 422);
-        }
+        // Validation is handled by AppointmentValidationService in the request
+        // Restrictions are checked automatically based on scheduler_mode
+        // Status will be auto-calculated by the model's boot method
 
         $nextId = $this->computeNextAvailableId(Appointment::class, 'id');
         $appointment = new Appointment($validated);
         $appointment->id = $nextId;
+        // Status will be auto-calculated in the saving event
         $appointment->save();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
+
+        // Clear scheduler cache for specialist and asset if they exist
+        if ($appointment->specialist_id) {
+            $this->schedulerService->clearCache('App\Models\Specialist', $appointment->specialist_id);
+        }
+        if ($appointment->asset_id) {
+            $this->schedulerService->clearCache('App\Models\Asset', $appointment->asset_id);
+        }
 
         return response()->json([
             'status' => true,
@@ -78,12 +141,19 @@ class AppointmentController extends Controller
 
     public function show(Appointment $appointment)
     {
+        // Recalculate status before returning (in case time has passed)
+        $newStatus = $appointment->calculateStatus();
+        if ($appointment->status !== $newStatus) {
+            $appointment->status = $newStatus;
+            $appointment->saveQuietly(); // Save without triggering events
+        }
+
         $tenantId = tenant('id');
         $key = "tenant_{$tenantId}_appointment_{$appointment->id}";
 
         $cachedAppointment = app('cache')->store('database')->get($key);
 
-        if (! $cachedAppointment) {
+        if (! $cachedAppointment || $appointment->status !== $newStatus) {
             $cachedAppointment = $appointment->load([
                 'asset:id,name,type,status,section_id',
                 'asset.section:id,name,room_id',
@@ -105,32 +175,34 @@ class AppointmentController extends Controller
     {
         $validated = $request->validated();
 
-        // Check for overlapping appointments (excluding current appointment)
-        if (isset($validated['asset_id']) || isset($validated['start_at']) || isset($validated['end_at'])) {
-            $assetId = $validated['asset_id'] ?? $appointment->asset_id;
-            $startAt = $validated['start_at'] ?? $appointment->start_at;
-            $endAt = $validated['end_at'] ?? $appointment->end_at;
+        // Validation and restrictions are handled by AppointmentValidationService in the request
+        // Status will be auto-calculated by the model's boot method if time fields change
 
-            $overlapping = Appointment::overlapping(
-                $assetId,
-                $startAt,
-                $endAt,
-                $appointment->id
-            )->exists();
+        $oldSpecialistId = $appointment->specialist_id;
+        $oldAssetId = $appointment->asset_id;
 
-            if ($overlapping) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'This asset is already assigned during the specified time period.',
-                ], 422);
-            }
-        }
+        // Remove status from validated data if present (shouldn't be, but just in case)
+        unset($validated['status']);
 
         $appointment->update($validated);
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointment_{$appointment->id}");
+
+        // Clear scheduler cache for old and new specialist/asset
+        if ($oldSpecialistId) {
+            $this->schedulerService->clearCache('App\Models\Specialist', $oldSpecialistId);
+        }
+        if ($appointment->specialist_id && $appointment->specialist_id !== $oldSpecialistId) {
+            $this->schedulerService->clearCache('App\Models\Specialist', $appointment->specialist_id);
+        }
+        if ($oldAssetId) {
+            $this->schedulerService->clearCache('App\Models\Asset', $oldAssetId);
+        }
+        if ($appointment->asset_id && $appointment->asset_id !== $oldAssetId) {
+            $this->schedulerService->clearCache('App\Models\Asset', $appointment->asset_id);
+        }
 
         return response()->json([
             'status' => true,
@@ -146,11 +218,22 @@ class AppointmentController extends Controller
 
     public function destroy(Appointment $appointment)
     {
+        $specialistId = $appointment->specialist_id;
+        $assetId = $appointment->asset_id;
+
         $appointment->delete();
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointment_{$appointment->id}");
+
+        // Clear scheduler cache for specialist and asset if they exist
+        if ($specialistId) {
+            $this->schedulerService->clearCache('App\Models\Specialist', $specialistId);
+        }
+        if ($assetId) {
+            $this->schedulerService->clearCache('App\Models\Asset', $assetId);
+        }
 
         return response()->json([
             'status' => true,
@@ -345,7 +428,7 @@ class AppointmentController extends Controller
         $appointments = app('cache')->store('database')->get($key);
 
         if (! $appointments) {
-            $appointments = Appointment::byAsset($assetId)
+            $appointments = Appointment::where('asset_id', $assetId)
                 ->with([
                     'asset:id,name,type,status,section_id',
                     'asset.section:id,name,room_id',
