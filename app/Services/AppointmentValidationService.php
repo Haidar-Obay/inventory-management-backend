@@ -16,8 +16,8 @@ class AppointmentValidationService
     /**
      * Validate appointment based on tenant's scheduler mode
      *
-     * @param array $data Appointment data
-     * @param int|null $excludeAppointmentId Appointment ID to exclude (for updates)
+     * @param  array  $data  Appointment data
+     * @param  int|null  $excludeAppointmentId  Appointment ID to exclude (for updates)
      * @return array ['valid' => bool, 'errors' => array]
      */
     public function validate(array $data, ?int $excludeAppointmentId = null): array
@@ -72,4 +72,3 @@ class AppointmentValidationService
         return $baseRules;
     }
 }
-

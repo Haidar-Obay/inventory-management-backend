@@ -13,22 +13,24 @@ return new class extends Migration
     {
         Schema::create('tasks', function (Blueprint $table) {
             $table->id();
-            $table->morphs('schedulable'); // Creates schedulable_id and schedulable_type
+            $table->morphs('schedulable'); // Creates schedulable_id and schedulable_type (auto-set by backend based on user)
             $table->string('title');
             $table->text('description')->nullable();
-            $table->timestamp('start_at');
-            $table->timestamp('end_at')->nullable();
-            $table->timestamp('due_at')->nullable();
-            $table->enum('status', ['pending', 'in_progress', 'completed', 'cancelled'])->default('pending');
+            $table->date('date'); // Date only (no time)
+            $table->time('time')->nullable(); // Time only (nullable for all-day tasks)
+            $table->boolean('is_all_day')->default(false);
+            $table->json('repeat')->nullable(); // Recurring pattern (e.g., {"frequency": "daily", "interval": 1, "end_date": null})
+            $table->date('due_at')->nullable(); // Deadline (due date)
+            $table->enum('status', ['completed', 'uncompleted'])->default('uncompleted');
             $table->enum('priority', ['low', 'medium', 'high', 'urgent'])->default('medium');
-            $table->text('notes')->nullable();
             $table->string('color', 7)->nullable(); // Hex color code (e.g., #FF5733)
             $table->timestamps();
 
             // Add indexes for better performance
-            $table->index(['start_at', 'end_at']);
+            $table->index(['date', 'time']);
             $table->index(['schedulable_id', 'schedulable_type']);
             $table->index(['status', 'priority']);
+            $table->index('due_at');
         });
     }
 

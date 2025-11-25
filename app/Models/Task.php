@@ -16,14 +16,18 @@ class Task extends Model implements Auditable
         'schedulable_type',
         'title',
         'description',
-        'start_at',
-        'end_at',
+        'date',
+        'time',
+        'is_all_day',
+        'repeat',
         'due_at',
         'status',
         'priority',
-        'notes',
         'color',
     ];
+
+    // Status is now manually set by user (completed/uncompleted)
+    // No auto-calculation needed
 
     protected $table = 'tasks';
 
@@ -32,9 +36,11 @@ class Task extends Model implements Auditable
     public $timestamps = true;
 
     protected $casts = [
-        'start_at' => 'datetime',
-        'end_at' => 'datetime',
-        'due_at' => 'datetime',
+        'date' => 'date',
+        'time' => 'string', // Time stored as string (HH:mm format)
+        'is_all_day' => 'boolean',
+        'repeat' => 'array', // JSON to array
+        'due_at' => 'date',
         'status' => 'string',
         'priority' => 'string',
     ];
@@ -45,12 +51,13 @@ class Task extends Model implements Auditable
         'schedulable_type' => 'required|string|in:App\Models\User,App\Models\Specialist,App\Models\Asset,App\Models\Room,App\Models\Section',
         'title' => 'required|string|max:255',
         'description' => 'nullable|string|max:2000',
-        'start_at' => 'required|date',
-        'end_at' => 'nullable|date|after:start_at',
+        'date' => 'required|date',
+        'time' => 'nullable|date_format:H:i',
+        'is_all_day' => 'boolean',
+        'repeat' => 'nullable|array',
         'due_at' => 'nullable|date',
-        'status' => 'required|in:pending,in_progress,completed,cancelled',
+        'status' => 'required|in:completed,uncompleted',
         'priority' => 'required|in:low,medium,high,urgent',
-        'notes' => 'nullable|string|max:1000',
         'color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
     ];
 
@@ -63,7 +70,7 @@ class Task extends Model implements Auditable
     // Scopes
     public function scopeActive($query)
     {
-        return $query->whereIn('status', ['pending', 'in_progress']);
+        return $query->where('status', 'uncompleted');
     }
 
     public function scopeByStatus($query, $status)
@@ -79,7 +86,7 @@ class Task extends Model implements Auditable
     public function scopeOverdue($query)
     {
         return $query->where('due_at', '<', now())
-            ->whereIn('status', ['pending', 'in_progress']);
+            ->where('status', 'uncompleted');
     }
 
     public function scopeForSchedulable($query, $schedulableType, $schedulableId)

@@ -138,7 +138,7 @@ class Appointment extends Model implements Auditable
         if ($assetId) {
             $query->where('asset_id', $assetId);
         }
-        
+
         // Don't filter by status for overlapping check - check all appointments
         $query->where(function ($q) use ($startAt, $endAt) {
             $q->whereBetween('start_at', [$startAt, $endAt])

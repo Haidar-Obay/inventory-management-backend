@@ -31,10 +31,10 @@ class UpdateAppointmentStatuses extends Command
 
         $now = now();
         $totalUpdated = 0;
-        
+
         // Get all tenants (if multi-tenant)
         $tenants = Tenant::all();
-        
+
         foreach ($tenants as $tenant) {
             $tenant->run(function () use ($now, $tenant, &$totalUpdated) {
                 // Get appointments that might need status updates
@@ -78,8 +78,7 @@ class UpdateAppointmentStatuses extends Command
         } else {
             $this->info('No appointments needed status updates.');
         }
-        
+
         return Command::SUCCESS;
     }
 }
-

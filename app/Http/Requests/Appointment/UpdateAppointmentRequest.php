@@ -16,7 +16,7 @@ class UpdateAppointmentRequest extends FormRequest
     {
         $validationService = app(AppointmentValidationService::class);
         $baseRules = $validationService->getValidationRules();
-        
+
         // For updates, make fields 'sometimes' instead of 'required'
         $updateRules = [];
         foreach ($baseRules as $key => $rule) {

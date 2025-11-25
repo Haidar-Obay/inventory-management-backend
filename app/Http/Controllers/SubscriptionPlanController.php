@@ -213,7 +213,7 @@ class SubscriptionPlanController extends Controller
                 'data' => [
                     'scheduler_mode' => $schedulerMode,
                     'is_advanced' => $isAdvanced,
-                    'is_basic' => !$isAdvanced,
+                    'is_basic' => ! $isAdvanced,
                 ],
                 'message' => 'Scheduler mode fetched successfully',
             ]);
