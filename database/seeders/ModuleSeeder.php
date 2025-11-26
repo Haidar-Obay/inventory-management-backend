@@ -100,6 +100,13 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Service Categories', 'code' => PageCode::SERVICES_CATEGORIES->value, 'path' => '/main/mainfiles/services?tab=0', 'order' => 10, 'is_public' => false],
                     ['name' => 'Services', 'code' => PageCode::SERVICES_SERVICES->value, 'path' => '/main/mainfiles/services?tab=1', 'order' => 11, 'is_public' => false],
 
+                    // Main Files - Specialists
+                    ['name' => 'Specialists', 'code' => PageCode::SPECIALISTS_SPECIALISTS->value, 'path' => '/main/mainfiles/specialists?tab=0', 'order' => 12, 'is_public' => false],
+                    ['name' => 'Specialities', 'code' => PageCode::SPECIALISTS_SPECIALITIES->value, 'path' => '/main/mainfiles/specialists?tab=1', 'order' => 13, 'is_public' => false],
+                    ['name' => 'Assets', 'code' => PageCode::SPECIALISTS_ASSETS->value, 'path' => '/main/mainfiles/specialists?tab=2', 'order' => 14, 'is_public' => false],
+                    ['name' => 'Sections', 'code' => PageCode::SPECIALISTS_SECTIONS->value, 'path' => '/main/mainfiles/specialists?tab=3', 'order' => 15, 'is_public' => false],
+                    ['name' => 'Rooms', 'code' => PageCode::SPECIALISTS_ROOMS->value, 'path' => '/main/mainfiles/specialists?tab=4', 'order' => 16, 'is_public' => false],
+
                     // Main Files - Items
                     ['name' => 'Product Lines', 'code' => PageCode::ITEMS_PRODUCT_LINES->value, 'path' => '/main/mainfiles/items?tab=0', 'order' => 20, 'is_public' => false],
                     ['name' => 'Categories', 'code' => PageCode::ITEMS_CATEGORIES->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 21, 'is_public' => false],

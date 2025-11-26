@@ -18,6 +18,8 @@ class UpdateSpecialistRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255', 'unique:specialists,name,'.$id],
+            'capacity_per_hour' => ['nullable', 'integer', 'min:0'],
+            'capacity_per_day' => ['nullable', 'integer', 'min:0'],
             'speciality_ids' => ['array'],
             'speciality_ids.*' => ['integer', 'exists:specialities,id'],
             'asset_ids' => ['array'],

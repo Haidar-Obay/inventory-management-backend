@@ -14,9 +14,29 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class AssetController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $tenantId = tenant('id');
+
+        // If a service_id is provided, return only assets linked to that service (no global cache)
+        if ($request->filled('service_id')) {
+            $serviceId = $request->integer('service_id');
+
+            $assets = Asset::with(['section:id,name,room_id', 'section.room:id,name,location'])
+                ->whereHas('services', function ($q) use ($serviceId) {
+                    $q->where('service_id', $serviceId);
+                })
+                ->orderBy('name')
+                ->get();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Assets for service fetched successfully.',
+                'data' => $assets,
+            ]);
+        }
+
+        // Default behaviour: cached list of all assets
         $key = "tenant_{$tenantId}_assets";
 
         $assets = app('cache')->store('database')->get($key);
@@ -111,6 +131,35 @@ class AssetController extends Controller
 
     public function destroy(Asset $asset)
     {
+        $identifier = $asset->name ?? "ID: {$asset->id}";
+        $details = [];
+
+        // Check if asset has appointments
+        if ($asset->appointments()->exists()) {
+            $appointmentsCount = $asset->appointments()->count();
+            $details['appointments'] = [
+                'count' => $appointmentsCount,
+                'sample_ids' => $asset->appointments()->select('appointments.id')->limit(1)->pluck('id'),
+            ];
+        }
+
+        // Check if asset has services
+        if ($asset->services()->exists()) {
+            $servicesCount = $asset->services()->count();
+            $details['services'] = [
+                'count' => $servicesCount,
+                'sample_ids' => $asset->services()->select('services.id')->limit(1)->pluck('id'),
+            ];
+        }
+
+        if (! empty($details)) {
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete asset \"{$identifier}\" (ID: {$asset->id}). It is referenced by existing records.",
+                'details' => $details,
+            ], 409);
+        }
+
         $asset->delete();
 
         $tenantId = tenant('id');
@@ -136,10 +185,60 @@ class AssetController extends Controller
 
         foreach ($request->ids as $id) {
             try {
-                $deleted += Asset::where('id', $id)->delete();
+                $asset = Asset::find($id);
+
+                if (! $asset) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => "ID: {$id}",
+                        'reason' => 'Asset not found.',
+                    ];
+
+                    continue;
+                }
+
+                $identifier = $asset->name ?? "ID: {$id}";
+                $details = [];
+
+                // Check if asset has appointments
+                if ($asset->appointments()->exists()) {
+                    $appointmentsCount = $asset->appointments()->count();
+                    $details['appointments'] = [
+                        'count' => $appointmentsCount,
+                        'sample_ids' => $asset->appointments()->select('appointments.id')->limit(1)->pluck('id'),
+                    ];
+                }
+
+                // Check if asset has services
+                if ($asset->services()->exists()) {
+                    $servicesCount = $asset->services()->count();
+                    $details['services'] = [
+                        'count' => $servicesCount,
+                        'sample_ids' => $asset->services()->select('services.id')->limit(1)->pluck('id'),
+                    ];
+                }
+
+                if (! empty($details)) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete asset. It is referenced by existing records.',
+                        'details' => $details,
+                    ];
+
+                    continue;
+                }
+
+                $deleted += $asset->delete();
                 app('cache')->store('database')->forget("tenant_{$tenantId}_asset_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                $asset = Asset::find($id);
+                $identifier = $asset?->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
             }
         }
 

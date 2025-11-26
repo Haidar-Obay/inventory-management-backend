@@ -33,6 +33,8 @@ class BootstrapTenantRbac implements ShouldQueue
             ['resource_key' => 'items', 'resource_label' => 'Item Management'],
             ['resource_key' => 'services', 'resource_label' => 'Service Management'],
             ['resource_key' => 'specialists', 'resource_label' => 'Specialist Management'],
+            ['resource_key' => 'specialities', 'resource_label' => 'Speciality Management'],
+            ['resource_key' => 'assets', 'resource_label' => 'Asset Management'],
             ['resource_key' => 'associations', 'resource_label' => 'Association Management'],
             ['resource_key' => 'media_types', 'resource_label' => 'Media Type Management'],
             ['resource_key' => 'referrers', 'resource_label' => 'Referrer Management'],
@@ -43,7 +45,6 @@ class BootstrapTenantRbac implements ShouldQueue
             ['resource_key' => 'customer_groups', 'resource_label' => 'Customer Group Management'],
             ['resource_key' => 'supplier_groups', 'resource_label' => 'Supplier Group Management'],
             ['resource_key' => 'service_categories', 'resource_label' => 'Service Category Management'],
-            ['resource_key' => 'specialities', 'resource_label' => 'Speciality Management'],
 
             // Financial/Operations
             ['resource_key' => 'currencies', 'resource_label' => 'Currency Management'],

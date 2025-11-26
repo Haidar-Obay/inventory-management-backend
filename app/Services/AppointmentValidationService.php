@@ -60,11 +60,13 @@ class AppointmentValidationService
         ];
 
         if ($schedulerMode === 'advanced') {
-            // Advanced: both required
+            // Advanced: service, asset and specialist are all required
+            $baseRules['service_id'] = 'required|exists:services,id';
             $baseRules['asset_id'] = 'required|exists:assets,id';
             $baseRules['specialist_id'] = 'required|exists:specialists,id';
         } else {
-            // Basic: both optional
+            // Basic: all optional
+            $baseRules['service_id'] = 'nullable|exists:services,id';
             $baseRules['asset_id'] = 'nullable|exists:assets,id';
             $baseRules['specialist_id'] = 'nullable|exists:specialists,id';
         }

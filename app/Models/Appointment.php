@@ -14,6 +14,7 @@ class Appointment extends Model implements Auditable
     protected $fillable = [
         'asset_id',
         'specialist_id',
+        'service_id',
         'start_at',
         'end_at',
         'notes',
@@ -36,6 +37,7 @@ class Appointment extends Model implements Auditable
     public static $rules = [
         'asset_id' => 'nullable|exists:assets,id',
         'specialist_id' => 'nullable|exists:specialists,id',
+        'service_id' => 'nullable|exists:services,id',
         'start_at' => 'required|date',
         'end_at' => 'required|date|after:start_at',
         'notes' => 'nullable|string|max:1000',
@@ -88,6 +90,11 @@ class Appointment extends Model implements Auditable
     public function specialist()
     {
         return $this->belongsTo(Specialist::class);
+    }
+
+    public function service()
+    {
+        return $this->belongsTo(Service::class);
     }
 
     public function section()

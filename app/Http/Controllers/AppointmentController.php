@@ -21,26 +21,51 @@ class AppointmentController extends Controller
         $this->schedulerService = $schedulerService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $tenantId = tenant('id');
+
+        // Get date range parameters
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
+
+        // Build cache key with date range if provided
         $key = "tenant_{$tenantId}_appointments";
+        if ($startDate) {
+            $key .= "_from_{$startDate}";
+        }
+        if ($endDate) {
+            $key .= "_to_{$endDate}";
+        }
 
         $appointments = app('cache')->store('database')->get($key);
 
         if (! $appointments) {
-            $appointments = Appointment::with([
+            $query = Appointment::with([
                 'asset:id,name,type,status,section_id',
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
                 'specialist:id,name',
-            ])->orderBy('start_at', 'desc')->get();
+                'service:id,name',
+            ]);
+
+            // Apply date range filtering if provided
+            if ($startDate) {
+                $query->whereDate('start_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('start_at', '<=', $endDate);
+            }
+
+            $appointments = $query->orderBy('start_at', 'desc')->get();
 
             // Recalculate status for appointments that might have changed
             $this->updateAppointmentStatuses($appointments);
 
             // Cache for 5 minutes (allows status updates to be reflected reasonably quickly)
-            app('cache')->store('database')->put($key, $appointments, 300);
+            // Use shorter cache time for date-filtered queries
+            $cacheTime = ($startDate || $endDate) ? 60 : 300;
+            app('cache')->store('database')->put($key, $appointments, $cacheTime);
         } else {
             // Only recalculate status for cached appointments that might have changed
             // This is much more efficient than checking all appointments every time
@@ -135,6 +160,7 @@ class AppointmentController extends Controller
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
                 'specialist:id,name',
+                'service:id,name',
             ]),
         ], 201);
     }
@@ -212,6 +238,7 @@ class AppointmentController extends Controller
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
                 'specialist:id,name',
+                'service:id,name',
             ]),
         ]);
     }
