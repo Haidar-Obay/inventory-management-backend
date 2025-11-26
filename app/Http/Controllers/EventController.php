@@ -21,11 +21,11 @@ class EventController extends Controller
     public function index(Request $request)
     {
         $tenantId = tenant('id');
-        
+
         // Get date range parameters
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
-        
+
         // Build cache key with date range if provided
         $key = "tenant_{$tenantId}_events";
         if ($startDate) {
@@ -55,7 +55,7 @@ class EventController extends Controller
             if ($cacheTime) {
                 app('cache')->store('database')->put($key, $events, $cacheTime);
             } else {
-            app('cache')->store('database')->forever($key, $events);
+                app('cache')->store('database')->forever($key, $events);
             }
         }
 

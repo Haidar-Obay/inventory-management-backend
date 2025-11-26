@@ -24,11 +24,11 @@ class AppointmentController extends Controller
     public function index(Request $request)
     {
         $tenantId = tenant('id');
-        
+
         // Get date range parameters
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
-        
+
         // Build cache key with date range if provided
         $key = "tenant_{$tenantId}_appointments";
         if ($startDate) {
