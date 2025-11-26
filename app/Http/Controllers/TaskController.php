@@ -18,17 +18,45 @@ class TaskController extends Controller
         $this->schedulerService = $schedulerService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $tenantId = tenant('id');
+        
+        // Get date range parameters
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
+        
+        // Build cache key with date range if provided
         $key = "tenant_{$tenantId}_tasks";
+        if ($startDate) {
+            $key .= "_from_{$startDate}";
+        }
+        if ($endDate) {
+            $key .= "_to_{$endDate}";
+        }
 
         $tasks = app('cache')->store('database')->get($key);
 
         if (! $tasks) {
-            $tasks = Task::with('schedulable')->orderBy('date', 'desc')->orderBy('time', 'desc')->get();
+            $query = Task::with('schedulable');
 
+            // Apply date range filtering if provided
+            if ($startDate) {
+                $query->whereDate('date', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('date', '<=', $endDate);
+            }
+
+            $tasks = $query->orderBy('date', 'desc')->orderBy('time', 'desc')->get();
+
+            // Use shorter cache time for date-filtered queries
+            $cacheTime = ($startDate || $endDate) ? 60 : null; // null = forever for full list
+            if ($cacheTime) {
+                app('cache')->store('database')->put($key, $tasks, $cacheTime);
+            } else {
             app('cache')->store('database')->forever($key, $tasks);
+            }
         }
 
         return response()->json([

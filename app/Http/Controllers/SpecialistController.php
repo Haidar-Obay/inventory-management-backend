@@ -12,7 +12,7 @@ class SpecialistController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Specialist::query()->with(['specialities:id,name', 'assets:id,name']);
+        $query = Specialist::query()->with(['specialities:id,name', 'assets:id,name', 'services:id,name']);
         if ($request->filled('speciality_id')) {
             $query->whereHas('specialities', function ($q) use ($request) {
                 $q->where('speciality_id', $request->integer('speciality_id'));
@@ -21,6 +21,11 @@ class SpecialistController extends Controller
         if ($request->filled('asset_id')) {
             $query->whereHas('assets', function ($q) use ($request) {
                 $q->where('asset_id', $request->integer('asset_id'));
+            });
+        }
+        if ($request->filled('service_id')) {
+            $query->whereHas('services', function ($q) use ($request) {
+                $q->where('service_id', $request->integer('service_id'));
             });
         }
         $specialists = $query->orderBy('name')->get();
@@ -36,7 +41,11 @@ class SpecialistController extends Controller
     {
         $data = $request->validated();
         $nextId = $this->computeNextAvailableId(Specialist::class, 'id');
-        $specialist = new Specialist(['name' => $data['name']]);
+        $specialist = new Specialist([
+            'name' => $data['name'],
+            'capacity_per_hour' => $data['capacity_per_hour'] ?? null,
+            'capacity_per_day' => $data['capacity_per_day'] ?? null,
+        ]);
         $specialist->id = $nextId;
         $specialist->save();
         if (! empty($data['speciality_ids'])) {
@@ -57,7 +66,11 @@ class SpecialistController extends Controller
     public function update(UpdateSpecialistRequest $request, Specialist $specialist): JsonResponse
     {
         $data = $request->validated();
-        $specialist->update(['name' => $data['name']]);
+        $specialist->update([
+            'name' => $data['name'],
+            'capacity_per_hour' => $data['capacity_per_hour'] ?? null,
+            'capacity_per_day' => $data['capacity_per_day'] ?? null,
+        ]);
         if (array_key_exists('speciality_ids', $data)) {
             $specialist->specialities()->sync($data['speciality_ids'] ?? []);
         }
@@ -70,9 +83,41 @@ class SpecialistController extends Controller
 
     public function destroy(Specialist $specialist): JsonResponse
     {
+        $identifier = $specialist->name ?? "ID: {$specialist->id}";
+        $details = [];
+
+        // Check if specialist has appointments
+        if ($specialist->appointments()->exists()) {
+            $appointmentsCount = $specialist->appointments()->count();
+            $details['appointments'] = [
+                'count' => $appointmentsCount,
+                'sample_ids' => $specialist->appointments()->select('appointments.id')->limit(1)->pluck('id'),
+            ];
+        }
+
+        // Check if specialist has services
+        if ($specialist->services()->exists()) {
+            $servicesCount = $specialist->services()->count();
+            $details['services'] = [
+                'count' => $servicesCount,
+                'sample_ids' => $specialist->services()->select('services.id')->limit(1)->pluck('id'),
+            ];
+        }
+
+        if (! empty($details)) {
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete specialist \"{$identifier}\" (ID: {$specialist->id}). It is referenced by existing records.",
+                'details' => $details,
+            ], 409);
+        }
+
         $specialist->delete();
 
-        return response()->json(['message' => 'Deleted']);
+        return response()->json([
+            'status' => true,
+            'message' => 'Specialist deleted successfully.',
+        ]);
     }
 
     public function attachSpecialities(Specialist $specialist, Request $request): JsonResponse
@@ -131,7 +176,81 @@ class SpecialistController extends Controller
     { /* implement if needed later */
     }
 
-    public function bulkDelete()
-    { /* implement if needed later */
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:specialists,id',
+        ]);
+
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->ids as $id) {
+            try {
+                $specialist = Specialist::find($id);
+
+                if (! $specialist) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => "ID: {$id}",
+                        'reason' => 'Specialist not found.',
+                    ];
+
+                    continue;
+                }
+
+                $identifier = $specialist->name ?? "ID: {$id}";
+                $details = [];
+
+                // Check if specialist has appointments
+                if ($specialist->appointments()->exists()) {
+                    $appointmentsCount = $specialist->appointments()->count();
+                    $details['appointments'] = [
+                        'count' => $appointmentsCount,
+                        'sample_ids' => $specialist->appointments()->select('appointments.id')->limit(1)->pluck('id'),
+                    ];
+                }
+
+                // Check if specialist has services
+                if ($specialist->services()->exists()) {
+                    $servicesCount = $specialist->services()->count();
+                    $details['services'] = [
+                        'count' => $servicesCount,
+                        'sample_ids' => $specialist->services()->select('services.id')->limit(1)->pluck('id'),
+                    ];
+                }
+
+                if (! empty($details)) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => $identifier,
+                        'reason' => 'Cannot delete specialist. It is referenced by existing records.',
+                        'details' => $details,
+                    ];
+
+                    continue;
+                }
+
+                $deleted += $specialist->delete();
+            } catch (\Illuminate\Database\QueryException $e) {
+                $specialist = Specialist::find($id);
+                $identifier = $specialist?->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Bulk delete completed.',
+            'data' => [
+                'deleted_count' => $deleted,
+                'skipped' => $skipped,
+            ],
+        ]);
     }
 }

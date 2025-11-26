@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 use OwenIt\Auditing\Contracts\Auditable;
 
@@ -67,6 +68,14 @@ class Asset extends Model implements Auditable
     public function events()
     {
         return $this->morphMany(Event::class, 'schedulable');
+    }
+
+    /**
+     * Services that can be performed with this asset.
+     */
+    public function services(): BelongsToMany
+    {
+        return $this->belongsToMany(Service::class, 'service_assets')->withTimestamps();
     }
 
     // Scopes

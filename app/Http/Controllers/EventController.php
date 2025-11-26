@@ -18,17 +18,45 @@ class EventController extends Controller
         $this->schedulerService = $schedulerService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $tenantId = tenant('id');
+        
+        // Get date range parameters
+        $startDate = $request->query('start_date');
+        $endDate = $request->query('end_date');
+        
+        // Build cache key with date range if provided
         $key = "tenant_{$tenantId}_events";
+        if ($startDate) {
+            $key .= "_from_{$startDate}";
+        }
+        if ($endDate) {
+            $key .= "_to_{$endDate}";
+        }
 
         $events = app('cache')->store('database')->get($key);
 
         if (! $events) {
-            $events = Event::with('schedulable')->orderBy('start_at', 'desc')->get();
+            $query = Event::with('schedulable');
 
+            // Apply date range filtering if provided
+            if ($startDate) {
+                $query->whereDate('start_at', '>=', $startDate);
+            }
+            if ($endDate) {
+                $query->whereDate('start_at', '<=', $endDate);
+            }
+
+            $events = $query->orderBy('start_at', 'desc')->get();
+
+            // Use shorter cache time for date-filtered queries
+            $cacheTime = ($startDate || $endDate) ? 60 : null; // null = forever for full list
+            if ($cacheTime) {
+                app('cache')->store('database')->put($key, $events, $cacheTime);
+            } else {
             app('cache')->store('database')->forever($key, $events);
+            }
         }
 
         return response()->json([

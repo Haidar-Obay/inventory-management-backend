@@ -172,9 +172,9 @@ Route::middleware([
         Route::apiResource('sections', SectionController::class);
 
         // Custom routes for assets (must be before resource route)
-        Route::get('/assets/available', [AssetController::class, 'available']);
+        Route::get('/assets/available', [AssetController::class, 'available'])->middleware('check.permission:assets,view');
 
-        Route::apiResource('assets', AssetController::class);
+        Route::apiResource('assets', AssetController::class)->middleware('check.permission:assets,view');
         Route::apiResource('appointments', AppointmentController::class);
         Route::apiResource('tasks', TaskController::class);
         Route::patch('tasks/{task}/status', [TaskStatusController::class, 'update']);
@@ -449,7 +449,7 @@ Route::middleware([
             Route::delete('/warehouses', [WarehouseController::class, 'bulkDelete']);
             Route::delete('/rooms', [RoomController::class, 'bulkDelete']);
             Route::delete('/sections', [SectionController::class, 'bulkDelete']);
-            Route::delete('/assets', [AssetController::class, 'bulkDelete']);
+            Route::delete('/assets', [AssetController::class, 'bulkDelete'])->middleware('check.permission:assets,delete');
             Route::delete('/appointments', [AppointmentController::class, 'bulkDelete']);
 
             // Custom routes for sections
