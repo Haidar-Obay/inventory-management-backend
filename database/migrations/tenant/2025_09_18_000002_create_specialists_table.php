@@ -16,6 +16,10 @@ return new class extends Migration
             $table->string('name');
             $table->integer('capacity_per_hour')->nullable()->default(1); // How many appointments per hour
             $table->integer('capacity_per_day')->nullable(); // Max appointments per day (null = unlimited)
+            $table->string('phone_1')->nullable();
+            $table->string('phone_2')->nullable();
+            $table->text('address')->nullable();
+            $table->string('email')->nullable();
             $table->timestamps();
             $table->unique(['name']);
         });

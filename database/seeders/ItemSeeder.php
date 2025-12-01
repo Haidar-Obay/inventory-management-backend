@@ -64,7 +64,7 @@ class ItemSeeder extends Seeder
         // Get suppliers
         $suppliers = Supplier::take(2)->get();
 
-        // Create sample items with different types
+        // Create sample items without purchase/sales parameters (fields removed)
         $items = [
             [
                 'code' => 'ITEM001',
@@ -80,9 +80,7 @@ class ItemSeeder extends Seeder
                 'sales_uom_id' => $salesUom->id,
                 'discount_percent' => 5.00,
                 'max_discount' => 100.00,
-                'purchase_parameters' => ['min_order' => 10, 'lead_time' => 7],
                 'purchase_description' => 'Purchase description for sample inventory item',
-                'sales_parameters' => ['min_quantity' => 1, 'max_quantity' => 100],
                 'sales_description' => 'Sales description for sample inventory item',
                 'pos_description' => 'POS description for sample inventory item',
             ],
@@ -99,8 +97,6 @@ class ItemSeeder extends Seeder
                 'purchase_uom_id' => $purchaseUom->id,
                 'sales_uom_id' => $salesUom->id,
                 'discount_percent' => 0.00,
-                'purchase_parameters' => null,
-                'sales_parameters' => null,
             ],
             [
                 'code' => 'ITEM003',
@@ -111,7 +107,6 @@ class ItemSeeder extends Seeder
                 'base_uom_id' => $baseUom->id,
                 'sales_uom_id' => $salesUom->id,
                 'discount_percent' => 10.00,
-                'sales_parameters' => ['duration' => 60, 'price_per_hour' => 50.00],
                 'sales_description' => 'Service item description',
             ],
             [
@@ -127,7 +122,6 @@ class ItemSeeder extends Seeder
                 'sales_uom_id' => $salesUom->id,
                 'discount_percent' => 15.00,
                 'max_discount' => 200.00,
-                'sales_parameters' => ['bundle_items' => ['ITEM001', 'ITEM002']],
                 'sales_description' => 'Bundle item description',
             ],
             [
@@ -139,7 +133,6 @@ class ItemSeeder extends Seeder
                 'base_uom_id' => $baseUom->id,
                 'sales_uom_id' => $salesUom->id,
                 'discount_percent' => 0.00,
-                'sales_parameters' => ['consultation_fee' => 100.00],
                 'sales_description' => 'Medical service description',
             ],
         ];

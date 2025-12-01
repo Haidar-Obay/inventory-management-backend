@@ -13,6 +13,10 @@ class SpecialistFactory extends Factory
     {
         return [
             'name' => $this->faker->name(),
+            'phone_1' => $this->faker->phoneNumber(),
+            'phone_2' => $this->faker->optional()->phoneNumber(),
+            'address' => $this->faker->address(),
+            'email' => $this->faker->email(),
         ];
     }
 }

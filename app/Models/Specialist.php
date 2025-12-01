@@ -14,6 +14,10 @@ class Specialist extends Model
         'name',
         'capacity_per_hour',
         'capacity_per_day',
+        'phone_1',
+        'phone_2',
+        'address',
+        'email',
     ];
 
     protected $casts = [

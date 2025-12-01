@@ -45,6 +45,10 @@ class SpecialistController extends Controller
             'name' => $data['name'],
             'capacity_per_hour' => $data['capacity_per_hour'] ?? null,
             'capacity_per_day' => $data['capacity_per_day'] ?? null,
+            'phone_1' => $data['phone_1'] ?? null,
+            'phone_2' => $data['phone_2'] ?? null,
+            'address' => $data['address'] ?? null,
+            'email' => $data['email'] ?? null,
         ]);
         $specialist->id = $nextId;
         $specialist->save();
@@ -70,6 +74,10 @@ class SpecialistController extends Controller
             'name' => $data['name'],
             'capacity_per_hour' => $data['capacity_per_hour'] ?? null,
             'capacity_per_day' => $data['capacity_per_day'] ?? null,
+            'phone_1' => $data['phone_1'] ?? null,
+            'phone_2' => $data['phone_2'] ?? null,
+            'address' => $data['address'] ?? null,
+            'email' => $data['email'] ?? null,
         ]);
         if (array_key_exists('speciality_ids', $data)) {
             $specialist->specialities()->sync($data['speciality_ids'] ?? []);
