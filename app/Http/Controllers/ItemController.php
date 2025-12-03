@@ -121,6 +121,9 @@ class ItemController extends Controller
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
 
         return response()->json([
             'status' => true,
@@ -157,6 +160,9 @@ class ItemController extends Controller
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
 
         return response()->json([
             'status' => true,
@@ -211,6 +217,9 @@ class ItemController extends Controller
         $item->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
 
         return response()->json([
             'status' => true,
@@ -341,6 +350,9 @@ class ItemController extends Controller
         }
 
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -524,6 +536,9 @@ class ItemController extends Controller
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
 
         $imported = $import->getImportedCount();
         $skippedCount = $import->getSkippedCount();
@@ -620,6 +635,9 @@ class ItemController extends Controller
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
 
         return response()->json([
             'status' => true,
@@ -661,6 +679,9 @@ class ItemController extends Controller
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
 
         return response()->json([
             'status' => true,
@@ -712,6 +733,9 @@ class ItemController extends Controller
 
         $item->suppliers()->syncWithoutDetaching($payload);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'Suppliers attached successfully.',
@@ -744,6 +768,9 @@ class ItemController extends Controller
             'is_primary' => isset($data['is_primary']) ? (bool) $data['is_primary'] : false,
         ]);
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'Supplier pivot updated.',
@@ -754,6 +781,9 @@ class ItemController extends Controller
     public function detachSuppliers(DetachSuppliersRequest $request, Item $item)
     {
         $item->suppliers()->detach($request->validated()['supplier_ids']);
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
 
         return response()->json([
             'status' => true,
@@ -778,6 +808,9 @@ class ItemController extends Controller
 
         // Set selected as primary
         $item->suppliers()->updateExistingPivot($supplier->id, ['is_primary' => true]);
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
 
         return response()->json([
             'status' => true,
@@ -854,6 +887,9 @@ class ItemController extends Controller
 
         $result = $item->unitOfMeasurements()->with('unitGroup')->get();
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'Unit of measurements attached successfully.',
@@ -890,6 +926,9 @@ class ItemController extends Controller
             ->with('unitGroup')
             ->first();
 
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+
         return response()->json([
             'status' => true,
             'message' => 'Unit of measurement pivot updated successfully.',
@@ -900,6 +939,9 @@ class ItemController extends Controller
     public function detachUOM(DetachUOMRequest $request, Item $item)
     {
         $item->unitOfMeasurements()->detach($request->validated()['unit_of_measurement_ids']);
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
 
         return response()->json([
             'status' => true,

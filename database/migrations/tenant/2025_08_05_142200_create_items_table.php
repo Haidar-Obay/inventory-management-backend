@@ -23,12 +23,22 @@ return new class extends Migration
             $table->foreignId('product_line_id')->nullable()->constrained('product_lines')->nullOnDelete();
             $table->foreignId('category_id')->nullable()->constrained('categories')->nullOnDelete();
             $table->foreignId('brand_id')->nullable()->constrained('brands')->nullOnDelete();
+
+            // Pricing / discount
             $table->decimal('discount_percent', 5, 2)->default(0); // 0-100
             $table->decimal('max_discount', 10, 2)->nullable();
-            $table->json('purchase_parameters')->nullable();
+
+            // Flags
+            $table->boolean('active')->default(true);
+            $table->boolean('allow_discount')->default(false);
+            $table->boolean('allow_credit')->default(false);
+            $table->boolean('allow_return')->default(false);
+            $table->boolean('available_for_sale')->default(true);
+            $table->boolean('raw_material')->default(false);
+            $table->boolean('produced_item')->default(false);
+            // purchase/sales parameters removed during development
             $table->text('purchase_description')->nullable();
             $table->foreignId('purchase_uom_id')->nullable()->constrained('unit_of_measurements')->nullOnDelete();
-            $table->json('sales_parameters')->nullable();
             $table->text('sales_description')->nullable();
             $table->text('pos_description')->nullable();
             $table->foreignId('sales_uom_id')->nullable()->constrained('unit_of_measurements')->nullOnDelete();
