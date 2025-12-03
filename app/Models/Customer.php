@@ -252,6 +252,12 @@ class Customer extends Model implements Auditable
         return $this->hasMany(CustomerRoute::class);
     }
 
+    public function appointments()
+    {
+        return $this->belongsToMany(Appointment::class, 'appointment_customer')
+            ->withTimestamps();
+    }
+
     public function activeRoute()
     {
         return $this->hasOne(CustomerRoute::class)->active();

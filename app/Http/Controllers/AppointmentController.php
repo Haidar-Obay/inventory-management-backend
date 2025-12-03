@@ -47,6 +47,7 @@ class AppointmentController extends Controller
                 'asset.section.room:id,name,location',
                 'specialist:id,name',
                 'service:id,name',
+                'customers:id,first_name,middle_name,last_name',
             ]);
 
             // Apply date range filtering if provided
@@ -131,6 +132,10 @@ class AppointmentController extends Controller
     {
         $validated = $request->validated();
 
+        // Extract customer IDs if provided (optional)
+        $customerIds = $validated['customer_ids'] ?? null;
+        unset($validated['customer_ids']);
+
         // Validation is handled by AppointmentValidationService in the request
         // Restrictions are checked automatically based on scheduler_mode
         // Status will be auto-calculated by the model's boot method
@@ -140,6 +145,11 @@ class AppointmentController extends Controller
         $appointment->id = $nextId;
         // Status will be auto-calculated in the saving event
         $appointment->save();
+
+        // Attach customers if provided
+        if (! empty($customerIds) && is_array($customerIds)) {
+            $appointment->customers()->sync($customerIds);
+        }
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
@@ -161,6 +171,7 @@ class AppointmentController extends Controller
                 'asset.section.room:id,name,location',
                 'specialist:id,name',
                 'service:id,name',
+                'customers:id,first_name,middle_name,last_name',
             ]),
         ], 201);
     }
@@ -185,6 +196,7 @@ class AppointmentController extends Controller
                 'asset.section:id,name,room_id',
                 'asset.section.room:id,name,location',
                 'specialist:id,name',
+                'customers:id,first_name,middle_name,last_name',
             ]);
 
             app('cache')->store('database')->forever($key, $cachedAppointment);
@@ -201,6 +213,10 @@ class AppointmentController extends Controller
     {
         $validated = $request->validated();
 
+        // Extract customer IDs if provided (optional on update)
+        $customerIds = $validated['customer_ids'] ?? null;
+        unset($validated['customer_ids']);
+
         // Validation and restrictions are handled by AppointmentValidationService in the request
         // Status will be auto-calculated by the model's boot method if time fields change
 
@@ -211,6 +227,11 @@ class AppointmentController extends Controller
         unset($validated['status']);
 
         $appointment->update($validated);
+
+        // Sync customers if provided; allow clearing by sending empty array
+        if ($request->has('customer_ids')) {
+            $appointment->customers()->sync($customerIds ?? []);
+        }
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
@@ -239,6 +260,7 @@ class AppointmentController extends Controller
                 'asset.section.room:id,name,location',
                 'specialist:id,name',
                 'service:id,name',
+                'customers:id,first_name,middle_name,last_name',
             ]),
         ]);
     }
@@ -307,6 +329,7 @@ class AppointmentController extends Controller
             'asset.section:id,name,room_id',
             'asset.section.room:id,name,location',
             'specialist:id,name',
+            'customers:id,first_name,middle_name,last_name',
         ])->orderBy('start_at', 'desc');
         $collection = $appointments->get();
 
@@ -461,6 +484,7 @@ class AppointmentController extends Controller
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
                     'specialist:id,name',
+                    'customers:id,first_name,middle_name,last_name',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();
@@ -489,6 +513,7 @@ class AppointmentController extends Controller
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
                     'specialist:id,name',
+                    'customers:id,first_name,middle_name,last_name',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();
@@ -517,6 +542,7 @@ class AppointmentController extends Controller
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
                     'specialist:id,name',
+                    'customers:id,first_name,middle_name,last_name',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();

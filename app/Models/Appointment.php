@@ -92,6 +92,12 @@ class Appointment extends Model implements Auditable
         return $this->belongsTo(Specialist::class);
     }
 
+    public function customers()
+    {
+        return $this->belongsToMany(Customer::class, 'appointment_customer')
+            ->withTimestamps();
+    }
+
     public function service()
     {
         return $this->belongsTo(Service::class);

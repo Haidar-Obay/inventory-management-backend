@@ -61,6 +61,7 @@ class SchedulerService
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
                     'specialist:id,name',
+                    'customers:id,first_name,middle_name,last_name',
                 ]);
         } elseif ($schedulableType === 'App\Models\Asset') {
             $query->where('asset_id', $schedulableId)
@@ -69,6 +70,7 @@ class SchedulerService
                     'asset.section:id,name,room_id',
                     'asset.section.room:id,name,location',
                     'specialist:id,name',
+                    'customers:id,first_name,middle_name,last_name',
                 ]);
         } else {
             // User, Room, Section don't have direct appointments
