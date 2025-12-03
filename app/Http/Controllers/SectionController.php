@@ -38,6 +38,12 @@ class SectionController extends Controller
     {
         $validated = $request->validated();
 
+        // Set default order_index if not provided
+        if (! isset($validated['order_index']) || $validated['order_index'] === null) {
+            $maxOrderIndex = Section::where('room_id', $validated['room_id'])->max('order_index');
+            $validated['order_index'] = ($maxOrderIndex !== null) ? $maxOrderIndex + 1 : 0;
+        }
+
         $nextId = $this->computeNextAvailableId(Section::class, 'id');
         $section = new Section($validated);
         $section->id = $nextId;
