@@ -1864,13 +1864,19 @@ class CustomerController extends Controller
         $customers = app('cache')->store('database')->get($key);
 
         if (! $customers) {
-            $customers = Customer::select('id', 'first_name', 'last_name')
+            $customers = Customer::select('id', 'first_name', 'middle_name', 'last_name')
                 ->orderBy('first_name')
                 ->get()
                 ->map(function ($customer) {
+                    $parts = [
+                        $customer->first_name,
+                        $customer->middle_name,
+                        $customer->last_name,
+                    ];
+
                     return [
                         'id' => $customer->id,
-                        'name' => trim($customer->first_name.' '.$customer->last_name),
+                        'name' => trim(implode(' ', array_filter($parts))),
                     ];
                 });
 

@@ -55,6 +55,8 @@ class AppointmentValidationService
         $baseRules = [
             'start_at' => 'required|date',
             'end_at' => 'required|date|after:start_at',
+            'customer_ids' => 'nullable|array',
+            'customer_ids.*' => 'exists:customers,id',
             'notes' => 'nullable|string|max:1000',
             'color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
         ];
