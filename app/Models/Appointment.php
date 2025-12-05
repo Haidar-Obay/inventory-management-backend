@@ -12,9 +12,6 @@ class Appointment extends Model implements Auditable
     use AuditableTrait, HasFactory;
 
     protected $fillable = [
-        'asset_id',
-        'specialist_id',
-        'service_id',
         'start_at',
         'end_at',
         'notes',
@@ -35,9 +32,6 @@ class Appointment extends Model implements Auditable
 
     // Validation rules for the model (basic - no restrictions)
     public static $rules = [
-        'asset_id' => 'nullable|exists:assets,id',
-        'specialist_id' => 'nullable|exists:specialists,id',
-        'service_id' => 'nullable|exists:services,id',
         'start_at' => 'required|date',
         'end_at' => 'required|date|after:start_at',
         'notes' => 'nullable|string|max:1000',
@@ -81,15 +75,41 @@ class Appointment extends Model implements Auditable
         });
     }
 
-    // Relationships
+    /**
+     * Legacy relationship - returns first asset from services relationship for backward compatibility
+     * Note: This uses a join approach that works with eager loading
+     */
     public function asset()
     {
-        return $this->belongsTo(Asset::class);
+        // Use a join-based approach that Laravel can handle during eager loading
+        // The join creates a proper relationship that can reference the parent table
+        return $this->hasOne(Asset::class, 'id', 'asset_id')
+            ->join('appointment_service', function ($join) {
+                $join->on('appointment_service.asset_id', '=', 'assets.id')
+                    ->whereColumn('appointment_service.appointment_id', 'appointments.id')
+                    ->whereNotNull('appointment_service.asset_id');
+            })
+            ->orderBy('appointment_service.id')
+            ->select('assets.*')
+            ->limit(1);
     }
 
+    /**
+     * Legacy relationship - returns first specialist from services relationship for backward compatibility
+     * Note: This uses a join approach that works with eager loading
+     */
     public function specialist()
     {
-        return $this->belongsTo(Specialist::class);
+        // Use a join-based approach that Laravel can handle during eager loading
+        return $this->hasOne(Specialist::class, 'id', 'specialist_id')
+            ->join('appointment_service', function ($join) {
+                $join->on('appointment_service.specialist_id', '=', 'specialists.id')
+                    ->whereColumn('appointment_service.appointment_id', 'appointments.id')
+                    ->whereNotNull('appointment_service.specialist_id');
+            })
+            ->orderBy('appointment_service.id')
+            ->select('specialists.*')
+            ->limit(1);
     }
 
     public function customers()
@@ -98,21 +118,66 @@ class Appointment extends Model implements Auditable
             ->withTimestamps();
     }
 
+    /**
+     * Legacy relationship - returns first service from services relationship for backward compatibility
+     * Note: This uses a join approach that works with eager loading
+     */
     public function service()
     {
-        return $this->belongsTo(Service::class);
+        // Use a join-based approach that Laravel can handle during eager loading
+        return $this->hasOne(Service::class, 'id', 'service_id')
+            ->join('appointment_service', function ($join) {
+                $join->on('appointment_service.service_id', '=', 'services.id')
+                    ->whereColumn('appointment_service.appointment_id', 'appointments.id');
+            })
+            ->orderBy('appointment_service.id')
+            ->select('services.*')
+            ->limit(1);
     }
 
+    /**
+     * Many-to-many relationship with services
+     * Includes specialist_id and asset_id in pivot for per-service assignment
+     */
+    public function services()
+    {
+        return $this->belongsToMany(Service::class, 'appointment_service')
+            ->withPivot('specialist_id', 'asset_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Legacy relationship - returns first section from first service's asset
+     */
     public function section()
     {
-        return $this->hasOneThrough(Section::class, Asset::class, 'id', 'id', 'asset_id', 'section_id');
+        return $this->hasOneThrough(Section::class, Asset::class, 'id', 'id', 'asset_id', 'section_id')
+            ->whereIn('assets.id', function ($query) {
+                $query->select('asset_id')
+                    ->from('appointment_service')
+                    ->whereColumn('appointment_service.appointment_id', 'appointments.id')
+                    ->whereNotNull('asset_id')
+                    ->orderBy('appointment_service.id')
+                    ->limit(1);
+            });
     }
 
+    /**
+     * Legacy relationship - returns first room from first service's asset
+     */
     public function room()
     {
         return $this->hasOneThrough(Room::class, Asset::class, 'id', 'id', 'asset_id', 'section_id')
             ->join('sections', 'sections.room_id', '=', 'rooms.id')
-            ->where('sections.id', '=', 'assets.section_id');
+            ->where('sections.id', '=', 'assets.section_id')
+            ->whereIn('assets.id', function ($query) {
+                $query->select('asset_id')
+                    ->from('appointment_service')
+                    ->whereColumn('appointment_service.appointment_id', 'appointments.id')
+                    ->whereNotNull('asset_id')
+                    ->orderBy('appointment_service.id')
+                    ->limit(1);
+            });
     }
 
     // Scopes
@@ -138,18 +203,24 @@ class Appointment extends Model implements Auditable
 
     public function scopeByAsset($query, $assetId)
     {
-        return $query->where('asset_id', $assetId);
+        return $query->whereHas('services', function ($q) use ($assetId) {
+            $q->where('appointment_service.asset_id', $assetId);
+        });
     }
 
     public function scopeBySpecialist($query, $specialistId)
     {
-        return $query->where('specialist_id', $specialistId);
+        return $query->whereHas('services', function ($q) use ($specialistId) {
+            $q->where('appointment_service.specialist_id', $specialistId);
+        });
     }
 
     public function scopeOverlapping($query, $assetId, $startAt, $endAt, $excludeId = null)
     {
         if ($assetId) {
-            $query->where('asset_id', $assetId);
+            $query->whereHas('services', function ($q) use ($assetId) {
+                $q->where('appointment_service.asset_id', $assetId);
+            });
         }
 
         // Don't filter by status for overlapping check - check all appointments

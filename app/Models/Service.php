@@ -80,4 +80,12 @@ class Service extends Model
     {
         return $this->belongsTo(Item::class, 'item_id');
     }
+
+    /**
+     * Get appointments that use this service through the appointment_service pivot table
+     */
+    public function appointments()
+    {
+        return $this->belongsToMany(Appointment::class, 'appointment_service', 'service_id', 'appointment_id');
+    }
 }

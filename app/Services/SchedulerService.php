@@ -55,21 +55,27 @@ class SchedulerService
 
         // Appointments are not polymorphic, so we need to handle based on type
         if ($schedulableType === 'App\Models\Specialist') {
-            $query->where('specialist_id', $schedulableId)
+            $query->whereHas('services', function ($q) use ($schedulableId) {
+                $q->where('appointment_service.specialist_id', $schedulableId);
+            })
                 ->with([
-                    'asset:id,name,type,status,section_id',
-                    'asset.section:id,name,room_id',
-                    'asset.section.room:id,name,location',
-                    'specialist:id,name',
+                    'services:id,name',
+                    'services.specialist:id,name',
+                    'services.asset:id,name,type,status,section_id',
+                    'services.asset.section:id,name,room_id',
+                    'services.asset.section.room:id,name,location',
                     'customers:id,first_name,middle_name,last_name',
                 ]);
         } elseif ($schedulableType === 'App\Models\Asset') {
-            $query->where('asset_id', $schedulableId)
+            $query->whereHas('services', function ($q) use ($schedulableId) {
+                $q->where('appointment_service.asset_id', $schedulableId);
+            })
                 ->with([
-                    'asset:id,name,type,status,section_id',
-                    'asset.section:id,name,room_id',
-                    'asset.section.room:id,name,location',
-                    'specialist:id,name',
+                    'services:id,name',
+                    'services.specialist:id,name',
+                    'services.asset:id,name,type,status,section_id',
+                    'services.asset.section:id,name,room_id',
+                    'services.asset.section.room:id,name,location',
                     'customers:id,first_name,middle_name,last_name',
                 ]);
         } else {
@@ -185,15 +191,50 @@ class SchedulerService
      */
     protected function formatAppointment(Appointment $appointment): array
     {
-        $assetName = $appointment->asset?->name ?? 'No Asset';
-        $specialistName = $appointment->specialist?->name ?? 'No Specialist';
+        // Get first asset and specialist from services relationship
+        $assetName = 'No Asset';
+        $specialistName = 'No Specialist';
+        
+        if ($appointment->relationLoaded('services') && $appointment->services->isNotEmpty()) {
+            // Get first service with asset
+            $firstServiceWithAsset = $appointment->services->first(function ($service) {
+                return $service->pivot->asset_id && $service->asset;
+            });
+            if ($firstServiceWithAsset && $firstServiceWithAsset->asset) {
+                $assetName = $firstServiceWithAsset->asset->name;
+            }
+            
+            // Get first service with specialist
+            $firstServiceWithSpecialist = $appointment->services->first(function ($service) {
+                return $service->pivot->specialist_id && $service->specialist;
+            });
+            if ($firstServiceWithSpecialist && $firstServiceWithSpecialist->specialist) {
+                $specialistName = $firstServiceWithSpecialist->specialist->name;
+            }
+        }
+        
+        // Get all specialists from services
+        $specialists = collect();
+        if ($appointment->relationLoaded('services')) {
+            $specialists = $appointment->services->map(function ($service) {
+                $specialistId = $service->pivot->specialist_id ?? null;
+                return [
+                    'service_id' => $service->id,
+                    'service_name' => $service->name,
+                    'specialist_id' => $specialistId,
+                    'specialist_name' => $service->specialist?->name ?? null,
+                ];
+            })->filter(function ($item) {
+                return $item['specialist_id'] !== null;
+            });
+        }
 
         // Build title based on what's available
-        if ($appointment->asset_id && $appointment->specialist_id) {
+        if ($assetName !== 'No Asset' && $specialistName !== 'No Specialist') {
             $title = "{$assetName} - {$specialistName}";
-        } elseif ($appointment->asset_id) {
+        } elseif ($assetName !== 'No Asset') {
             $title = $assetName;
-        } elseif ($appointment->specialist_id) {
+        } elseif ($specialistName !== 'No Specialist') {
             $title = $specialistName;
         } else {
             $title = 'Appointment';
@@ -213,10 +254,11 @@ class SchedulerService
             'priority' => null,
             'due_at' => null,
             'metadata' => [
-                'asset_id' => $appointment->asset_id,
-                'asset_name' => $appointment->asset?->name ?? null,
-                'specialist_id' => $appointment->specialist_id,
-                'specialist_name' => $appointment->specialist?->name ?? null,
+                'asset_id' => $appointment->services->first()?->pivot->asset_id ?? null,
+                'asset_name' => $assetName !== 'No Asset' ? $assetName : null,
+                'specialist_id' => $appointment->services->first()?->pivot->specialist_id ?? null,
+                'specialist_name' => $specialistName !== 'No Specialist' ? $specialistName : null,
+                'specialists' => $specialists->toArray(),
             ],
             'raw_data' => $appointment->toArray(),
         ];

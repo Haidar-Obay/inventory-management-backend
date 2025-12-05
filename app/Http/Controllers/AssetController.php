@@ -9,6 +9,7 @@ use App\Http\Requests\Asset\UpdateAssetRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Asset;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -18,11 +19,12 @@ class AssetController extends Controller
     {
         $tenantId = tenant('id');
 
-        // If a service_id is provided, return only assets linked to that service (no global cache)
+        // If a service_id is provided, return only active assets linked to that service (no global cache)
         if ($request->filled('service_id')) {
             $serviceId = $request->integer('service_id');
 
-            $assets = Asset::with(['section:id,name,room_id', 'section.room:id,name,location'])
+            $assets = Asset::active()
+                ->with(['section:id,name,room_id', 'section.room:id,name,location'])
                 ->whereHas('services', function ($q) use ($serviceId) {
                     $q->where('service_id', $serviceId);
                 })
@@ -134,12 +136,23 @@ class AssetController extends Controller
         $identifier = $asset->name ?? "ID: {$asset->id}";
         $details = [];
 
-        // Check if asset has appointments
-        if ($asset->appointments()->exists()) {
-            $appointmentsCount = $asset->appointments()->count();
+        // Check if asset has appointments through pivot table
+        $appointmentsCount = DB::table('appointment_service')
+            ->where('asset_id', $asset->id)
+            ->whereNotNull('asset_id')
+            ->distinct('appointment_id')
+            ->count('appointment_id');
+        
+        if ($appointmentsCount > 0) {
+            $sampleAppointmentId = DB::table('appointment_service')
+                ->where('asset_id', $asset->id)
+                ->whereNotNull('asset_id')
+                ->select('appointment_id')
+                ->first()?->appointment_id;
+            
             $details['appointments'] = [
                 'count' => $appointmentsCount,
-                'sample_ids' => $asset->appointments()->select('appointments.id')->limit(1)->pluck('id'),
+                'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
             ];
         }
 
@@ -200,12 +213,23 @@ class AssetController extends Controller
                 $identifier = $asset->name ?? "ID: {$id}";
                 $details = [];
 
-                // Check if asset has appointments
-                if ($asset->appointments()->exists()) {
-                    $appointmentsCount = $asset->appointments()->count();
+                // Check if asset has appointments through pivot table
+                $appointmentsCount = DB::table('appointment_service')
+                    ->where('asset_id', $asset->id)
+                    ->whereNotNull('asset_id')
+                    ->distinct('appointment_id')
+                    ->count('appointment_id');
+                
+                if ($appointmentsCount > 0) {
+                    $sampleAppointmentId = DB::table('appointment_service')
+                        ->where('asset_id', $asset->id)
+                        ->whereNotNull('asset_id')
+                        ->select('appointment_id')
+                        ->first()?->appointment_id;
+                    
                     $details['appointments'] = [
                         'count' => $appointmentsCount,
-                        'sample_ids' => $asset->appointments()->select('appointments.id')->limit(1)->pluck('id'),
+                        'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
                     ];
                 }
 

@@ -735,6 +735,8 @@ Route::middleware([
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
     Route::get('/names/customers', [CustomerController::class, 'getNames']);
+    Route::post('/customers/search-by-phone', [CustomerController::class, 'searchByPhone']);
+    Route::get('/customers/{customerId}/appointments', [CustomerController::class, 'getAppointmentHistory']);
     Route::get('/names/cost-centers', [CostCenterController::class, 'getNames']);
     Route::get('/names/departments', [DepartmentController::class, 'getNames']);
     Route::get('/names/projects', [ProjectController::class, 'getNames']);

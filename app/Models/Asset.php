@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Builder;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 use OwenIt\Auditing\Contracts\Auditable;
 
@@ -44,14 +45,23 @@ class Asset extends Model implements Auditable
         return $this->hasOneThrough(Room::class, Section::class, 'id', 'id', 'section_id', 'room_id');
     }
 
+    /**
+     * Get appointments that use this asset through the appointment_service pivot table
+     */
     public function appointments()
     {
-        return $this->hasMany(Appointment::class);
+        return $this->belongsToMany(Appointment::class, 'appointment_service', 'asset_id', 'appointment_id')
+            ->whereNotNull('appointment_service.asset_id');
     }
 
+    /**
+     * Get active appointments that use this asset
+     */
     public function activeAppointments()
     {
-        return $this->hasMany(Appointment::class)->where('status', 'active');
+        return $this->belongsToMany(Appointment::class, 'appointment_service', 'asset_id', 'appointment_id')
+            ->whereNotNull('appointment_service.asset_id')
+            ->where('appointments.status', 'active');
     }
 
     /**

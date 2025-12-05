@@ -372,6 +372,11 @@ class CustomerController extends Controller
                 }
             }
 
+            // Clear customer names cache
+            $tenantId = tenant('id');
+            $cacheKey = "tenant_{$tenantId}_customer_names";
+            app('cache')->store('database')->forget($cacheKey);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Customer created successfully.',
@@ -1072,6 +1077,11 @@ class CustomerController extends Controller
                 }
             }
 
+            // Clear customer names cache
+            $tenantId = tenant('id');
+            $cacheKey = "tenant_{$tenantId}_customer_names";
+            app('cache')->store('database')->forget($cacheKey);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Customer updated successfully.',
@@ -1137,6 +1147,11 @@ class CustomerController extends Controller
                 })
                 ->delete();
         }
+
+        // Clear customer names cache
+        $tenantId = tenant('id');
+        $cacheKey = "tenant_{$tenantId}_customer_names";
+        app('cache')->store('database')->forget($cacheKey);
 
         return response()->json([
             'status' => true,
@@ -1233,6 +1248,11 @@ class CustomerController extends Controller
                 }
             }
         }
+
+        // Clear customer names cache after bulk delete
+        $tenantId = tenant('id');
+        $cacheKey = "tenant_{$tenantId}_customer_names";
+        app('cache')->store('database')->forget($cacheKey);
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -1887,6 +1907,87 @@ class CustomerController extends Controller
             'status' => true,
             'message' => 'Customer names fetched successfully.',
             'data' => $customers,
+        ]);
+    }
+
+    /**
+     * Search customer by phone number
+     */
+    public function searchByPhone(Request $request)
+    {
+        $request->validate([
+            'phone' => 'required|string',
+        ]);
+
+        $phone = $request->input('phone');
+        
+        // Search in phone1, phone2, phone3 fields
+        $customer = Customer::where('phone1', $phone)
+            ->orWhere('phone2', $phone)
+            ->orWhere('phone3', $phone)
+            ->first();
+
+        if (! $customer) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Customer not found.',
+                'data' => null,
+            ], 404);
+        }
+
+        // Get primary billing address
+        $primaryBillingAddress = $customer->primaryBillingAddress->first();
+        $addressLine1 = $primaryBillingAddress ? $primaryBillingAddress->address_line1 : null;
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Customer found successfully.',
+            'data' => [
+                'id' => $customer->id,
+                'first_name' => $customer->first_name,
+                'middle_name' => $customer->middle_name,
+                'last_name' => $customer->last_name,
+                'date_of_birth' => $customer->date_of_birth,
+                'place_of_birth' => $customer->place_of_birth,
+                'gender' => $customer->gender,
+                'file_number' => $customer->file_number,
+                'phone1' => $customer->phone1,
+                'phone2' => $customer->phone2,
+                'phone3' => $customer->phone3,
+                'address_line1' => $addressLine1,
+                'black_listed' => $customer->black_listed,
+            ],
+        ]);
+    }
+
+    /**
+     * Get customer appointment history
+     */
+    public function getAppointmentHistory($customerId)
+    {
+        $customer = Customer::find($customerId);
+
+        if (! $customer) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Customer not found.',
+                'data' => [],
+            ], 404);
+        }
+
+        $appointments = $customer->appointments()
+            ->with([
+                'asset:id,name',
+                'specialist:id,name',
+                'service:id,name',
+            ])
+            ->orderBy('start_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Appointment history fetched successfully.',
+            'data' => $appointments,
         ]);
     }
 }

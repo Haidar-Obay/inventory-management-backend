@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateSpecialistRequest;
 use App\Models\Specialist;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SpecialistController extends Controller
 {
@@ -94,12 +95,23 @@ class SpecialistController extends Controller
         $identifier = $specialist->name ?? "ID: {$specialist->id}";
         $details = [];
 
-        // Check if specialist has appointments
-        if ($specialist->appointments()->exists()) {
-            $appointmentsCount = $specialist->appointments()->count();
+        // Check if specialist has appointments through pivot table
+        $appointmentsCount = DB::table('appointment_service')
+            ->where('specialist_id', $specialist->id)
+            ->whereNotNull('specialist_id')
+            ->distinct('appointment_id')
+            ->count('appointment_id');
+        
+        if ($appointmentsCount > 0) {
+            $sampleAppointmentId = DB::table('appointment_service')
+                ->where('specialist_id', $specialist->id)
+                ->whereNotNull('specialist_id')
+                ->select('appointment_id')
+                ->first()?->appointment_id;
+            
             $details['appointments'] = [
                 'count' => $appointmentsCount,
-                'sample_ids' => $specialist->appointments()->select('appointments.id')->limit(1)->pluck('id'),
+                'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
             ];
         }
 
@@ -211,12 +223,23 @@ class SpecialistController extends Controller
                 $identifier = $specialist->name ?? "ID: {$id}";
                 $details = [];
 
-                // Check if specialist has appointments
-                if ($specialist->appointments()->exists()) {
-                    $appointmentsCount = $specialist->appointments()->count();
+                // Check if specialist has appointments through pivot table
+                $appointmentsCount = DB::table('appointment_service')
+                    ->where('specialist_id', $specialist->id)
+                    ->whereNotNull('specialist_id')
+                    ->distinct('appointment_id')
+                    ->count('appointment_id');
+                
+                if ($appointmentsCount > 0) {
+                    $sampleAppointmentId = DB::table('appointment_service')
+                        ->where('specialist_id', $specialist->id)
+                        ->whereNotNull('specialist_id')
+                        ->select('appointment_id')
+                        ->first()?->appointment_id;
+                    
                     $details['appointments'] = [
                         'count' => $appointmentsCount,
-                        'sample_ids' => $specialist->appointments()->select('appointments.id')->limit(1)->pluck('id'),
+                        'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
                     ];
                 }
 
