@@ -176,6 +176,7 @@ Route::middleware([
 
         Route::apiResource('assets', AssetController::class)->middleware('check.permission:assets,view');
         Route::apiResource('appointments', AppointmentController::class);
+        Route::post('appointments/find-available-slots', [AppointmentController::class, 'findAvailableSlots']);
         Route::apiResource('tasks', TaskController::class);
         Route::patch('tasks/{task}/status', [TaskStatusController::class, 'update']);
         Route::patch('events/{event}/status', [EventStatusController::class, 'toggleStatus']);

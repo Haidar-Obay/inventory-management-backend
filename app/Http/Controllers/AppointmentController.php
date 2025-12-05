@@ -11,6 +11,7 @@ use App\Models\Appointment;
 use App\Models\Specialist;
 use App\Models\Asset;
 use App\Services\SchedulerService;
+use App\Services\AppointmentAvailabilityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -18,10 +19,12 @@ use Maatwebsite\Excel\Facades\Excel;
 class AppointmentController extends Controller
 {
     protected SchedulerService $schedulerService;
+    protected AppointmentAvailabilityService $availabilityService;
 
-    public function __construct(SchedulerService $schedulerService)
+    public function __construct(SchedulerService $schedulerService, AppointmentAvailabilityService $availabilityService)
     {
         $this->schedulerService = $schedulerService;
+        $this->availabilityService = $availabilityService;
     }
 
     /**
@@ -724,5 +727,39 @@ class AppointmentController extends Controller
             'message' => 'Active appointments fetched successfully.',
             'data' => $appointments,
         ]);
+    }
+
+    /**
+     * Find available appointment slots for given services
+     */
+    public function findAvailableSlots(Request $request)
+    {
+        $request->validate([
+            'services' => 'required|array|min:1',
+            'services.*.service_id' => 'required|exists:services,id',
+            'services.*.specialist_id' => 'nullable|exists:specialists,id',
+            'services.*.asset_id' => 'nullable|exists:assets,id',
+            'days_ahead' => 'nullable|integer|min:1|max:90',
+            'start_date' => 'nullable|date',
+        ]);
+
+        $services = $request->input('services');
+        $daysAhead = $request->input('days_ahead', 30);
+        $startDate = $request->input('start_date');
+
+        try {
+            $result = $this->availabilityService->findAvailableSlots($services, $daysAhead, $startDate);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Available slots fetched successfully.',
+                'data' => $result,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to find available slots: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
