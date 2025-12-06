@@ -24,7 +24,7 @@ class StoreAppointmentRequest extends FormRequest
         $validator->after(function ($validator) {
             $validationService = app(AppointmentValidationService::class);
             $data = $this->all();
-            
+
             // Normalize service_id - convert string "null" or empty string to null
             if (isset($data['service_id'])) {
                 if ($data['service_id'] === 'null' || $data['service_id'] === '' || $data['service_id'] === null) {
@@ -33,7 +33,7 @@ class StoreAppointmentRequest extends FormRequest
                     $data['service_id'] = (int) $data['service_id'];
                 }
             }
-            
+
             // Normalize services array - format: [['service_id' => 1, 'specialist_id' => 5, 'asset_id' => 3], ...]
             if (isset($data['services']) && is_array($data['services'])) {
                 $normalizedServices = [];
@@ -42,11 +42,11 @@ class StoreAppointmentRequest extends FormRequest
                         $serviceId = $serviceData['service_id'] ?? null;
                         $specialistId = $serviceData['specialist_id'] ?? null;
                         $assetId = $serviceData['asset_id'] ?? null;
-                        
+
                         if ($serviceId && ($serviceId === 'null' || $serviceId === '' || $serviceId === null)) {
                             continue; // Skip invalid entries
                         }
-                        
+
                         if ($serviceId) {
                             $normalizedServices[] = [
                                 'service_id' => (int) $serviceId,
@@ -65,13 +65,14 @@ class StoreAppointmentRequest extends FormRequest
                 }
                 $data['services'] = ! empty($normalizedServices) ? $normalizedServices : null;
             }
-            
+
             // Normalize service_ids array - ensure all values are integers
             if (isset($data['service_ids']) && is_array($data['service_ids'])) {
                 $data['service_ids'] = array_filter(array_map(function ($id) {
                     if ($id === 'null' || $id === '' || $id === null) {
-                        return null;
+                        return;
                     }
+
                     return (int) $id;
                 }, $data['service_ids']), function ($id) {
                     return $id !== null && $id > 0;
@@ -83,7 +84,7 @@ class StoreAppointmentRequest extends FormRequest
                     $data['service_ids'] = null;
                 }
             }
-            
+
             $validation = $validationService->validate($data);
 
             if (! $validation['valid']) {

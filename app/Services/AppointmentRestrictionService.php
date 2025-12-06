@@ -33,7 +33,7 @@ class AppointmentRestrictionService
         // Specialist availability and capacity checks for per-service specialists
         $services = $data['services'] ?? null;
         $serviceIds = $data['service_ids'] ?? null;
-        
+
         // Check if we have services with specialists
         $hasSpecialists = false;
         if (! empty($services) && is_array($services)) {
@@ -51,7 +51,7 @@ class AppointmentRestrictionService
                 }
             }
         }
-        
+
         // Handle legacy specialist_id for backward compatibility during transition
         if (isset($data['specialist_id']) && $data['specialist_id']) {
             $hasSpecialists = true;
@@ -83,7 +83,7 @@ class AppointmentRestrictionService
                 }
             }
         }
-        
+
         // Handle legacy asset_id for backward compatibility during transition
         if (isset($data['asset_id']) && $data['asset_id']) {
             $hasAssets = true;
@@ -98,9 +98,9 @@ class AppointmentRestrictionService
             }
         }
 
-        // At least one asset and one specialist must be provided in advanced mode
-        if ($schedulerMode === 'advanced' && (! $hasAssets || ! $hasSpecialists)) {
-            $errors[] = 'At least one asset and one specialist (per service) are required in advanced scheduler mode.';
+        // At least one specialist must be provided in advanced mode (assets are auto-assigned)
+        if ($schedulerMode === 'advanced' && ! $hasSpecialists) {
+            $errors[] = 'At least one specialist (per service) is required in advanced scheduler mode.';
         }
 
         return [
@@ -112,7 +112,7 @@ class AppointmentRestrictionService
     /**
      * Check if asset is available during the time period
      */
-    protected function checkAssetAvailability(?int $assetId, string $startAt, ?string $endAt, ?int $excludeId = null): ?string
+    public function checkAssetAvailability(?int $assetId, string $startAt, ?string $endAt, ?int $excludeId = null): ?string
     {
         if (! $assetId) {
             return null;
@@ -132,10 +132,10 @@ class AppointmentRestrictionService
         // Two time ranges overlap if: start1 < end2 && start2 < end1
         $startDateTime = Carbon::parse($startAt);
         $endDateTime = $endAt ? Carbon::parse($endAt) : $startDateTime->copy()->addHour();
-        
+
         $overlapping = Appointment::whereHas('services', function ($q) use ($assetId) {
-                $q->where('appointment_service.asset_id', $assetId);
-            })
+            $q->where('appointment_service.asset_id', $assetId);
+        })
             ->where('status', '!=', 'cancelled')
             ->where('id', '!=', $excludeId)
             ->where('start_at', '<', $endDateTime)
@@ -180,8 +180,8 @@ class AppointmentRestrictionService
             // If capacity_per_hour is NOT set (or is null), default to capacity of 1
             // This means no overlaps allowed - check for basic availability
             $overlapping = Appointment::whereHas('services', function ($q) use ($specialistId) {
-                    $q->where('appointment_service.specialist_id', $specialistId);
-                })
+                $q->where('appointment_service.specialist_id', $specialistId);
+            })
                 ->where('status', '!=', 'cancelled')
                 ->where('id', '!=', $excludeId)
                 ->where('start_at', '<', $endDateTime)
@@ -227,8 +227,8 @@ class AppointmentRestrictionService
             // Count appointments that overlap with this hour
             // Two time ranges overlap if: start1 < end2 && start2 < end1
             $count = Appointment::whereHas('services', function ($q) use ($specialist) {
-                    $q->where('appointment_service.specialist_id', $specialist->id);
-                })
+                $q->where('appointment_service.specialist_id', $specialist->id);
+            })
                 ->where('status', '!=', 'cancelled')
                 ->where('id', '!=', $excludeId)
                 ->where('start_at', '<', $hourEnd)
@@ -258,8 +258,8 @@ class AppointmentRestrictionService
         $dayEnd = $date->copy()->endOfDay();
 
         $count = Appointment::whereHas('services', function ($q) use ($specialist) {
-                $q->where('appointment_service.specialist_id', $specialist->id);
-            })
+            $q->where('appointment_service.specialist_id', $specialist->id);
+        })
             ->where('status', '!=', 'cancelled')
             ->where('id', '!=', $excludeId)
             ->whereBetween('start_at', [$dayStart, $dayEnd])

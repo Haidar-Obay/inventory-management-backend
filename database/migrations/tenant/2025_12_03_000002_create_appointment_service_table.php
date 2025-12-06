@@ -29,10 +29,10 @@ return new class extends Migration
         Schema::table('appointments', function (Blueprint $table) {
             // Drop the index first
             $table->dropIndex(['asset_id', 'status']);
-            
+
             // Drop the foreign key constraint
             $table->dropForeign(['asset_id']);
-            
+
             // Drop the column
             $table->dropColumn('asset_id');
         });
@@ -54,4 +54,3 @@ return new class extends Migration
         Schema::dropIfExists('appointment_service');
     }
 };
-

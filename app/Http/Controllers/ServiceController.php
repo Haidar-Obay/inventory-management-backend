@@ -23,7 +23,7 @@ class ServiceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Service::query()
-            ->select(['id', 'name', 'service_category_id', 'normal_price', 'cost_price', 'active'])
+            ->select(['id', 'name', 'service_category_id', 'normal_price', 'cost_price', 'service_color', 'active'])
             ->with(['serviceCategory:id,name']);
 
         if ($request->filled('category_id')) {
@@ -242,13 +242,13 @@ class ServiceController extends Controller
             ->where('service_id', $service->id)
             ->distinct('appointment_id')
             ->count('appointment_id');
-        
+
         if ($appointmentsCount > 0) {
             $sampleAppointmentId = DB::table('appointment_service')
                 ->where('service_id', $service->id)
                 ->select('appointment_id')
                 ->first()?->appointment_id;
-            
+
             $details['appointments'] = [
                 'count' => $appointmentsCount,
                 'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
@@ -602,13 +602,13 @@ class ServiceController extends Controller
                         ->where('service_id', $service->id)
                         ->distinct('appointment_id')
                         ->count('appointment_id');
-                    
+
                     if ($appointmentsCount > 0) {
                         $sampleAppointmentId = DB::table('appointment_service')
                             ->where('service_id', $service->id)
                             ->select('appointment_id')
                             ->first()?->appointment_id;
-                        
+
                         $details['appointments'] = [
                             'count' => $appointmentsCount,
                             'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
@@ -622,6 +622,7 @@ class ServiceController extends Controller
                             'reason' => 'Cannot delete service. It is referenced by existing appointments.',
                             'details' => $details,
                         ];
+
                         continue;
                     }
 

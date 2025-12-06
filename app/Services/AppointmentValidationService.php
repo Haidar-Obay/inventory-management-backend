@@ -43,10 +43,10 @@ class AppointmentValidationService
         if ($startAt && $endAt) {
             // Handle services array (with service_id and optional specialist_id)
             $services = $data['services'] ?? null;
-            
+
             // Handle service_ids array (simple array of service IDs)
             $serviceIds = $data['service_ids'] ?? null;
-            
+
             // Handle legacy service_id for backward compatibility
             $serviceId = $data['service_id'] ?? null;
             if ($serviceId && ! $services && ! $serviceIds) {
@@ -88,7 +88,7 @@ class AppointmentValidationService
             $services = $data['services'] ?? null;
             $serviceIds = $data['service_ids'] ?? null;
             $serviceId = $data['service_id'] ?? null;
-            
+
             if (empty($services) && empty($serviceIds) && empty($serviceId)) {
                 $errors[] = 'At least one service is required in advanced scheduler mode.';
             }
@@ -159,15 +159,15 @@ class AppointmentValidationService
         ];
 
         if ($schedulerMode === 'advanced') {
-            // Advanced: customer, services, specialists, and assets are required
+            // Advanced: customer, services, and specialists are required (assets are auto-assigned)
             $baseRules['customer_ids'] = 'required|array|min:1';
             $baseRules['customer_ids.*'] = 'exists:customers,id';
-            // Advanced: at least one service (services, service_ids, or service_id), asset required
-            // Note: specialist_id can be per-service in the services array, or on appointment level
+            // Advanced: at least one service (services, service_ids, or service_id), specialist required
+            // Note: asset_id is optional - backend will automatically assign an available asset
             $baseRules['services'] = 'nullable|array|min:1';
             $baseRules['services.*.service_id'] = 'required_with:services|exists:services,id';
             $baseRules['services.*.specialist_id'] = 'required_with:services|exists:specialists,id';
-            $baseRules['services.*.asset_id'] = 'required_with:services|exists:assets,id';
+            $baseRules['services.*.asset_id'] = 'nullable|exists:assets,id'; // Optional - auto-assigned if not provided
             $baseRules['service_ids'] = 'nullable|array|min:1';
             $baseRules['service_ids.*'] = 'exists:services,id';
             $baseRules['service_id'] = 'nullable|exists:services,id'; // Legacy support

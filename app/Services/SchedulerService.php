@@ -194,7 +194,7 @@ class SchedulerService
         // Get first asset and specialist from services relationship
         $assetName = 'No Asset';
         $specialistName = 'No Specialist';
-        
+
         if ($appointment->relationLoaded('services') && $appointment->services->isNotEmpty()) {
             // Get first service with asset
             $firstServiceWithAsset = $appointment->services->first(function ($service) {
@@ -203,7 +203,7 @@ class SchedulerService
             if ($firstServiceWithAsset && $firstServiceWithAsset->asset) {
                 $assetName = $firstServiceWithAsset->asset->name;
             }
-            
+
             // Get first service with specialist
             $firstServiceWithSpecialist = $appointment->services->first(function ($service) {
                 return $service->pivot->specialist_id && $service->specialist;
@@ -212,12 +212,13 @@ class SchedulerService
                 $specialistName = $firstServiceWithSpecialist->specialist->name;
             }
         }
-        
+
         // Get all specialists from services
         $specialists = collect();
         if ($appointment->relationLoaded('services')) {
             $specialists = $appointment->services->map(function ($service) {
                 $specialistId = $service->pivot->specialist_id ?? null;
+
                 return [
                     'service_id' => $service->id,
                     'service_name' => $service->name,

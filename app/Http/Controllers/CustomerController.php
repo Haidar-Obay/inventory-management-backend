@@ -8,10 +8,12 @@ use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Address;
+use App\Models\Asset;
 use App\Models\Customer;
 use App\Models\CustomerAttachment;
 use App\Models\PaymentTerm;
 use App\Models\Project;
+use App\Models\Specialist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -1920,7 +1922,7 @@ class CustomerController extends Controller
         ]);
 
         $phone = $request->input('phone');
-        
+
         // Search in phone1, phone2, phone3 fields
         $customer = Customer::where('phone1', $phone)
             ->orWhere('phone2', $phone)
@@ -1977,12 +1979,35 @@ class CustomerController extends Controller
 
         $appointments = $customer->appointments()
             ->with([
-                'asset:id,name',
-                'specialist:id,name',
-                'service:id,name',
+                'services:id,name',
             ])
             ->orderBy('start_at', 'desc')
             ->get();
+
+        // Load specialists and assets for services in each appointment
+        $appointments->each(function ($appointment) {
+            // Get unique specialist and asset IDs from pivot
+            $specialistIds = $appointment->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
+            $assetIds = $appointment->services->pluck('pivot.asset_id')->filter()->unique()->toArray();
+
+            // Load specialists and assets
+            $specialists = $specialistIds ? Specialist::whereIn('id', $specialistIds)->get()->keyBy('id') : collect();
+            $assets = $assetIds ? Asset::whereIn('id', $assetIds)->get()->keyBy('id') : collect();
+
+            // Attach specialists and assets to services
+            $appointment->services->each(function ($service) use ($specialists, $assets) {
+                $specialistId = $service->pivot->specialist_id ?? null;
+                $assetId = $service->pivot->asset_id ?? null;
+
+                if ($specialistId && $specialists->has($specialistId)) {
+                    $service->setRelation('specialist', $specialists->get($specialistId));
+                }
+
+                if ($assetId && $assets->has($assetId)) {
+                    $service->setRelation('asset', $assets->get($assetId));
+                }
+            });
+        });
 
         return response()->json([
             'status' => true,

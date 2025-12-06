@@ -18,36 +18,46 @@ class AppointmentAvailabilityService
     }
 
     /**
-     * Find available appointment slots for given services
+     * Find available appointment slots for a single service
      *
-     * @param array $services Array of service selections: [['service_id' => int, 'specialist_id' => int|null, 'asset_id' => int|null], ...]
-     * @param int $daysAhead Number of days to look ahead (default: 30)
-     * @param string|null $startDate Start date (Y-m-d), defaults to today
+     * @param  int  $serviceId  Service ID
+     * @param  int|null  $specialistId  Optional specialist ID
+     * @param  int  $daysAhead  Number of days to look ahead (default: 10)
+     * @param  string|null  $startDate  Start date (Y-m-d), defaults to today
      * @return array ['available_slots' => [['date' => string, 'time_slots' => [...]]]]
      */
-    public function findAvailableSlots(array $services, int $daysAhead = 30, ?string $startDate = null): array
+    public function findAvailableSlots(int $serviceId, ?int $specialistId = null, int $daysAhead = 10, ?string $startDate = null): array
     {
-        if (empty($services)) {
+        $service = Service::find($serviceId);
+        if (! $service) {
             return ['available_slots' => []];
         }
 
         $start = $startDate ? Carbon::parse($startDate)->startOfDay() : Carbon::today()->startOfDay();
         $end = $start->copy()->addDays($daysAhead)->endOfDay();
 
-        // Calculate total duration needed
-        $totalDurationMinutes = $this->calculateTotalDuration($services);
-        
-        // Get all possible asset/specialist combinations for the services
-        $serviceConfigs = $this->buildServiceConfigs($services);
+        // Get service duration (default to 60 minutes if not specified)
+        $durationMinutes = $service->duration_minutes ?? 60;
+
+        // Get all assets for this service (automatically check all, no user selection)
+        $possibleAssets = $service->assets()->where('status', 'active')->get()->all();
+
+        // Get specialists (either the specified one or all for this service)
+        $possibleSpecialists = $specialistId
+            ? [Specialist::find($specialistId)]
+            : $service->specialists()->get()->all();
+
+        // Filter out nulls
+        $possibleSpecialists = array_filter($possibleSpecialists);
 
         // Find available slots
         $availableSlots = [];
         $currentDate = $start->copy();
 
         while ($currentDate->lte($end)) {
-            $daySlots = $this->findSlotsForDay($currentDate, $serviceConfigs, $totalDurationMinutes);
-            
-            if (!empty($daySlots)) {
+            $daySlots = $this->findSlotsForDay($currentDate, $possibleAssets, $possibleSpecialists, $durationMinutes);
+
+            if (! empty($daySlots)) {
                 $availableSlots[] = [
                     'date' => $currentDate->format('Y-m-d'),
                     'date_display' => $currentDate->format('l, F j, Y'),
@@ -62,90 +72,44 @@ class AppointmentAvailabilityService
     }
 
     /**
-     * Calculate total duration in minutes for all services
-     */
-    protected function calculateTotalDuration(array $services): int
-    {
-        $total = 0;
-        
-        foreach ($services as $serviceData) {
-            $serviceId = is_array($serviceData) ? ($serviceData['service_id'] ?? null) : null;
-            if (!$serviceId) continue;
-
-            $service = Service::find($serviceId);
-            if ($service && $service->duration_minutes) {
-                $total += $service->duration_minutes;
-            }
-        }
-
-        // Default to 60 minutes if no duration specified
-        return $total > 0 ? $total : 60;
-    }
-
-    /**
-     * Build service configurations with all possible asset/specialist combinations
-     */
-    protected function buildServiceConfigs(array $services): array
-    {
-        $configs = [];
-
-        foreach ($services as $serviceData) {
-            $serviceId = is_array($serviceData) ? ($serviceData['service_id'] ?? null) : null;
-            if (!$serviceId) continue;
-
-            $service = Service::find($serviceId);
-            if (!$service) continue;
-
-            $specialistId = is_array($serviceData) ? ($serviceData['specialist_id'] ?? null) : null;
-            $assetId = is_array($serviceData) ? ($serviceData['asset_id'] ?? null) : null;
-
-            // If specialist/asset specified, use only those
-            // Otherwise, get all available specialists/assets for this service
-            $possibleSpecialists = $specialistId 
-                ? [Specialist::find($specialistId)] 
-                : $service->specialists()->get()->all();
-            
-            $possibleAssets = $assetId 
-                ? [Asset::find($assetId)] 
-                : $service->assets()->where('status', 'active')->get()->all();
-
-            // Filter out nulls
-            $possibleSpecialists = array_filter($possibleSpecialists);
-            $possibleAssets = array_filter($possibleAssets);
-
-            $configs[] = [
-                'service_id' => $serviceId,
-                'service' => $service,
-                'specialist_id' => $specialistId,
-                'asset_id' => $assetId,
-                'possible_specialists' => $possibleSpecialists,
-                'possible_assets' => $possibleAssets,
-            ];
-        }
-
-        return $configs;
-    }
-
-    /**
      * Find available time slots for a specific day
      */
-    protected function findSlotsForDay(Carbon $date, array $serviceConfigs, int $totalDurationMinutes): array
+    protected function findSlotsForDay(Carbon $date, array $possibleAssets, array $possibleSpecialists, int $durationMinutes): array
     {
         $slots = [];
         $dayStart = $date->copy()->setTime(8, 0); // Start at 8 AM
         $dayEnd = $date->copy()->setTime(20, 0); // End at 8 PM
         $slotInterval = 30; // Check every 30 minutes
 
+        // Get current time to filter out past slots
+        $now = Carbon::now();
+
         $currentTime = $dayStart->copy();
 
-        while ($currentTime->copy()->addMinutes($totalDurationMinutes)->lte($dayEnd)) {
+        while ($currentTime->copy()->addMinutes($durationMinutes)->lte($dayEnd)) {
             $slotStart = $currentTime->copy();
-            $slotEnd = $slotStart->copy()->addMinutes($totalDurationMinutes);
+            $slotEnd = $slotStart->copy()->addMinutes($durationMinutes);
 
-            // Check if this slot is available for all services
-            $slotInfo = $this->checkSlotAvailability($slotStart, $slotEnd, $serviceConfigs);
-            
-            if ($slotInfo['available']) {
+            // Skip slots that are in the past (only show future slots)
+            // Skip if slot start time is in the past or equal to now (can't book in the past)
+            if ($slotStart->lte($now)) {
+                $currentTime->addMinutes($slotInterval);
+
+                continue;
+            }
+
+            // Also skip if slot has already ended (double check)
+            if ($slotEnd->lte($now)) {
+                $currentTime->addMinutes($slotInterval);
+
+                continue;
+            }
+
+            // Check if this slot is available (must have at least one available asset)
+            $slotInfo = $this->checkSlotAvailability($slotStart, $slotEnd, $possibleAssets, $possibleSpecialists);
+
+            // Only include slot if there are available assets
+            if ($slotInfo['available'] && ! empty($slotInfo['assets'])) {
                 $slots[] = [
                     'start' => $slotStart->format('H:i'),
                     'end' => $slotEnd->format('H:i'),
@@ -163,34 +127,49 @@ class AppointmentAvailabilityService
     }
 
     /**
-     * Check if a time slot is available for all services
+     * Check if a time slot is available with available assets and specialists
      */
-    protected function checkSlotAvailability(Carbon $start, Carbon $end, array $serviceConfigs): array
+    protected function checkSlotAvailability(Carbon $start, Carbon $end, array $possibleAssets, array $possibleSpecialists): array
     {
         $availableAssets = [];
         $availableSpecialists = [];
+        $seenAssetIds = [];
+        $seenSpecialistIds = [];
 
-        foreach ($serviceConfigs as $config) {
-            $serviceAvailable = false;
-            $serviceAssets = [];
-            $serviceSpecialists = [];
+        // Check each asset for availability
+        foreach ($possibleAssets as $asset) {
+            if ($asset->status !== 'active') {
+                continue;
+            }
 
-            // Try to find a valid combination of asset and specialist for this service
-            foreach ($config['possible_assets'] as $asset) {
-                if ($asset->status !== 'active') continue;
+            // Check asset availability
+            $assetError = $this->checkAssetAvailability(
+                $asset->id,
+                $start->toDateTimeString(),
+                $end->toDateTimeString()
+            );
 
-                // Check asset availability using reflection or public wrapper
-                $assetError = $this->checkAssetAvailability(
-                    $asset->id,
-                    $start->toDateTimeString(),
-                    $end->toDateTimeString()
-                );
+            if ($assetError) {
+                continue;
+            } // Asset not available
 
-                if ($assetError) continue; // Asset not available
-
-                // Try to find an available specialist for this asset
-                foreach ($config['possible_specialists'] as $specialist) {
-                    if (!$specialist) continue;
+            // If no specialist specified, asset is available
+            // If specialist specified, check if that specialist is available for this asset
+            if (empty($possibleSpecialists)) {
+                // No specialist required, asset is available
+                if (! in_array($asset->id, $seenAssetIds)) {
+                    $availableAssets[] = [
+                        'id' => $asset->id,
+                        'name' => $asset->name,
+                    ];
+                    $seenAssetIds[] = $asset->id;
+                }
+            } else {
+                // Check if any specialist is available for this asset
+                foreach ($possibleSpecialists as $specialist) {
+                    if (! $specialist) {
+                        continue;
+                    }
 
                     // Check specialist availability
                     $specialistErrors = $this->checkSpecialistRestrictions(
@@ -199,44 +178,33 @@ class AppointmentAvailabilityService
                         $end->toDateTimeString()
                     );
 
-                    if (!empty($specialistErrors)) continue; // Specialist not available
+                    if (! empty($specialistErrors)) {
+                        continue;
+                    } // Specialist not available
 
                     // Found a valid combination
-                    $serviceAvailable = true;
-                    $serviceAssets[] = [
-                        'id' => $asset->id,
-                        'name' => $asset->name,
-                    ];
-                    $serviceSpecialists[] = [
-                        'id' => $specialist->id,
-                        'name' => $specialist->name,
-                    ];
-                    break; // Found one, move to next service
+                    if (! in_array($asset->id, $seenAssetIds)) {
+                        $availableAssets[] = [
+                            'id' => $asset->id,
+                            'name' => $asset->name,
+                        ];
+                        $seenAssetIds[] = $asset->id;
+                    }
+                    if (! in_array($specialist->id, $seenSpecialistIds)) {
+                        $availableSpecialists[] = [
+                            'id' => $specialist->id,
+                            'name' => $specialist->name,
+                        ];
+                        $seenSpecialistIds[] = $specialist->id;
+                    }
+
+                    break; // Found one specialist for this asset
                 }
-
-                if ($serviceAvailable) break; // Found valid combination for this service
-            }
-
-            if (!$serviceAvailable) {
-                // This service has no available slot
-                return ['available' => false, 'assets' => [], 'specialists' => []];
-            }
-
-            // Collect assets and specialists (we'll use the first available combination)
-            if (!empty($serviceAssets)) {
-                $availableAssets = array_merge($availableAssets, $serviceAssets);
-            }
-            if (!empty($serviceSpecialists)) {
-                $availableSpecialists = array_merge($availableSpecialists, $serviceSpecialists);
             }
         }
 
-        // Remove duplicates
-        $availableAssets = array_values(array_unique(array_column($availableAssets, 'id')));
-        $availableSpecialists = array_values(array_unique(array_column($availableSpecialists, 'id')));
-
         return [
-            'available' => true,
+            'available' => ! empty($availableAssets),
             'assets' => $availableAssets,
             'specialists' => $availableSpecialists,
         ];
@@ -247,12 +215,12 @@ class AppointmentAvailabilityService
      */
     protected function checkAssetAvailability(?int $assetId, string $startAt, ?string $endAt): ?string
     {
-        if (!$assetId) {
+        if (! $assetId) {
             return null;
         }
 
         $asset = Asset::find($assetId);
-        if (!$asset) {
+        if (! $asset) {
             return 'Asset not found.';
         }
 
@@ -262,10 +230,10 @@ class AppointmentAvailabilityService
 
         $startDateTime = Carbon::parse($startAt);
         $endDateTime = $endAt ? Carbon::parse($endAt) : $startDateTime->copy()->addHour();
-        
+
         $overlapping = Appointment::whereHas('services', function ($q) use ($assetId) {
-                $q->where('appointment_service.asset_id', $assetId);
-            })
+            $q->where('appointment_service.asset_id', $assetId);
+        })
             ->where('status', '!=', 'cancelled')
             ->where('start_at', '<', $endDateTime)
             ->where('end_at', '>', $startDateTime)
@@ -285,12 +253,12 @@ class AppointmentAvailabilityService
     {
         $errors = [];
 
-        if (!$specialistId) {
+        if (! $specialistId) {
             return $errors;
         }
 
         $specialist = Specialist::find($specialistId);
-        if (!$specialist) {
+        if (! $specialist) {
             return ['Specialist not found.'];
         }
 
@@ -306,8 +274,8 @@ class AppointmentAvailabilityService
         } else {
             // Default to capacity of 1 - no overlaps allowed
             $overlapping = Appointment::whereHas('services', function ($q) use ($specialistId) {
-                    $q->where('appointment_service.specialist_id', $specialistId);
-                })
+                $q->where('appointment_service.specialist_id', $specialistId);
+            })
                 ->where('status', '!=', 'cancelled')
                 ->where('start_at', '<', $endDateTime)
                 ->where('end_at', '>', $startDateTime)
@@ -349,8 +317,8 @@ class AppointmentAvailabilityService
             $hourEnd = $hour->copy()->endOfHour();
 
             $count = Appointment::whereHas('services', function ($q) use ($specialist) {
-                    $q->where('appointment_service.specialist_id', $specialist->id);
-                })
+                $q->where('appointment_service.specialist_id', $specialist->id);
+            })
                 ->where('status', '!=', 'cancelled')
                 ->where('start_at', '<', $hourEnd)
                 ->where('end_at', '>', $hourStart)
@@ -371,7 +339,7 @@ class AppointmentAvailabilityService
     {
         $capacity = $specialist->capacity_per_day;
 
-        if (!$capacity) {
+        if (! $capacity) {
             return null;
         }
 
@@ -379,8 +347,8 @@ class AppointmentAvailabilityService
         $dayEnd = $date->copy()->endOfDay();
 
         $count = Appointment::whereHas('services', function ($q) use ($specialist) {
-                $q->where('appointment_service.specialist_id', $specialist->id);
-            })
+            $q->where('appointment_service.specialist_id', $specialist->id);
+        })
             ->where('status', '!=', 'cancelled')
             ->whereBetween('start_at', [$dayStart, $dayEnd])
             ->count();
@@ -392,4 +360,3 @@ class AppointmentAvailabilityService
         return null;
     }
 }
-

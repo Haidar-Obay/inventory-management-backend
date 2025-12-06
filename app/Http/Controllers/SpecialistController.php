@@ -101,14 +101,14 @@ class SpecialistController extends Controller
             ->whereNotNull('specialist_id')
             ->distinct('appointment_id')
             ->count('appointment_id');
-        
+
         if ($appointmentsCount > 0) {
             $sampleAppointmentId = DB::table('appointment_service')
                 ->where('specialist_id', $specialist->id)
                 ->whereNotNull('specialist_id')
                 ->select('appointment_id')
                 ->first()?->appointment_id;
-            
+
             $details['appointments'] = [
                 'count' => $appointmentsCount,
                 'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
@@ -229,14 +229,14 @@ class SpecialistController extends Controller
                     ->whereNotNull('specialist_id')
                     ->distinct('appointment_id')
                     ->count('appointment_id');
-                
+
                 if ($appointmentsCount > 0) {
                     $sampleAppointmentId = DB::table('appointment_service')
                         ->where('specialist_id', $specialist->id)
                         ->whereNotNull('specialist_id')
                         ->select('appointment_id')
                         ->first()?->appointment_id;
-                    
+
                     $details['appointments'] = [
                         'count' => $appointmentsCount,
                         'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],

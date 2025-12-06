@@ -41,11 +41,11 @@ class UpdateAppointmentRequest extends FormRequest
         $validator->after(function ($validator) {
             $validationService = app(AppointmentValidationService::class);
             $appointment = $this->route('appointment');
-            
+
             // Merge existing appointment data with new data
             $existingData = $appointment->toArray();
             $newData = $this->all();
-            
+
             // Ensure dates are in string format for validation
             if (isset($existingData['start_at']) && $existingData['start_at'] instanceof \Carbon\Carbon) {
                 $existingData['start_at'] = $existingData['start_at']->toDateTimeString();
@@ -53,9 +53,9 @@ class UpdateAppointmentRequest extends FormRequest
             if (isset($existingData['end_at']) && $existingData['end_at'] instanceof \Carbon\Carbon) {
                 $existingData['end_at'] = $existingData['end_at']->toDateTimeString();
             }
-            
+
             $data = array_merge($existingData, $newData);
-            
+
             // Normalize service_id - convert string "null" or empty string to null
             if (isset($data['service_id'])) {
                 if ($data['service_id'] === 'null' || $data['service_id'] === '' || $data['service_id'] === null) {
@@ -67,7 +67,7 @@ class UpdateAppointmentRequest extends FormRequest
                 // Preserve existing service_id if not provided in update
                 $data['service_id'] = $existingData['service_id'];
             }
-            
+
             // Normalize services array - format: [['service_id' => 1, 'specialist_id' => 5, 'asset_id' => 3], ...]
             if (isset($data['services']) && is_array($data['services'])) {
                 $normalizedServices = [];
@@ -76,11 +76,11 @@ class UpdateAppointmentRequest extends FormRequest
                         $serviceId = $serviceData['service_id'] ?? null;
                         $specialistId = $serviceData['specialist_id'] ?? null;
                         $assetId = $serviceData['asset_id'] ?? null;
-                        
+
                         if ($serviceId && ($serviceId === 'null' || $serviceId === '' || $serviceId === null)) {
                             continue; // Skip invalid entries
                         }
-                        
+
                         if ($serviceId) {
                             $normalizedServices[] = [
                                 'service_id' => (int) $serviceId,
@@ -100,13 +100,14 @@ class UpdateAppointmentRequest extends FormRequest
                 // Keep empty array to allow clearing services, don't convert to null
                 $data['services'] = $normalizedServices;
             }
-            
+
             // Normalize service_ids array - ensure all values are integers
             if (isset($data['service_ids']) && is_array($data['service_ids'])) {
                 $data['service_ids'] = array_filter(array_map(function ($id) {
                     if ($id === 'null' || $id === '' || $id === null) {
-                        return null;
+                        return;
                     }
+
                     return (int) $id;
                 }, $data['service_ids']), function ($id) {
                     return $id !== null && $id > 0;
@@ -131,7 +132,7 @@ class UpdateAppointmentRequest extends FormRequest
                     })->toArray();
                 }
             }
-            
+
             $validation = $validationService->validate($data, $appointment->id);
 
             if (! $validation['valid']) {
