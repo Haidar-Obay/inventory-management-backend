@@ -764,9 +764,9 @@ class AppointmentController extends Controller
                 $q->where('appointment_service.asset_id', $assetId);
             })
                 ->with([
-                'services:id,name',
-                'customers:id,first_name,middle_name,last_name',
-            ])
+                    'services:id,name',
+                    'customers:id,first_name,middle_name,last_name',
+                ])
                 ->orderBy('start_at', 'desc')
                 ->get();
 
