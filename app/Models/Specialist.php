@@ -49,11 +49,12 @@ class Specialist extends Model
     }
 
     /**
-     * Get the appointments for this specialist.
+     * Get appointments that use this specialist through the appointment_service pivot table
      */
     public function appointments()
     {
-        return $this->hasMany(Appointment::class);
+        return $this->belongsToMany(Appointment::class, 'appointment_service', 'specialist_id', 'appointment_id')
+            ->whereNotNull('appointment_service.specialist_id');
     }
 
     /**

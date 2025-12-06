@@ -14,8 +14,6 @@ return new class extends Migration
         Schema::create('appointments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('asset_id')->nullable()->constrained('assets')->onDelete('cascade');
-            $table->foreignId('specialist_id')->nullable()->constrained('specialists')->onDelete('cascade');
-            $table->foreignId('service_id')->nullable()->constrained('services')->onDelete('cascade');
             $table->timestamp('start_at');
             $table->timestamp('end_at');
             $table->enum('status', ['active', 'in_progress', 'completed'])->default('active');
@@ -26,8 +24,6 @@ return new class extends Migration
             // Add index for better performance on date queries
             $table->index(['start_at', 'end_at']);
             $table->index(['asset_id', 'status']);
-            $table->index(['specialist_id', 'status']);
-            $table->index(['service_id', 'status']);
         });
     }
 

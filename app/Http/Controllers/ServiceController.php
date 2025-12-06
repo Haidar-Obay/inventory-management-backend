@@ -13,6 +13,7 @@ use App\Models\Service;
 use App\Models\ServiceNeededItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -22,7 +23,7 @@ class ServiceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Service::query()
-            ->select(['id', 'name', 'service_category_id', 'normal_price', 'cost_price', 'active'])
+            ->select(['id', 'name', 'service_category_id', 'normal_price', 'cost_price', 'service_color', 'active'])
             ->with(['serviceCategory:id,name']);
 
         if ($request->filled('category_id')) {
@@ -233,6 +234,35 @@ class ServiceController extends Controller
 
     public function destroy(Service $service): JsonResponse
     {
+        $identifier = $service->name ?? "ID: {$service->id}";
+        $details = [];
+
+        // Check if service has appointments through pivot table
+        $appointmentsCount = DB::table('appointment_service')
+            ->where('service_id', $service->id)
+            ->distinct('appointment_id')
+            ->count('appointment_id');
+
+        if ($appointmentsCount > 0) {
+            $sampleAppointmentId = DB::table('appointment_service')
+                ->where('service_id', $service->id)
+                ->select('appointment_id')
+                ->first()?->appointment_id;
+
+            $details['appointments'] = [
+                'count' => $appointmentsCount,
+                'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
+            ];
+        }
+
+        if (! empty($details)) {
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete service \"{$identifier}\" (ID: {$service->id}). It is referenced by existing appointments.",
+                'details' => $details,
+            ], 409);
+        }
+
         // Delete linked Item if it exists
         $itemId = $service->item_id;
         if ($itemId && $service->item) {
@@ -564,6 +594,38 @@ class ServiceController extends Controller
             try {
                 $service = Service::find($id);
                 if ($service) {
+                    $identifier = $service->name ?? "ID: {$id}";
+                    $details = [];
+
+                    // Check if service has appointments through pivot table
+                    $appointmentsCount = DB::table('appointment_service')
+                        ->where('service_id', $service->id)
+                        ->distinct('appointment_id')
+                        ->count('appointment_id');
+
+                    if ($appointmentsCount > 0) {
+                        $sampleAppointmentId = DB::table('appointment_service')
+                            ->where('service_id', $service->id)
+                            ->select('appointment_id')
+                            ->first()?->appointment_id;
+
+                        $details['appointments'] = [
+                            'count' => $appointmentsCount,
+                            'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
+                        ];
+                    }
+
+                    if (! empty($details)) {
+                        $skipped[] = [
+                            'id' => $id,
+                            'name' => $identifier,
+                            'reason' => 'Cannot delete service. It is referenced by existing appointments.',
+                            'details' => $details,
+                        ];
+
+                        continue;
+                    }
+
                     // Collect item IDs before deletion
                     if ($service->item_id) {
                         $itemIds[] = $service->item_id;
@@ -578,7 +640,13 @@ class ServiceController extends Controller
                     $deleted += $service->delete();
                 }
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                $service = Service::find($id);
+                $identifier = $service?->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
             }
         }
 
