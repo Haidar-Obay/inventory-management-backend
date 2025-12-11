@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Appointment;
 use App\Models\Asset;
+use App\Models\Service;
 use App\Models\Specialist;
 use Carbon\Carbon;
 
@@ -101,6 +102,54 @@ class AppointmentRestrictionService
         // At least one specialist must be provided in advanced mode (assets are auto-assigned)
         if ($schedulerMode === 'advanced' && ! $hasSpecialists) {
             $errors[] = 'At least one specialist (per service) is required in advanced scheduler mode.';
+        }
+
+        // Check service hour capacity for all services
+        if (! empty($services) && is_array($services)) {
+            foreach ($services as $serviceData) {
+                $serviceId = is_array($serviceData) ? ($serviceData['service_id'] ?? null) : null;
+                if ($serviceId) {
+                    $serviceCapacityError = $this->checkServiceHourCapacity(
+                        $serviceId,
+                        $data['start_at'],
+                        $data['end_at'] ?? null,
+                        $excludeAppointmentId
+                    );
+                    if ($serviceCapacityError) {
+                        $errors[] = $serviceCapacityError;
+                    }
+                }
+            }
+        }
+
+        // Handle service_ids array format
+        if (! empty($serviceIds) && is_array($serviceIds)) {
+            foreach ($serviceIds as $serviceId) {
+                if ($serviceId) {
+                    $serviceCapacityError = $this->checkServiceHourCapacity(
+                        $serviceId,
+                        $data['start_at'],
+                        $data['end_at'] ?? null,
+                        $excludeAppointmentId
+                    );
+                    if ($serviceCapacityError) {
+                        $errors[] = $serviceCapacityError;
+                    }
+                }
+            }
+        }
+
+        // Handle legacy service_id format
+        if (isset($data['service_id']) && $data['service_id']) {
+            $serviceCapacityError = $this->checkServiceHourCapacity(
+                $data['service_id'],
+                $data['start_at'],
+                $data['end_at'] ?? null,
+                $excludeAppointmentId
+            );
+            if ($serviceCapacityError) {
+                $errors[] = $serviceCapacityError;
+            }
         }
 
         return [
@@ -267,6 +316,74 @@ class AppointmentRestrictionService
 
         if ($count >= $capacity) {
             return "Specialist has reached daily capacity ({$capacity} appointment(s) per day) for {$date->format('Y-m-d')}.";
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if service has hour capacity available
+     * If service has hour_capacity set, only that many appointments can overlap at the same time
+     */
+    public function checkServiceHourCapacity(?int $serviceId, string $startAt, ?string $endAt, ?int $excludeId = null): ?string
+    {
+        if (! $serviceId) {
+            return null;
+        }
+
+        $service = Service::find($serviceId);
+        if (! $service) {
+            return 'Service not found.';
+        }
+
+        // If service has no hour_capacity set, no restriction (unlimited)
+        if (! $service->hour_capacity || $service->hour_capacity <= 0) {
+            return null;
+        }
+
+        $capacity = $service->hour_capacity;
+        $startDateTime = Carbon::parse($startAt);
+        $endDateTime = $endAt ? Carbon::parse($endAt) : $startDateTime->copy()->addHour();
+
+        // Get all hours covered by this appointment
+        $hours = [];
+        $current = $startDateTime->copy()->startOfHour();
+
+        while ($current->lte($endDateTime)) {
+            $hours[] = $current->copy();
+            $current->addHour();
+        }
+
+        foreach ($hours as $hour) {
+            $hourStart = $hour->copy();
+            $hourEnd = $hour->copy()->endOfHour();
+
+            // Count appointments that overlap with this hour AND overlap with the new appointment
+            // We need to check if adding the new appointment would exceed capacity
+            // So we count existing appointments that overlap with both this hour AND the new appointment time
+            $count = Appointment::whereHas('services', function ($q) use ($serviceId) {
+                $q->where('appointment_service.service_id', $serviceId);
+            })
+                ->where('status', '!=', 'cancelled')
+                ->where('id', '!=', $excludeId)
+                // Overlap with the hour
+                ->where('start_at', '<', $hourEnd)
+                ->where('end_at', '>', $hourStart)
+                // Also overlap with the new appointment (to ensure we're counting concurrent appointments)
+                ->where('start_at', '<', $endDateTime)
+                ->where('end_at', '>', $startDateTime)
+                ->count();
+
+            // Check if the new appointment overlaps with this hour
+            $newAppointmentOverlapsHour = $startDateTime < $hourEnd && $endDateTime > $hourStart;
+            if ($newAppointmentOverlapsHour) {
+                // Add 1 for the new appointment we're trying to create
+                $count += 1;
+            }
+
+            if ($count > $capacity) {
+                return "Service has reached hourly capacity ({$capacity} appointment(s) per hour) for {$hour->format('Y-m-d H:00')}.";
+            }
         }
 
         return null;

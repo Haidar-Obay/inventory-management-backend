@@ -25,6 +25,7 @@ return new class extends Migration
             $table->boolean('needs_asset')->default(false);
 
             $table->integer('duration_minutes')->nullable();
+            $table->integer('hour_capacity')->nullable();
 
             $table->decimal('normal_price', 10, 2)->nullable();
             $table->decimal('vip_price', 10, 2)->nullable();

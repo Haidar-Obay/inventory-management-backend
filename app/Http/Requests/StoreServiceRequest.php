@@ -19,12 +19,31 @@ class StoreServiceRequest extends FormRequest
             'service_category_id' => ['nullable', 'integer', 'exists:service_categories,id'],
             'result_after_days' => ['nullable', 'integer', 'min:0'],
             'needs_specialist' => ['boolean'],
-            'needs_asset' => ['boolean'],
+            'needs_asset' => [
+                'boolean',
+                function ($attribute, $value, $fail) {
+                    // If needs_asset is true, hour_capacity must be null
+                    if ($value == true && $this->input('hour_capacity') !== null) {
+                        $fail('Services that need assets cannot have hour capacity. Please clear the hour capacity field first.');
+                    }
+                },
+            ],
             'specialist_ids' => ['nullable', 'array'],
             'specialist_ids.*' => ['integer', 'exists:specialists,id'],
             'asset_ids' => ['nullable', 'array'],
             'asset_ids.*' => ['integer', 'exists:assets,id'],
             'duration_minutes' => ['nullable', 'integer', 'min:0'],
+            'hour_capacity' => [
+                'nullable',
+                'integer',
+                'min:0',
+                function ($attribute, $value, $fail) {
+                    // If hour_capacity is set, needs_asset must be false
+                    if ($value !== null && $this->input('needs_asset') == true) {
+                        $fail('Hour capacity cannot be set when the service needs assets. Please uncheck "Needs Asset" first.');
+                    }
+                },
+            ],
             'normal_price' => ['nullable', 'numeric', 'min:0'],
             'vip_price' => ['nullable', 'numeric', 'min:0'],
             'price_in_group' => ['nullable', 'numeric', 'min:0'],
