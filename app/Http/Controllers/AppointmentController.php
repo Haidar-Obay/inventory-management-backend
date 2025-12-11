@@ -100,7 +100,10 @@ class AppointmentController extends Controller
 
         // Load specialists and assets
         $specialists = $specialistIds ? Specialist::whereIn('id', $specialistIds)->get()->keyBy('id') : collect();
-        $assets = $assetIds ? Asset::with(['section:id,name,room_id', 'section.room:id,name,location'])
+        $assets = $assetIds ? Asset::with([
+            'section:id,name,room_id',
+            'section.room:id,name,location',
+        ])
             ->whereIn('id', $assetIds)
             ->get()
             ->keyBy('id') : collect();
@@ -764,9 +767,9 @@ class AppointmentController extends Controller
                 $q->where('appointment_service.asset_id', $assetId);
             })
                 ->with([
-                'services:id,name',
-                'customers:id,first_name,middle_name,last_name',
-            ])
+                    'services:id,name',
+                    'customers:id,first_name,middle_name,last_name',
+                ])
                 ->orderBy('start_at', 'desc')
                 ->get();
 
