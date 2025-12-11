@@ -20,6 +20,7 @@ class Service extends Model
         'needs_specialist',
         'needs_asset',
         'duration_minutes',
+        'hour_capacity',
         'normal_price',
         'vip_price',
         'price_in_group',

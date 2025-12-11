@@ -55,7 +55,7 @@ class AppointmentAvailabilityService
         $currentDate = $start->copy();
 
         while ($currentDate->lte($end)) {
-            $daySlots = $this->findSlotsForDay($currentDate, $possibleAssets, $possibleSpecialists, $durationMinutes);
+            $daySlots = $this->findSlotsForDay($currentDate, $possibleAssets, $possibleSpecialists, $durationMinutes, $service);
 
             if (! empty($daySlots)) {
                 $availableSlots[] = [
@@ -72,55 +72,130 @@ class AppointmentAvailabilityService
     }
 
     /**
-     * Find available time slots for a specific day
+     * Find available time slots for a specific day using gap-based approach
+     * Finds gaps between existing appointments and only suggests slots that fit
      */
-    protected function findSlotsForDay(Carbon $date, array $possibleAssets, array $possibleSpecialists, int $durationMinutes): array
+    protected function findSlotsForDay(Carbon $date, array $possibleAssets, array $possibleSpecialists, int $durationMinutes, Service $service): array
     {
         $slots = [];
         $dayStart = $date->copy()->setTime(8, 0); // Start at 8 AM
         $dayEnd = $date->copy()->setTime(20, 0); // End at 8 PM
-        $slotInterval = 30; // Check every 30 minutes
 
         // Get current time to filter out past slots
         $now = Carbon::now();
 
-        $currentTime = $dayStart->copy();
+        // Get all existing appointments for this service on this day
+        $existingAppointments = Appointment::whereHas('services', function ($q) use ($service) {
+            $q->where('appointment_service.service_id', $service->id);
+        })
+            ->where('status', '!=', 'cancelled')
+            ->whereDate('start_at', $date->format('Y-m-d'))
+            ->orderBy('start_at', 'asc')
+            ->get(['id', 'start_at', 'end_at']);
 
-        while ($currentTime->copy()->addMinutes($durationMinutes)->lte($dayEnd)) {
-            $slotStart = $currentTime->copy();
-            $slotEnd = $slotStart->copy()->addMinutes($durationMinutes);
+        // Build list of occupied time ranges
+        $occupiedRanges = [];
+        foreach ($existingAppointments as $appointment) {
+            $occupiedRanges[] = [
+                'start' => Carbon::parse($appointment->start_at),
+                'end' => Carbon::parse($appointment->end_at),
+            ];
+        }
 
-            // Skip slots that are in the past (only show future slots)
-            // Skip if slot start time is in the past or equal to now (can't book in the past)
-            if ($slotStart->lte($now)) {
-                $currentTime->addMinutes($slotInterval);
+        // Find gaps between occupied ranges
+        $gaps = [];
+        $currentTime = max($dayStart, $now->copy()->startOfMinute()); // Start from now or day start, whichever is later
 
-                continue;
+        foreach ($occupiedRanges as $occupied) {
+            // If there's a gap before this occupied range
+            if ($currentTime < $occupied['start']) {
+                $gapEnd = min($occupied['start'], $dayEnd);
+                if ($gapEnd > $currentTime) {
+                    $gaps[] = [
+                        'start' => $currentTime->copy(),
+                        'end' => $gapEnd->copy(),
+                    ];
+                }
             }
+            // Move current time to after this occupied range
+            $currentTime = max($currentTime, $occupied['end']);
+        }
 
-            // Also skip if slot has already ended (double check)
-            if ($slotEnd->lte($now)) {
-                $currentTime->addMinutes($slotInterval);
+        // Add gap from last appointment to end of day
+        if ($currentTime < $dayEnd) {
+            $gaps[] = [
+                'start' => $currentTime->copy(),
+                'end' => $dayEnd->copy(),
+            ];
+        }
 
-                continue;
+        // If no appointments, the whole day is a gap
+        if (empty($occupiedRanges) && $currentTime < $dayEnd) {
+            $gaps[] = [
+                'start' => $currentTime->copy(),
+                'end' => $dayEnd->copy(),
+            ];
+        }
+
+        // For each gap, find slots that fit the service duration
+        // Suggest slots starting right at the beginning of gaps (after existing appointments)
+        foreach ($gaps as $gap) {
+            $gapStart = $gap['start'];
+            $gapEnd = $gap['end'];
+
+            // Start from the beginning of the gap
+            $slotStart = $gapStart->copy();
+
+            // Keep finding consecutive slots that fit in this gap
+            while ($slotStart->copy()->addMinutes($durationMinutes)->lte($gapEnd)) {
+                $slotEnd = $slotStart->copy()->addMinutes($durationMinutes);
+
+                // Skip if slot is in the past
+                if ($slotEnd->lte($now)) {
+                    $slotStart = $slotEnd->copy(); // Move to after this slot
+
+                    continue;
+                }
+
+                // Check if this slot is available (assets, specialists, capacity)
+                $slotInfo = $this->checkSlotAvailability($slotStart, $slotEnd, $possibleAssets, $possibleSpecialists);
+
+                // Include slot if:
+                // 1. Service has no assets (no asset checking required)
+                // 2. Service has assets and at least one is available
+                $hasNoAssets = empty($possibleAssets);
+                $hasAvailableAssets = $slotInfo['available'] && ! empty($slotInfo['assets']);
+
+                // Check service hour capacity if set
+                $hasCapacity = true;
+                if ($service->hour_capacity && $service->hour_capacity > 0) {
+                    $capacityError = $this->restrictionService->checkServiceHourCapacity(
+                        $service->id,
+                        $slotStart->toDateTimeString(),
+                        $slotEnd->toDateTimeString()
+                    );
+                    // If there's an error, capacity is reached
+                    $hasCapacity = $capacityError === null;
+                }
+
+                // Only add slot if it passes all checks
+                if (($hasNoAssets || $hasAvailableAssets) && $hasCapacity) {
+                    $slots[] = [
+                        'start' => $slotStart->format('H:i'),
+                        'end' => $slotEnd->format('H:i'),
+                        'start_datetime' => $slotStart->toDateTimeString(),
+                        'end_datetime' => $slotEnd->toDateTimeString(),
+                        'assets' => $slotInfo['assets'],
+                        'specialists' => $slotInfo['specialists'],
+                    ];
+
+                    // Move to right after this slot ends for next consecutive slot
+                    $slotStart = $slotEnd->copy();
+                } else {
+                    // If slot is not available, skip it and try starting from after it
+                    $slotStart = $slotEnd->copy();
+                }
             }
-
-            // Check if this slot is available (must have at least one available asset)
-            $slotInfo = $this->checkSlotAvailability($slotStart, $slotEnd, $possibleAssets, $possibleSpecialists);
-
-            // Only include slot if there are available assets
-            if ($slotInfo['available'] && ! empty($slotInfo['assets'])) {
-                $slots[] = [
-                    'start' => $slotStart->format('H:i'),
-                    'end' => $slotEnd->format('H:i'),
-                    'start_datetime' => $slotStart->toDateTimeString(),
-                    'end_datetime' => $slotEnd->toDateTimeString(),
-                    'assets' => $slotInfo['assets'],
-                    'specialists' => $slotInfo['specialists'],
-                ];
-            }
-
-            $currentTime->addMinutes($slotInterval);
         }
 
         return $slots;
@@ -136,7 +211,42 @@ class AppointmentAvailabilityService
         $seenAssetIds = [];
         $seenSpecialistIds = [];
 
-        // Check each asset for availability
+        // If service has no assets, no asset checking is required
+        if (empty($possibleAssets)) {
+            // Still check specialists if any are specified
+            if (! empty($possibleSpecialists)) {
+                foreach ($possibleSpecialists as $specialist) {
+                    if (! $specialist) {
+                        continue;
+                    }
+
+                    $specialistErrors = $this->checkSpecialistRestrictions(
+                        $specialist->id,
+                        $start->toDateTimeString(),
+                        $end->toDateTimeString()
+                    );
+
+                    if (empty($specialistErrors)) {
+                        if (! in_array($specialist->id, $seenSpecialistIds)) {
+                            $availableSpecialists[] = [
+                                'id' => $specialist->id,
+                                'name' => $specialist->name,
+                            ];
+                            $seenSpecialistIds[] = $specialist->id;
+                        }
+                    }
+                }
+            }
+
+            // Return available=true since no assets are required
+            return [
+                'available' => true,
+                'assets' => [],
+                'specialists' => $availableSpecialists,
+            ];
+        }
+
+        // Service has assets - check each asset for availability
         foreach ($possibleAssets as $asset) {
             if ($asset->status !== 'active') {
                 continue;
