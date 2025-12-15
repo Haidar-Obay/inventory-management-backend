@@ -195,7 +195,7 @@ class CustomerController extends Controller
                     'appartment' => $request->input('billing_apartment'),
                     'zip_code' => $request->input('billing_zip_code'),
                 ]);
-                
+
                 // Attach to customer via pivot table with metadata
                 $customer->addresses()->attach($billingAddress->id, [
                     'address_type' => 'billing',
@@ -212,7 +212,7 @@ class CustomerController extends Controller
                 if ($existingPrimaryShipping) {
                     $customer->addresses()->updateExistingPivot($existingPrimaryShipping->id, ['is_primary' => false]);
                 }
-                
+
                 foreach ($request->input('shipping_addresses') as $index => $shippingAddressData) {
                     // Create address in addresses table
                     $shippingAddress = Address::create([
@@ -229,14 +229,14 @@ class CustomerController extends Controller
                         'appartment' => $shippingAddressData['apartment'] ?? null,
                         'zip_code' => $shippingAddressData['zip_code'] ?? null,
                     ]);
-                    
+
                     // Attach to customer via pivot table with metadata
                     $customer->addresses()->attach($shippingAddress->id, [
-                    'address_type' => 'shipping',
-                    'is_primary' => $index === 0, // First shipping address is primary
-                    'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
+                        'address_type' => 'shipping',
+                        'is_primary' => $index === 0, // First shipping address is primary
+                        'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
                         'notes' => $shippingAddressData['notes'] ?? null,
-                ]);
+                    ]);
                 }
             }
 
@@ -373,17 +373,17 @@ class CustomerController extends Controller
                 $attachments = $request->input('attachments');
                 if (is_array($attachments)) {
                     foreach ($attachments as $attachmentData) {
-                    // Only create attachment if we have a valid file path or file URL
-                    $filePath = $attachmentData['file_url'] ?? $attachmentData['file_path'] ?? null;
-                    if ($filePath && ! empty(trim($filePath))) {
-                        CustomerAttachment::create([
-                            'customer_id' => $customer->id,
-                            'file_name' => $attachmentData['file_name'] ?? 'Unknown',
-                            'file_path' => $filePath,
-                            'file_type' => $attachmentData['file_type'] ?? null,
-                            'description' => $attachmentData['description'] ?? '',
-                            'category' => 'document',
-                        ]);
+                        // Only create attachment if we have a valid file path or file URL
+                        $filePath = $attachmentData['file_url'] ?? $attachmentData['file_path'] ?? null;
+                        if ($filePath && ! empty(trim($filePath))) {
+                            CustomerAttachment::create([
+                                'customer_id' => $customer->id,
+                                'file_name' => $attachmentData['file_name'] ?? 'Unknown',
+                                'file_path' => $filePath,
+                                'file_type' => $attachmentData['file_type'] ?? null,
+                                'description' => $attachmentData['description'] ?? '',
+                                'category' => 'document',
+                            ]);
                         }
                     }
                 }
@@ -619,22 +619,22 @@ class CustomerController extends Controller
                 })
                 ->values()
                 ->map(function ($address) {
-                return [
-                    'id' => $address->id,
-                    'address_line1' => $address->address_line1,
-                    'address_line2' => $address->address_line2,
-                    'country_id' => $address->country_id,
-                    'city_id' => $address->city_id,
-                    'district_id' => $address->district_id,
-                    'zone_id' => $address->zone_id,
-                    'building' => $address->building,
-                    'block' => $address->block,
-                    'floor' => $address->floor,
-                    'side' => $address->side,
-                    'appartment' => $address->appartment,
-                    'zip_code' => $address->zip_code,
-                ];
-            }),
+                    return [
+                        'id' => $address->id,
+                        'address_line1' => $address->address_line1,
+                        'address_line2' => $address->address_line2,
+                        'country_id' => $address->country_id,
+                        'city_id' => $address->city_id,
+                        'district_id' => $address->district_id,
+                        'zone_id' => $address->zone_id,
+                        'building' => $address->building,
+                        'block' => $address->block,
+                        'floor' => $address->floor,
+                        'side' => $address->side,
+                        'appartment' => $address->appartment,
+                        'zip_code' => $address->zip_code,
+                    ];
+                }),
 
             // Shipping addresses (sorted: primary first, then others)
             'shipping_addresses' => $customer->shippingAddresses
@@ -643,55 +643,55 @@ class CustomerController extends Controller
                 })
                 ->values()
                 ->map(function ($address) {
-                return [
-                    'id' => $address->id,
-                    'address_line1' => $address->address_line1,
-                    'address_line2' => $address->address_line2,
-                    'country_id' => $address->country_id,
-                    'city_id' => $address->city_id,
-                    'district_id' => $address->district_id,
-                    'zone_id' => $address->zone_id,
-                    'building' => $address->building,
-                    'block' => $address->block,
-                    'floor' => $address->floor,
-                    'side' => $address->side,
-                    'appartment' => $address->appartment,
-                    'zip_code' => $address->zip_code,
-                ];
-            }),
+                    return [
+                        'id' => $address->id,
+                        'address_line1' => $address->address_line1,
+                        'address_line2' => $address->address_line2,
+                        'country_id' => $address->country_id,
+                        'city_id' => $address->city_id,
+                        'district_id' => $address->district_id,
+                        'zone_id' => $address->zone_id,
+                        'building' => $address->building,
+                        'block' => $address->block,
+                        'floor' => $address->floor,
+                        'side' => $address->side,
+                        'appartment' => $address->appartment,
+                        'zip_code' => $address->zip_code,
+                    ];
+                }),
 
             // Primary addresses (belongsToMany relationships return collection, use first())
             'primary_billing_address' => ($primaryBilling = $customer->primaryBillingAddress()->first()) ? [
-                'id' => $primaryBilling->id,
-                'address_line1' => $primaryBilling->address_line1,
-                'address_line2' => $primaryBilling->address_line2,
-                'country_id' => $primaryBilling->country_id,
-                'city_id' => $primaryBilling->city_id,
-                'district_id' => $primaryBilling->district_id,
-                'zone_id' => $primaryBilling->zone_id,
-                'building' => $primaryBilling->building,
-                'block' => $primaryBilling->block,
-                'floor' => $primaryBilling->floor,
-                'side' => $primaryBilling->side,
-                'appartment' => $primaryBilling->appartment,
-                'zip_code' => $primaryBilling->zip_code,
-            ] : null,
+                    'id' => $primaryBilling->id,
+                    'address_line1' => $primaryBilling->address_line1,
+                    'address_line2' => $primaryBilling->address_line2,
+                    'country_id' => $primaryBilling->country_id,
+                    'city_id' => $primaryBilling->city_id,
+                    'district_id' => $primaryBilling->district_id,
+                    'zone_id' => $primaryBilling->zone_id,
+                    'building' => $primaryBilling->building,
+                    'block' => $primaryBilling->block,
+                    'floor' => $primaryBilling->floor,
+                    'side' => $primaryBilling->side,
+                    'appartment' => $primaryBilling->appartment,
+                    'zip_code' => $primaryBilling->zip_code,
+                ] : null,
 
             'primary_shipping_address' => ($primaryShipping = $customer->primaryShippingAddress()->first()) ? [
-                'id' => $primaryShipping->id,
-                'address_line1' => $primaryShipping->address_line1,
-                'address_line2' => $primaryShipping->address_line2,
-                'country_id' => $primaryShipping->country_id,
-                'city_id' => $primaryShipping->city_id,
-                'district_id' => $primaryShipping->district_id,
-                'zone_id' => $primaryShipping->zone_id,
-                'building' => $primaryShipping->building,
-                'block' => $primaryShipping->block,
-                'floor' => $primaryShipping->floor,
-                'side' => $primaryShipping->side,
-                'appartment' => $primaryShipping->appartment,
-                'zip_code' => $primaryShipping->zip_code,
-            ] : null,
+                    'id' => $primaryShipping->id,
+                    'address_line1' => $primaryShipping->address_line1,
+                    'address_line2' => $primaryShipping->address_line2,
+                    'country_id' => $primaryShipping->country_id,
+                    'city_id' => $primaryShipping->city_id,
+                    'district_id' => $primaryShipping->district_id,
+                    'zone_id' => $primaryShipping->zone_id,
+                    'building' => $primaryShipping->building,
+                    'block' => $primaryShipping->block,
+                    'floor' => $primaryShipping->floor,
+                    'side' => $primaryShipping->side,
+                    'appartment' => $primaryShipping->appartment,
+                    'zip_code' => $primaryShipping->zip_code,
+                ] : null,
 
             // Contacts with full details - get all contacts for this customer
             'contacts' => $customer->contacts()->get()->map(function ($contact) {
@@ -808,7 +808,7 @@ class CustomerController extends Controller
                 if ($request->filled('billing_address_line1')) {
                     // Get existing primary billing address via pivot
                     $existingBillingPivot = $customer->primaryBillingAddress()->first();
-                    
+
                     $billingAddressData = [
                         'address_line1' => $request->input('billing_address_line1'),
                         'address_line2' => $request->input('billing_address_line2'),
@@ -1076,7 +1076,7 @@ class CustomerController extends Controller
 
                 foreach ($request->input('contacts') as $contactData) {
                     $isPrimary = isset($contactData['is_primary']) && (bool) $contactData['is_primary'];
-                    
+
                     $nextContactId = $this->computeNextAvailableId(\App\Models\CustomerContact::class, 'id');
                     $contact = new \App\Models\CustomerContact([
                         'customer_id' => $customer->id,
@@ -1168,13 +1168,13 @@ class CustomerController extends Controller
             // Handle attachments with new structure (JSON data)
             // Only process if no files were uploaded (files are handled above)
             // and if attachments is an array (not file uploads)
-            if ($request->has('attachments') && !$request->hasFile('attachments')) {
+            if ($request->has('attachments') && ! $request->hasFile('attachments')) {
                 $attachments = $request->input('attachments');
                 if (is_array($attachments)) {
                     // Get IDs of attachments that should be kept (existing attachments with IDs, not new file uploads)
                     $attachmentIdsToKeep = [];
                     $attachmentMetadataMap = []; // Map of ID => metadata for updates
-                    
+
                     foreach ($attachments as $attachmentData) {
                         // If attachment has an ID, it's an existing attachment that should be kept
                         if (isset($attachmentData['id']) && is_numeric($attachmentData['id'])) {
@@ -1182,11 +1182,11 @@ class CustomerController extends Controller
                             $attachmentMetadataMap[$attachmentData['id']] = $attachmentData;
                         }
                     }
-                    
+
                     // Delete attachments that are not in the keep list
                     $existingAttachments = $customer->attachments;
                     foreach ($existingAttachments as $existingAttachment) {
-                        if (!in_array($existingAttachment->id, $attachmentIdsToKeep)) {
+                        if (! in_array($existingAttachment->id, $attachmentIdsToKeep)) {
                             // Delete file from storage
                             $relativePath = str_replace(url('/storage'), '', $existingAttachment->file_path);
                             Storage::disk('public')->delete($relativePath);
@@ -1206,25 +1206,26 @@ class CustomerController extends Controller
                             }
                         }
                     }
-                    
+
                     // Create new attachments from file URLs (if any)
                     foreach ($attachments as $attachmentData) {
                         // Skip if this is an existing attachment (has ID)
                         if (isset($attachmentData['id']) && is_numeric($attachmentData['id'])) {
                             continue;
                         }
-                        
-                    // Only create attachment if we have a valid file path or file URL
-                    $filePath = $attachmentData['file_url'] ?? $attachmentData['file_path'] ?? null;
-                    if ($filePath && ! empty(trim($filePath))) {
-                        CustomerAttachment::create([
-                            'customer_id' => $customer->id,
-                            'file_name' => $attachmentData['file_name'] ?? 'Unknown',
-                            'file_path' => $filePath,
-                            'file_type' => $attachmentData['file_type'] ?? null,
-                            'description' => $attachmentData['description'] ?? '',
-                            'category' => 'document',
-                        ]);
+
+                        // Only create attachment if we have a valid file path or file URL
+                        $filePath = $attachmentData['file_url'] ?? $attachmentData['file_path'] ?? null;
+                        if ($filePath && ! empty(trim($filePath))) {
+                            CustomerAttachment::create([
+                                'customer_id' => $customer->id,
+                                'file_name' => $attachmentData['file_name'] ?? 'Unknown',
+                                'file_path' => $filePath,
+                                'file_type' => $attachmentData['file_type'] ?? null,
+                                'description' => $attachmentData['description'] ?? '',
+                                'category' => 'document',
+                            ]);
+                        }
                     }
                 }
             }
@@ -1234,24 +1235,26 @@ class CustomerController extends Controller
             $cacheKey = "tenant_{$tenantId}_customer_names";
             app('cache')->store('database')->forget($cacheKey);
 
+            $customer->load([
+                'addresses',
+                'billingAddresses',
+                'shippingAddresses',
+                'primaryBillingAddress',
+                'primaryShippingAddress',
+                'paymentMethod',
+                'paymentTerm',
+                'primaryContact',
+                'contacts',
+                'attachments',
+                'creditLimits.currency',
+                'chequeLimits.currency',
+                'openingBalances.currency',
+            ]);
+
             return response()->json([
                 'status' => true,
                 'message' => 'Customer updated successfully.',
-                'data' => $customer->load([
-                    'addresses',
-                    'billingAddresses',
-                    'shippingAddresses',
-                    'primaryBillingAddress',
-                    'primaryShippingAddress',
-                    'paymentMethod',
-                    'paymentTerm',
-                    'primaryContact',
-                    'contacts',
-                    'attachments',
-                    'creditLimits.currency',
-                    'chequeLimits.currency',
-                    'openingBalances.currency',
-                ]),
+                'data' => $customer,
             ]);
         });
     }

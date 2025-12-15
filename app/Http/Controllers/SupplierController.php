@@ -13,7 +13,6 @@ use App\Models\Supplier;
 use App\Models\SupplierAttachment;
 use App\Services\OpeningBalanceService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -359,38 +358,38 @@ class SupplierController extends Controller
                 })
                 ->values()
                 ->map(function ($address) {
-                return [
-                    'id' => $address->id,
-                    'address_line1' => $address->address_line1,
-                    'address_line2' => $address->address_line2,
-                    'country_id' => $address->country_id,
-                    'city_id' => $address->city_id,
-                    'district_id' => $address->district_id,
-                    'zone_id' => $address->zone_id,
-                    'building' => $address->building,
-                    'block' => $address->block,
-                    'floor' => $address->floor,
-                    'side' => $address->side,
-                    'appartment' => $address->appartment,
-                    'zip_code' => $address->zip_code,
-                    'country' => $address->country ? [
-                        'id' => $address->country->id,
-                        'name' => $address->country->name,
-                    ] : null,
-                    'city' => $address->city ? [
-                        'id' => $address->city->id,
-                        'name' => $address->city->name,
-                    ] : null,
-                    'district' => $address->district ? [
-                        'id' => $address->district->id,
-                        'name' => $address->district->name,
-                    ] : null,
-                    'zone' => $address->zone ? [
-                        'id' => $address->zone->id,
-                        'name' => $address->zone->name,
-                    ] : null,
-                ];
-            }),
+                    return [
+                        'id' => $address->id,
+                        'address_line1' => $address->address_line1,
+                        'address_line2' => $address->address_line2,
+                        'country_id' => $address->country_id,
+                        'city_id' => $address->city_id,
+                        'district_id' => $address->district_id,
+                        'zone_id' => $address->zone_id,
+                        'building' => $address->building,
+                        'block' => $address->block,
+                        'floor' => $address->floor,
+                        'side' => $address->side,
+                        'appartment' => $address->appartment,
+                        'zip_code' => $address->zip_code,
+                        'country' => $address->country ? [
+                            'id' => $address->country->id,
+                            'name' => $address->country->name,
+                        ] : null,
+                        'city' => $address->city ? [
+                            'id' => $address->city->id,
+                            'name' => $address->city->name,
+                        ] : null,
+                        'district' => $address->district ? [
+                            'id' => $address->district->id,
+                            'name' => $address->district->name,
+                        ] : null,
+                        'zone' => $address->zone ? [
+                            'id' => $address->zone->id,
+                            'name' => $address->zone->name,
+                        ] : null,
+                    ];
+                }),
 
             // Shipping addresses with full details (sorted: primary first, then others)
             'shipping_addresses' => $supplier->shippingAddresses
@@ -399,116 +398,116 @@ class SupplierController extends Controller
                 })
                 ->values()
                 ->map(function ($address) {
-                return [
-                    'id' => $address->id,
-                    'address_line1' => $address->address_line1,
-                    'address_line2' => $address->address_line2,
-                    'country_id' => $address->country_id,
-                    'city_id' => $address->city_id,
-                    'district_id' => $address->district_id,
-                    'zone_id' => $address->zone_id,
-                    'building' => $address->building,
-                    'block' => $address->block,
-                    'floor' => $address->floor,
-                    'side' => $address->side,
-                    'appartment' => $address->appartment,
-                    'zip_code' => $address->zip_code,
-                    'country' => $address->country ? [
-                        'id' => $address->country->id,
-                        'name' => $address->country->name,
-                    ] : null,
-                    'city' => $address->city ? [
-                        'id' => $address->city->id,
-                        'name' => $address->city->name,
-                    ] : null,
-                    'district' => $address->district ? [
-                        'id' => $address->district->id,
-                        'name' => $address->district->name,
-                    ] : null,
-                    'zone' => $address->zone ? [
-                        'id' => $address->zone->id,
-                        'name' => $address->zone->name,
-                    ] : null,
-                ];
-            }),
+                    return [
+                        'id' => $address->id,
+                        'address_line1' => $address->address_line1,
+                        'address_line2' => $address->address_line2,
+                        'country_id' => $address->country_id,
+                        'city_id' => $address->city_id,
+                        'district_id' => $address->district_id,
+                        'zone_id' => $address->zone_id,
+                        'building' => $address->building,
+                        'block' => $address->block,
+                        'floor' => $address->floor,
+                        'side' => $address->side,
+                        'appartment' => $address->appartment,
+                        'zip_code' => $address->zip_code,
+                        'country' => $address->country ? [
+                            'id' => $address->country->id,
+                            'name' => $address->country->name,
+                        ] : null,
+                        'city' => $address->city ? [
+                            'id' => $address->city->id,
+                            'name' => $address->city->name,
+                        ] : null,
+                        'district' => $address->district ? [
+                            'id' => $address->district->id,
+                            'name' => $address->district->name,
+                        ] : null,
+                        'zone' => $address->zone ? [
+                            'id' => $address->zone->id,
+                            'name' => $address->zone->name,
+                        ] : null,
+                    ];
+                }),
 
-            // Primary billing address with full details (belongsToMany -> use first())            
+            // Primary billing address with full details (belongsToMany -> use first())
             'primary_billing_address' => ($primaryBilling = $supplier->primaryBillingAddress()->first()) ? [
-                'id' => $primaryBilling->id,
-                'address_line1' => $primaryBilling->address_line1,
-                'address_line2' => $primaryBilling->address_line2,
-                'country_id' => $primaryBilling->country_id,
-                'city_id' => $primaryBilling->city_id,
-                'district_id' => $primaryBilling->district_id,
-                'zone_id' => $primaryBilling->zone_id,
-                'building' => $primaryBilling->building,
-                'block' => $primaryBilling->block,
-                'floor' => $primaryBilling->floor,
-                'side' => $primaryBilling->side,
-                'appartment' => $primaryBilling->appartment,
-                'zip_code' => $primaryBilling->zip_code,
-                'country' => $primaryBilling->country ? [
-                    'id' => $primaryBilling->country->id,
-                    'name' => $primaryBilling->country->name,
+                    'id' => $primaryBilling->id,
+                    'address_line1' => $primaryBilling->address_line1,
+                    'address_line2' => $primaryBilling->address_line2,
+                    'country_id' => $primaryBilling->country_id,
+                    'city_id' => $primaryBilling->city_id,
+                    'district_id' => $primaryBilling->district_id,
+                    'zone_id' => $primaryBilling->zone_id,
+                    'building' => $primaryBilling->building,
+                    'block' => $primaryBilling->block,
+                    'floor' => $primaryBilling->floor,
+                    'side' => $primaryBilling->side,
+                    'appartment' => $primaryBilling->appartment,
+                    'zip_code' => $primaryBilling->zip_code,
+                    'country' => $primaryBilling->country ? [
+                        'id' => $primaryBilling->country->id,
+                        'name' => $primaryBilling->country->name,
+                    ] : null,
+                    'city' => $primaryBilling->city ? [
+                        'id' => $primaryBilling->city->id,
+                        'name' => $primaryBilling->city->name,
+                    ] : null,
+                    'district' => $primaryBilling->district ? [
+                        'id' => $primaryBilling->district->id,
+                        'name' => $primaryBilling->district->name,
+                    ] : null,
+                    'zone' => $primaryBilling->zone ? [
+                        'id' => $primaryBilling->zone->id,
+                        'name' => $primaryBilling->zone->name,
+                    ] : null,
                 ] : null,
-                'city' => $primaryBilling->city ? [
-                    'id' => $primaryBilling->city->id,
-                    'name' => $primaryBilling->city->name,
-                ] : null,
-                'district' => $primaryBilling->district ? [
-                    'id' => $primaryBilling->district->id,
-                    'name' => $primaryBilling->district->name,
-                ] : null,
-                'zone' => $primaryBilling->zone ? [
-                    'id' => $primaryBilling->zone->id,
-                    'name' => $primaryBilling->zone->name,
-                ] : null,
-            ] : null,
 
             // Primary shipping address (belongsToMany -> use first())
             'primary_shipping_address' => ($primaryShipping = $supplier->primaryShippingAddress()->first()) ? [
-                'id' => $primaryShipping->id,
-                'address_line1' => $primaryShipping->address_line1,
-                'address_line2' => $primaryShipping->address_line2,
-                'country_id' => $primaryShipping->country_id,
-                'city_id' => $primaryShipping->city_id,
-                'district_id' => $primaryShipping->district_id,
-                'zone_id' => $primaryShipping->zone_id,
-                'building' => $primaryShipping->building,
-                'block' => $primaryShipping->block,
-                'floor' => $primaryShipping->floor,
-                'side' => $primaryShipping->side,
-                'appartment' => $primaryShipping->appartment,
-                'zip_code' => $primaryShipping->zip_code,
-                'country' => $primaryShipping->country ? [
-                    'id' => $primaryShipping->country->id,
-                    'name' => $primaryShipping->country->name,
+                    'id' => $primaryShipping->id,
+                    'address_line1' => $primaryShipping->address_line1,
+                    'address_line2' => $primaryShipping->address_line2,
+                    'country_id' => $primaryShipping->country_id,
+                    'city_id' => $primaryShipping->city_id,
+                    'district_id' => $primaryShipping->district_id,
+                    'zone_id' => $primaryShipping->zone_id,
+                    'building' => $primaryShipping->building,
+                    'block' => $primaryShipping->block,
+                    'floor' => $primaryShipping->floor,
+                    'side' => $primaryShipping->side,
+                    'appartment' => $primaryShipping->appartment,
+                    'zip_code' => $primaryShipping->zip_code,
+                    'country' => $primaryShipping->country ? [
+                        'id' => $primaryShipping->country->id,
+                        'name' => $primaryShipping->country->name,
+                    ] : null,
+                    'city' => $primaryShipping->city ? [
+                        'id' => $primaryShipping->city->id,
+                        'name' => $primaryShipping->city->name,
+                    ] : null,
+                    'district' => $primaryShipping->district ? [
+                        'id' => $primaryShipping->district->id,
+                        'name' => $primaryShipping->district->name,
+                    ] : null,
+                    'zone' => $primaryShipping->zone ? [
+                        'id' => $primaryShipping->zone->id,
+                        'name' => $primaryShipping->zone->name,
+                    ] : null,
                 ] : null,
-                'city' => $primaryShipping->city ? [
-                    'id' => $primaryShipping->city->id,
-                    'name' => $primaryShipping->city->name,
-                ] : null,
-                'district' => $primaryShipping->district ? [
-                    'id' => $primaryShipping->district->id,
-                    'name' => $primaryShipping->district->name,
-                ] : null,
-                'zone' => $primaryShipping->zone ? [
-                    'id' => $primaryShipping->zone->id,
-                    'name' => $primaryShipping->zone->name,
-                ] : null,
-            ] : null,
 
             // Primary contact with full details
             'primary_contact' => $supplier->primaryContact ? [
-                'id' => $supplier->primaryContact->id,
-                'name' => $supplier->primaryContact->name,
-                'title' => $supplier->primaryContact->title,
-                'work_phone' => $supplier->primaryContact->work_phone,
-                'mobile' => $supplier->primaryContact->mobile,
-                'position' => $supplier->primaryContact->position,
-                'extension' => $supplier->primaryContact->extension,
-                'is_primary' => $supplier->primaryContact->is_primary,
-            ] : null,
+                    'id' => $supplier->primaryContact->id,
+                    'name' => $supplier->primaryContact->name,
+                    'title' => $supplier->primaryContact->title,
+                    'work_phone' => $supplier->primaryContact->work_phone,
+                    'mobile' => $supplier->primaryContact->mobile,
+                    'position' => $supplier->primaryContact->position,
+                    'extension' => $supplier->primaryContact->extension,
+                    'is_primary' => $supplier->primaryContact->is_primary,
+                ] : null,
 
             // All contacts with full details
             'contacts' => $supplier->contacts->map(function ($contact) {
@@ -736,7 +735,7 @@ class SupplierController extends Controller
                 // Delete related data
                 $supplier->contacts()->delete();
                 $supplier->attachments()->delete();
-                
+
                 // Addresses will be automatically deleted via cascade foreign key
                 $supplier->delete();
                 $deleted++;
@@ -1217,7 +1216,7 @@ class SupplierController extends Controller
             'appartment' => $request->billing_apartment ?? null,
             'zip_code' => $request->billing_zip_code ?? null,
         ]);
-        
+
         // Attach to supplier via pivot table with metadata
         $supplier->addresses()->attach($billingAddress->id, [
             'address_type' => 'billing',
@@ -1245,7 +1244,7 @@ class SupplierController extends Controller
                 'appartment' => $shippingAddressData['apartment'] ?? null,
                 'zip_code' => $shippingAddressData['zip_code'] ?? null,
             ]);
-            
+
             // Attach to supplier via pivot table with metadata
             $supplier->addresses()->attach($shippingAddress->id, [
                 'address_type' => 'shipping',
@@ -1348,7 +1347,7 @@ class SupplierController extends Controller
         if ($request->filled('billing_address_line1')) {
             // Get existing primary billing address via pivot
             $existingBillingPivot = $supplier->primaryBillingAddress()->first();
-            
+
             $billingAddressData = [
                 'address_line1' => $request->input('billing_address_line1'),
                 'address_line2' => $request->input('billing_address_line2'),
@@ -1449,7 +1448,7 @@ class SupplierController extends Controller
 
             // Delete shipping addresses that were removed
             $addressesToDelete = array_diff($existingShippingPivots->keys()->toArray(), $newShippingIds);
-            if (!empty($addressesToDelete)) {
+            if (! empty($addressesToDelete)) {
                 foreach ($addressesToDelete as $addressId) {
                     $supplier->addresses()->detach($addressId);
                     // Optionally delete the address if not used by others
@@ -1458,7 +1457,7 @@ class SupplierController extends Controller
                         // Check if address is used by other customers or suppliers via pivot tables
                         $usedByCustomers = \DB::table('customer_addresses')->where('address_id', $addressId)->exists();
                         $usedBySuppliers = \DB::table('supplier_addresses')->where('address_id', $addressId)->exists();
-                        if (!$usedByCustomers && !$usedBySuppliers) {
+                        if (! $usedByCustomers && ! $usedBySuppliers) {
                             $address->delete();
                         }
                     }
