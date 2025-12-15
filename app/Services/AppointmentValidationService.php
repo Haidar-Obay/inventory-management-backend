@@ -156,6 +156,12 @@ class AppointmentValidationService
             'end_at' => 'required|date|after:start_at',
             'notes' => 'nullable|string|max:1000',
             'color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
+            'status' => 'nullable|in:active,in_progress,completed,cancelled',
+            'cancellation_reason' => 'nullable|string|max:1000',
+            // These are managed by the backend when cancelling/undoing;
+            // allow them but they are not required in requests.
+            'cancelled_date' => 'nullable|date',
+            'cancelled_time' => 'nullable|date_format:H:i:s',
         ];
 
         if ($schedulerMode === 'advanced') {

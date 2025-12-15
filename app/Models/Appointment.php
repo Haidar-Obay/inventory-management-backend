@@ -15,7 +15,11 @@ class Appointment extends Model implements Auditable
         'start_at',
         'end_at',
         'notes',
+        'cancellation_reason',
+        'cancelled_date',
+        'cancelled_time',
         'color',
+        'status',
     ];
 
     protected $table = 'appointments';
@@ -27,6 +31,8 @@ class Appointment extends Model implements Auditable
     protected $casts = [
         'start_at' => 'datetime',
         'end_at' => 'datetime',
+        'cancelled_date' => 'date',
+        'cancelled_time' => 'datetime:H:i:s',
         'status' => 'string',
     ];
 
@@ -39,38 +45,60 @@ class Appointment extends Model implements Auditable
 
     /**
      * Calculate status based on current time
-     * - active: current time is before start_at
-     * - in_progress: current time is between start_at and end_at
-     * - completed: current time is after end_at
+     * - active: current time is before start_at (only status that can be auto-calculated)
+     * - in_progress: set manually via visits
+     * - completed: set manually via visits
+     * - cancelled: set manually
+     * Note: Only 'active' status is auto-calculated. Other statuses are set manually via visits.
      */
     public function calculateStatus(): string
     {
+        // If status is already set to in_progress, completed, or cancelled, preserve it
+        // These statuses are managed by visits, not auto-calculated
+        if (in_array($this->status, ['in_progress', 'completed', 'cancelled'])) {
+            return $this->status;
+        }
+
         $now = now();
         $startAt = $this->start_at;
-        $endAt = $this->end_at;
 
-        if ($now->lt($startAt)) {
+        // Only auto-calculate 'active' status if we're before start_at
+        if ($startAt && $now->lt($startAt)) {
             return 'active';
-        } elseif ($now->gte($startAt) && $now->lte($endAt)) {
-            return 'in_progress';
-        } else {
-            return 'completed';
         }
+
+        // If we're past start_at but status is still 'active' or null, keep as is
+        // Visits will handle changing to in_progress/completed
+        return $this->status ?? 'active';
     }
 
     /**
      * Boot method to auto-calculate status
+     * Only auto-calculates 'active' status. Other statuses (in_progress, completed, cancelled) are set manually via visits.
      */
     protected static function boot()
     {
         parent::boot();
 
         static::saving(function ($appointment) {
-            // Always auto-calculate status based on current time
-            // Status is never set manually, always calculated
-            // Recalculate on every save to ensure it's up-to-date
-            if ($appointment->start_at && $appointment->end_at) {
-                $appointment->status = $appointment->calculateStatus();
+            // Only auto-calculate 'active' status if:
+            // 1. We have start_at
+            // 2. Status is not already set to in_progress, completed, or cancelled (these are managed by visits)
+            // 3. Status wasn't manually set in this save operation
+            if ($appointment->start_at) {
+                $manualStatuses = ['in_progress', 'completed', 'cancelled'];
+                $isManualStatus = in_array($appointment->status, $manualStatuses);
+                $statusWasManuallySet = $appointment->isDirty('status') && $appointment->getOriginal('status') !== null;
+
+                // Only auto-calculate if status is not manually set and not a visit-managed status
+                if (! $isManualStatus && ! $statusWasManuallySet) {
+                    $calculatedStatus = $appointment->calculateStatus();
+                    // Only set to 'active' if calculated status is 'active'
+                    // Don't change if it's already in_progress, completed, or cancelled
+                    if ($calculatedStatus === 'active') {
+                        $appointment->status = 'active';
+                    }
+                }
             }
         });
     }
@@ -194,6 +222,11 @@ class Appointment extends Model implements Auditable
     public function scopeCompleted($query)
     {
         return $query->where('status', 'completed');
+    }
+
+    public function scopeCancelled($query)
+    {
+        return $query->where('status', 'cancelled');
     }
 
     public function scopeByStatus($query, $status)

@@ -95,6 +95,7 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Overview', 'code' => PageCode::DASHBOARD_OVERVIEW_PAGE->value, 'path' => '/main/dashboard/overview', 'order' => 2, 'is_public' => false],
                     ['name' => 'Analytics', 'code' => PageCode::DASHBOARD_ANALYTICS_PAGE->value, 'path' => '/main/dashboard/analytics', 'order' => 3, 'is_public' => false],
                     ['name' => 'Reports', 'code' => PageCode::DASHBOARD_REPORTS_PAGE->value, 'path' => '/main/dashboard/reports', 'order' => 4, 'is_public' => false],
+                    ['name' => 'Visitors Management', 'code' => PageCode::VISITORS_MANAGEMENT_PAGE->value, 'path' => '/main/dashboard/visitors-management', 'order' => 5, 'is_public' => false],
 
                     // Main Files - Services
                     ['name' => 'Service Categories', 'code' => PageCode::SERVICES_CATEGORIES->value, 'path' => '/main/mainfiles/services?tab=0', 'order' => 10, 'is_public' => false],
