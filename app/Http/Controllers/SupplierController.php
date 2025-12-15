@@ -433,81 +433,81 @@ class SupplierController extends Controller
 
             // Primary billing address with full details (belongsToMany -> use first())
             'primary_billing_address' => ($primaryBilling = $supplier->primaryBillingAddress()->first()) ? [
-                    'id' => $primaryBilling->id,
-                    'address_line1' => $primaryBilling->address_line1,
-                    'address_line2' => $primaryBilling->address_line2,
-                    'country_id' => $primaryBilling->country_id,
-                    'city_id' => $primaryBilling->city_id,
-                    'district_id' => $primaryBilling->district_id,
-                    'zone_id' => $primaryBilling->zone_id,
-                    'building' => $primaryBilling->building,
-                    'block' => $primaryBilling->block,
-                    'floor' => $primaryBilling->floor,
-                    'side' => $primaryBilling->side,
-                    'appartment' => $primaryBilling->appartment,
-                    'zip_code' => $primaryBilling->zip_code,
-                    'country' => $primaryBilling->country ? [
-                        'id' => $primaryBilling->country->id,
-                        'name' => $primaryBilling->country->name,
-                    ] : null,
-                    'city' => $primaryBilling->city ? [
-                        'id' => $primaryBilling->city->id,
-                        'name' => $primaryBilling->city->name,
-                    ] : null,
-                    'district' => $primaryBilling->district ? [
-                        'id' => $primaryBilling->district->id,
-                        'name' => $primaryBilling->district->name,
-                    ] : null,
-                    'zone' => $primaryBilling->zone ? [
-                        'id' => $primaryBilling->zone->id,
-                        'name' => $primaryBilling->zone->name,
-                    ] : null,
+                'id' => $primaryBilling->id,
+                'address_line1' => $primaryBilling->address_line1,
+                'address_line2' => $primaryBilling->address_line2,
+                'country_id' => $primaryBilling->country_id,
+                'city_id' => $primaryBilling->city_id,
+                'district_id' => $primaryBilling->district_id,
+                'zone_id' => $primaryBilling->zone_id,
+                'building' => $primaryBilling->building,
+                'block' => $primaryBilling->block,
+                'floor' => $primaryBilling->floor,
+                'side' => $primaryBilling->side,
+                'appartment' => $primaryBilling->appartment,
+                'zip_code' => $primaryBilling->zip_code,
+                'country' => $primaryBilling->country ? [
+                    'id' => $primaryBilling->country->id,
+                    'name' => $primaryBilling->country->name,
                 ] : null,
+                'city' => $primaryBilling->city ? [
+                    'id' => $primaryBilling->city->id,
+                    'name' => $primaryBilling->city->name,
+                ] : null,
+                'district' => $primaryBilling->district ? [
+                    'id' => $primaryBilling->district->id,
+                    'name' => $primaryBilling->district->name,
+                ] : null,
+                'zone' => $primaryBilling->zone ? [
+                    'id' => $primaryBilling->zone->id,
+                    'name' => $primaryBilling->zone->name,
+                ] : null,
+            ] : null,
 
             // Primary shipping address (belongsToMany -> use first())
             'primary_shipping_address' => ($primaryShipping = $supplier->primaryShippingAddress()->first()) ? [
-                    'id' => $primaryShipping->id,
-                    'address_line1' => $primaryShipping->address_line1,
-                    'address_line2' => $primaryShipping->address_line2,
-                    'country_id' => $primaryShipping->country_id,
-                    'city_id' => $primaryShipping->city_id,
-                    'district_id' => $primaryShipping->district_id,
-                    'zone_id' => $primaryShipping->zone_id,
-                    'building' => $primaryShipping->building,
-                    'block' => $primaryShipping->block,
-                    'floor' => $primaryShipping->floor,
-                    'side' => $primaryShipping->side,
-                    'appartment' => $primaryShipping->appartment,
-                    'zip_code' => $primaryShipping->zip_code,
-                    'country' => $primaryShipping->country ? [
-                        'id' => $primaryShipping->country->id,
-                        'name' => $primaryShipping->country->name,
-                    ] : null,
-                    'city' => $primaryShipping->city ? [
-                        'id' => $primaryShipping->city->id,
-                        'name' => $primaryShipping->city->name,
-                    ] : null,
-                    'district' => $primaryShipping->district ? [
-                        'id' => $primaryShipping->district->id,
-                        'name' => $primaryShipping->district->name,
-                    ] : null,
-                    'zone' => $primaryShipping->zone ? [
-                        'id' => $primaryShipping->zone->id,
-                        'name' => $primaryShipping->zone->name,
-                    ] : null,
+                'id' => $primaryShipping->id,
+                'address_line1' => $primaryShipping->address_line1,
+                'address_line2' => $primaryShipping->address_line2,
+                'country_id' => $primaryShipping->country_id,
+                'city_id' => $primaryShipping->city_id,
+                'district_id' => $primaryShipping->district_id,
+                'zone_id' => $primaryShipping->zone_id,
+                'building' => $primaryShipping->building,
+                'block' => $primaryShipping->block,
+                'floor' => $primaryShipping->floor,
+                'side' => $primaryShipping->side,
+                'appartment' => $primaryShipping->appartment,
+                'zip_code' => $primaryShipping->zip_code,
+                'country' => $primaryShipping->country ? [
+                    'id' => $primaryShipping->country->id,
+                    'name' => $primaryShipping->country->name,
                 ] : null,
+                'city' => $primaryShipping->city ? [
+                    'id' => $primaryShipping->city->id,
+                    'name' => $primaryShipping->city->name,
+                ] : null,
+                'district' => $primaryShipping->district ? [
+                    'id' => $primaryShipping->district->id,
+                    'name' => $primaryShipping->district->name,
+                ] : null,
+                'zone' => $primaryShipping->zone ? [
+                    'id' => $primaryShipping->zone->id,
+                    'name' => $primaryShipping->zone->name,
+                ] : null,
+            ] : null,
 
             // Primary contact with full details
             'primary_contact' => $supplier->primaryContact ? [
-                    'id' => $supplier->primaryContact->id,
-                    'name' => $supplier->primaryContact->name,
-                    'title' => $supplier->primaryContact->title,
-                    'work_phone' => $supplier->primaryContact->work_phone,
-                    'mobile' => $supplier->primaryContact->mobile,
-                    'position' => $supplier->primaryContact->position,
-                    'extension' => $supplier->primaryContact->extension,
-                    'is_primary' => $supplier->primaryContact->is_primary,
-                ] : null,
+                'id' => $supplier->primaryContact->id,
+                'name' => $supplier->primaryContact->name,
+                'title' => $supplier->primaryContact->title,
+                'work_phone' => $supplier->primaryContact->work_phone,
+                'mobile' => $supplier->primaryContact->mobile,
+                'position' => $supplier->primaryContact->position,
+                'extension' => $supplier->primaryContact->extension,
+                'is_primary' => $supplier->primaryContact->is_primary,
+            ] : null,
 
             // All contacts with full details
             'contacts' => $supplier->contacts->map(function ($contact) {
