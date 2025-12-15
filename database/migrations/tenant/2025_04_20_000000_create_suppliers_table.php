@@ -69,6 +69,20 @@ return new class extends Migration
 
             $table->timestamps();
         });
+
+        // Add foreign key constraint to addresses table if it exists
+        if (Schema::hasTable('addresses') && Schema::hasColumn('addresses', 'supplier_id')) {
+            try {
+                Schema::table('addresses', function (Blueprint $table) {
+                    $table->foreign('supplier_id')
+                        ->references('id')
+                        ->on('suppliers')
+                        ->onDelete('cascade');
+                });
+            } catch (\Exception $e) {
+                // Foreign key might already exist, ignore
+            }
+        }
     }
 
     public function down(): void

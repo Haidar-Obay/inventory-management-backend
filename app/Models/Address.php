@@ -15,30 +15,17 @@ class Address extends Model implements Auditable
 
     protected $primaryKey = 'id';
 
-    public $timestamps = false;
+    public $timestamps = true;
 
-    // New relationship using pivot table
-    public function customers()
+    // One-to-many relationships
+    public function customer()
     {
-        return $this->belongsToMany(Customer::class, 'customer_addresses')
-            ->withPivot(['address_type', 'is_primary', 'address_name', 'notes'])
-            ->withTimestamps();
+        return $this->belongsTo(Customer::class);
     }
 
-    public function billingCustomers()
+    public function supplier()
     {
-        return $this->belongsToMany(Customer::class, 'customer_addresses')
-            ->wherePivot('address_type', 'billing')
-            ->withPivot(['is_primary', 'address_name', 'notes'])
-            ->withTimestamps();
-    }
-
-    public function shippingCustomers()
-    {
-        return $this->belongsToMany(Customer::class, 'customer_addresses')
-            ->wherePivot('address_type', 'shipping')
-            ->withPivot(['is_primary', 'address_name', 'notes'])
-            ->withTimestamps();
+        return $this->belongsTo(Supplier::class);
     }
 
     // Location relationships

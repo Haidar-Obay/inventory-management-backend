@@ -23,8 +23,22 @@ return new class extends Migration
             $table->string('appartment')->nullable();
             $table->string('zip_code')->nullable();
             // $table->string('complex')->nullable();
+
+            // One-to-many relationships (add columns first, constraints added later)
+            $table->unsignedBigInteger('customer_id')->nullable();
+            $table->unsignedBigInteger('supplier_id')->nullable();
+
+            // Address metadata
+            $table->enum('address_type', ['billing', 'shipping'])->nullable();
+            $table->boolean('is_primary')->default(false);
+            $table->string('address_name')->nullable();
+            $table->text('notes')->nullable();
+
             $table->timestamps();
         });
+
+        // Foreign key constraints will be added in customers and suppliers migrations
+        // after those tables are created
     }
 
     public function down(): void

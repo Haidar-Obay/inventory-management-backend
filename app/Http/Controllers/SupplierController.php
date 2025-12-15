@@ -13,7 +13,6 @@ use App\Models\Supplier;
 use App\Models\SupplierAttachment;
 use App\Services\OpeningBalanceService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -200,22 +199,27 @@ class SupplierController extends Controller
             'paymentTerm:id,code,name,active',
             'paymentMethod:id,code,name,active',
             'currency:id,code,name,iso_code,symbol,active',
+            'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
             'addresses.country:id,name',
             'addresses.city:id,name',
             'addresses.district:id,name',
             'addresses.zone:id,name',
+            'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
             'billingAddresses.country:id,name',
             'billingAddresses.city:id,name',
             'billingAddresses.district:id,name',
             'billingAddresses.zone:id,name',
+            'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
             'shippingAddresses.country:id,name',
             'shippingAddresses.city:id,name',
             'shippingAddresses.district:id,name',
             'shippingAddresses.zone:id,name',
+            'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
             'primaryBillingAddress.country:id,name',
             'primaryBillingAddress.city:id,name',
             'primaryBillingAddress.district:id,name',
             'primaryBillingAddress.zone:id,name',
+            'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
             'primaryShippingAddress.country:id,name',
             'primaryShippingAddress.city:id,name',
             'primaryShippingAddress.district:id,name',
@@ -347,144 +351,150 @@ class SupplierController extends Controller
                 ];
             }),
 
-            // Billing addresses with full details
-            'billing_addresses' => $supplier->billingAddresses->map(function ($address) {
-                return [
-                    'id' => $address->id,
-                    'address_line1' => $address->address_line1,
-                    'address_line2' => $address->address_line2,
-                    'country_id' => $address->country_id,
-                    'city_id' => $address->city_id,
-                    'district_id' => $address->district_id,
-                    'zone_id' => $address->zone_id,
-                    'building' => $address->building,
-                    'block' => $address->block,
-                    'floor' => $address->floor,
-                    'side' => $address->side,
-                    'appartment' => $address->appartment,
-                    'zip_code' => $address->zip_code,
-                    'country' => $address->country ? [
-                        'id' => $address->country->id,
-                        'name' => $address->country->name,
-                    ] : null,
-                    'city' => $address->city ? [
-                        'id' => $address->city->id,
-                        'name' => $address->city->name,
-                    ] : null,
-                    'district' => $address->district ? [
-                        'id' => $address->district->id,
-                        'name' => $address->district->name,
-                    ] : null,
-                    'zone' => $address->zone ? [
-                        'id' => $address->zone->id,
-                        'name' => $address->zone->name,
-                    ] : null,
-                    'pivot' => $address->pivot,
-                ];
-            }),
+            // Billing addresses with full details (sorted: primary first, then others)
+            'billing_addresses' => $supplier->billingAddresses
+                ->sortByDesc(function ($address) {
+                    return $address->pivot->is_primary;
+                })
+                ->values()
+                ->map(function ($address) {
+                    return [
+                        'id' => $address->id,
+                        'address_line1' => $address->address_line1,
+                        'address_line2' => $address->address_line2,
+                        'country_id' => $address->country_id,
+                        'city_id' => $address->city_id,
+                        'district_id' => $address->district_id,
+                        'zone_id' => $address->zone_id,
+                        'building' => $address->building,
+                        'block' => $address->block,
+                        'floor' => $address->floor,
+                        'side' => $address->side,
+                        'appartment' => $address->appartment,
+                        'zip_code' => $address->zip_code,
+                        'country' => $address->country ? [
+                            'id' => $address->country->id,
+                            'name' => $address->country->name,
+                        ] : null,
+                        'city' => $address->city ? [
+                            'id' => $address->city->id,
+                            'name' => $address->city->name,
+                        ] : null,
+                        'district' => $address->district ? [
+                            'id' => $address->district->id,
+                            'name' => $address->district->name,
+                        ] : null,
+                        'zone' => $address->zone ? [
+                            'id' => $address->zone->id,
+                            'name' => $address->zone->name,
+                        ] : null,
+                    ];
+                }),
 
-            // Shipping addresses with full details
-            'shipping_addresses' => $supplier->shippingAddresses->map(function ($address) {
-                return [
-                    'id' => $address->id,
-                    'address_line1' => $address->address_line1,
-                    'address_line2' => $address->address_line2,
-                    'country_id' => $address->country_id,
-                    'city_id' => $address->city_id,
-                    'district_id' => $address->district_id,
-                    'zone_id' => $address->zone_id,
-                    'building' => $address->building,
-                    'block' => $address->block,
-                    'floor' => $address->floor,
-                    'side' => $address->side,
-                    'appartment' => $address->appartment,
-                    'zip_code' => $address->zip_code,
-                    'country' => $address->country ? [
-                        'id' => $address->country->id,
-                        'name' => $address->country->name,
-                    ] : null,
-                    'city' => $address->city ? [
-                        'id' => $address->city->id,
-                        'name' => $address->city->name,
-                    ] : null,
-                    'district' => $address->district ? [
-                        'id' => $address->district->id,
-                        'name' => $address->district->name,
-                    ] : null,
-                    'zone' => $address->zone ? [
-                        'id' => $address->zone->id,
-                        'name' => $address->zone->name,
-                    ] : null,
-                    'pivot' => $address->pivot,
-                ];
-            }),
+            // Shipping addresses with full details (sorted: primary first, then others)
+            'shipping_addresses' => $supplier->shippingAddresses
+                ->sortByDesc(function ($address) {
+                    return $address->pivot->is_primary;
+                })
+                ->values()
+                ->map(function ($address) {
+                    return [
+                        'id' => $address->id,
+                        'address_line1' => $address->address_line1,
+                        'address_line2' => $address->address_line2,
+                        'country_id' => $address->country_id,
+                        'city_id' => $address->city_id,
+                        'district_id' => $address->district_id,
+                        'zone_id' => $address->zone_id,
+                        'building' => $address->building,
+                        'block' => $address->block,
+                        'floor' => $address->floor,
+                        'side' => $address->side,
+                        'appartment' => $address->appartment,
+                        'zip_code' => $address->zip_code,
+                        'country' => $address->country ? [
+                            'id' => $address->country->id,
+                            'name' => $address->country->name,
+                        ] : null,
+                        'city' => $address->city ? [
+                            'id' => $address->city->id,
+                            'name' => $address->city->name,
+                        ] : null,
+                        'district' => $address->district ? [
+                            'id' => $address->district->id,
+                            'name' => $address->district->name,
+                        ] : null,
+                        'zone' => $address->zone ? [
+                            'id' => $address->zone->id,
+                            'name' => $address->zone->name,
+                        ] : null,
+                    ];
+                }),
 
-            // Primary billing address with full details
-            'primary_billing_address' => $supplier->primaryBillingAddress->first() ? [
-                'id' => $supplier->primaryBillingAddress->first()->id,
-                'address_line1' => $supplier->primaryBillingAddress->first()->address_line1,
-                'address_line2' => $supplier->primaryBillingAddress->first()->address_line2,
-                'country_id' => $supplier->primaryBillingAddress->first()->country_id,
-                'city_id' => $supplier->primaryBillingAddress->first()->city_id,
-                'district_id' => $supplier->primaryBillingAddress->first()->district_id,
-                'zone_id' => $supplier->primaryBillingAddress->first()->zone_id,
-                'building' => $supplier->primaryBillingAddress->first()->building,
-                'block' => $supplier->primaryBillingAddress->first()->block,
-                'floor' => $supplier->primaryBillingAddress->first()->floor,
-                'side' => $supplier->primaryBillingAddress->first()->side,
-                'appartment' => $supplier->primaryBillingAddress->first()->appartment,
-                'zip_code' => $supplier->primaryBillingAddress->first()->zip_code,
-                'country' => $supplier->primaryBillingAddress->first()->country ? [
-                    'id' => $supplier->primaryBillingAddress->first()->country->id,
-                    'name' => $supplier->primaryBillingAddress->first()->country->name,
+            // Primary billing address with full details (belongsToMany -> use first())
+            'primary_billing_address' => ($primaryBilling = $supplier->primaryBillingAddress()->first()) ? [
+                'id' => $primaryBilling->id,
+                'address_line1' => $primaryBilling->address_line1,
+                'address_line2' => $primaryBilling->address_line2,
+                'country_id' => $primaryBilling->country_id,
+                'city_id' => $primaryBilling->city_id,
+                'district_id' => $primaryBilling->district_id,
+                'zone_id' => $primaryBilling->zone_id,
+                'building' => $primaryBilling->building,
+                'block' => $primaryBilling->block,
+                'floor' => $primaryBilling->floor,
+                'side' => $primaryBilling->side,
+                'appartment' => $primaryBilling->appartment,
+                'zip_code' => $primaryBilling->zip_code,
+                'country' => $primaryBilling->country ? [
+                    'id' => $primaryBilling->country->id,
+                    'name' => $primaryBilling->country->name,
                 ] : null,
-                'city' => $supplier->primaryBillingAddress->first()->city ? [
-                    'id' => $supplier->primaryBillingAddress->first()->city->id,
-                    'name' => $supplier->primaryBillingAddress->first()->city->name,
+                'city' => $primaryBilling->city ? [
+                    'id' => $primaryBilling->city->id,
+                    'name' => $primaryBilling->city->name,
                 ] : null,
-                'district' => $supplier->primaryBillingAddress->first()->district ? [
-                    'id' => $supplier->primaryBillingAddress->first()->district->id,
-                    'name' => $supplier->primaryBillingAddress->first()->district->name,
+                'district' => $primaryBilling->district ? [
+                    'id' => $primaryBilling->district->id,
+                    'name' => $primaryBilling->district->name,
                 ] : null,
-                'zone' => $supplier->primaryBillingAddress->first()->zone ? [
-                    'id' => $supplier->primaryBillingAddress->first()->zone->id,
-                    'name' => $supplier->primaryBillingAddress->first()->zone->name,
+                'zone' => $primaryBilling->zone ? [
+                    'id' => $primaryBilling->zone->id,
+                    'name' => $primaryBilling->zone->name,
                 ] : null,
-                'pivot' => $supplier->primaryBillingAddress->first()->pivot,
             ] : null,
 
-            // Primary shipping address with full details
-            'primary_shipping_address' => $supplier->primaryShippingAddress->first() ? [
-                'id' => $supplier->primaryShippingAddress->first()->id,
-                'address_line1' => $supplier->primaryShippingAddress->first()->address_line1,
-                'address_line2' => $supplier->primaryShippingAddress->first()->address_line2,
-                'country_id' => $supplier->primaryShippingAddress->first()->country_id,
-                'city_id' => $supplier->primaryShippingAddress->first()->city_id,
-                'district_id' => $supplier->primaryShippingAddress->first()->district_id,
-                'zone_id' => $supplier->primaryShippingAddress->first()->zone_id,
-                'building' => $supplier->primaryShippingAddress->first()->building,
-                'block' => $supplier->primaryShippingAddress->first()->block,
-                'floor' => $supplier->primaryShippingAddress->first()->floor,
-                'side' => $supplier->primaryShippingAddress->first()->side,
-                'appartment' => $supplier->primaryShippingAddress->first()->appartment,
-                'zip_code' => $supplier->primaryShippingAddress->first()->zip_code,
-                'country' => $supplier->primaryShippingAddress->first()->country ? [
-                    'id' => $supplier->primaryShippingAddress->first()->country->id,
-                    'name' => $supplier->primaryShippingAddress->first()->country->name,
+            // Primary shipping address (belongsToMany -> use first())
+            'primary_shipping_address' => ($primaryShipping = $supplier->primaryShippingAddress()->first()) ? [
+                'id' => $primaryShipping->id,
+                'address_line1' => $primaryShipping->address_line1,
+                'address_line2' => $primaryShipping->address_line2,
+                'country_id' => $primaryShipping->country_id,
+                'city_id' => $primaryShipping->city_id,
+                'district_id' => $primaryShipping->district_id,
+                'zone_id' => $primaryShipping->zone_id,
+                'building' => $primaryShipping->building,
+                'block' => $primaryShipping->block,
+                'floor' => $primaryShipping->floor,
+                'side' => $primaryShipping->side,
+                'appartment' => $primaryShipping->appartment,
+                'zip_code' => $primaryShipping->zip_code,
+                'country' => $primaryShipping->country ? [
+                    'id' => $primaryShipping->country->id,
+                    'name' => $primaryShipping->country->name,
                 ] : null,
-                'city' => $supplier->primaryShippingAddress->first()->city ? [
-                    'id' => $supplier->primaryShippingAddress->first()->city->id,
-                    'name' => $supplier->primaryShippingAddress->first()->city->name,
+                'city' => $primaryShipping->city ? [
+                    'id' => $primaryShipping->city->id,
+                    'name' => $primaryShipping->city->name,
                 ] : null,
-                'district' => $supplier->primaryShippingAddress->first()->district ? [
-                    'id' => $supplier->primaryShippingAddress->first()->district->id,
-                    'name' => $supplier->primaryShippingAddress->first()->district->name,
+                'district' => $primaryShipping->district ? [
+                    'id' => $primaryShipping->district->id,
+                    'name' => $primaryShipping->district->name,
                 ] : null,
-                'zone' => $supplier->primaryShippingAddress->first()->zone ? [
-                    'id' => $supplier->primaryShippingAddress->first()->zone->id,
-                    'name' => $supplier->primaryShippingAddress->first()->zone->name,
+                'zone' => $primaryShipping->zone ? [
+                    'id' => $primaryShipping->zone->id,
+                    'name' => $primaryShipping->zone->name,
                 ] : null,
-                'pivot' => $supplier->primaryShippingAddress->first()->pivot,
             ] : null,
 
             // Primary contact with full details
@@ -676,34 +686,13 @@ class SupplierController extends Controller
     public function destroy(Supplier $supplier)
     {
         try {
-            // Capture current address IDs to evaluate orphan cleanup after delete
-            $addressIds = $supplier->addresses()->pluck('addresses.id')->all();
-
             // Delete related records first
-            $supplier->addresses()->detach();
             $supplier->contacts()->delete();
             $supplier->attachments()->delete();
             $supplier->openingBalances()->delete();
 
-            // Delete the supplier
+            // Addresses will be automatically deleted via cascade foreign key
             $supplier->delete();
-
-            // Remove addresses that became orphaned (not linked to any customer or supplier)
-            if (! empty($addressIds)) {
-                DB::table('addresses')
-                    ->whereIn('id', $addressIds)
-                    ->whereNotExists(function ($q) {
-                        $q->select(DB::raw(1))
-                            ->from('customer_addresses')
-                            ->whereColumn('customer_addresses.address_id', 'addresses.id');
-                    })
-                    ->whereNotExists(function ($q) {
-                        $q->select(DB::raw(1))
-                            ->from('supplier_addresses')
-                            ->whereColumn('supplier_addresses.address_id', 'addresses.id');
-                    })
-                    ->delete();
-            }
 
             return response()->json([
                 'status' => 'success',
@@ -743,31 +732,12 @@ class SupplierController extends Controller
                     continue;
                 }
 
-                // Capture current address IDs to evaluate orphan cleanup after delete
-                $addressIds = $supplier->addresses()->pluck('addresses.id')->all();
-
                 // Delete related data
-                $supplier->addresses()->detach();
                 $supplier->contacts()->delete();
                 $supplier->attachments()->delete();
-                $supplier->delete();
 
-                // Remove addresses that became orphaned
-                if (! empty($addressIds)) {
-                    DB::table('addresses')
-                        ->whereIn('id', $addressIds)
-                        ->whereNotExists(function ($q) {
-                            $q->select(DB::raw(1))
-                                ->from('customer_addresses')
-                                ->whereColumn('customer_addresses.address_id', 'addresses.id');
-                        })
-                        ->whereNotExists(function ($q) {
-                            $q->select(DB::raw(1))
-                                ->from('supplier_addresses')
-                                ->whereColumn('supplier_addresses.address_id', 'addresses.id');
-                        })
-                        ->delete();
-                }
+                // Addresses will be automatically deleted via cascade foreign key
+                $supplier->delete();
                 $deleted++;
 
             } catch (\Exception $e) {
@@ -1231,7 +1201,8 @@ class SupplierController extends Controller
     // Helper methods for address management
     private function createBillingAddress($supplier, $request)
     {
-        $address = Address::create([
+        // Create address in addresses table
+        $billingAddress = Address::create([
             'address_line1' => $request->billing_address_line1,
             'address_line2' => $request->billing_address_line2,
             'country_id' => $request->billing_country_id,
@@ -1242,39 +1213,44 @@ class SupplierController extends Controller
             'block' => $request->billing_block ?? null,
             'floor' => $request->billing_floor ?? null,
             'side' => $request->billing_side ?? null,
-            'apartment' => $request->billing_apartment ?? null,
+            'appartment' => $request->billing_apartment ?? null,
             'zip_code' => $request->billing_zip_code ?? null,
         ]);
 
-        $supplier->addresses()->attach($address->id, [
+        // Attach to supplier via pivot table with metadata
+        $supplier->addresses()->attach($billingAddress->id, [
             'address_type' => 'billing',
             'is_primary' => true,
-            'address_name' => 'Primary Billing Address',
+            'address_name' => $request->billing_address_name ?? 'Primary Billing Address',
+            'notes' => $request->billing_notes ?? null,
         ]);
     }
 
     private function createShippingAddresses($supplier, $request)
     {
-        foreach ($request->shipping_addresses as $shippingAddress) {
-            $address = Address::create([
-                'address_line1' => $shippingAddress['address_line1'],
-                'address_line2' => $shippingAddress['address_line2'] ?? null,
-                'country_id' => $shippingAddress['country_id'] ?? null,
-                'city_id' => $shippingAddress['city_id'] ?? null,
-                'district_id' => $shippingAddress['district_id'] ?? null,
-                'zone_id' => $shippingAddress['zone_id'] ?? null,
-                'building' => $shippingAddress['building'] ?? null,
-                'block' => $shippingAddress['block'] ?? null,
-                'floor' => $shippingAddress['floor'] ?? null,
-                'side' => $shippingAddress['side'] ?? null,
-                'apartment' => $shippingAddress['apartment'] ?? null,
-                'zip_code' => $shippingAddress['zip_code'] ?? null,
+        foreach ($request->shipping_addresses as $index => $shippingAddressData) {
+            // Create address in addresses table
+            $shippingAddress = Address::create([
+                'address_line1' => $shippingAddressData['address_line1'],
+                'address_line2' => $shippingAddressData['address_line2'] ?? null,
+                'country_id' => $shippingAddressData['country_id'] ?? null,
+                'city_id' => $shippingAddressData['city_id'] ?? null,
+                'district_id' => $shippingAddressData['district_id'] ?? null,
+                'zone_id' => $shippingAddressData['zone_id'] ?? null,
+                'building' => $shippingAddressData['building'] ?? null,
+                'block' => $shippingAddressData['block'] ?? null,
+                'floor' => $shippingAddressData['floor'] ?? null,
+                'side' => $shippingAddressData['side'] ?? null,
+                'appartment' => $shippingAddressData['apartment'] ?? null,
+                'zip_code' => $shippingAddressData['zip_code'] ?? null,
             ]);
 
-            $supplier->addresses()->attach($address->id, [
+            // Attach to supplier via pivot table with metadata
+            $supplier->addresses()->attach($shippingAddress->id, [
                 'address_type' => 'shipping',
-                'is_primary' => $shippingAddress['is_primary'] ?? false,
-                'address_name' => $shippingAddress['address_name'] ?? 'Shipping Address',
+                'is_primary' => $shippingAddressData['is_primary'] ?? ($index === 0), // First shipping address is primary
+                'address_name' => $shippingAddressData['address_name'] ?? ($index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1)),
+                'notes' => $shippingAddressData['notes'] ?? null,
             ]);
         }
     }
@@ -1367,20 +1343,127 @@ class SupplierController extends Controller
 
     private function updateBillingAddress($supplier, $request)
     {
-        // Remove existing billing addresses
-        $supplier->billingAddresses()->detach();
+        // Handle billing address - update existing or create new
+        if ($request->filled('billing_address_line1')) {
+            // Get existing primary billing address via pivot
+            $existingBillingPivot = $supplier->primaryBillingAddress()->first();
 
-        // Create new billing address
-        $this->createBillingAddress($supplier, $request);
+            $billingAddressData = [
+                'address_line1' => $request->input('billing_address_line1'),
+                'address_line2' => $request->input('billing_address_line2'),
+                'country_id' => $request->input('billing_country_id'),
+                'city_id' => $request->input('billing_city_id'),
+                'district_id' => $request->input('billing_district_id'),
+                'zone_id' => $request->input('billing_zone_id'),
+                'building' => $request->input('billing_building'),
+                'block' => $request->input('billing_block'),
+                'floor' => $request->input('billing_floor'),
+                'side' => $request->input('billing_side'),
+                'appartment' => $request->input('billing_apartment'),
+                'zip_code' => $request->input('billing_zip_code'),
+            ];
+
+            $billingPivotData = [
+                'address_type' => 'billing',
+                'is_primary' => true,
+                'address_name' => 'Primary Billing Address',
+                'notes' => $request->input('billing_notes'),
+            ];
+
+            if ($existingBillingPivot) {
+                // UPDATE existing address data
+                $existingBillingPivot->update($billingAddressData);
+                // UPDATE pivot data
+                $supplier->addresses()->updateExistingPivot($existingBillingPivot->id, $billingPivotData);
+            } else {
+                // CREATE new address
+                $billingAddress = Address::create($billingAddressData);
+                // Attach to supplier via pivot table
+                $supplier->addresses()->attach($billingAddress->id, $billingPivotData);
+            }
+        } else {
+            // Remove billing address if not provided
+            $billingAddresses = $supplier->billingAddresses()->get();
+            foreach ($billingAddresses as $address) {
+                $supplier->addresses()->detach($address->id);
+                // Optionally delete the address if not used by others
+                $address->delete();
+            }
+        }
     }
 
     private function updateShippingAddresses($supplier, $request)
     {
-        // Remove existing shipping addresses
-        $supplier->shippingAddresses()->detach();
+        // Handle shipping addresses - update existing or create new
+        if ($request->has('shipping_addresses')) {
+            $shippingAddresses = $request->input('shipping_addresses');
+            $existingShippingPivots = $supplier->shippingAddresses()->get()->keyBy('id');
+            $newShippingIds = [];
 
-        // Create new shipping addresses
-        $this->createShippingAddresses($supplier, $request);
+            // First, unset all existing primary shipping addresses to avoid unique constraint violation
+            $existingPrimaryShipping = $supplier->primaryShippingAddress()->first();
+            if ($existingPrimaryShipping) {
+                $supplier->addresses()->updateExistingPivot($existingPrimaryShipping->id, ['is_primary' => false]);
+            }
+
+            foreach ($shippingAddresses as $index => $shippingAddressData) {
+                $shippingAddressDataForTable = [
+                    'address_line1' => $shippingAddressData['address_line1'],
+                    'address_line2' => $shippingAddressData['address_line2'] ?? null,
+                    'country_id' => $shippingAddressData['country_id'],
+                    'city_id' => $shippingAddressData['city_id'],
+                    'district_id' => $shippingAddressData['district_id'] ?? null,
+                    'zone_id' => $shippingAddressData['zone_id'] ?? null,
+                    'building' => $shippingAddressData['building'] ?? null,
+                    'block' => $shippingAddressData['block'] ?? null,
+                    'floor' => $shippingAddressData['floor'] ?? null,
+                    'side' => $shippingAddressData['side'] ?? null,
+                    'appartment' => $shippingAddressData['apartment'] ?? null,
+                    'zip_code' => $shippingAddressData['zip_code'] ?? null,
+                ];
+
+                $shippingPivotData = [
+                    'address_type' => 'shipping',
+                    'is_primary' => $index === 0, // First shipping address is primary
+                    'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
+                    'notes' => $shippingAddressData['notes'] ?? null,
+                ];
+
+                // Check if we should update existing address (by ID if provided)
+                if (isset($shippingAddressData['id']) && $existingShippingPivots->has($shippingAddressData['id'])) {
+                    $existingShipping = $existingShippingPivots->get($shippingAddressData['id']);
+                    // UPDATE existing address data
+                    $existingShipping->update($shippingAddressDataForTable);
+                    // UPDATE pivot data
+                    $supplier->addresses()->updateExistingPivot($existingShipping->id, $shippingPivotData);
+                    $newShippingIds[] = $existingShipping->id;
+                } else {
+                    // CREATE new address
+                    $newAddress = Address::create($shippingAddressDataForTable);
+                    // Attach to supplier via pivot table
+                    $supplier->addresses()->attach($newAddress->id, $shippingPivotData);
+                    $newShippingIds[] = $newAddress->id;
+                }
+            }
+
+            // Delete shipping addresses that were removed
+            $addressesToDelete = array_diff($existingShippingPivots->keys()->toArray(), $newShippingIds);
+            if (! empty($addressesToDelete)) {
+                foreach ($addressesToDelete as $addressId) {
+                    $supplier->addresses()->detach($addressId);
+                    // Optionally delete the address if not used by others
+                    $address = Address::find($addressId);
+                    if ($address) {
+                        // Check if address is used by other customers or suppliers via pivot tables
+                        $usedByCustomers = \DB::table('customer_addresses')->where('address_id', $addressId)->exists();
+                        $usedBySuppliers = \DB::table('supplier_addresses')->where('address_id', $addressId)->exists();
+                        if (! $usedByCustomers && ! $usedBySuppliers) {
+                            $address->delete();
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private function updateContacts($supplier, $request)

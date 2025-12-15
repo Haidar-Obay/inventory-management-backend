@@ -176,11 +176,11 @@ class Customer extends Model implements Auditable
         return $this->hasMany(CustomerOpeningBalance::class)->active();
     }
 
-    // New address relationships using pivot table
+    // Address relationships (many-to-many via customer_addresses pivot table)
     public function addresses()
     {
         return $this->belongsToMany(Address::class, 'customer_addresses')
-            ->withPivot(['address_type', 'is_primary', 'address_name', 'notes'])
+            ->withPivot('address_type', 'is_primary', 'address_name', 'notes')
             ->withTimestamps();
     }
 
@@ -188,7 +188,7 @@ class Customer extends Model implements Auditable
     {
         return $this->belongsToMany(Address::class, 'customer_addresses')
             ->wherePivot('address_type', 'billing')
-            ->withPivot(['is_primary', 'address_name', 'notes'])
+            ->withPivot('address_type', 'is_primary', 'address_name', 'notes')
             ->withTimestamps();
     }
 
@@ -196,7 +196,7 @@ class Customer extends Model implements Auditable
     {
         return $this->belongsToMany(Address::class, 'customer_addresses')
             ->wherePivot('address_type', 'shipping')
-            ->withPivot(['is_primary', 'address_name', 'notes'])
+            ->withPivot('address_type', 'is_primary', 'address_name', 'notes')
             ->withTimestamps();
     }
 
@@ -205,7 +205,7 @@ class Customer extends Model implements Auditable
         return $this->belongsToMany(Address::class, 'customer_addresses')
             ->wherePivot('address_type', 'billing')
             ->wherePivot('is_primary', true)
-            ->withPivot(['address_name', 'notes'])
+            ->withPivot('address_type', 'is_primary', 'address_name', 'notes')
             ->withTimestamps();
     }
 
@@ -214,7 +214,7 @@ class Customer extends Model implements Auditable
         return $this->belongsToMany(Address::class, 'customer_addresses')
             ->wherePivot('address_type', 'shipping')
             ->wherePivot('is_primary', true)
-            ->withPivot(['address_name', 'notes'])
+            ->withPivot('address_type', 'is_primary', 'address_name', 'notes')
             ->withTimestamps();
     }
 

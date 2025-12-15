@@ -106,6 +106,20 @@ return new class extends Migration
             $table->string('notes')->nullable();
             $table->timestamps();
         });
+
+        // Add foreign key constraint to addresses table if it exists
+        if (Schema::hasTable('addresses') && Schema::hasColumn('addresses', 'customer_id')) {
+            try {
+                Schema::table('addresses', function (Blueprint $table) {
+                    $table->foreign('customer_id')
+                        ->references('id')
+                        ->on('customers')
+                        ->onDelete('cascade');
+                });
+            } catch (\Exception $e) {
+                // Foreign key might already exist, ignore
+            }
+        }
     }
 
     public function down(): void
