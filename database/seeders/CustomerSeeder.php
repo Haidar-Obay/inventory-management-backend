@@ -287,7 +287,7 @@ class CustomerSeeder extends Seeder
                 'district_id' => $districtId,
             ]);
 
-            // Attach shipping address via pivot (PRIMARY - only one shipping address)
+            // Attach to customer via pivot table
             $customer->addresses()->attach($shippingAddress->id, [
                 'address_type' => 'shipping',
                 'is_primary' => true,
@@ -311,7 +311,7 @@ class CustomerSeeder extends Seeder
                 'district_id' => $districtId,
             ]);
 
-            // Attach billing address via pivot (PRIMARY - first billing address)
+            // Attach to customer via pivot table
             $customer->addresses()->attach($billingAddress->id, [
                 'address_type' => 'billing',
                 'is_primary' => true,
@@ -321,7 +321,7 @@ class CustomerSeeder extends Seeder
 
             // Create additional billing addresses (NON-PRIMARY) - multiple billing addresses allowed
             if ($faker->boolean(70)) {
-                $secondaryBillingAddress = Address::create([
+                $additionalBillingAddress = Address::create([
                     'address_line1' => $faker->streetAddress(),
                     'address_line2' => $faker->optional()->secondaryAddress(),
                     'building' => $faker->optional()->buildingNumber(),
@@ -336,8 +336,8 @@ class CustomerSeeder extends Seeder
                     'district_id' => $districtId,
                 ]);
 
-                // Attach secondary billing address (NON-PRIMARY)
-                $customer->addresses()->attach($secondaryBillingAddress->id, [
+                // Attach to customer via pivot table
+                $customer->addresses()->attach($additionalBillingAddress->id, [
                     'address_type' => 'billing',
                     'is_primary' => false,
                     'address_name' => 'Secondary Billing Address',

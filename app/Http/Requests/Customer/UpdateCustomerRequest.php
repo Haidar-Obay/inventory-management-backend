@@ -24,6 +24,11 @@ class UpdateCustomerRequest extends FormRequest
         if ($this->has('data')) {
             $data = json_decode($this->input('data'), true);
             if (is_array($data)) {
+                // If files are being uploaded via 'attachments' field, exclude attachments from merged data
+                // to avoid validation conflict (Laravel will see attachments as file uploads, not array)
+                if ($this->hasFile('attachments')) {
+                    unset($data['attachments']);
+                }
                 $this->merge($data);
             }
         }
@@ -429,7 +434,12 @@ class UpdateCustomerRequest extends FormRequest
             'shipping_address.zip_code' => 'sometimes|nullable|string|max:20',
 
             // Attachments (handled separately in controller)
-            'attachments' => 'sometimes|nullable|array',
+            // Attachments: support both file uploads and/or metadata
+            // When files are uploaded, Laravel automatically validates them as files
+            // When only metadata is provided, validate as array
+            // We exclude attachments from merged data when files are present (in prepareForValidation)
+            // So validation only runs on array when no files are present
+            'attachments' => 'nullable',
             'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,docx,xlsx,txt|max:10240',
 
             // Credit limits validation (matching controller logic)

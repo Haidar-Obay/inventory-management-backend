@@ -24,6 +24,11 @@ class UpdateSupplierRequest extends FormRequest
         if ($this->has('data')) {
             $data = json_decode($this->input('data'), true);
             if (is_array($data)) {
+                // If files are being uploaded via 'attachments' field, exclude attachments from merged data
+                // to avoid validation conflict (Laravel will see attachments as file uploads, not array)
+                if ($this->hasFile('attachments')) {
+                    unset($data['attachments']);
+                }
                 $this->merge($data);
             }
         }
@@ -154,8 +159,11 @@ class UpdateSupplierRequest extends FormRequest
             'contacts.*.is_primary' => ['nullable', 'boolean'],
 
             // Attachments: support both file uploads and/or metadata
-            // If files are uploaded via multipart, validate size/mimes per item
-            'attachments' => ['nullable', 'array'],
+            // When files are uploaded, Laravel automatically validates them as files
+            // When only metadata is provided, validate as array
+            // We exclude attachments from merged data when files are present (in prepareForValidation)
+            // So validation only runs on array when no files are present
+            'attachments' => ['nullable'],
             'attachments.*' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,docx,xlsx,txt', 'max:10240'],
             // If only metadata is provided (no files), these are optional per item
             'attachments.*.file_name' => ['sometimes', 'nullable', 'string', 'max:255'],
