@@ -384,6 +384,7 @@ class SchedulerService
             'active' => '#10b981',        // Green - before start time
             'in_progress' => '#3b82f6',   // Blue - currently happening
             'completed' => '#6b7280',     // Gray - after end time
+            'cancelled' => '#ef4444',     // Red - cancelled
             default => '#10b981',
         };
     }

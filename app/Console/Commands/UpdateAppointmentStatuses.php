@@ -20,7 +20,7 @@ class UpdateAppointmentStatuses extends Command
      *
      * @var string
      */
-    protected $description = 'Update appointment statuses based on current time (active, in_progress, completed). Recommended: Run every 5-15 minutes via cron.';
+    protected $description = 'Update appointment statuses to active if before start_at. in_progress and completed are managed by visits. Recommended: Run every 5-15 minutes via cron.';
 
     /**
      * Execute the console command.
@@ -37,26 +37,26 @@ class UpdateAppointmentStatuses extends Command
 
         foreach ($tenants as $tenant) {
             $tenant->run(function () use ($now, $tenant, &$totalUpdated) {
-                // Get appointments that might need status updates
-                // Check all appointments to ensure accuracy
-                $appointments = Appointment::where(function ($query) use ($now) {
-                    // Get appointments that are either:
-                    // 1. Active but should be in_progress or completed
-                    // 2. In progress but should be completed
+                // Get appointments that might need status updates to 'active'
+                // Exclude appointments managed by visits (in_progress, completed, cancelled)
+                // Only update appointments that should be 'active' (before start_at)
+                $appointments = Appointment::whereNotIn('status', ['in_progress', 'completed', 'cancelled'])
+                    ->where(function ($query) use ($now) {
+                        // Get appointments that are:
+                        // 1. null status or 'active' status and before start_at (should be active)
                     $query->where(function ($q) use ($now) {
-                        $q->where('status', 'active')
-                            ->where('start_at', '<=', $now);
-                    })->orWhere(function ($q) use ($now) {
-                        $q->where('status', 'in_progress')
-                            ->where('end_at', '<=', $now);
+                            $q->where(function ($q2) {
+                                $q2->whereNull('status')->orWhere('status', 'active');
+                            })->where('start_at', '>', $now);
                     });
                 })->get();
 
                 $updated = 0;
                 foreach ($appointments as $appointment) {
-                    $newStatus = $appointment->calculateStatus();
-                    if ($appointment->status !== $newStatus) {
-                        $appointment->status = $newStatus;
+                    $calculatedStatus = $appointment->calculateStatus();
+                    // Only set to 'active' if calculated status is 'active'
+                    if ($calculatedStatus === 'active' && $appointment->status !== 'active') {
+                        $appointment->status = 'active';
                         $appointment->saveQuietly();
                         $updated++;
                     }

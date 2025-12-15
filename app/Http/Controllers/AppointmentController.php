@@ -90,6 +90,7 @@ class AppointmentController extends Controller
     protected function loadServiceRelations(Appointment $appointment): void
     {
         // Load services with pivot data if not already loaded
+        // Don't use select() in closure as it causes SQL errors with belongsToMany relationships
         if (! $appointment->relationLoaded('services')) {
             $appointment->load('services:id,name');
         }
@@ -200,24 +201,19 @@ class AppointmentController extends Controller
             $startAt = $appointment->start_at;
             $endAt = $appointment->end_at;
 
-            // Only recalculate if:
-            // 1. Status is 'active' and start_at has passed (might be in_progress or completed)
-            // 2. Status is 'in_progress' and end_at has passed (might be completed)
-            // 3. Status is 'completed' but end_at hasn't passed yet (shouldn't happen, but check anyway)
-            $needsCheck = false;
-
-            if ($appointment->status === 'active' && $now->gte($startAt)) {
-                $needsCheck = true;
-            } elseif ($appointment->status === 'in_progress' && $endAt && $now->gt($endAt)) {
-                $needsCheck = true;
-            } elseif ($appointment->status === 'completed' && $endAt && $now->lte($endAt)) {
-                $needsCheck = true; // Edge case: shouldn't be completed if not past end
+            // Skip appointments that are managed by visits (in_progress, completed, cancelled)
+            // These statuses are set manually via visits, not auto-calculated
+            if (in_array($appointment->status, ['in_progress', 'completed', 'cancelled'])) {
+                continue;
             }
 
-            if ($needsCheck) {
-                $newStatus = $appointment->calculateStatus();
-                if ($appointment->status !== $newStatus) {
-                    $appointment->status = $newStatus;
+            // Only auto-calculate 'active' status if we're before start_at
+            // Once start_at passes, status should be managed by visits, not auto-calculated
+            if ($appointment->status === 'active' || $appointment->status === null) {
+                $calculatedStatus = $appointment->calculateStatus();
+                // Only update if calculated status is 'active' and different from current
+                if ($calculatedStatus === 'active' && $appointment->status !== 'active') {
+                    $appointment->status = 'active';
                     $appointment->saveQuietly(); // Save without triggering events to avoid recursion
                     $updated = true;
                 }
@@ -374,13 +370,16 @@ class AppointmentController extends Controller
         $cachedAppointment = app('cache')->store('database')->get($key);
 
         if (! $cachedAppointment || $appointment->status !== $newStatus) {
+            // Load relationships - load services without column restrictions to avoid SQL errors
+            // The belongsToMany relationship has issues when selecting specific columns
             $cachedAppointment = $appointment->load([
                 'service:id,name',
-                'services:id,name',
+                'services', // Load all columns to avoid SQL subquery issues
                 'customers:id,first_name,middle_name,last_name',
             ]);
 
             // Load specialists and assets for services
+            // Note: services should already be loaded above, so loadServiceRelations won't reload it
             $this->loadServiceRelations($cachedAppointment);
 
             app('cache')->store('database')->forever($key, $cachedAppointment);
@@ -396,6 +395,22 @@ class AppointmentController extends Controller
     public function update(UpdateAppointmentRequest $request, Appointment $appointment)
     {
         $validated = $request->validated();
+
+        // Get status and cancellation_reason directly from request (not from validated, as they're not in validation rules)
+        $statusFromRequest = $request->input('status');
+        $cancellationReasonFromRequest = $request->input('cancellation_reason');
+
+        // If appointment is already cancelled, block any updates
+        // except when explicitly undoing cancellation (status => 'active')
+        if ($appointment->status === 'cancelled') {
+            // Allow only explicit undo to active
+            if ($statusFromRequest !== 'active') {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'This appointment is cancelled and cannot be updated. Please undo the cancellation first.',
+                ], 422);
+            }
+        }
 
         // Extract customer IDs if provided (optional on update)
         $customerIds = $validated['customer_ids'] ?? null;
@@ -422,11 +437,60 @@ class AppointmentController extends Controller
 
         // Validation and restrictions are handled by AppointmentValidationService in the request
         // Status will be auto-calculated by the model's boot method if time fields change
-
-        // Remove status from validated data if present (shouldn't be, but just in case)
+        // However, allow manual status updates for 'cancelled' status (set via visits/cancellation)
+        
+        // Handle status update separately for 'cancelled' or 'active' (undo cancel)
+        // Get from request directly (also check validated in case validation rules include it)
+        $statusToUpdate = null;
+        $cancellationReason = null;
+        
+        // Check both request input and validated (in case validation rules include it)
+        $statusValue = $statusFromRequest ?? $validated['status'] ?? null;
+        $cancellationReasonValue = $cancellationReasonFromRequest ?? $validated['cancellation_reason'] ?? null;
+        
+        // Handle cancellation or undo cancellation
+        if ($statusValue === 'cancelled') {
+            $statusToUpdate = 'cancelled';
+            $cancellationReason = $cancellationReasonValue;
+        } elseif ($statusValue === 'active' && $appointment->status === 'cancelled') {
+            // Undo cancellation: set to active and clear cancellation reason
+            $statusToUpdate = 'active';
+            $cancellationReason = null;
+        }
+        
+        // Remove status and cancellation_reason from validated if present (we handle them separately)
         unset($validated['status']);
+        unset($validated['cancellation_reason']);
 
+        // Update other fields first
+        if (!empty($validated)) {
         $appointment->update($validated);
+        }
+        
+        // Update status, cancellation_reason, and cancelled date/time separately if cancelling or undoing cancellation
+        // Use saveQuietly to bypass boot method auto-calculation
+        if ($statusToUpdate === 'cancelled') {
+            $appointment->status = 'cancelled';
+            $appointment->cancellation_reason = $cancellationReason;
+            // Fill cancelled_date and cancelled_time automatically
+            $now = now();
+            $appointment->cancelled_date = $now->toDateString();
+            $appointment->cancelled_time = $now->format('H:i:s');
+            $appointment->saveQuietly(); // Bypass boot method to prevent auto-recalculation
+        } elseif ($statusToUpdate === 'active') {
+            // Undo cancellation: restore to active and clear cancellation reason
+            $appointment->status = 'active';
+            $appointment->cancellation_reason = null;
+            // Clear cancelled_date and cancelled_time
+            $appointment->cancelled_date = null;
+            $appointment->cancelled_time = null;
+            $appointment->saveQuietly(); // Bypass boot method to prevent auto-recalculation
+        }
+        
+        // Refresh the model to ensure changes are reflected
+        if ($statusToUpdate) {
+            $appointment->refresh();
+        }
 
         // Sync customers if provided; allow clearing by sending empty array
         if ($request->has('customer_ids')) {
