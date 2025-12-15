@@ -438,16 +438,16 @@ class AppointmentController extends Controller
         // Validation and restrictions are handled by AppointmentValidationService in the request
         // Status will be auto-calculated by the model's boot method if time fields change
         // However, allow manual status updates for 'cancelled' status (set via visits/cancellation)
-        
+
         // Handle status update separately for 'cancelled' or 'active' (undo cancel)
         // Get from request directly (also check validated in case validation rules include it)
         $statusToUpdate = null;
         $cancellationReason = null;
-        
+
         // Check both request input and validated (in case validation rules include it)
         $statusValue = $statusFromRequest ?? $validated['status'] ?? null;
         $cancellationReasonValue = $cancellationReasonFromRequest ?? $validated['cancellation_reason'] ?? null;
-        
+
         // Handle cancellation or undo cancellation
         if ($statusValue === 'cancelled') {
             $statusToUpdate = 'cancelled';
@@ -457,16 +457,16 @@ class AppointmentController extends Controller
             $statusToUpdate = 'active';
             $cancellationReason = null;
         }
-        
+
         // Remove status and cancellation_reason from validated if present (we handle them separately)
         unset($validated['status']);
         unset($validated['cancellation_reason']);
 
         // Update other fields first
-        if (!empty($validated)) {
-        $appointment->update($validated);
+        if (! empty($validated)) {
+            $appointment->update($validated);
         }
-        
+
         // Update status, cancellation_reason, and cancelled date/time separately if cancelling or undoing cancellation
         // Use saveQuietly to bypass boot method auto-calculation
         if ($statusToUpdate === 'cancelled') {
@@ -486,7 +486,7 @@ class AppointmentController extends Controller
             $appointment->cancelled_time = null;
             $appointment->saveQuietly(); // Bypass boot method to prevent auto-recalculation
         }
-        
+
         // Refresh the model to ensure changes are reflected
         if ($statusToUpdate) {
             $appointment->refresh();

@@ -89,9 +89,9 @@ class Appointment extends Model implements Auditable
                 $manualStatuses = ['in_progress', 'completed', 'cancelled'];
                 $isManualStatus = in_array($appointment->status, $manualStatuses);
                 $statusWasManuallySet = $appointment->isDirty('status') && $appointment->getOriginal('status') !== null;
-                
+
                 // Only auto-calculate if status is not manually set and not a visit-managed status
-                if (!$isManualStatus && !$statusWasManuallySet) {
+                if (! $isManualStatus && ! $statusWasManuallySet) {
                     $calculatedStatus = $appointment->calculateStatus();
                     // Only set to 'active' if calculated status is 'active'
                     // Don't change if it's already in_progress, completed, or cancelled
