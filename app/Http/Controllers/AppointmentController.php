@@ -8,17 +8,119 @@ use App\Http\Requests\Appointment\StoreAppointmentRequest;
 use App\Http\Requests\Appointment\UpdateAppointmentRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Appointment;
+use App\Models\Asset;
+use App\Models\Service;
+use App\Models\Specialist;
+use App\Services\AppointmentAvailabilityService;
+use App\Services\AppointmentRestrictionService;
 use App\Services\SchedulerService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class AppointmentController extends Controller
 {
     protected SchedulerService $schedulerService;
 
-    public function __construct(SchedulerService $schedulerService)
-    {
+    protected AppointmentAvailabilityService $availabilityService;
+
+    protected AppointmentRestrictionService $restrictionService;
+
+    public function __construct(
+        SchedulerService $schedulerService,
+        AppointmentAvailabilityService $availabilityService,
+        AppointmentRestrictionService $restrictionService
+    ) {
         $this->schedulerService = $schedulerService;
+        $this->availabilityService = $availabilityService;
+        $this->restrictionService = $restrictionService;
+    }
+
+    /**
+     * Find an available asset for a service during the specified time period
+     *
+     * @param  int  $serviceId  Service ID
+     * @param  string  $startAt  Start datetime
+     * @param  string|null  $endAt  End datetime
+     * @param  int|null  $excludeAppointmentId  Appointment ID to exclude (for updates)
+     * @return int|null|false Returns asset ID if found, null if service has no related assets, false if no assets available
+     */
+    protected function findAvailableAssetForService(int $serviceId, string $startAt, ?string $endAt = null, ?int $excludeAppointmentId = null)
+    {
+        $service = Service::find($serviceId);
+        if (! $service) {
+            return null; // Service not found - let validation handle this
+        }
+
+        // Get all assets related to this service
+        $serviceAssets = $service->assets()->where('status', 'active')->get();
+
+        // If service has no related assets, return null (allowed)
+        if ($serviceAssets->isEmpty()) {
+            return null;
+        }
+
+        // Check each asset for availability
+        $startDateTime = Carbon::parse($startAt);
+        $endDateTime = $endAt ? Carbon::parse($endAt) : $startDateTime->copy()->addHour();
+
+        foreach ($serviceAssets as $asset) {
+            // Check if asset is available using the restriction service
+            $assetError = $this->restrictionService->checkAssetAvailability(
+                $asset->id,
+                $startAt,
+                $endAt,
+                $excludeAppointmentId
+            );
+
+            // If no error, asset is available
+            if (! $assetError) {
+                return $asset->id;
+            }
+        }
+
+        // Service has related assets but none are available
+        return false;
+    }
+
+    /**
+     * Helper method to load specialists and assets for services based on pivot data
+     */
+    protected function loadServiceRelations(Appointment $appointment): void
+    {
+        // Load services with pivot data if not already loaded
+        if (! $appointment->relationLoaded('services')) {
+            $appointment->load('services:id,name');
+        }
+
+        // Get unique specialist and asset IDs from pivot
+        $specialistIds = $appointment->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
+        $assetIds = $appointment->services->pluck('pivot.asset_id')->filter()->unique()->toArray();
+
+        // Load specialists and assets
+        $specialists = $specialistIds ? Specialist::whereIn('id', $specialistIds)->get()->keyBy('id') : collect();
+        $assets = $assetIds ? Asset::with([
+            'section:id,name,room_id',
+            'section.room:id,name,location',
+        ])
+            ->whereIn('id', $assetIds)
+            ->get()
+            ->keyBy('id') : collect();
+
+        // Attach specialists and assets to services
+        $appointment->services->each(function ($service) use ($specialists, $assets) {
+            $specialistId = $service->pivot->specialist_id ?? null;
+            $assetId = $service->pivot->asset_id ?? null;
+
+            if ($specialistId && $specialists->has($specialistId)) {
+                $service->setRelation('specialist', $specialists->get($specialistId));
+            }
+
+            if ($assetId && $assets->has($assetId)) {
+                $service->setRelation('asset', $assets->get($assetId));
+            }
+        });
     }
 
     public function index(Request $request)
@@ -42,11 +144,7 @@ class AppointmentController extends Controller
 
         if (! $appointments) {
             $query = Appointment::with([
-                'asset:id,name,type,status,section_id',
-                'asset.section:id,name,room_id',
-                'asset.section.room:id,name,location',
-                'specialist:id,name',
-                'service:id,name',
+                'services:id,name',
                 'customers:id,first_name,middle_name,last_name',
             ]);
 
@@ -59,6 +157,11 @@ class AppointmentController extends Controller
             }
 
             $appointments = $query->orderBy('start_at', 'desc')->get();
+
+            // Load specialists and assets for services in each appointment
+            $appointments->each(function ($appointment) {
+                $this->loadServiceRelations($appointment);
+            });
 
             // Recalculate status for appointments that might have changed
             $this->updateAppointmentStatuses($appointments);
@@ -136,6 +239,25 @@ class AppointmentController extends Controller
         $customerIds = $validated['customer_ids'] ?? null;
         unset($validated['customer_ids']);
 
+        // Extract services data - supports both formats:
+        // 1. service_ids array (simple array of IDs)
+        // 2. services array (array of objects with service_id and specialist_id)
+        $services = $validated['services'] ?? null;
+        $serviceIds = $validated['service_ids'] ?? null;
+        unset($validated['services'], $validated['service_ids']);
+
+        // Handle legacy service_id for backward compatibility
+        // If service_id is provided but services/service_ids is not, convert service_id to services array
+        if (isset($validated['service_id']) && $validated['service_id'] && ! $services && ! $serviceIds) {
+            $services = [
+                [
+                    'service_id' => $validated['service_id'],
+                    'specialist_id' => null, // No appointment-level specialist_id anymore
+                ],
+            ];
+        }
+        unset($validated['service_id']);
+
         // Validation is handled by AppointmentValidationService in the request
         // Restrictions are checked automatically based on scheduler_mode
         // Status will be auto-calculated by the model's boot method
@@ -151,28 +273,89 @@ class AppointmentController extends Controller
             $appointment->customers()->sync($customerIds);
         }
 
+        // Attach services with their specialists and assets if provided
+        if (! empty($services) && is_array($services)) {
+            // Format: [['service_id' => 1, 'specialist_id' => 5, 'asset_id' => 3], ...]
+            $syncData = [];
+            foreach ($services as $serviceData) {
+                $serviceId = is_array($serviceData) ? ($serviceData['service_id'] ?? $serviceData) : $serviceData;
+                $specialistId = is_array($serviceData) ? ($serviceData['specialist_id'] ?? null) : null;
+                $assetId = is_array($serviceData) ? ($serviceData['asset_id'] ?? null) : null;
+
+                // If asset_id is not provided, automatically assign an available asset
+                if (! $assetId) {
+                    $assetId = $this->findAvailableAssetForService($serviceId, $appointment->start_at, $appointment->end_at);
+                    if ($assetId === false) {
+                        // Service has related assets but none are available - fail the appointment
+                        $appointment->delete(); // Rollback the appointment
+
+                        return response()->json([
+                            'status' => false,
+                            'message' => 'No available assets found for the selected service during this time period.',
+                        ], 422);
+                    }
+                    // $assetId can be null if service has no related assets (which is allowed)
+                }
+
+                $syncData[$serviceId] = [
+                    'specialist_id' => $specialistId,
+                    'asset_id' => $assetId,
+                ];
+            }
+            $appointment->services()->sync($syncData);
+        } elseif (! empty($serviceIds) && is_array($serviceIds)) {
+            // Simple array format - automatically assign assets for each service
+            $syncData = [];
+            foreach ($serviceIds as $serviceId) {
+                $assetId = $this->findAvailableAssetForService($serviceId, $appointment->start_at, $appointment->end_at);
+                if ($assetId === false) {
+                    // Service has related assets but none are available - fail the appointment
+                    $appointment->delete(); // Rollback the appointment
+
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'No available assets found for the selected service during this time period.',
+                    ], 422);
+                }
+                $syncData[$serviceId] = [
+                    'specialist_id' => null,
+                    'asset_id' => $assetId,
+                ];
+            }
+            $appointment->services()->sync($syncData);
+        }
+
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
 
-        // Clear scheduler cache for specialist and asset if they exist
-        if ($appointment->specialist_id) {
-            $this->schedulerService->clearCache('App\Models\Specialist', $appointment->specialist_id);
+        // Clear scheduler cache for specialists and assets if they exist
+        // Clear cache for all service-level specialists and assets
+        if (! empty($services) && is_array($services)) {
+            foreach ($services as $serviceData) {
+                $specialistId = is_array($serviceData) ? ($serviceData['specialist_id'] ?? null) : null;
+                $assetId = is_array($serviceData) ? ($serviceData['asset_id'] ?? null) : null;
+                if ($specialistId) {
+                    $this->schedulerService->clearCache('App\Models\Specialist', $specialistId);
+                }
+                if ($assetId) {
+                    $this->schedulerService->clearCache('App\Models\Asset', $assetId);
+                }
+            }
         }
-        if ($appointment->asset_id) {
-            $this->schedulerService->clearCache('App\Models\Asset', $appointment->asset_id);
-        }
+
+        // Load services and customers
+        $appointment->load([
+            'services:id,name',
+            'customers:id,first_name,middle_name,last_name',
+        ]);
+
+        // Load specialists and assets for services
+        $this->loadServiceRelations($appointment);
 
         return response()->json([
             'status' => true,
             'message' => 'Appointment created successfully.',
-            'data' => $appointment->load([
-                'asset:id,name,type,status,section_id',
-                'asset.section:id,name,room_id',
-                'asset.section.room:id,name,location',
-                'specialist:id,name',
-                'service:id,name',
-                'customers:id,first_name,middle_name,last_name',
-            ]),
+            'data' => $appointment,
         ], 201);
     }
 
@@ -192,12 +375,13 @@ class AppointmentController extends Controller
 
         if (! $cachedAppointment || $appointment->status !== $newStatus) {
             $cachedAppointment = $appointment->load([
-                'asset:id,name,type,status,section_id',
-                'asset.section:id,name,room_id',
-                'asset.section.room:id,name,location',
-                'specialist:id,name',
+                'service:id,name',
+                'services:id,name',
                 'customers:id,first_name,middle_name,last_name',
             ]);
+
+            // Load specialists and assets for services
+            $this->loadServiceRelations($cachedAppointment);
 
             app('cache')->store('database')->forever($key, $cachedAppointment);
         }
@@ -217,11 +401,27 @@ class AppointmentController extends Controller
         $customerIds = $validated['customer_ids'] ?? null;
         unset($validated['customer_ids']);
 
+        // Extract services data - supports both formats:
+        // 1. service_ids array (simple array of IDs)
+        // 2. services array (array of objects with service_id and specialist_id)
+        $services = $validated['services'] ?? null;
+        $serviceIds = $validated['service_ids'] ?? null;
+        unset($validated['services'], $validated['service_ids']);
+
+        // Handle legacy service_id for backward compatibility
+        if (isset($validated['service_id']) && $validated['service_id'] && ! $services && ! $serviceIds) {
+            $services = [
+                [
+                    'service_id' => $validated['service_id'],
+                    'specialist_id' => null, // No appointment-level specialist_id anymore
+                    'asset_id' => null, // No appointment-level asset_id anymore
+                ],
+            ];
+        }
+        unset($validated['service_id']);
+
         // Validation and restrictions are handled by AppointmentValidationService in the request
         // Status will be auto-calculated by the model's boot method if time fields change
-
-        $oldSpecialistId = $appointment->specialist_id;
-        $oldAssetId = $appointment->asset_id;
 
         // Remove status from validated data if present (shouldn't be, but just in case)
         unset($validated['status']);
@@ -233,41 +433,132 @@ class AppointmentController extends Controller
             $appointment->customers()->sync($customerIds ?? []);
         }
 
+        // Sync services with their specialists and assets if provided
+        if ($request->has('services') || $request->has('service_ids') || $request->has('service_id')) {
+            if (is_array($services)) {
+                // Format: [['service_id' => 1, 'specialist_id' => 5, 'asset_id' => 3], ...]
+                // Handle empty array to clear all services
+                if (empty($services)) {
+                    $appointment->services()->sync([]);
+                } else {
+                    $syncData = [];
+                    foreach ($services as $serviceData) {
+                        $serviceId = is_array($serviceData) ? ($serviceData['service_id'] ?? $serviceData) : $serviceData;
+                        if ($serviceId) {
+                            $specialistId = is_array($serviceData) ? ($serviceData['specialist_id'] ?? null) : null;
+                            $assetId = is_array($serviceData) ? ($serviceData['asset_id'] ?? null) : null;
+
+                            // If asset_id is not provided, automatically assign an available asset
+                            if (! $assetId) {
+                                $assetId = $this->findAvailableAssetForService($serviceId, $appointment->start_at, $appointment->end_at, $appointment->id);
+                                if ($assetId === false) {
+                                    // Service has related assets but none are available - fail the update
+                                    return response()->json([
+                                        'status' => false,
+                                        'message' => 'No available assets found for the selected service during this time period.',
+                                    ], 422);
+                                }
+                                // $assetId can be null if service has no related assets (which is allowed)
+                            }
+
+                            $syncData[$serviceId] = [
+                                'specialist_id' => $specialistId,
+                                'asset_id' => $assetId,
+                            ];
+                        }
+                    }
+                    $appointment->services()->sync($syncData);
+                }
+            } elseif (! empty($serviceIds) && is_array($serviceIds)) {
+                // Simple array format - automatically assign assets for each service
+                $existingServices = $appointment->services()->get();
+                $syncData = [];
+                foreach ($serviceIds as $serviceId) {
+                    $existing = $existingServices->firstWhere('id', $serviceId);
+                    $assetId = $existing->pivot->asset_id ?? null;
+
+                    // If no existing asset, try to find an available one
+                    if (! $assetId) {
+                        $assetId = $this->findAvailableAssetForService($serviceId, $appointment->start_at, $appointment->end_at, $appointment->id);
+                        if ($assetId === false) {
+                            // Service has related assets but none are available - fail the update
+                            return response()->json([
+                                'status' => false,
+                                'message' => 'No available assets found for the selected service during this time period.',
+                            ], 422);
+                        }
+                    }
+
+                    $syncData[$serviceId] = [
+                        'specialist_id' => $existing->pivot->specialist_id ?? null,
+                        'asset_id' => $assetId,
+                    ];
+                }
+                $appointment->services()->sync($syncData);
+            } else {
+                // Clear all services
+                $appointment->services()->sync([]);
+            }
+        }
+
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointment_{$appointment->id}");
 
-        // Clear scheduler cache for old and new specialist/asset
-        if ($oldSpecialistId) {
-            $this->schedulerService->clearCache('App\Models\Specialist', $oldSpecialistId);
+        // Clear cache for all service-level specialists and assets (old and new)
+        $oldServiceData = DB::table('appointment_service')
+            ->where('appointment_id', $appointment->id)
+            ->get();
+
+        $oldServiceSpecialists = $oldServiceData->pluck('specialist_id')->filter()->unique()->toArray();
+        $oldServiceAssets = $oldServiceData->pluck('asset_id')->filter()->unique()->toArray();
+
+        foreach ($oldServiceSpecialists as $specialistId) {
+            $this->schedulerService->clearCache('App\Models\Specialist', $specialistId);
         }
-        if ($appointment->specialist_id && $appointment->specialist_id !== $oldSpecialistId) {
-            $this->schedulerService->clearCache('App\Models\Specialist', $appointment->specialist_id);
+        foreach ($oldServiceAssets as $assetId) {
+            $this->schedulerService->clearCache('App\Models\Asset', $assetId);
         }
-        if ($oldAssetId) {
-            $this->schedulerService->clearCache('App\Models\Asset', $oldAssetId);
+
+        if (! empty($services) && is_array($services)) {
+            foreach ($services as $serviceData) {
+                $specialistId = is_array($serviceData) ? ($serviceData['specialist_id'] ?? null) : null;
+                $assetId = is_array($serviceData) ? ($serviceData['asset_id'] ?? null) : null;
+                if ($specialistId && ! in_array($specialistId, $oldServiceSpecialists)) {
+                    $this->schedulerService->clearCache('App\Models\Specialist', $specialistId);
+                }
+                if ($assetId && ! in_array($assetId, $oldServiceAssets)) {
+                    $this->schedulerService->clearCache('App\Models\Asset', $assetId);
+                }
+            }
         }
-        if ($appointment->asset_id && $appointment->asset_id !== $oldAssetId) {
-            $this->schedulerService->clearCache('App\Models\Asset', $appointment->asset_id);
-        }
+
+        // Load services and customers
+        $appointment->load([
+            'services:id,name',
+            'customers:id,first_name,middle_name,last_name',
+        ]);
+
+        // Load specialists and assets for services
+        $this->loadServiceRelations($appointment);
 
         return response()->json([
             'status' => true,
             'message' => 'Appointment updated successfully.',
-            'data' => $appointment->load([
-                'asset:id,name,type,status,section_id',
-                'asset.section:id,name,room_id',
-                'asset.section.room:id,name,location',
-                'specialist:id,name',
-                'service:id,name',
-                'customers:id,first_name,middle_name,last_name',
-            ]),
+            'data' => $appointment,
         ]);
     }
 
     public function destroy(Appointment $appointment)
     {
-        $specialistId = $appointment->specialist_id;
+        // Get all specialists from pivot table before deletion
+        $specialistIds = DB::table('appointment_service')
+            ->where('appointment_id', $appointment->id)
+            ->whereNotNull('specialist_id')
+            ->pluck('specialist_id')
+            ->unique()
+            ->toArray();
+
         $assetId = $appointment->asset_id;
 
         $appointment->delete();
@@ -276,8 +567,8 @@ class AppointmentController extends Controller
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
         app('cache')->store('database')->forget("tenant_{$tenantId}_appointment_{$appointment->id}");
 
-        // Clear scheduler cache for specialist and asset if they exist
-        if ($specialistId) {
+        // Clear scheduler cache for all specialists and asset if they exist
+        foreach ($specialistIds as $specialistId) {
             $this->schedulerService->clearCache('App\Models\Specialist', $specialistId);
         }
         if ($assetId) {
@@ -337,8 +628,8 @@ class AppointmentController extends Controller
             return response()->json(['message' => 'No appointments found.'], 404);
         }
 
-        $columns = ['id', 'asset_id', 'specialist_id', 'start_at', 'end_at', 'status', 'notes', 'created_at', 'updated_at'];
-        $headings = ['ID', 'Asset ID', 'Specialist ID', 'Start At', 'End At', 'Status', 'Notes', 'Created At', 'Updated At'];
+        $columns = ['id', 'asset_id', 'start_at', 'end_at', 'status', 'notes', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Asset ID', 'Start At', 'End At', 'Status', 'Notes', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($appointments, $columns, $headings), 'appointments.xlsx');
     }
@@ -350,7 +641,8 @@ class AppointmentController extends Controller
             'asset.section:id,name,room_id',
             'asset.section.room:id,name,location',
             'specialist:id,name',
-        ])->select('id', 'asset_id', 'specialist_id', 'start_at', 'end_at', 'status', 'notes')->get();
+            'services:id,name',
+        ])->select('id', 'asset_id', 'start_at', 'end_at', 'status', 'notes')->get();
 
         if ($appointments->isEmpty()) {
             return response()->json(['message' => 'No appointments found.'], 404);
@@ -360,7 +652,6 @@ class AppointmentController extends Controller
         $headers = [
             'id' => 'Appointment ID',
             'asset_id' => 'Asset ID',
-            'specialist_id' => 'Specialist ID',
             'start_at' => 'Start At',
             'end_at' => 'End At',
             'status' => 'Status',
@@ -395,7 +686,7 @@ class AppointmentController extends Controller
 
         // If type is 'mapping', use provided mapping, else use default
         $mapping = $request->input('mapping');
-        $fields = $mapping ? array_values($mapping) : ['asset_id', 'specialist_id', 'start_at', 'end_at', 'status', 'notes'];
+        $fields = $mapping ? array_values($mapping) : ['asset_id', 'start_at', 'end_at', 'status', 'notes'];
 
         $import = new DynamicExcelImport(
             Appointment::class,
@@ -403,13 +694,9 @@ class AppointmentController extends Controller
             function ($row) use ($mapping) {
                 $errors = [];
                 $assetIdKey = $mapping ? array_search('asset_id', $mapping) : 'asset_id';
-                $specialistIdKey = $mapping ? array_search('specialist_id', $mapping) : 'specialist_id';
 
                 if (empty($row[$assetIdKey])) {
                     $errors[] = 'Missing asset_id';
-                }
-                if (empty($row[$specialistIdKey])) {
-                    $errors[] = 'Missing specialist_id';
                 }
                 $startAtKey = $mapping ? array_search('start_at', $mapping) : 'start_at';
                 if (empty($row[$startAtKey])) {
@@ -420,7 +707,6 @@ class AppointmentController extends Controller
             },
             function ($row) use ($mapping) {
                 $assetIdKey = $mapping ? array_search('asset_id', $mapping) : 'asset_id';
-                $specialistIdKey = $mapping ? array_search('specialist_id', $mapping) : 'specialist_id';
                 $startAtKey = $mapping ? array_search('start_at', $mapping) : 'start_at';
                 $endAtKey = $mapping ? array_search('end_at', $mapping) : 'end_at';
                 $statusKey = $mapping ? array_search('status', $mapping) : 'status';
@@ -428,7 +714,6 @@ class AppointmentController extends Controller
 
                 return [
                     'asset_id' => $row[$assetIdKey] ?? null,
-                    'specialist_id' => $row[$specialistIdKey] ?? null,
                     'start_at' => $row[$startAtKey] ?? null,
                     'end_at' => $row[$endAtKey] ?? null,
                     'status' => $row[$statusKey] ?? 'active',
@@ -478,16 +763,20 @@ class AppointmentController extends Controller
         $appointments = app('cache')->store('database')->get($key);
 
         if (! $appointments) {
-            $appointments = Appointment::where('asset_id', $assetId)
+            $appointments = Appointment::whereHas('services', function ($q) use ($assetId) {
+                $q->where('appointment_service.asset_id', $assetId);
+            })
                 ->with([
-                    'asset:id,name,type,status,section_id',
-                    'asset.section:id,name,room_id',
-                    'asset.section.room:id,name,location',
-                    'specialist:id,name',
+                    'services:id,name',
                     'customers:id,first_name,middle_name,last_name',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();
+
+            // Load specialists and assets for services in each appointment
+            $appointments->each(function ($appointment) {
+                $this->loadServiceRelations($appointment);
+            });
 
             app('cache')->store('database')->forever($key, $appointments);
         }
@@ -509,14 +798,16 @@ class AppointmentController extends Controller
         if (! $appointments) {
             $appointments = Appointment::bySpecialist($specialistId)
                 ->with([
-                    'asset:id,name,type,status,section_id',
-                    'asset.section:id,name,room_id',
-                    'asset.section.room:id,name,location',
-                    'specialist:id,name',
+                    'services:id,name',
                     'customers:id,first_name,middle_name,last_name',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();
+
+            // Load specialists and assets for services in each appointment
+            $appointments->each(function ($appointment) {
+                $this->loadServiceRelations($appointment);
+            });
 
             app('cache')->store('database')->forever($key, $appointments);
         }
@@ -538,14 +829,16 @@ class AppointmentController extends Controller
         if (! $appointments) {
             $appointments = Appointment::active()
                 ->with([
-                    'asset:id,name,type,status,section_id',
-                    'asset.section:id,name,room_id',
-                    'asset.section.room:id,name,location',
-                    'specialist:id,name',
+                    'services:id,name',
                     'customers:id,first_name,middle_name,last_name',
                 ])
                 ->orderBy('start_at', 'desc')
                 ->get();
+
+            // Load specialists and assets for services in each appointment
+            $appointments->each(function ($appointment) {
+                $this->loadServiceRelations($appointment);
+            });
 
             app('cache')->store('database')->forever($key, $appointments);
         }
@@ -555,5 +848,38 @@ class AppointmentController extends Controller
             'message' => 'Active appointments fetched successfully.',
             'data' => $appointments,
         ]);
+    }
+
+    /**
+     * Find available appointment slots for a single service
+     */
+    public function findAvailableSlots(Request $request)
+    {
+        $request->validate([
+            'service_id' => 'required|exists:services,id',
+            'specialist_id' => 'nullable|exists:specialists,id',
+            'days_ahead' => 'nullable|integer|min:1|max:90',
+            'start_date' => 'nullable|date',
+        ]);
+
+        $serviceId = $request->input('service_id');
+        $specialistId = $request->input('specialist_id');
+        $daysAhead = $request->input('days_ahead', 10);
+        $startDate = $request->input('start_date');
+
+        try {
+            $result = $this->availabilityService->findAvailableSlots($serviceId, $specialistId, $daysAhead, $startDate);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Available slots fetched successfully.',
+                'data' => $result,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to find available slots: '.$e->getMessage(),
+            ], 500);
+        }
     }
 }

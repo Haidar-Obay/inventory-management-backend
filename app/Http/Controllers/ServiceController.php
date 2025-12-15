@@ -11,8 +11,10 @@ use App\Imports\DynamicExcelImport;
 use App\Models\Item;
 use App\Models\Service;
 use App\Models\ServiceNeededItem;
+use App\Services\AppointmentRestrictionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -22,7 +24,7 @@ class ServiceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Service::query()
-            ->select(['id', 'name', 'service_category_id', 'normal_price', 'cost_price', 'active'])
+            ->select(['id', 'name', 'service_category_id', 'normal_price', 'cost_price', 'service_color', 'active', 'duration_minutes', 'hour_capacity'])
             ->with(['serviceCategory:id,name']);
 
         if ($request->filled('category_id')) {
@@ -33,17 +35,46 @@ class ServiceController extends Controller
         }
 
         $services = $query->orderBy('name')->paginate(10);
+
+        // Check capacity if date/time is provided
+        $startAt = $request->input('start_at');
+        $endAt = $request->input('end_at');
+        $excludeAppointmentId = $request->input('exclude_appointment_id');
+
         // Hide raw FK id but keep category
-        $services->getCollection()->transform(function ($service) {
+        $services->getCollection()->transform(function ($service) use ($startAt, $endAt, $excludeAppointmentId) {
             // Format needed items to show codes
             $service->needed_items = $service->neededItems->map(function ($neededItem) {
                 return $neededItem->item ? $neededItem->item->code : null;
             })->filter()->values()->toArray();
 
+            // Check capacity if date/time provided
+            $service->capacity_reached = false;
+            if ($startAt && $endAt && $service->hour_capacity && $service->hour_capacity > 0) {
+                $service->capacity_reached = $this->checkServiceCapacityReached(
+                    $service->id,
+                    $service->hour_capacity,
+                    $startAt,
+                    $endAt,
+                    $excludeAppointmentId
+                );
+            }
+
             return $service->makeHidden(['service_category_id', 'image', 'neededItems']);
         });
 
         return response()->json($services);
+    }
+
+    /**
+     * Check if service has reached its hour capacity
+     */
+    protected function checkServiceCapacityReached(int $serviceId, int $capacity, string $startAt, string $endAt, ?int $excludeAppointmentId = null): bool
+    {
+        $restrictionService = app(AppointmentRestrictionService::class);
+        $error = $restrictionService->checkServiceHourCapacity($serviceId, $startAt, $endAt, $excludeAppointmentId);
+
+        return $error !== null;
     }
 
     public function store(StoreServiceRequest $request): JsonResponse
@@ -233,6 +264,35 @@ class ServiceController extends Controller
 
     public function destroy(Service $service): JsonResponse
     {
+        $identifier = $service->name ?? "ID: {$service->id}";
+        $details = [];
+
+        // Check if service has appointments through pivot table
+        $appointmentsCount = DB::table('appointment_service')
+            ->where('service_id', $service->id)
+            ->distinct('appointment_id')
+            ->count('appointment_id');
+
+        if ($appointmentsCount > 0) {
+            $sampleAppointmentId = DB::table('appointment_service')
+                ->where('service_id', $service->id)
+                ->select('appointment_id')
+                ->first()?->appointment_id;
+
+            $details['appointments'] = [
+                'count' => $appointmentsCount,
+                'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
+            ];
+        }
+
+        if (! empty($details)) {
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete service \"{$identifier}\" (ID: {$service->id}). It is referenced by existing appointments.",
+                'details' => $details,
+            ], 409);
+        }
+
         // Delete linked Item if it exists
         $itemId = $service->item_id;
         if ($itemId && $service->item) {
@@ -277,6 +337,7 @@ class ServiceController extends Controller
             'needs_specialist',
             'needs_asset',
             'duration_minutes',
+            'hour_capacity',
             'normal_price',
             'vip_price',
             'price_in_group',
@@ -295,7 +356,7 @@ class ServiceController extends Controller
         ];
 
         $headings = [
-            'ID', 'Name', 'Service Category', 'Result After Days', 'Needs Specialist', 'Needs Asset', 'Duration (min)',
+            'ID', 'Name', 'Service Category',             'Result After Days', 'Needs Specialist', 'Needs Asset', 'Duration (min)', 'Hour Capacity',
             'Normal Price', 'VIP Price', 'Price In Group',
             'Price Calculated by Hour', 'Hour Price', 'Cost Price', 'Birthday Price', 'Wedding Price',
             'Service Color', 'Service Sex', 'Active', 'Specialists', 'Assets',
@@ -317,7 +378,7 @@ class ServiceController extends Controller
             ])
             ->get([
                 'id', 'name', 'service_category_id', 'result_after_days', 'needs_specialist', 'needs_asset',
-                'duration_minutes', 'normal_price', 'vip_price', 'price_in_group',
+                'duration_minutes', 'hour_capacity', 'normal_price', 'vip_price', 'price_in_group',
                 'price_calculated_by_hour', 'hour_price', 'cost_price', 'birthday_price', 'wedding_price',
                 'service_color', 'service_sex', 'active', 'created_at', 'updated_at',
             ]);
@@ -338,6 +399,7 @@ class ServiceController extends Controller
             'needs_specialist' => 'Needs Specialist',
             'needs_asset' => 'Needs Asset',
             'duration_minutes' => 'Duration (min)',
+            'hour_capacity' => 'Hour Capacity',
             'normal_price' => 'Normal Price',
             'vip_price' => 'VIP Price',
             'price_in_group' => 'Price In Group',
@@ -365,6 +427,7 @@ class ServiceController extends Controller
                 'needs_specialist' => $s->needs_specialist,
                 'needs_asset' => $s->needs_asset,
                 'duration_minutes' => $s->duration_minutes,
+                'hour_capacity' => $s->hour_capacity,
                 'normal_price' => $s->normal_price,
                 'vip_price' => $s->vip_price,
                 'price_in_group' => $s->price_in_group,
@@ -415,9 +478,10 @@ class ServiceController extends Controller
                     'service_category_id',
                     'result_after_days',
                     'needs_specialist',
-                    'needs_machine',
+                    'needs_asset',
                     'specialist_id',
                     'duration_minutes',
+                    'hour_capacity',
                     'normal_price',
                     'vip_price',
                     'price_in_group',
@@ -473,9 +537,10 @@ class ServiceController extends Controller
                         'service_category_id' => $row['service_category_id'] ?? null,
                         'result_after_days' => isset($row['result_after_days']) ? (int) $row['result_after_days'] : null,
                         'needs_specialist' => $toBool($row['needs_specialist'] ?? false),
-                        'needs_machine' => $toBool($row['needs_machine'] ?? false),
+                        'needs_asset' => $toBool($row['needs_asset'] ?? false),
                         'specialist_id' => $row['specialist_id'] ?? null,
                         'duration_minutes' => isset($row['duration_minutes']) ? (int) $row['duration_minutes'] : null,
+                        'hour_capacity' => isset($row['hour_capacity']) ? (int) $row['hour_capacity'] : null,
                         'normal_price' => isset($row['normal_price']) ? (float) $row['normal_price'] : null,
                         'vip_price' => isset($row['vip_price']) ? (float) $row['vip_price'] : null,
                         'price_in_group' => isset($row['price_in_group']) ? (float) $row['price_in_group'] : null,
@@ -564,6 +629,38 @@ class ServiceController extends Controller
             try {
                 $service = Service::find($id);
                 if ($service) {
+                    $identifier = $service->name ?? "ID: {$id}";
+                    $details = [];
+
+                    // Check if service has appointments through pivot table
+                    $appointmentsCount = DB::table('appointment_service')
+                        ->where('service_id', $service->id)
+                        ->distinct('appointment_id')
+                        ->count('appointment_id');
+
+                    if ($appointmentsCount > 0) {
+                        $sampleAppointmentId = DB::table('appointment_service')
+                            ->where('service_id', $service->id)
+                            ->select('appointment_id')
+                            ->first()?->appointment_id;
+
+                        $details['appointments'] = [
+                            'count' => $appointmentsCount,
+                            'sample_ids' => $sampleAppointmentId ? [$sampleAppointmentId] : [],
+                        ];
+                    }
+
+                    if (! empty($details)) {
+                        $skipped[] = [
+                            'id' => $id,
+                            'name' => $identifier,
+                            'reason' => 'Cannot delete service. It is referenced by existing appointments.',
+                            'details' => $details,
+                        ];
+
+                        continue;
+                    }
+
                     // Collect item IDs before deletion
                     if ($service->item_id) {
                         $itemIds[] = $service->item_id;
@@ -578,7 +675,13 @@ class ServiceController extends Controller
                     $deleted += $service->delete();
                 }
             } catch (\Illuminate\Database\QueryException $e) {
-                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+                $service = Service::find($id);
+                $identifier = $service?->name ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
             }
         }
 

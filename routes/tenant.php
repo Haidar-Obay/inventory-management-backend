@@ -176,6 +176,7 @@ Route::middleware([
 
         Route::apiResource('assets', AssetController::class)->middleware('check.permission:assets,view');
         Route::apiResource('appointments', AppointmentController::class);
+        Route::post('appointments/find-available-slots', [AppointmentController::class, 'findAvailableSlots']);
         Route::apiResource('tasks', TaskController::class);
         Route::patch('tasks/{task}/status', [TaskStatusController::class, 'update']);
         Route::patch('events/{event}/status', [EventStatusController::class, 'toggleStatus']);
@@ -735,6 +736,8 @@ Route::middleware([
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
     Route::get('/names/customers', [CustomerController::class, 'getNames']);
+    Route::post('/customers/search-by-phone', [CustomerController::class, 'searchByPhone']);
+    Route::get('/customers/{customerId}/appointments', [CustomerController::class, 'getAppointmentHistory']);
     Route::get('/names/cost-centers', [CostCenterController::class, 'getNames']);
     Route::get('/names/departments', [DepartmentController::class, 'getNames']);
     Route::get('/names/projects', [ProjectController::class, 'getNames']);

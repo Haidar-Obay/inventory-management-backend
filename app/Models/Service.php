@@ -20,6 +20,7 @@ class Service extends Model
         'needs_specialist',
         'needs_asset',
         'duration_minutes',
+        'hour_capacity',
         'normal_price',
         'vip_price',
         'price_in_group',
@@ -79,5 +80,13 @@ class Service extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class, 'item_id');
+    }
+
+    /**
+     * Get appointments that use this service through the appointment_service pivot table
+     */
+    public function appointments()
+    {
+        return $this->belongsToMany(Appointment::class, 'appointment_service', 'service_id', 'appointment_id');
     }
 }
