@@ -258,6 +258,11 @@ class Customer extends Model implements Auditable
             ->withTimestamps();
     }
 
+    public function visits()
+    {
+        return $this->hasMany(Visit::class);
+    }
+
     public function activeRoute()
     {
         return $this->hasOne(CustomerRoute::class)->active();
