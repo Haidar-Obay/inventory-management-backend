@@ -77,6 +77,7 @@ use App\Http\Controllers\UnitGroupController;
 use App\Http\Controllers\UnitOfMeasurementController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\UserRoleController;
+use App\Http\Controllers\VisitController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ZoneController;
 use App\Models\User;
@@ -176,6 +177,7 @@ Route::middleware([
 
         Route::apiResource('assets', AssetController::class)->middleware('check.permission:assets,view');
         Route::apiResource('appointments', AppointmentController::class);
+        Route::apiResource('visits', VisitController::class);
         Route::post('appointments/find-available-slots', [AppointmentController::class, 'findAvailableSlots']);
         Route::apiResource('tasks', TaskController::class);
         Route::patch('tasks/{task}/status', [TaskStatusController::class, 'update']);
@@ -738,6 +740,7 @@ Route::middleware([
     Route::get('/names/customers', [CustomerController::class, 'getNames']);
     Route::post('/customers/search-by-phone', [CustomerController::class, 'searchByPhone']);
     Route::get('/customers/{customerId}/appointments', [CustomerController::class, 'getAppointmentHistory']);
+    Route::get('/customers/{customerId}/visits', [CustomerController::class, 'getVisitHistory']);
     Route::get('/names/cost-centers', [CostCenterController::class, 'getNames']);
     Route::get('/names/departments', [DepartmentController::class, 'getNames']);
     Route::get('/names/projects', [ProjectController::class, 'getNames']);

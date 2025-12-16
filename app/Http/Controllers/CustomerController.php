@@ -16,6 +16,7 @@ use App\Models\Project;
 use App\Models\Specialist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -2019,7 +2020,7 @@ class CustomerController extends Controller
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
             // Log the error for debugging
-            \Log::error('Import failed: '.$e->getMessage(), ['exception' => $e]);
+            Log::error('Import failed: '.$e->getMessage(), ['exception' => $e]);
 
             return response()->json([
                 'success' => false,
@@ -2164,6 +2165,63 @@ class CustomerController extends Controller
             'status' => true,
             'message' => 'Appointment history fetched successfully.',
             'data' => $appointments,
+        ]);
+    }
+
+    /**
+     * Get customer visit history
+     */
+    public function getVisitHistory($customerId)
+    {
+        $customer = Customer::find($customerId);
+
+        if (! $customer) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Customer not found.',
+                'data' => [],
+            ], 404);
+        }
+
+        $visits = $customer->visits()
+            ->with([
+                'appointment.customers',
+                'appointment.services',
+            ])
+            ->orderBy('arrived_at', 'desc')
+            ->get();
+
+        // Load specialists and assets for each visit's appointment
+        foreach ($visits as $visit) {
+            if ($visit->appointment) {
+                // Get unique specialist and asset IDs from pivot
+                $specialistIds = $visit->appointment->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
+                $assetIds = $visit->appointment->services->pluck('pivot.asset_id')->filter()->unique()->toArray();
+
+                // Load specialists and assets
+                $specialists = $specialistIds ? \App\Models\Specialist::whereIn('id', $specialistIds)->get()->keyBy('id') : collect();
+                $assets = $assetIds ? \App\Models\Asset::whereIn('id', $assetIds)->get()->keyBy('id') : collect();
+
+                // Attach specialists and assets to services
+                $visit->appointment->services->each(function ($service) use ($specialists, $assets) {
+                    $specialistId = $service->pivot->specialist_id ?? null;
+                    $assetId = $service->pivot->asset_id ?? null;
+
+                    if ($specialistId && $specialists->has($specialistId)) {
+                        $service->setRelation('specialist', $specialists->get($specialistId));
+                    }
+
+                    if ($assetId && $assets->has($assetId)) {
+                        $service->setRelation('asset', $assets->get($assetId));
+                    }
+                });
+            }
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Visit history fetched successfully.',
+            'data' => $visits,
         ]);
     }
 }

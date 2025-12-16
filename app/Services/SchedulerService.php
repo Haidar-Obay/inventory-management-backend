@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\Event;
 use App\Models\Task;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class SchedulerService
 {
@@ -417,15 +418,30 @@ class SchedulerService
 
     /**
      * Clear cache for a specific entity
+     * Clears all cache keys matching the pattern for this entity (with different filter hashes)
      */
     public function clearCache(string $schedulableType, int $schedulableId): void
     {
         $tenantId = tenant('id');
         $type = str_replace('App\\Models\\', '', $schedulableType);
-        $pattern = "tenant_{$tenantId}_scheduler_{$type}_{$schedulableId}_*";
+        $cache = app('cache')->store('database');
 
-        // Note: This is a simple implementation. For production, consider using cache tags
-        // or a more sophisticated cache invalidation strategy
-        app('cache')->store('database')->forget("tenant_{$tenantId}_scheduler_{$type}_{$schedulableId}");
+        // Clear all cache keys for this entity by querying the cache table
+        // The cache key pattern is: tenant_{$tenantId}_scheduler_{$type}_{$schedulableId}_{$filterHash}
+        $prefix = "tenant_{$tenantId}_scheduler_{$type}_{$schedulableId}_";
+
+        try {
+            // Get the cache table name
+            $cacheTable = config('cache.stores.database.table', 'cache');
+
+            // Query and delete all cache entries matching the pattern
+            DB::table($cacheTable)
+                ->where('key', 'like', $prefix.'%')
+                ->delete();
+        } catch (\Exception $e) {
+            // Fallback: try to clear common cache keys manually
+            // This is less efficient but works if the database query fails
+            $cache->forget("tenant_{$tenantId}_scheduler_{$type}_{$schedulableId}");
+        }
     }
 }
