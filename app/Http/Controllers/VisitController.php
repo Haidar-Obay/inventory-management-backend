@@ -100,13 +100,6 @@ class VisitController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        // Clear cache BEFORE creating
-        $this->clearAppointmentCaches($data['appointment_id'] ?? null);
-        // Note: We don't clear scheduler cache when creating a visit because:
-        // - The appointment already exists in the scheduler
-        // - We're only linking a visit to it, not changing the appointment itself
-        // - Status changes don't require scheduler cache clearing
-
         $visit = new Visit;
         $visit->customer_id = $data['customer_id'];
         $visit->appointment_id = $data['appointment_id'] ?? null;
@@ -173,9 +166,6 @@ class VisitController extends Controller
             'cancellation_reason' => 'nullable|string|max:1000',
         ]);
 
-        // Clear cache BEFORE updating (especially if status changes affect appointment)
-        $this->clearAppointmentCaches($visit->appointment_id);
-
         $originalStatus = $visit->status;
 
         if (array_key_exists('notes', $data)) {
@@ -196,8 +186,6 @@ class VisitController extends Controller
         if ($originalStatus !== $visit->status) {
             $visit->load('appointment'); // ensure relation is loaded
             $visit->applyStatusToAppointment();
-            // Note: We don't clear scheduler cache here because we're only updating status
-            // Scheduler cache is only cleared when appointments/services/specialists/assets change
         }
 
         $visit->load([
@@ -223,43 +211,11 @@ class VisitController extends Controller
      */
     public function destroy(Visit $visit)
     {
-        // Clear cache BEFORE deleting
-        $this->clearAppointmentCaches($visit->appointment_id);
-        // Note: We don't clear scheduler cache when deleting a visit because:
-        // - The appointment still exists in the scheduler
-        // - We're only removing the visit record, not the appointment
-        // - The appointment status might revert, but that's handled by appointment cache clearing
         $visit->delete();
 
         return response()->json([
             'status' => true,
             'message' => 'Visit deleted successfully.',
         ]);
-    }
-
-    /**
-     * Clear appointment caches when visits are created/updated/deleted
-     */
-    protected function clearAppointmentCaches($appointmentId = null)
-    {
-        $tenantId = tenant('id');
-        $cache = app('cache')->store('database');
-
-        // Clear base appointments cache
-        $cache->forget("tenant_{$tenantId}_appointments");
-
-        // Clear date-filtered appointment caches
-        $today = now()->toDateString();
-        $cache->forget("tenant_{$tenantId}_appointments_from_{$today}");
-        $cache->forget("tenant_{$tenantId}_appointments_to_{$today}");
-        $cache->forget("tenant_{$tenantId}_appointments_from_{$today}_to_{$today}");
-
-        // Clear active appointments cache
-        $cache->forget("tenant_{$tenantId}_active_appointments");
-
-        // Clear specific appointment cache if ID provided
-        if ($appointmentId) {
-            $cache->forget("tenant_{$tenantId}_appointment_{$appointmentId}");
-        }
     }
 }

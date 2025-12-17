@@ -126,73 +126,33 @@ class AppointmentController extends Controller
 
     public function index(Request $request)
     {
-        $tenantId = tenant('id');
-
         // Get date range parameters
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
 
-        // Build cache key with date range if provided
-        $key = "tenant_{$tenantId}_appointments";
+        $query = Appointment::with([
+            'services:id,name',
+            'customers:id,first_name,middle_name,last_name',
+        ]);
+
+        // Apply date range filtering if provided
         if ($startDate) {
-            $key .= "_from_{$startDate}";
+            $query->whereDate('start_at', '>=', $startDate);
         }
         if ($endDate) {
-            $key .= "_to_{$endDate}";
+            $query->whereDate('start_at', '<=', $endDate);
         }
 
-        $appointments = app('cache')->store('database')->get($key);
+        $appointments = $query->orderBy('start_at', 'desc')->get();
 
-        if (! $appointments) {
-            $query = Appointment::with([
-                'services:id,name',
-                'customers:id,first_name,middle_name,last_name',
-            ]);
+        // Load specialists and assets for services in each appointment
+        $appointments->each(function ($appointment) {
+            $this->loadServiceRelations($appointment);
+        });
 
-            // Apply date range filtering if provided
-            if ($startDate) {
-                $query->whereDate('start_at', '>=', $startDate);
-            }
-            if ($endDate) {
-                $query->whereDate('start_at', '<=', $endDate);
-            }
-
-            $appointments = $query->orderBy('start_at', 'desc')->get();
-
-            // Load specialists and assets for services in each appointment
-            $appointments->each(function ($appointment) {
-                $this->loadServiceRelations($appointment);
-            });
-
-            // Recalculate status for appointments that might have changed
-            // This will skip cancelled, in_progress, and completed appointments
-            $this->updateAppointmentStatuses($appointments);
-
-            // Cache for 5 minutes (allows status updates to be reflected reasonably quickly)
-            // Use shorter cache time for date-filtered queries
-            $cacheTime = ($startDate || $endDate) ? 60 : 300;
-            app('cache')->store('database')->put($key, $appointments, $cacheTime);
-        } else {
-            // Only recalculate status for cached appointments that might have changed
-            // This is much more efficient than checking all appointments every time
-            // But first, refresh status from database for cancelled/in_progress/completed appointments
-            // to ensure we have the latest status from visits
-            $appointments->each(function ($appointment) {
-                if (in_array($appointment->status, ['in_progress', 'completed', 'cancelled'])) {
-                    // Refresh status-related fields from database to ensure we have latest
-                    $fresh = Appointment::select('status', 'cancellation_reason', 'cancelled_date', 'cancelled_time')
-                        ->find($appointment->id);
-                    if ($fresh) {
-                        $appointment->status = $fresh->status;
-                        $appointment->cancellation_reason = $fresh->cancellation_reason;
-                        $appointment->cancelled_date = $fresh->cancelled_date;
-                        $appointment->cancelled_time = $fresh->cancelled_time;
-                    }
-                }
-            });
-
-            $this->updateAppointmentStatuses($appointments);
-        }
+        // Recalculate status for appointments that might have changed
+        // This will skip cancelled, in_progress, and completed appointments
+        $this->updateAppointmentStatuses($appointments);
 
         return response()->json([
             'status' => true,
@@ -237,19 +197,10 @@ class AppointmentController extends Controller
             }
         }
 
-        // Clear cache if any statuses were updated
-        if ($updated) {
-            $tenantId = tenant('id');
-            app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
-        }
     }
 
     public function store(StoreAppointmentRequest $request)
     {
-        // Clear cache BEFORE creating
-        $tenantId = tenant('id');
-        $this->clearAppointmentDateCaches($tenantId);
-
         $validated = $request->validated();
 
         // Extract customer IDs if provided (optional)
@@ -341,9 +292,6 @@ class AppointmentController extends Controller
             }
             $appointment->services()->sync($syncData);
         }
-
-        $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
 
         // Clear scheduler cache for specialists and assets if they exist
         // Clear cache for all service-level specialists and assets
@@ -488,11 +436,6 @@ class AppointmentController extends Controller
         // Remove status and cancellation_reason from validated if present (we handle them separately)
         unset($validated['status']);
         unset($validated['cancellation_reason']);
-
-        // Clear cache BEFORE updating
-        $tenantId = tenant('id');
-        $this->clearAppointmentDateCaches($tenantId);
-        app('cache')->store('database')->forget("tenant_{$tenantId}_appointment_{$appointment->id}");
 
         // Update other fields first
         if (! empty($validated)) {
@@ -643,11 +586,6 @@ class AppointmentController extends Controller
 
     public function destroy(Appointment $appointment)
     {
-        // Clear cache BEFORE deleting
-        $tenantId = tenant('id');
-        $this->clearAppointmentDateCaches($tenantId);
-        app('cache')->store('database')->forget("tenant_{$tenantId}_appointment_{$appointment->id}");
-
         // Get all specialists from pivot table before deletion
         $specialistIds = DB::table('appointment_service')
             ->where('appointment_id', $appointment->id)
@@ -688,13 +626,10 @@ class AppointmentController extends Controller
         foreach ($request->ids as $id) {
             try {
                 $deleted += Appointment::where('id', $id)->delete();
-                app('cache')->store('database')->forget("tenant_{$tenantId}_appointment_{$id}");
             } catch (\Illuminate\Database\QueryException $e) {
                 $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
             }
         }
-
-        app('cache')->store('database')->forget("tenant_{$tenantId}_appointments");
 
         return response()->json([
             'status' => true,
@@ -835,8 +770,6 @@ class AppointmentController extends Controller
             ], 422);
         }
 
-        app('cache')->store('database')->forget('tenant_'.tenant('id').'_appointments');
-
         return response()->json([
             'status' => true,
             'message' => 'Import completed successfully.',
@@ -850,29 +783,20 @@ class AppointmentController extends Controller
 
     public function byAsset($assetId)
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_asset_{$assetId}_appointments";
+        $appointments = Appointment::whereHas('services', function ($q) use ($assetId) {
+            $q->where('appointment_service.asset_id', $assetId);
+        })
+            ->with([
+                'services:id,name',
+                'customers:id,first_name,middle_name,last_name',
+            ])
+            ->orderBy('start_at', 'desc')
+            ->get();
 
-        $appointments = app('cache')->store('database')->get($key);
-
-        if (! $appointments) {
-            $appointments = Appointment::whereHas('services', function ($q) use ($assetId) {
-                $q->where('appointment_service.asset_id', $assetId);
-            })
-                ->with([
-                    'services:id,name',
-                    'customers:id,first_name,middle_name,last_name',
-                ])
-                ->orderBy('start_at', 'desc')
-                ->get();
-
-            // Load specialists and assets for services in each appointment
-            $appointments->each(function ($appointment) {
-                $this->loadServiceRelations($appointment);
-            });
-
-            app('cache')->store('database')->forever($key, $appointments);
-        }
+        // Load specialists and assets for services in each appointment
+        $appointments->each(function ($appointment) {
+            $this->loadServiceRelations($appointment);
+        });
 
         return response()->json([
             'status' => true,
@@ -883,27 +807,18 @@ class AppointmentController extends Controller
 
     public function bySpecialist($specialistId)
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_specialist_{$specialistId}_appointments";
+        $appointments = Appointment::bySpecialist($specialistId)
+            ->with([
+                'services:id,name',
+                'customers:id,first_name,middle_name,last_name',
+            ])
+            ->orderBy('start_at', 'desc')
+            ->get();
 
-        $appointments = app('cache')->store('database')->get($key);
-
-        if (! $appointments) {
-            $appointments = Appointment::bySpecialist($specialistId)
-                ->with([
-                    'services:id,name',
-                    'customers:id,first_name,middle_name,last_name',
-                ])
-                ->orderBy('start_at', 'desc')
-                ->get();
-
-            // Load specialists and assets for services in each appointment
-            $appointments->each(function ($appointment) {
-                $this->loadServiceRelations($appointment);
-            });
-
-            app('cache')->store('database')->forever($key, $appointments);
-        }
+        // Load specialists and assets for services in each appointment
+        $appointments->each(function ($appointment) {
+            $this->loadServiceRelations($appointment);
+        });
 
         return response()->json([
             'status' => true,
@@ -914,27 +829,18 @@ class AppointmentController extends Controller
 
     public function active()
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_active_appointments";
+        $appointments = Appointment::active()
+            ->with([
+                'services:id,name',
+                'customers:id,first_name,middle_name,last_name',
+            ])
+            ->orderBy('start_at', 'desc')
+            ->get();
 
-        $appointments = app('cache')->store('database')->get($key);
-
-        if (! $appointments) {
-            $appointments = Appointment::active()
-                ->with([
-                    'services:id,name',
-                    'customers:id,first_name,middle_name,last_name',
-                ])
-                ->orderBy('start_at', 'desc')
-                ->get();
-
-            // Load specialists and assets for services in each appointment
-            $appointments->each(function ($appointment) {
-                $this->loadServiceRelations($appointment);
-            });
-
-            app('cache')->store('database')->forever($key, $appointments);
-        }
+        // Load specialists and assets for services in each appointment
+        $appointments->each(function ($appointment) {
+            $this->loadServiceRelations($appointment);
+        });
 
         return response()->json([
             'status' => true,
@@ -974,25 +880,5 @@ class AppointmentController extends Controller
                 'message' => 'Failed to find available slots: '.$e->getMessage(),
             ], 500);
         }
-    }
-
-    /**
-     * Clear all date-filtered appointment caches
-     */
-    protected function clearAppointmentDateCaches($tenantId)
-    {
-        $cache = app('cache')->store('database');
-
-        // Clear base appointments cache
-        $cache->forget("tenant_{$tenantId}_appointments");
-
-        // Clear common date-filtered caches (today, this week, etc.)
-        $today = now()->toDateString();
-        $cache->forget("tenant_{$tenantId}_appointments_from_{$today}");
-        $cache->forget("tenant_{$tenantId}_appointments_to_{$today}");
-        $cache->forget("tenant_{$tenantId}_appointments_from_{$today}_to_{$today}");
-
-        // Clear other common cache keys
-        $cache->forget("tenant_{$tenantId}_active_appointments");
     }
 }
