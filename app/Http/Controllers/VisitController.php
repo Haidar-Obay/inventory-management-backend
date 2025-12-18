@@ -98,13 +98,14 @@ class VisitController extends Controller
             'customer_id' => 'required|exists:customers,id',
             'appointment_id' => 'nullable|exists:appointments,id',
             'notes' => 'nullable|string|max:1000',
+            'arrived_at' => 'nullable|date',
         ]);
 
         $visit = new Visit;
         $visit->customer_id = $data['customer_id'];
         $visit->appointment_id = $data['appointment_id'] ?? null;
         $visit->status = 'arrived';
-        $visit->arrived_at = now();
+        $visit->arrived_at = isset($data['arrived_at']) ? $data['arrived_at'] : now();
         $visit->notes = $data['notes'] ?? null;
         $visit->save();
 
