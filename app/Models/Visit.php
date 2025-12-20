@@ -14,6 +14,8 @@ class Visit extends Model implements Auditable
     protected $fillable = [
         'customer_id',
         'appointment_id',
+        'service_id',
+        'specialist_id',
         'status',
         'arrived_at',
         'in_progress_at',
@@ -59,6 +61,16 @@ class Visit extends Model implements Auditable
     public function appointment()
     {
         return $this->belongsTo(Appointment::class);
+    }
+
+    public function service()
+    {
+        return $this->belongsTo(Service::class);
+    }
+
+    public function specialist()
+    {
+        return $this->belongsTo(Specialist::class);
     }
 
     /**

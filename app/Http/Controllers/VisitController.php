@@ -58,6 +58,8 @@ class VisitController extends Controller
             'customer',
             'appointment.customers',
             'appointment.services',
+            'service',
+            'specialist',
         ])->orderByDesc('arrived_at')->orderByDesc('id');
 
         if ($date) {
@@ -97,6 +99,8 @@ class VisitController extends Controller
         $data = $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'appointment_id' => 'nullable|exists:appointments,id',
+            'service_id' => 'nullable|exists:services,id',
+            'specialist_id' => 'nullable|exists:specialists,id',
             'notes' => 'nullable|string|max:1000',
             'arrived_at' => 'nullable|date',
         ]);
@@ -107,6 +111,29 @@ class VisitController extends Controller
         $visit->status = 'arrived';
         $visit->arrived_at = isset($data['arrived_at']) ? $data['arrived_at'] : now();
         $visit->notes = $data['notes'] ?? null;
+
+        // Handle service and specialist
+        // If visit is from appointment, inherit from appointment (first service/specialist)
+        // Otherwise, use provided values (for walk-ins)
+        if ($visit->appointment_id) {
+            // Load appointment to get services
+            $appointment = \App\Models\Appointment::with('services')->find($visit->appointment_id);
+            if ($appointment && $appointment->services->isNotEmpty()) {
+                $firstService = $appointment->services->first();
+                $visit->service_id = $data['service_id'] ?? $firstService->id;
+                // Get specialist from pivot if available
+                $visit->specialist_id = $data['specialist_id'] ?? $firstService->pivot->specialist_id ?? null;
+            } else {
+                // No services in appointment, use provided values
+                $visit->service_id = $data['service_id'] ?? null;
+                $visit->specialist_id = $data['specialist_id'] ?? null;
+            }
+        } else {
+            // Walk-in: use provided values
+            $visit->service_id = $data['service_id'] ?? null;
+            $visit->specialist_id = $data['specialist_id'] ?? null;
+        }
+
         $visit->save();
 
         // Optionally, we could sync appointment status here (usually remains "active" on arrival)
@@ -116,6 +143,8 @@ class VisitController extends Controller
             'customer',
             'appointment.customers',
             'appointment.services',
+            'service',
+            'specialist',
         ]);
 
         // Load specialists and assets for appointment services
@@ -139,6 +168,8 @@ class VisitController extends Controller
             'customer',
             'appointment.customers',
             'appointment.services',
+            'service',
+            'specialist',
         ]);
 
         // Load specialists and assets for appointment services
@@ -163,6 +194,8 @@ class VisitController extends Controller
     {
         $data = $request->validate([
             'status' => 'nullable|in:arrived,in_progress,completed,cancelled',
+            'service_id' => 'nullable|exists:services,id',
+            'specialist_id' => 'nullable|exists:specialists,id',
             'notes' => 'nullable|string|max:1000',
             'cancellation_reason' => 'nullable|string|max:1000',
         ]);
@@ -175,6 +208,14 @@ class VisitController extends Controller
 
         if (array_key_exists('cancellation_reason', $data)) {
             $visit->cancellation_reason = $data['cancellation_reason'];
+        }
+
+        if (array_key_exists('service_id', $data)) {
+            $visit->service_id = $data['service_id'];
+        }
+
+        if (array_key_exists('specialist_id', $data)) {
+            $visit->specialist_id = $data['specialist_id'];
         }
 
         if (! empty($data['status'])) {
@@ -193,6 +234,8 @@ class VisitController extends Controller
             'customer',
             'appointment.customers',
             'appointment.services',
+            'service',
+            'specialist',
         ]);
 
         // Load specialists and assets for appointment services

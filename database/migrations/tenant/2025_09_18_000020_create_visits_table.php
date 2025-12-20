@@ -25,6 +25,20 @@ return new class extends Migration
                 ->constrained('appointments')
                 ->nullOnDelete();
 
+            // Service and specialist for walk-in visits
+            // For appointment-based visits, these can inherit from appointment or be overridden
+            $table->foreignId('service_id')
+                ->nullable()
+                ->after('appointment_id')
+                ->constrained('services')
+                ->nullOnDelete();
+
+            $table->foreignId('specialist_id')
+                ->nullable()
+                ->after('service_id')
+                ->constrained('specialists')
+                ->nullOnDelete();
+
             // Visit status lifecycle: arrived -> in_progress -> completed -> cancelled
             $table->enum('status', ['arrived', 'in_progress', 'completed', 'cancelled'])
                 ->default('arrived');
@@ -47,6 +61,8 @@ return new class extends Migration
             $table->index(['status', 'arrived_at']);
             $table->index(['customer_id', 'status']);
             $table->index(['appointment_id', 'status']);
+            $table->index(['service_id', 'status']);
+            $table->index(['specialist_id', 'status']);
         });
     }
 
