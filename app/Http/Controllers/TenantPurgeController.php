@@ -49,6 +49,7 @@ class TenantPurgeController extends Controller
         'customer_master_lists',
         'supplier_groups',
         'suppliers',
+        'appointments',
     ];
 
     /**
@@ -82,6 +83,9 @@ class TenantPurgeController extends Controller
         'customer_master_list_items', // references customer_master_lists, items
         'projects', // might reference customers
         'jobs', // references projects
+        'visits', // references appointments, customers, services, specialists
+        'appointment_customer', // pivot table: references appointments, customers
+        'appointment_service', // pivot table: references appointments, services
     ];
 
     public function purge(Request $request)
@@ -230,6 +234,10 @@ class TenantPurgeController extends Controller
             'customer_master_lists',
             // Suppliers depend on supplier_groups
             'suppliers',
+            // Visits depend on appointments, customers, services, specialists
+            'visits',
+            // Appointments depend on customers, services, specialists
+            'appointments',
             // Jobs depend on projects
             'jobs',
             'projects',

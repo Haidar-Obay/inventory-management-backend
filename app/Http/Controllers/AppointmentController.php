@@ -472,8 +472,9 @@ class AppointmentController extends Controller
             $appointment->customers()->sync($customerIds ?? []);
         }
 
-        // Sync services with their specialists and assets if provided
-        if ($request->has('services') || $request->has('service_ids') || $request->has('service_id')) {
+        // Sync services with their specialists and assets if explicitly provided
+        // Only sync if services are actually provided (not just the key exists)
+        if ($services !== null || $serviceIds !== null || $request->has('service_id')) {
             if (is_array($services)) {
                 // Format: [['service_id' => 1, 'specialist_id' => 5, 'asset_id' => 3], ...]
                 // Handle empty array to clear all services
@@ -534,10 +535,27 @@ class AppointmentController extends Controller
                     ];
                 }
                 $appointment->services()->sync($syncData);
-            } else {
-                // Clear all services
-                $appointment->services()->sync([]);
+            } elseif ($request->has('service_id') && $request->input('service_id')) {
+                // Handle legacy service_id format
+                $serviceId = $request->input('service_id');
+                $assetId = $this->findAvailableAssetForService($serviceId, $appointment->start_at, $appointment->end_at, $appointment->id);
+                if ($assetId === false) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => 'No available assets found for the selected service during this time period.',
+                    ], 422);
+                }
+                $appointment->services()->sync([
+                    $serviceId => [
+                        'specialist_id' => null,
+                        'asset_id' => $assetId,
+                    ],
+                ]);
             }
+            // If none of the above conditions match, preserve existing services (don't sync)
+        } else {
+            // Services not provided in request - preserve existing services
+            // Do nothing, services remain unchanged
         }
 
         // Clear cache for all service-level specialists and assets (old and new)
