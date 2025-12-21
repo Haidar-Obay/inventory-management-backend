@@ -162,6 +162,7 @@ class Visit extends Model implements Auditable
                     $appointment->status = 'active';
                     $appointment->saveQuietly();
                 }
+
                 break;
             default:
                 break;
