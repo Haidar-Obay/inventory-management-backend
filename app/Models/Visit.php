@@ -157,10 +157,11 @@ class Visit extends Model implements Auditable
                     $appointment->cancelled_date = null;
                     $appointment->cancelled_time = null;
                     $appointment->saveQuietly();
+                } elseif ($appointment->status === 'in_progress' || $appointment->status === 'completed') {
+                    // Allow backward transition: in_progress/completed -> active (arrived)
+                    $appointment->status = 'active';
+                    $appointment->saveQuietly();
                 }
-
-                // Do not auto-change appointment back from in_progress/completed here.
-                // Active status remains driven by time, and other transitions are explicit.
                 break;
             default:
                 break;

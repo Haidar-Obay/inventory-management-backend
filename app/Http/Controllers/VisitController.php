@@ -193,6 +193,7 @@ class VisitController extends Controller
     public function update(Request $request, Visit $visit)
     {
         $data = $request->validate([
+            'customer_id' => 'nullable|exists:customers,id',
             'status' => 'nullable|in:arrived,in_progress,completed,cancelled',
             'service_id' => 'nullable|exists:services,id',
             'specialist_id' => 'nullable|exists:specialists,id',
@@ -201,6 +202,10 @@ class VisitController extends Controller
         ]);
 
         $originalStatus = $visit->status;
+
+        if (array_key_exists('customer_id', $data)) {
+            $visit->customer_id = $data['customer_id'];
+        }
 
         if (array_key_exists('notes', $data)) {
             $visit->notes = $data['notes'];
