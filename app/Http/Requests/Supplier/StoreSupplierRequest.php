@@ -102,6 +102,11 @@ class StoreSupplierRequest extends FormRequest
             'taxed_till_date' => ['nullable', 'date'],
             'subjected_to_tax' => ['nullable', 'boolean'],
             'added_tax' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'exempted' => ['nullable', 'boolean'],
+            'exempted_from' => ['nullable', 'string', 'max:255'],
+            'exemption_reference' => ['nullable', 'string', 'max:255'],
+            'exempted_from_date' => ['nullable', 'date'],
+            'exempted_till_date' => ['nullable', 'date', 'after_or_equal:exempted_from_date'],
 
             // Catalog
             'catalog' => ['nullable', 'string'],
@@ -109,7 +114,6 @@ class StoreSupplierRequest extends FormRequest
             // Status flags
             'is_foreign' => ['nullable', 'boolean'],
             'active' => ['nullable', 'boolean'],
-            'add_message' => ['nullable', 'boolean'],
             'message' => ['nullable', 'string'],
 
             // Addresses

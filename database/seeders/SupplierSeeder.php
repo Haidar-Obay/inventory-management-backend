@@ -75,7 +75,7 @@ class SupplierSeeder extends Seeder
                 'allow_credit' => false,
                 'accept_cheques' => false,
                 'is_foreign' => false,
-                'add_message' => false,
+                // 'add_message' column removed from suppliers table
             ],
             [
                 'first_name' => 'Tech',
@@ -98,7 +98,7 @@ class SupplierSeeder extends Seeder
                 'allow_credit' => true,
                 'accept_cheques' => true,
                 'is_foreign' => false,
-                'add_message' => false,
+                // 'add_message' column removed from suppliers table
             ],
             [
                 'first_name' => 'Fashion',
@@ -120,7 +120,7 @@ class SupplierSeeder extends Seeder
                 'allow_credit' => false,
                 'accept_cheques' => false,
                 'is_foreign' => false,
-                'add_message' => false,
+                // 'add_message' column removed from suppliers table
             ],
         ];
 

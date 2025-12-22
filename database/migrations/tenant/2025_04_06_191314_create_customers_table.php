@@ -97,7 +97,6 @@ return new class extends Migration
             $table->enum('send_invoice', ['email', 'sms', 'whatsapp', 'all'])->default('email');
 
             // Message functionality
-            $table->boolean('showMessageField')->default(false)->comment('Whether to include custom message on invoice');
             $table->text('message')->nullable()->comment('Custom message to be printed on invoice and sent with invoice');
 
             // Primary contact reference

@@ -54,6 +54,11 @@ return new class extends Migration
             $table->date('taxed_till_date')->nullable()->comment('Date until which supplier is taxable');
             $table->boolean('subjected_to_tax')->nullable()->default(false)->comment('Whether supplier is subjected to added tax');
             $table->decimal('added_tax', 5, 2)->nullable()->default(0.00)->comment('Added tax percentage for this supplier');
+            $table->boolean('exempted')->default(false)->comment('Whether supplier is tax exempted');
+            $table->string('exempted_from')->nullable()->comment('Reason for tax exemption');
+            $table->string('exemption_reference')->nullable()->comment('Reference number for tax exemption');
+            $table->date('exempted_from_date')->nullable()->comment('Tax exemption start date');
+            $table->date('exempted_till_date')->nullable()->comment('Tax exemption end date');
 
             // Catalog (nullable for future implementation)
             $table->text('catalog')->nullable();
@@ -61,7 +66,6 @@ return new class extends Migration
             // Status flags
             $table->boolean('is_foreign')->default(false);
             $table->boolean('active')->default(true);
-            $table->boolean('add_message')->default(false);
             $table->text('message')->nullable()->comment('Custom message for this supplier');
 
             // Primary contact reference

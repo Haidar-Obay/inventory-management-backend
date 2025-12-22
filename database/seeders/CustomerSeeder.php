@@ -230,8 +230,7 @@ class CustomerSeeder extends Seeder
                 'print_invoice_language' => Arr::random(['English', 'Arabic']),
                 'send_invoice' => Arr::random(['email', 'sms', 'whatsapp', 'all']),
 
-                // Messaging - Updated field names
-                'showMessageField' => $faker->boolean(30),
+                // Messaging - only message field now (no showMessageField flag in DB)
                 'message' => $faker->optional()->sentence(),
 
                 // Primary contact (set below)

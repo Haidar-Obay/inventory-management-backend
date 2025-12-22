@@ -23,10 +23,12 @@ class Supplier extends Model implements Auditable
         'taxed_till_date' => 'date',
         'subjected_to_tax' => 'boolean',
         'added_tax' => 'decimal:2',
+        'exempted' => 'boolean',
+        'exempted_from_date' => 'date',
+        'exempted_till_date' => 'date',
         'accept_cheques' => 'boolean',
         'active' => 'boolean',
         'is_foreign' => 'boolean',
-        'add_message' => 'boolean',
         'opening_amount' => 'decimal:2',
         'opening_date' => 'date',
         'credit_limit' => 'decimal:2',
@@ -726,7 +728,7 @@ class Supplier extends Model implements Auditable
     // Message functionality helper methods
     public function hasMessage()
     {
-        return $this->add_message && ! empty($this->message);
+        return ! empty($this->message);
     }
 
     public function getMessage()
@@ -734,18 +736,16 @@ class Supplier extends Model implements Auditable
         return $this->hasMessage() ? $this->message : null;
     }
 
-    public function setMessage($message, $enabled = true)
+    public function setMessage($message)
     {
         $this->update([
-            'add_message' => $enabled,
-            'message' => $enabled ? $message : null,
+            'message' => $message,
         ]);
     }
 
     public function disableMessage()
     {
         $this->update([
-            'add_message' => false,
             'message' => null,
         ]);
     }
