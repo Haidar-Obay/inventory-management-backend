@@ -10,7 +10,6 @@ use App\Imports\DynamicExcelImport;
 use App\Models\Asset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
 class AssetController extends Controller
@@ -102,21 +101,6 @@ class AssetController extends Controller
     public function update(UpdateAssetRequest $request, Asset $asset)
     {
         $validated = $request->validated();
-
-        // Handle unique validation for name field within the same section
-        if (isset($validated['name'])) {
-            $validator = Validator::make(['name' => $validated['name']], [
-                'name' => 'unique:assets,name,'.$asset->id.',id,section_id,'.$asset->section_id,
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-        }
 
         $asset->update($validated);
 

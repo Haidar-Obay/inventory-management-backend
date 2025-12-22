@@ -552,17 +552,17 @@ class SupplierController extends Controller
             // Use active rows from supplier_opening_balances; if none exist, fall back to legacy single opening_amount/opening_date
             'opening_balances' => $openingBalances->isNotEmpty()
                 ? $openingBalances->map(function ($openingBalance) {
-                    return [
-                        'id' => $openingBalance->id,
-                        'currency_id' => $openingBalance->currency_id,
-                        'currency_code' => optional($openingBalance->currency)->code,
-                        'currency_name' => optional($openingBalance->currency)->name,
-                        'currency_iso_code' => optional($openingBalance->currency)->iso_code,
-                        'opening_amount' => $openingBalance->opening_amount,
-                        'opening_date' => $openingBalance->opening_date,
-                        'notes' => $openingBalance->notes,
-                        'is_active' => $openingBalance->is_active,
-                    ];
+                return [
+                    'id' => $openingBalance->id,
+                    'currency_id' => $openingBalance->currency_id,
+                    'currency_code' => optional($openingBalance->currency)->code,
+                    'currency_name' => optional($openingBalance->currency)->name,
+                    'currency_iso_code' => optional($openingBalance->currency)->iso_code,
+                    'opening_amount' => $openingBalance->opening_amount,
+                    'opening_date' => $openingBalance->opening_date,
+                    'notes' => $openingBalance->notes,
+                    'is_active' => $openingBalance->is_active,
+                ];
                 })
                 : (
                     ! is_null($supplier->opening_amount)
