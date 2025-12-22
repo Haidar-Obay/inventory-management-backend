@@ -2262,6 +2262,7 @@ class CustomerController extends Controller
         $appointments = $customer->appointments()
             ->with([
                 'services:id,name',
+                'visit:id,appointment_id,status,arrived_at,in_progress_at,completed_at,cancelled_at',
             ])
             ->orderBy('start_at', 'desc')
             ->get();
@@ -2317,6 +2318,8 @@ class CustomerController extends Controller
             ->with([
                 'appointment.customers',
                 'appointment.services',
+                'service',
+                'specialist',
             ])
             ->orderBy('arrived_at', 'desc')
             ->get();

@@ -14,6 +14,8 @@ class Visit extends Model implements Auditable
     protected $fillable = [
         'customer_id',
         'appointment_id',
+        'service_id',
+        'specialist_id',
         'status',
         'arrived_at',
         'in_progress_at',
@@ -59,6 +61,16 @@ class Visit extends Model implements Auditable
     public function appointment()
     {
         return $this->belongsTo(Appointment::class);
+    }
+
+    public function service()
+    {
+        return $this->belongsTo(Service::class);
+    }
+
+    public function specialist()
+    {
+        return $this->belongsTo(Specialist::class);
     }
 
     /**
@@ -145,10 +157,12 @@ class Visit extends Model implements Auditable
                     $appointment->cancelled_date = null;
                     $appointment->cancelled_time = null;
                     $appointment->saveQuietly();
+                } elseif ($appointment->status === 'in_progress' || $appointment->status === 'completed') {
+                    // Allow backward transition: in_progress/completed -> active (arrived)
+                    $appointment->status = 'active';
+                    $appointment->saveQuietly();
                 }
 
-                // Do not auto-change appointment back from in_progress/completed here.
-                // Active status remains driven by time, and other transitions are explicit.
                 break;
             default:
                 break;

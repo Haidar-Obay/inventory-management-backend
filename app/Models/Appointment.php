@@ -147,6 +147,14 @@ class Appointment extends Model implements Auditable
     }
 
     /**
+     * Relationship with visit (one appointment can have one visit)
+     */
+    public function visit()
+    {
+        return $this->hasOne(Visit::class, 'appointment_id');
+    }
+
+    /**
      * Legacy relationship - returns first service from services relationship for backward compatibility
      * Note: This uses a join approach that works with eager loading
      */
