@@ -25,19 +25,8 @@ return new class extends Migration
                 ->constrained('appointments')
                 ->nullOnDelete();
 
-            // Service and specialist for walk-in visits
-            // For appointment-based visits, these can inherit from appointment or be overridden
-            $table->foreignId('service_id')
-                ->nullable()
-                ->after('appointment_id')
-                ->constrained('services')
-                ->nullOnDelete();
-
-            $table->foreignId('specialist_id')
-                ->nullable()
-                ->after('service_id')
-                ->constrained('specialists')
-                ->nullOnDelete();
+            // Note: Services and specialists are now stored in the visit_service pivot table
+            // This allows multiple services and specialists per visit
 
             // Visit status lifecycle: arrived -> in_progress -> completed -> cancelled
             $table->enum('status', ['arrived', 'in_progress', 'completed', 'cancelled'])
@@ -61,8 +50,18 @@ return new class extends Migration
             $table->index(['status', 'arrived_at']);
             $table->index(['customer_id', 'status']);
             $table->index(['appointment_id', 'status']);
-            $table->index(['service_id', 'status']);
-            $table->index(['specialist_id', 'status']);
+        });
+
+        // Create visit_service pivot table for multiple services/specialists per visit
+        Schema::create('visit_service', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('visit_id')->constrained('visits')->onDelete('cascade');
+            $table->foreignId('service_id')->constrained('services')->onDelete('cascade');
+            $table->foreignId('specialist_id')->nullable()->constrained('specialists')->onDelete('cascade');
+            $table->timestamps();
+
+            $table->unique(['visit_id', 'service_id']);
+            $table->index(['specialist_id', 'service_id']);
         });
     }
 
@@ -71,6 +70,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('visit_service');
         Schema::dropIfExists('visits');
     }
 };

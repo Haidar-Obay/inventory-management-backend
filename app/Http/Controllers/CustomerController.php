@@ -2318,13 +2318,12 @@ class CustomerController extends Controller
             ->with([
                 'appointment.customers',
                 'appointment.services',
-                'service',
-                'specialist',
+                'services', // Load multiple services
             ])
             ->orderBy('arrived_at', 'desc')
             ->get();
 
-        // Load specialists and assets for each visit's appointment
+        // Load specialists and assets for each visit's appointment and visit services
         foreach ($visits as $visit) {
             if ($visit->appointment) {
                 // Get unique specialist and asset IDs from pivot
@@ -2348,6 +2347,20 @@ class CustomerController extends Controller
                         $service->setRelation('asset', $assets->get($assetId));
                     }
                 });
+            }
+
+            // Load specialists for visit services
+            if ($visit->services->isNotEmpty()) {
+                $specialistIds = $visit->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
+                if (! empty($specialistIds)) {
+                    $specialists = \App\Models\Specialist::whereIn('id', $specialistIds)->get()->keyBy('id');
+                    $visit->services->each(function ($service) use ($specialists) {
+                        $specialistId = $service->pivot->specialist_id ?? null;
+                        if ($specialistId && $specialists->has($specialistId)) {
+                            $service->setRelation('specialist', $specialists->get($specialistId));
+                        }
+                    });
+                }
             }
         }
 
