@@ -14,8 +14,6 @@ class Visit extends Model implements Auditable
     protected $fillable = [
         'customer_id',
         'appointment_id',
-        'service_id',
-        'specialist_id',
         'status',
         'arrived_at',
         'in_progress_at',
@@ -63,14 +61,15 @@ class Visit extends Model implements Auditable
         return $this->belongsTo(Appointment::class);
     }
 
-    public function service()
+    /**
+     * Many-to-many relationship with services (multiple services per visit)
+     * This is the primary way to access services and specialists for a visit
+     */
+    public function services()
     {
-        return $this->belongsTo(Service::class);
-    }
-
-    public function specialist()
-    {
-        return $this->belongsTo(Specialist::class);
+        return $this->belongsToMany(Service::class, 'visit_service')
+            ->withPivot('specialist_id')
+            ->withTimestamps();
     }
 
     /**
