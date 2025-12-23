@@ -663,36 +663,36 @@ class CustomerController extends Controller
 
             // Primary addresses (belongsToMany relationships return collection, use first())
             'primary_billing_address' => ($primaryBilling = $customer->primaryBillingAddress()->first()) ? [
-                'id' => $primaryBilling->id,
-                'address_line1' => $primaryBilling->address_line1,
-                'address_line2' => $primaryBilling->address_line2,
-                'country_id' => $primaryBilling->country_id,
-                'city_id' => $primaryBilling->city_id,
-                'district_id' => $primaryBilling->district_id,
-                'zone_id' => $primaryBilling->zone_id,
-                'building' => $primaryBilling->building,
-                'block' => $primaryBilling->block,
-                'floor' => $primaryBilling->floor,
-                'side' => $primaryBilling->side,
-                'appartment' => $primaryBilling->appartment,
-                'zip_code' => $primaryBilling->zip_code,
-            ] : null,
+                    'id' => $primaryBilling->id,
+                    'address_line1' => $primaryBilling->address_line1,
+                    'address_line2' => $primaryBilling->address_line2,
+                    'country_id' => $primaryBilling->country_id,
+                    'city_id' => $primaryBilling->city_id,
+                    'district_id' => $primaryBilling->district_id,
+                    'zone_id' => $primaryBilling->zone_id,
+                    'building' => $primaryBilling->building,
+                    'block' => $primaryBilling->block,
+                    'floor' => $primaryBilling->floor,
+                    'side' => $primaryBilling->side,
+                    'appartment' => $primaryBilling->appartment,
+                    'zip_code' => $primaryBilling->zip_code,
+                ] : null,
 
             'primary_shipping_address' => ($primaryShipping = $customer->primaryShippingAddress()->first()) ? [
-                'id' => $primaryShipping->id,
-                'address_line1' => $primaryShipping->address_line1,
-                'address_line2' => $primaryShipping->address_line2,
-                'country_id' => $primaryShipping->country_id,
-                'city_id' => $primaryShipping->city_id,
-                'district_id' => $primaryShipping->district_id,
-                'zone_id' => $primaryShipping->zone_id,
-                'building' => $primaryShipping->building,
-                'block' => $primaryShipping->block,
-                'floor' => $primaryShipping->floor,
-                'side' => $primaryShipping->side,
-                'appartment' => $primaryShipping->appartment,
-                'zip_code' => $primaryShipping->zip_code,
-            ] : null,
+                    'id' => $primaryShipping->id,
+                    'address_line1' => $primaryShipping->address_line1,
+                    'address_line2' => $primaryShipping->address_line2,
+                    'country_id' => $primaryShipping->country_id,
+                    'city_id' => $primaryShipping->city_id,
+                    'district_id' => $primaryShipping->district_id,
+                    'zone_id' => $primaryShipping->zone_id,
+                    'building' => $primaryShipping->building,
+                    'block' => $primaryShipping->block,
+                    'floor' => $primaryShipping->floor,
+                    'side' => $primaryShipping->side,
+                    'appartment' => $primaryShipping->appartment,
+                    'zip_code' => $primaryShipping->zip_code,
+                ] : null,
 
             // Contacts with full details - get all contacts for this customer
             'contacts' => $customer->contacts()->get()->map(function ($contact) {
@@ -2188,13 +2188,12 @@ class CustomerController extends Controller
             ->with([
                 'appointment.customers',
                 'appointment.services',
-                'service',
-                'specialist',
+                'services', // Load multiple services
             ])
             ->orderBy('arrived_at', 'desc')
             ->get();
 
-        // Load specialists and assets for each visit's appointment
+        // Load specialists and assets for each visit's appointment and visit services
         foreach ($visits as $visit) {
             if ($visit->appointment) {
                 // Get unique specialist and asset IDs from pivot
@@ -2218,6 +2217,20 @@ class CustomerController extends Controller
                         $service->setRelation('asset', $assets->get($assetId));
                     }
                 });
+            }
+
+            // Load specialists for visit services
+            if ($visit->services->isNotEmpty()) {
+                $specialistIds = $visit->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
+                if (! empty($specialistIds)) {
+                    $specialists = \App\Models\Specialist::whereIn('id', $specialistIds)->get()->keyBy('id');
+                    $visit->services->each(function ($service) use ($specialists) {
+                        $specialistId = $service->pivot->specialist_id ?? null;
+                        if ($specialistId && $specialists->has($specialistId)) {
+                            $service->setRelation('specialist', $specialists->get($specialistId));
+                        }
+                    });
+                }
             }
         }
 

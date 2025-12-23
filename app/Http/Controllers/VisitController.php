@@ -58,8 +58,7 @@ class VisitController extends Controller
             'customer',
             'appointment.customers',
             'appointment.services',
-            'service',
-            'specialist',
+            'services', // Load multiple services
         ])->orderByDesc('arrived_at')->orderByDesc('id');
 
         if ($date) {
@@ -77,10 +76,24 @@ class VisitController extends Controller
 
         $visits = $query->get();
 
-        // Load specialists and assets for each visit's appointment
+        // Load specialists and assets for each visit's appointment and visit services
         foreach ($visits as $visit) {
             if ($visit->appointment) {
                 $this->loadServiceRelations($visit->appointment);
+            }
+
+            // Load specialists for visit services
+            if ($visit->services->isNotEmpty()) {
+                $specialistIds = $visit->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
+                if (! empty($specialistIds)) {
+                    $specialists = Specialist::whereIn('id', $specialistIds)->get()->keyBy('id');
+                    $visit->services->each(function ($service) use ($specialists) {
+                        $specialistId = $service->pivot->specialist_id ?? null;
+                        if ($specialistId && $specialists->has($specialistId)) {
+                            $service->setRelation('specialist', $specialists->get($specialistId));
+                        }
+                    });
+                }
             }
         }
 
@@ -99,8 +112,9 @@ class VisitController extends Controller
         $data = $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'appointment_id' => 'nullable|exists:appointments,id',
-            'service_id' => 'nullable|exists:services,id',
-            'specialist_id' => 'nullable|exists:specialists,id',
+            'services' => 'nullable|array', // Array of services with specialists
+            'services.*.service_id' => 'required_with:services|exists:services,id',
+            'services.*.specialist_id' => 'nullable|exists:specialists,id',
             'notes' => 'nullable|string|max:1000',
             'arrived_at' => 'nullable|date',
         ]);
@@ -112,29 +126,41 @@ class VisitController extends Controller
         $visit->arrived_at = isset($data['arrived_at']) ? $data['arrived_at'] : now();
         $visit->notes = $data['notes'] ?? null;
 
-        // Handle service and specialist
-        // If visit is from appointment, inherit from appointment (first service/specialist)
-        // Otherwise, use provided values (for walk-ins)
+        // Handle services (multiple services per visit)
+        $servicesData = [];
+
+        // If visit is from appointment, inherit all services and specialists from appointment
         if ($visit->appointment_id) {
-            // Load appointment to get services
             $appointment = \App\Models\Appointment::with('services')->find($visit->appointment_id);
             if ($appointment && $appointment->services->isNotEmpty()) {
-                $firstService = $appointment->services->first();
-                $visit->service_id = $data['service_id'] ?? $firstService->id;
-                // Get specialist from pivot if available
-                $visit->specialist_id = $data['specialist_id'] ?? $firstService->pivot->specialist_id ?? null;
-            } else {
-                // No services in appointment, use provided values
-                $visit->service_id = $data['service_id'] ?? null;
-                $visit->specialist_id = $data['specialist_id'] ?? null;
+                // Inherit all services and specialists from appointment
+                foreach ($appointment->services as $service) {
+                    $servicesData[$service->id] = [
+                        'specialist_id' => $service->pivot->specialist_id ?? null,
+                    ];
+                }
             }
-        } else {
-            // Walk-in: use provided values
-            $visit->service_id = $data['service_id'] ?? null;
-            $visit->specialist_id = $data['specialist_id'] ?? null;
+        }
+
+        // Override with provided services if specified (for walk-ins or custom services)
+        if (! empty($data['services']) && is_array($data['services'])) {
+            // Format: array of services with specialists
+            $servicesData = []; // Reset and use provided services
+            foreach ($data['services'] as $serviceData) {
+                $serviceId = is_array($serviceData) ? ($serviceData['service_id'] ?? $serviceData) : $serviceData;
+                $specialistId = is_array($serviceData) ? ($serviceData['specialist_id'] ?? null) : null;
+                if ($serviceId) {
+                    $servicesData[$serviceId] = ['specialist_id' => $specialistId];
+                }
+            }
         }
 
         $visit->save();
+
+        // Attach multiple services
+        if (! empty($servicesData)) {
+            $visit->services()->sync($servicesData);
+        }
 
         // Optionally, we could sync appointment status here (usually remains "active" on arrival)
         // $visit->applyStatusToAppointment();
@@ -143,13 +169,26 @@ class VisitController extends Controller
             'customer',
             'appointment.customers',
             'appointment.services',
-            'service',
-            'specialist',
+            'services', // Load multiple services
         ]);
 
         // Load specialists and assets for appointment services
         if ($visit->appointment) {
             $this->loadServiceRelations($visit->appointment);
+        }
+
+        // Load specialists for visit services
+        if ($visit->services->isNotEmpty()) {
+            $specialistIds = $visit->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
+            if (! empty($specialistIds)) {
+                $specialists = Specialist::whereIn('id', $specialistIds)->get()->keyBy('id');
+                $visit->services->each(function ($service) use ($specialists) {
+                    $specialistId = $service->pivot->specialist_id ?? null;
+                    if ($specialistId && $specialists->has($specialistId)) {
+                        $service->setRelation('specialist', $specialists->get($specialistId));
+                    }
+                });
+            }
         }
 
         return response()->json([
@@ -168,13 +207,26 @@ class VisitController extends Controller
             'customer',
             'appointment.customers',
             'appointment.services',
-            'service',
-            'specialist',
+            'services', // Load multiple services
         ]);
 
         // Load specialists and assets for appointment services
         if ($visit->appointment) {
             $this->loadServiceRelations($visit->appointment);
+        }
+
+        // Load specialists for visit services
+        if ($visit->services->isNotEmpty()) {
+            $specialistIds = $visit->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
+            if (! empty($specialistIds)) {
+                $specialists = Specialist::whereIn('id', $specialistIds)->get()->keyBy('id');
+                $visit->services->each(function ($service) use ($specialists) {
+                    $specialistId = $service->pivot->specialist_id ?? null;
+                    if ($specialistId && $specialists->has($specialistId)) {
+                        $service->setRelation('specialist', $specialists->get($specialistId));
+                    }
+                });
+            }
         }
 
         return response()->json([
@@ -195,8 +247,9 @@ class VisitController extends Controller
         $data = $request->validate([
             'customer_id' => 'nullable|exists:customers,id',
             'status' => 'nullable|in:arrived,in_progress,completed,cancelled',
-            'service_id' => 'nullable|exists:services,id',
-            'specialist_id' => 'nullable|exists:specialists,id',
+            'services' => 'nullable|array', // Array of services with specialists
+            'services.*.service_id' => 'required_with:services|exists:services,id',
+            'services.*.specialist_id' => 'nullable|exists:specialists,id',
             'notes' => 'nullable|string|max:1000',
             'cancellation_reason' => 'nullable|string|max:1000',
         ]);
@@ -215,12 +268,17 @@ class VisitController extends Controller
             $visit->cancellation_reason = $data['cancellation_reason'];
         }
 
-        if (array_key_exists('service_id', $data)) {
-            $visit->service_id = $data['service_id'];
-        }
-
-        if (array_key_exists('specialist_id', $data)) {
-            $visit->specialist_id = $data['specialist_id'];
+        // Handle services update
+        if (array_key_exists('services', $data) && is_array($data['services'])) {
+            $servicesData = [];
+            foreach ($data['services'] as $serviceData) {
+                $serviceId = is_array($serviceData) ? ($serviceData['service_id'] ?? $serviceData) : $serviceData;
+                $specialistId = is_array($serviceData) ? ($serviceData['specialist_id'] ?? null) : null;
+                if ($serviceId) {
+                    $servicesData[$serviceId] = ['specialist_id' => $specialistId];
+                }
+            }
+            $visit->services()->sync($servicesData);
         }
 
         if (! empty($data['status'])) {
@@ -239,13 +297,26 @@ class VisitController extends Controller
             'customer',
             'appointment.customers',
             'appointment.services',
-            'service',
-            'specialist',
+            'services', // Load multiple services
         ]);
 
         // Load specialists and assets for appointment services
         if ($visit->appointment) {
             $this->loadServiceRelations($visit->appointment);
+        }
+
+        // Load specialists for visit services
+        if ($visit->services->isNotEmpty()) {
+            $specialistIds = $visit->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
+            if (! empty($specialistIds)) {
+                $specialists = Specialist::whereIn('id', $specialistIds)->get()->keyBy('id');
+                $visit->services->each(function ($service) use ($specialists) {
+                    $specialistId = $service->pivot->specialist_id ?? null;
+                    if ($specialistId && $specialists->has($specialistId)) {
+                        $service->setRelation('specialist', $specialists->get($specialistId));
+                    }
+                });
+            }
         }
 
         return response()->json([
