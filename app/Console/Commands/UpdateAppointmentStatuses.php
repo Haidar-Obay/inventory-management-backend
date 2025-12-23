@@ -44,12 +44,12 @@ class UpdateAppointmentStatuses extends Command
                     ->where(function ($query) use ($now) {
                         // Get appointments that are:
                         // 1. null status or 'active' status and before start_at (should be active)
-                        $query->where(function ($q) use ($now) {
+                    $query->where(function ($q) use ($now) {
                             $q->where(function ($q2) {
                                 $q2->whereNull('status')->orWhere('status', 'active');
                             })->where('start_at', '>', $now);
-                        });
-                    })->get();
+                    });
+                })->get();
 
                 $updated = 0;
                 foreach ($appointments as $appointment) {
