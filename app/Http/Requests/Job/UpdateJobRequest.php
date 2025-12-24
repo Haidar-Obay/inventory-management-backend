@@ -19,7 +19,7 @@ class UpdateJobRequest extends FormRequest
             'project_id' => 'required|exists:projects,id',
             'start_date' => 'required|date',
             'expected_date' => 'required|date|after_or_equal:start_date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'end_date' => 'required|date|after_or_equal:start_date',
         ];
     }
 
@@ -34,6 +34,7 @@ class UpdateJobRequest extends FormRequest
             'start_date.required' => 'The start date is required.',
             'expected_date.required' => 'The expected date is required.',
             'expected_date.after_or_equal' => 'The expected date must be after or equal to the start date.',
+            'end_date.required' => 'The end date is required.',
             'end_date.after_or_equal' => 'The end date must be after or equal to the start date.',
         ];
     }
