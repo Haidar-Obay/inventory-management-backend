@@ -10,6 +10,7 @@ use App\Http\Requests\UpdateServiceRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Item;
 use App\Models\Service;
+use App\Models\ServiceAttachment;
 use App\Models\ServiceNeededItem;
 use App\Services\AppointmentRestrictionService;
 use Illuminate\Http\JsonResponse;
@@ -60,7 +61,7 @@ class ServiceController extends Controller
                 );
             }
 
-            return $service->makeHidden(['service_category_id', 'image', 'neededItems']);
+            return $service->makeHidden(['service_category_id', 'neededItems']);
         });
 
         return response()->json($services);
@@ -84,33 +85,6 @@ class ServiceController extends Controller
         $specialistIds = $data['specialist_ids'] ?? [];
         $assetIds = $data['asset_ids'] ?? [];
         unset($data['specialist_ids'], $data['asset_ids']);
-
-        // Handle image upload (file or base64 data URL or plain URL string)
-        if (request()->hasFile('image')) {
-            $path = Storage::disk('public')->putFile('services', request()->file('image'));
-            $data['image'] = Storage::url($path);
-        } elseif (! empty($data['image']) && is_string($data['image'])) {
-            $imageString = $data['image'];
-            if (str_starts_with($imageString, 'data:image')) {
-                // Decode base64 data URL and store as file
-                [$_meta, $base64Data] = explode(',', $imageString, 2);
-                $binary = base64_decode($base64Data, true);
-                if ($binary !== false) {
-                    $filename = 'services/'.uniqid('svc_', true).'.png';
-                    Storage::disk('public')->put($filename, $binary);
-                    $data['image'] = Storage::url($filename);
-                } else {
-                    // If decode fails, drop the image to avoid oversized string insert
-                    unset($data['image']);
-                }
-            } elseif (filter_var($imageString, FILTER_VALIDATE_URL)) {
-                // Keep as-is if it is a valid URL
-                $data['image'] = $imageString;
-            } else {
-                // Unknown format; drop to avoid DB overflow
-                unset($data['image']);
-            }
-        }
 
         $nextId = $this->computeNextAvailableId(Service::class, 'id');
         $service = new Service($data);
@@ -153,7 +127,61 @@ class ServiceController extends Controller
         if (! empty($assetIds)) {
             $service->assets()->sync($assetIds);
         }
-        $service->load(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name', 'item:id,code,name']);
+
+        // Handle attachments - check for actual file uploads first
+        if ($request->hasFile('attachments') || $request->hasFile('attachments.*')) {
+            $tenantId = tenant('id');
+
+            // Handle file uploads
+            $files = [];
+            if ($request->hasFile('attachments.*')) {
+                $files = $request->file('attachments.*');
+                if (!is_array($files)) {
+                    $files = [$files];
+                }
+            } elseif ($request->hasFile('attachments')) {
+                $file = $request->file('attachments');
+                $files = is_array($file) ? $file : [$file];
+            }
+
+            // Get attachment metadata from the decoded data if available
+            $attachmentMetadata = [];
+            if ($request->has('data')) {
+                $data = json_decode($request->input('data'), true);
+                $attachmentMetadata = $data['attachments'] ?? [];
+            }
+
+            foreach ($files as $index => $file) {
+                // Skip if file is null, not valid, or not an instance of UploadedFile
+                if (! $file || ! $file->isValid()) {
+                    continue;
+                }
+
+                $path = Storage::disk('public')->putFile(
+                    "tenants/{$tenantId}/services/{$service->id}/attachments",
+                    $file
+                );
+
+                // Find matching metadata for this file
+                $metadata = $attachmentMetadata[$index] ?? [];
+                $description = $metadata['description'] ?? '';
+                $category = $metadata['category'] ?? 'document';
+                $isPublic = $metadata['is_public'] ?? true;
+
+                ServiceAttachment::create([
+                    'service_id' => $service->id,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_path' => url(Storage::url($path)),
+                    'file_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                    'description' => $description,
+                    'category' => $category,
+                    'is_public' => $isPublic,
+                ]);
+            }
+        }
+
+        $service->load(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name', 'item:id,code,name', 'attachments']);
 
         return response()->json([
             'status' => true,
@@ -170,6 +198,7 @@ class ServiceController extends Controller
             'serviceCategory.department.parent:id,name,code',
             'specialists:id,name',
             'assets:id,name',
+            'attachments',
         ]);
 
         // Attach needed items (with item)
@@ -206,31 +235,6 @@ class ServiceController extends Controller
         $assetIds = $data['asset_ids'] ?? null;
         unset($data['specialist_ids'], $data['asset_ids']);
 
-        if (request()->hasFile('image')) {
-            $path = Storage::disk('public')->putFile('services', request()->file('image'));
-            $data['image'] = Storage::url($path);
-        } elseif (array_key_exists('image', $data) && is_string($data['image'])) {
-            $imageString = $data['image'];
-            if (str_starts_with($imageString, 'data:image')) {
-                [$_meta, $base64Data] = explode(',', $imageString, 2);
-                $binary = base64_decode($base64Data, true);
-                if ($binary !== false) {
-                    $filename = 'services/'.uniqid('svc_', true).'.png';
-                    Storage::disk('public')->put($filename, $binary);
-                    $data['image'] = Storage::url($filename);
-                } else {
-                    unset($data['image']);
-                }
-            } elseif (! empty($imageString) && filter_var($imageString, FILTER_VALIDATE_URL)) {
-                $data['image'] = $imageString;
-            } elseif ($imageString === null || $imageString === '') {
-                // Explicitly clearing image
-                $data['image'] = null;
-            } else {
-                unset($data['image']);
-            }
-        }
-
         $service->update($data);
 
         // Update linked Item if it exists
@@ -253,7 +257,199 @@ class ServiceController extends Controller
         if (is_array($assetIds)) {
             $service->assets()->sync($assetIds);
         }
-        $service->load(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name', 'item:id,code,name']);
+
+        // Handle attachments (multipart) - support both 'attachments' and 'attachments[]'
+        if ($request->hasFile('attachments') || $request->hasFile('attachments.*')) {
+            $tenantId = tenant('id');
+
+            // Get existing attachments from request data (if provided)
+            // Note: prepareForValidation stores attachments in '_attachment_metadata' before unsetting
+            // to avoid validation conflict, so we can access it from there
+            $attachmentDataFromJson = [];
+            if ($request->has('_attachment_metadata')) {
+                // Get from the stored metadata (set by prepareForValidation)
+                $attachmentDataFromJson = $request->input('_attachment_metadata', []);
+            } elseif ($request->has('data')) {
+                // Fallback: try to get from raw data field (if prepareForValidation didn't run)
+                $data = json_decode($request->input('data'), true);
+                $attachmentDataFromJson = $data['attachments'] ?? [];
+            }
+
+            // Separate existing attachments (with IDs) from new file metadata (without IDs)
+            $existingAttachmentIds = [];
+            $attachmentMetadataMap = [];
+            $newFileMetadata = [];
+
+            foreach ($attachmentDataFromJson as $attData) {
+                if (isset($attData['id']) && is_numeric($attData['id'])) {
+                    // Existing attachment - keep it
+                    $existingAttachmentIds[] = $attData['id'];
+                    $attachmentMetadataMap[$attData['id']] = $attData;
+                } else {
+                    // New file metadata (will be matched with uploaded files)
+                    $newFileMetadata[] = $attData;
+                }
+            }
+
+            // Delete attachments that are not in the keep list
+            $existingAttachments = $service->attachments;
+            foreach ($existingAttachments as $existingAttachment) {
+                if (! in_array($existingAttachment->id, $existingAttachmentIds)) {
+                    // Delete file from storage
+                    $relativePath = str_replace(url('/storage'), '', $existingAttachment->file_path);
+                    Storage::disk('public')->delete($relativePath);
+                    // Delete attachment record
+                    $existingAttachment->delete();
+                } else {
+                    // Update existing attachment metadata if provided
+                    $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
+                    if ($metadata) {
+                        // Use array_key_exists to allow empty strings (isset returns true for empty strings, but this is more explicit)
+                        if (array_key_exists('description', $metadata)) {
+                            $existingAttachment->description = $metadata['description'] ?? '';
+                        }
+                        if (array_key_exists('is_public', $metadata)) {
+                            $existingAttachment->is_public = $metadata['is_public'];
+                        }
+                        if (array_key_exists('category', $metadata)) {
+                            $existingAttachment->category = $metadata['category'];
+                        }
+                        $existingAttachment->save();
+                    }
+                }
+            }
+
+            // Create new attachments from uploaded files
+            $files = [];
+            $fileIdentifiers = [];
+            
+            // Check allFiles() first to get all files, then deduplicate
+            $allFiles = $request->allFiles();
+            
+            foreach ($allFiles as $key => $file) {
+                if (strpos($key, 'attachment') !== false) {
+                    $fileArray = is_array($file) ? $file : [$file];
+                    foreach ($fileArray as $f) {
+                        if ($f && $f->isValid()) {
+                            $identifier = $f->getClientOriginalName() . '|' . $f->getSize() . '|' . $f->getMimeType();
+                            if (!in_array($identifier, $fileIdentifiers)) {
+                                $files[] = $f;
+                                $fileIdentifiers[] = $identifier;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Fallback: If no files found in allFiles(), try direct methods
+            if (count($files) === 0) {
+                if ($request->hasFile('attachments.*')) {
+                    $dotFiles = $request->file('attachments.*');
+                    $dotFiles = is_array($dotFiles) ? $dotFiles : [$dotFiles];
+                    foreach ($dotFiles as $file) {
+                        if ($file && $file->isValid()) {
+                            $identifier = $file->getClientOriginalName() . '|' . $file->getSize() . '|' . $file->getMimeType();
+                            if (!in_array($identifier, $fileIdentifiers)) {
+                                $files[] = $file;
+                                $fileIdentifiers[] = $identifier;
+                            }
+                        }
+                    }
+                }
+
+                if ($request->hasFile('attachments')) {
+                    $directFiles = $request->file('attachments');
+                    $directFiles = is_array($directFiles) ? $directFiles : [$directFiles];
+                    foreach ($directFiles as $file) {
+                        if ($file && $file->isValid()) {
+                            $identifier = $file->getClientOriginalName() . '|' . $file->getSize() . '|' . $file->getMimeType();
+                            if (!in_array($identifier, $fileIdentifiers)) {
+                                $files[] = $file;
+                                $fileIdentifiers[] = $identifier;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Match uploaded files with metadata (new files come after existing attachments in the array)
+            foreach ($files as $index => $file) {
+                if (! $file || ! $file->isValid()) {
+                    continue;
+                }
+
+                $path = Storage::disk('public')->putFile(
+                    "tenants/{$tenantId}/services/{$service->id}/attachments",
+                    $file
+                );
+
+                // Find matching metadata for this file (new files start after existing attachments)
+                $metadata = $newFileMetadata[$index] ?? [];
+                $description = $metadata['description'] ?? '';
+                $category = $metadata['category'] ?? 'document';
+                $isPublic = $metadata['is_public'] ?? true;
+
+                ServiceAttachment::create([
+                    'service_id' => $service->id,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_path' => url(Storage::url($path)),
+                    'file_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                    'description' => $description,
+                    'category' => $category,
+                    'is_public' => $isPublic,
+                ]);
+            }
+        }
+
+        // Handle attachments with new structure (JSON data)
+        // Only process if no files were uploaded (files are handled above)
+        // and if attachments is an array (not file uploads)
+        if ($request->has('attachments') && ! $request->hasFile('attachments') && ! $request->hasFile('attachments.*')) {
+            $attachments = $request->input('attachments');
+            if (is_array($attachments)) {
+                // Get IDs of attachments that should be kept (existing attachments with IDs, not new file uploads)
+                $attachmentIdsToKeep = [];
+                $attachmentMetadataMap = [];
+
+                foreach ($attachments as $attachmentData) {
+                    if (isset($attachmentData['id']) && is_numeric($attachmentData['id'])) {
+                        $attachmentIdsToKeep[] = $attachmentData['id'];
+                        $attachmentMetadataMap[$attachmentData['id']] = $attachmentData;
+                    }
+                }
+
+                // Delete attachments that are not in the keep list
+                $existingAttachments = $service->attachments;
+                foreach ($existingAttachments as $existingAttachment) {
+                    if (! in_array($existingAttachment->id, $attachmentIdsToKeep)) {
+                        // Delete file from storage
+                        $relativePath = str_replace(url('/storage'), '', $existingAttachment->file_path);
+                        Storage::disk('public')->delete($relativePath);
+                        // Delete attachment record
+                        $existingAttachment->delete();
+                    } else {
+                        // Update existing attachment metadata if provided
+                        $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
+                        if ($metadata) {
+                            // Use array_key_exists to allow empty strings (isset returns true for empty strings, but this is more explicit)
+                            if (array_key_exists('description', $metadata)) {
+                                $existingAttachment->description = $metadata['description'] ?? '';
+                            }
+                            if (array_key_exists('is_public', $metadata)) {
+                                $existingAttachment->is_public = $metadata['is_public'];
+                            }
+                            if (array_key_exists('category', $metadata)) {
+                                $existingAttachment->category = $metadata['category'];
+                            }
+                            $existingAttachment->save();
+                        }
+                    }
+                }
+            }
+        }
+
+        $service->load(['serviceCategory:id,name,description', 'specialists:id,name', 'assets:id,name', 'item:id,code,name', 'attachments']);
 
         return response()->json([
             'status' => true,
@@ -490,7 +686,6 @@ class ServiceController extends Controller
                     'cost_price',
                     'birthday_price',
                     'wedding_price',
-                    'image',
                     'service_color',
                     'service_sex',
                     'active',
@@ -549,7 +744,6 @@ class ServiceController extends Controller
                         'cost_price' => isset($row['cost_price']) ? (float) $row['cost_price'] : null,
                         'birthday_price' => isset($row['birthday_price']) ? (float) $row['birthday_price'] : null,
                         'wedding_price' => isset($row['wedding_price']) ? (float) $row['wedding_price'] : null,
-                        'image' => $row['image'] ?? null,
                         'service_color' => $row['service_color'] ?? null,
                         'service_sex' => $row['service_sex'] ?? 'both',
                         'active' => $toBool($row['active'] ?? true),

@@ -13,6 +13,25 @@ class StoreItemRequest extends FormRequest
         return true;
     }
 
+    /**
+     * Override the validation behavior to handle FormData with 'data' field
+     */
+    protected function prepareForValidation()
+    {
+        // If this is FormData with a 'data' field, decode it and merge into request
+        if ($this->has('data')) {
+            $data = json_decode($this->input('data'), true);
+            if (is_array($data)) {
+                // If files are being uploaded via 'attachments' field, exclude attachments from merged data
+                // to avoid validation conflict (Laravel will see attachments as file uploads, not array)
+                if ($this->hasFile('attachments')) {
+                    unset($data['attachments']);
+                }
+                $this->merge($data);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [

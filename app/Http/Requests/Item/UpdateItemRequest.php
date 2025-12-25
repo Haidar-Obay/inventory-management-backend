@@ -13,6 +13,26 @@ class UpdateItemRequest extends FormRequest
         return true;
     }
 
+    /**
+     * Override the validation behavior to handle FormData with 'data' field
+     */
+    protected function prepareForValidation()
+    {
+        // If this is FormData with a 'data' field, decode it and merge into request
+        if ($this->has('data')) {
+            $data = json_decode($this->input('data'), true);
+            if (is_array($data)) {
+                // If files are being uploaded via 'attachments' field, store attachments metadata
+                // in a separate field before unsetting it, so the controller can access it
+                if ($this->hasFile('attachments') && isset($data['attachments'])) {
+                    $this->merge(['_attachment_metadata' => $data['attachments']]);
+                    unset($data['attachments']);
+                }
+                $this->merge($data);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [

@@ -196,6 +196,8 @@ Route::middleware([
         Route::get('items/services/list', [ItemController::class, 'getServiceItems'])->middleware('check.permission:items,view');
         Route::get('items/all', [ItemController::class, 'getAllItems'])->middleware('check.permission:items,view');
         Route::apiResource('items', ItemController::class)->middleware('check.permission:items,view');
+        // Explicit POST route for items update with FormData (method spoofing support)
+        Route::post('items/{item}', [ItemController::class, 'update'])->middleware('check.permission:items,view');
         Route::post('items/{item}/attachments', [ItemController::class, 'uploadAttachment'])->middleware('check.permission:items,view');
         Route::get('items/{item}/attachments', [ItemController::class, 'getAttachments'])->middleware('check.permission:items,view');
         Route::delete('items/{item}/attachments/{attachment}', [ItemController::class, 'deleteAttachment'])->middleware('check.permission:items,view');
@@ -217,6 +219,8 @@ Route::middleware([
         Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');
         Route::apiResource('specialists', SpecialistController::class)->middleware('check.permission:specialists,view');
         Route::apiResource('services', ServiceController::class)->middleware('check.permission:services,view');
+        // Explicit POST route for services update with FormData (method spoofing support)
+        Route::post('services/{service}', [ServiceController::class, 'update'])->middleware('check.permission:services,view');
         Route::apiResource('service-needed-items', ServiceNeededItemController::class);
         Route::apiResource('service-advanced-pricings', ServiceAdvancedPricingController::class);
         Route::apiResource('associations', AssociationController::class)->middleware('check.permission:associations,view');

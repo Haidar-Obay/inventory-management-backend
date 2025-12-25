@@ -29,7 +29,6 @@ class Service extends Model
         'cost_price',
         'birthday_price',
         'wedding_price',
-        'image',
         'service_color',
         'service_sex',
         'active',
@@ -80,6 +79,11 @@ class Service extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(Item::class, 'item_id');
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(ServiceAttachment::class);
     }
 
     /**

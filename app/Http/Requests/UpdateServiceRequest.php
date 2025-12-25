@@ -12,6 +12,26 @@ class UpdateServiceRequest extends FormRequest
         return true;
     }
 
+    /**
+     * Override the validation behavior to handle FormData with 'data' field
+     */
+    protected function prepareForValidation()
+    {
+        // If this is FormData with a 'data' field, decode it and merge into request
+        if ($this->has('data')) {
+            $data = json_decode($this->input('data'), true);
+            if (is_array($data)) {
+                // If files are being uploaded via 'attachments' field, store attachments metadata
+                // in a separate field before unsetting it, so the controller can access it
+                if (($this->hasFile('attachments') || $this->hasFile('attachments.*')) && isset($data['attachments'])) {
+                    $this->merge(['_attachment_metadata' => $data['attachments']]);
+                    unset($data['attachments']);
+                }
+                $this->merge($data);
+            }
+        }
+    }
+
     public function rules(): array
     {
         $routeService = request()->route('service');
@@ -55,7 +75,6 @@ class UpdateServiceRequest extends FormRequest
             'cost_price' => ['nullable', 'numeric', 'min:0'],
             'birthday_price' => ['nullable', 'numeric', 'min:0'],
             'wedding_price' => ['nullable', 'numeric', 'min:0'],
-            'image' => ['nullable', 'max:2048'],
             'service_color' => ['nullable', 'string', 'max:50'],
             'service_sex' => ['nullable', Rule::in(['male', 'female', 'both'])],
             'active' => ['boolean'],

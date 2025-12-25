@@ -39,7 +39,6 @@ return new class extends Migration
             $table->decimal('birthday_price', 10, 2)->nullable();
             $table->decimal('wedding_price', 10, 2)->nullable();
 
-            $table->string('image')->nullable();
             $table->string('service_color')->nullable();
             $table->enum('service_sex', ['male', 'female', 'both'])->default('both');
             $table->boolean('active')->default(true);
