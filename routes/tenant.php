@@ -60,6 +60,7 @@ use App\Http\Controllers\ServiceAdvancedPricingController;
 use App\Http\Controllers\ServiceCategoryController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\ServiceNeededItemController;
+use App\Http\Controllers\SetupWizardController;
 use App\Http\Controllers\SpecialistController;
 use App\Http\Controllers\SpecialityController;
 use App\Http\Controllers\SubscriptionPlanController;
@@ -132,6 +133,16 @@ Route::middleware([
         // Subscription Status Check
         Route::get('/subscription/status', [SubscriptionPlanController::class, 'checkCurrentUserSubscription']);
         Route::get('/subscription/scheduler-mode', [SubscriptionPlanController::class, 'getSchedulerMode']);
+
+        // Setup Wizard Routes
+        Route::prefix('setup-wizard')->group(function () {
+            Route::get('/', [SetupWizardController::class, 'index']);
+            Route::get('/status', [SetupWizardController::class, 'checkStatus']);
+            Route::get('/currencies', [SetupWizardController::class, 'getCurrencies']);
+            Route::get('/subscription-info', [SetupWizardController::class, 'getSubscriptionInfo']);
+            Route::post('/', [SetupWizardController::class, 'store']);
+            Route::post('/reset', [SetupWizardController::class, 'reset']);
+        });
 
         // Resource APIs
         Route::apiResource('cities', CityController::class);
