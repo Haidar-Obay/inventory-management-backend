@@ -40,6 +40,7 @@ class ItemController extends Controller
             'productLine:id,name',
             'category:id,name',
             'brand:id,name',
+            'taxGroup:id,code,name,value',
             'baseUom:id,name',
             'parent:id,code,name',
         ])
@@ -64,6 +65,10 @@ class ItemController extends Controller
                 $itemArray['base_uom'] = $itemArray['baseUom'];
                 unset($itemArray['baseUom']);
             }
+            if (isset($itemArray['taxGroup'])) {
+                $itemArray['tax_group'] = $itemArray['taxGroup'];
+                unset($itemArray['taxGroup']);
+            }
 
             return $itemArray;
         });
@@ -86,7 +91,16 @@ class ItemController extends Controller
         $cachedItem = app('cache')->store('database')->get($key);
 
         if (! $cachedItem) {
-            $cachedItem = $item;
+            $cachedItem = $item->load([
+                'trade:id,name',
+                'companyCode:id,name',
+                'productLine:id,name',
+                'category:id,name',
+                'brand:id,name',
+                'taxGroup:id,code,name,value',
+                'baseUom:id,name',
+                'parent:id,code,name',
+            ]);
             app('cache')->store('database')->forever($key, $cachedItem);
         }
 
@@ -134,6 +148,7 @@ class ItemController extends Controller
                 'productLine:id,name',
                 'category:id,name',
                 'brand:id,name',
+                'taxGroup:id,code,name,value',
                 'baseUom:id,name',
                 'parent:id,code,name',
             ]),
@@ -173,6 +188,7 @@ class ItemController extends Controller
                 'productLine:id,name',
                 'category:id,name',
                 'brand:id,name',
+                'taxGroup:id,code,name,value',
                 'baseUom:id,name',
                 'parent:id,code,name',
             ]),
@@ -995,6 +1011,7 @@ class ItemController extends Controller
                 'productLine:id,name',
                 'category:id,name',
                 'brand:id,name',
+                'taxGroup:id,code,name,value',
                 'baseUom:id,name',
                 'parent:id,code,name',
             ])
@@ -1030,6 +1047,10 @@ class ItemController extends Controller
             if (isset($itemArray['baseUom'])) {
                 $itemArray['base_uom'] = $itemArray['baseUom'];
                 unset($itemArray['baseUom']);
+            }
+            if (isset($itemArray['taxGroup'])) {
+                $itemArray['tax_group'] = $itemArray['taxGroup'];
+                unset($itemArray['taxGroup']);
             }
 
             return $itemArray;

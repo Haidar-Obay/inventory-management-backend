@@ -36,6 +36,7 @@ class ModuleResourceSeeder extends Seeder
             PageCode::ITEMS_CATEGORIES->value => 'categories',
             PageCode::ITEMS_BRANDS->value => 'brands',
             PageCode::ITEMS_ITEMS->value => 'items',
+            PageCode::ITEMS_WAREHOUSES->value => 'warehouses',
 
             // Units
             PageCode::UNITS_GROUPS->value => 'unit_groups',
@@ -73,6 +74,7 @@ class ModuleResourceSeeder extends Seeder
             // Payment
             PageCode::PAYMENT_TERMS->value => 'payment_terms',
             PageCode::PAYMENT_METHODS->value => 'payment_methods',
+            PageCode::PAYMENT_TAX_GROUPS->value => 'tax_groups',
         ];
 
         // Get all modules
@@ -107,7 +109,7 @@ class ModuleResourceSeeder extends Seeder
             $moduleSpecificResources = [
                 // Do NOT hard-add 'suppliers' here; it will be added only if a supplier page code exists
 
-                'stock_management' => ['product_lines', 'categories', 'brands', 'items', 'supplier_groups', 'customers', 'unit_groups', 'unit_of_measurements'],
+                'stock_management' => ['product_lines', 'categories', 'brands', 'items', 'supplier_groups', 'customers', 'unit_groups', 'unit_of_measurements', 'warehouses', 'tax_groups'],
                 'beauty_center' => [
                     'service_categories',
                     'services',
@@ -165,6 +167,8 @@ class ModuleResourceSeeder extends Seeder
                     'table_templates',
                     'unit_groups',
                     'unit_of_measurements',
+                    'warehouses',
+                    'tax_groups',
                 ],
             ];
 
@@ -202,6 +206,29 @@ class ModuleResourceSeeder extends Seeder
                     [
                         'name' => $resourceName,
                         'description' => "Core system resource for {$resourceKey}",
+                        'enabled' => true,
+                        'version' => 1,
+                    ]
+                );
+            }
+        }
+
+        // Add common business resources to all modules (warehouses, tax_groups)
+        $commonResources = [
+            'warehouses' => 'Warehouse Management',
+            'tax_groups' => 'Tax Group Management',
+        ];
+
+        foreach ($modules as $module) {
+            foreach ($commonResources as $resourceKey => $resourceName) {
+                ModuleResource::firstOrCreate(
+                    [
+                        'module_id' => $module->id,
+                        'code' => $resourceKey,
+                    ],
+                    [
+                        'name' => $resourceName,
+                        'description' => "Common business resource for {$resourceKey}",
                         'enabled' => true,
                         'version' => 1,
                     ]

@@ -55,6 +55,7 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Categories', 'code' => PageCode::ITEMS_CATEGORIES->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 11, 'is_public' => false],
                     ['name' => 'Brands', 'code' => PageCode::ITEMS_BRANDS->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 12, 'is_public' => false],
                     ['name' => 'Items', 'code' => PageCode::ITEMS_ITEMS->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 13, 'is_public' => false],
+                    ['name' => 'Warehouses', 'code' => PageCode::ITEMS_WAREHOUSES->value, 'path' => '/main/mainfiles/items?tab=4', 'order' => 14, 'is_public' => false],
 
                     // Suppliers and Customers
                     ['name' => 'Suppliers', 'code' => PageCode::SUPPLIERS_SUPPLIERS->value, 'path' => '/main/mainfiles/supplier?tab=1', 'order' => 20, 'is_public' => false],
@@ -113,6 +114,7 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Categories', 'code' => PageCode::ITEMS_CATEGORIES->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 21, 'is_public' => false],
                     ['name' => 'Brands', 'code' => PageCode::ITEMS_BRANDS->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 22, 'is_public' => false],
                     ['name' => 'Items', 'code' => PageCode::ITEMS_ITEMS->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 23, 'is_public' => false],
+                    ['name' => 'Warehouses', 'code' => PageCode::ITEMS_WAREHOUSES->value, 'path' => '/main/mainfiles/items?tab=4', 'order' => 24, 'is_public' => false],
 
                     // Main Files - Customers
                     ['name' => 'Customer Groups', 'code' => PageCode::CUSTOMERS_GROUPS->value, 'path' => '/main/mainfiles/customer?tab=0', 'order' => 30, 'is_public' => false],
@@ -133,6 +135,7 @@ class ModuleSeeder extends Seeder
                     // Payment
                     ['name' => 'Payment Terms', 'code' => PageCode::PAYMENT_TERMS->value, 'path' => '/main/mainfiles/payment?tab=0', 'order' => 60, 'is_public' => false],
                     ['name' => 'Payment Methods', 'code' => PageCode::PAYMENT_METHODS->value, 'path' => '/main/mainfiles/payment?tab=1', 'order' => 61, 'is_public' => false],
+                    ['name' => 'Tax Groups', 'code' => PageCode::PAYMENT_TAX_GROUPS->value, 'path' => '/main/mainfiles/payment?tab=2', 'order' => 62, 'is_public' => false],
 
                     // Units
                     ['name' => 'Unit Groups', 'code' => PageCode::UNITS_GROUPS->value, 'path' => '/main/mainfiles/units?tab=0', 'order' => 62, 'is_public' => false],

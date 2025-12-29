@@ -29,6 +29,7 @@ class Item extends Model implements Auditable
         'product_line_id',
         'category_id',
         'brand_id',
+        'tax_group_id',
         'discount_percent',
         'max_discount',
         'active',
@@ -126,6 +127,11 @@ class Item extends Model implements Auditable
     public function brand()
     {
         return $this->belongsTo(Brand::class, 'brand_id');
+    }
+
+    public function taxGroup()
+    {
+        return $this->belongsTo(TaxGroup::class, 'tax_group_id');
     }
 
     public function unitOfMeasurements()
