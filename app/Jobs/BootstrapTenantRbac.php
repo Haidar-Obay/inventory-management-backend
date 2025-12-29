@@ -53,6 +53,7 @@ class BootstrapTenantRbac implements ShouldQueue
             ['resource_key' => 'salesmen', 'resource_label' => 'Salesman Management'],
             ['resource_key' => 'branches', 'resource_label' => 'Branch Management'],
             ['resource_key' => 'warehouses', 'resource_label' => 'Warehouse Management'],
+            ['resource_key' => 'tax_groups', 'resource_label' => 'Tax Group Management'],
             ['resource_key' => 'projects', 'resource_label' => 'Project Management'],
             ['resource_key' => 'jobs', 'resource_label' => 'Job Management'],
             ['resource_key' => 'product_lines', 'resource_label' => 'Product Line Management'],

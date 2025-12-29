@@ -9,6 +9,7 @@ use App\Models\CompanyCode;
 use App\Models\Item;
 use App\Models\ProductLine;
 use App\Models\Supplier;
+use App\Models\TaxGroup;
 use App\Models\Trade;
 use App\Models\UnitOfMeasurement;
 use Illuminate\Database\Seeder;
@@ -46,6 +47,11 @@ class ItemSeeder extends Seeder
             ['name' => 'TechCorp', 'active' => true]
         );
 
+        $taxGroup = TaxGroup::firstOrCreate(
+            ['code' => 'TG001'],
+            ['name' => 'Standard Tax Group', 'value' => 10.00, 'active' => true]
+        );
+
         // Get unit of measurements
         $baseUom = UnitOfMeasurement::where('name', 'Piece')->first();
         $purchaseUom = UnitOfMeasurement::where('name', 'Box')->first();
@@ -75,6 +81,7 @@ class ItemSeeder extends Seeder
                 'product_line_id' => $productLine->id,
                 'category_id' => $category->id,
                 'brand_id' => $brand->id,
+                'tax_group_id' => $taxGroup->id,
                 'base_uom_id' => $baseUom->id,
                 'purchase_uom_id' => $purchaseUom->id,
                 'sales_uom_id' => $salesUom->id,
@@ -93,6 +100,7 @@ class ItemSeeder extends Seeder
                 'product_line_id' => $productLine->id,
                 'category_id' => $category->id,
                 'brand_id' => $brand->id,
+                'tax_group_id' => $taxGroup->id,
                 'base_uom_id' => $baseUom->id,
                 'purchase_uom_id' => $purchaseUom->id,
                 'sales_uom_id' => $salesUom->id,
@@ -104,6 +112,7 @@ class ItemSeeder extends Seeder
                 'type' => ItemType::SERVICE->value,
                 'trade_id' => $trade->id,
                 'company_code_id' => $companyCode->id,
+                'tax_group_id' => $taxGroup->id,
                 'base_uom_id' => $baseUom->id,
                 'sales_uom_id' => $salesUom->id,
                 'discount_percent' => 10.00,
@@ -118,6 +127,7 @@ class ItemSeeder extends Seeder
                 'product_line_id' => $productLine->id,
                 'category_id' => $category->id,
                 'brand_id' => $brand->id,
+                'tax_group_id' => $taxGroup->id,
                 'base_uom_id' => $baseUom->id,
                 'sales_uom_id' => $salesUom->id,
                 'discount_percent' => 15.00,
@@ -130,6 +140,7 @@ class ItemSeeder extends Seeder
                 'type' => ItemType::MEDICAL_SERVICE->value,
                 'trade_id' => $trade->id,
                 'company_code_id' => $companyCode->id,
+                'tax_group_id' => $taxGroup->id,
                 'base_uom_id' => $baseUom->id,
                 'sales_uom_id' => $salesUom->id,
                 'discount_percent' => 0.00,

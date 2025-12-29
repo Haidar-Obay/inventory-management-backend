@@ -11,15 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('warehouses', function (Blueprint $table) {
+        Schema::create('tax_groups', function (Blueprint $table) {
             $table->id();
             $table->string('code')->unique();
             $table->string('name');
-            $table->foreignId('sub_warehouse_of')->nullable()->constrained('warehouses')->nullOnDelete();
+            $table->decimal('value', 10, 2);
             $table->boolean('active')->default(true);
-            $table->boolean('default_for_purchases')->default(false);
-            $table->boolean('default_for_sales')->default(false);
-            $table->boolean('default_for_storage')->default(false);
+            $table->boolean('default')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });
@@ -30,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('warehouses');
+        Schema::dropIfExists('tax_groups');
     }
 };
