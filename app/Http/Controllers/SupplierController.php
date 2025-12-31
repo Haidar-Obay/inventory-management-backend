@@ -552,17 +552,17 @@ class SupplierController extends Controller
             // Use active rows from supplier_opening_balances; if none exist, fall back to legacy single opening_amount/opening_date
             'opening_balances' => $openingBalances->isNotEmpty()
                 ? $openingBalances->map(function ($openingBalance) {
-                return [
-                    'id' => $openingBalance->id,
-                    'currency_id' => $openingBalance->currency_id,
-                    'currency_code' => optional($openingBalance->currency)->code,
-                    'currency_name' => optional($openingBalance->currency)->name,
-                    'currency_iso_code' => optional($openingBalance->currency)->iso_code,
-                    'opening_amount' => $openingBalance->opening_amount,
-                    'opening_date' => $openingBalance->opening_date,
-                    'notes' => $openingBalance->notes,
-                    'is_active' => $openingBalance->is_active,
-                ];
+                    return [
+                        'id' => $openingBalance->id,
+                        'currency_id' => $openingBalance->currency_id,
+                        'currency_code' => optional($openingBalance->currency)->code,
+                        'currency_name' => optional($openingBalance->currency)->name,
+                        'currency_iso_code' => optional($openingBalance->currency)->iso_code,
+                        'opening_amount' => $openingBalance->opening_amount,
+                        'opening_date' => $openingBalance->opening_date,
+                        'notes' => $openingBalance->notes,
+                        'is_active' => $openingBalance->is_active,
+                    ];
                 })
                 : (
                     ! is_null($supplier->opening_amount)
@@ -645,12 +645,12 @@ class SupplierController extends Controller
             // Handle attachments
             // Check for files OR JSON attachments array (when editing without new files)
             // Also check if files exist using file() method (more reliable for FormData)
-            $hasAttachments = $request->hasFile('attachments') 
+            $hasAttachments = $request->hasFile('attachments')
                 || $request->hasFile('attachments.*')
                 || $request->file('attachments') !== null
                 || $request->file('attachments.*') !== null
                 || $request->has('attachments');
-            
+
             // Always try to call updateAttachments - it will handle the logic internally
             // This ensures we don't miss files that might not be detected by hasFile()
             Log::info('Supplier update: Checking attachments', [
@@ -664,7 +664,7 @@ class SupplierController extends Controller
                 'all_files_keys' => array_keys($request->allFiles()),
                 'content_type' => $request->header('Content-Type'),
             ]);
-                $this->updateAttachments($supplier, $request);
+            $this->updateAttachments($supplier, $request);
 
             // Handle multi-currency opening balances
             if ($request->has('opening_balances')) {
@@ -1522,14 +1522,14 @@ class SupplierController extends Controller
     private function updateAttachments($supplier, $request)
     {
         $tenantId = tenant('id');
-        
+
         // Check if files are present - try multiple ways Laravel might receive them
         // When using attachments[] in FormData, Laravel might receive it as attachments.*
-        $hasFiles = $request->hasFile('attachments') 
+        $hasFiles = $request->hasFile('attachments')
             || $request->hasFile('attachments.*')
             || $request->file('attachments') !== null
             || $request->file('attachments.*') !== null;
-        
+
         Log::info('Supplier updateAttachments: Entry', [
             'hasFiles' => $hasFiles,
             'hasFile_attachments' => $request->hasFile('attachments'),
@@ -1542,7 +1542,7 @@ class SupplierController extends Controller
         // Note: prepareForValidation stores attachments in '_attachment_metadata' before unsetting
         // to avoid validation conflict, so we can access it from there
         $attachmentDataFromJson = [];
-        
+
         // Try multiple ways to get the data
         // 1. Check for _attachment_metadata (set by prepareForValidation)
         if ($request->has('_attachment_metadata')) {
@@ -1566,7 +1566,7 @@ class SupplierController extends Controller
             $attachmentDataFromJson = $request->all()['attachments'];
             Log::info('Supplier updateAttachments: Got metadata from all()', ['count' => count($attachmentDataFromJson)]);
         }
-        
+
         // Also check raw request content for FormData
         if (empty($attachmentDataFromJson) && $request->getContent()) {
             parse_str($request->getContent(), $parsed);
@@ -1576,7 +1576,7 @@ class SupplierController extends Controller
                 Log::info('Supplier updateAttachments: Got metadata from raw content', ['count' => count($attachmentDataFromJson)]);
             }
         }
-        
+
         // Log for debugging
         Log::info('Supplier updateAttachments', [
             'hasFiles' => $hasFiles,
@@ -1608,7 +1608,7 @@ class SupplierController extends Controller
             if (! in_array($existingAttachment->id, $existingAttachmentIds)) {
                 // Delete file from storage
                 $relativePath = str_replace(url('/storage'), '', $existingAttachment->file_path);
-            Storage::disk('public')->delete($relativePath);
+                Storage::disk('public')->delete($relativePath);
                 // Delete attachment record
                 $existingAttachment->delete();
             } else {
@@ -1633,14 +1633,14 @@ class SupplierController extends Controller
         // When using attachments[] in FormData, Laravel receives it as attachments.*
         $files = [];
         $fileIdentifiers = []; // Track files by identifier to avoid duplicates
-        
+
         // Check allFiles() first to get all files, then deduplicate
         $allFiles = $request->allFiles();
         Log::info('Supplier updateAttachments: Checking allFiles()', [
             'allFiles_keys' => array_keys($allFiles),
             'allFiles_count' => count($allFiles),
         ]);
-        
+
         // Collect all files from allFiles() (this is the most reliable source)
         foreach ($allFiles as $key => $file) {
             if (strpos($key, 'attachment') !== false) {
@@ -1648,8 +1648,8 @@ class SupplierController extends Controller
                 foreach ($fileArray as $f) {
                     if ($f && $f->isValid()) {
                         // Use a combination of name and size as identifier to avoid duplicates
-                        $identifier = $f->getClientOriginalName() . '|' . $f->getSize() . '|' . $f->getMimeType();
-                        if (!in_array($identifier, $fileIdentifiers)) {
+                        $identifier = $f->getClientOriginalName().'|'.$f->getSize().'|'.$f->getMimeType();
+                        if (! in_array($identifier, $fileIdentifiers)) {
                             $files[] = $f;
                             $fileIdentifiers[] = $identifier;
                             Log::info('Supplier updateAttachments: Added file', [
@@ -1667,7 +1667,7 @@ class SupplierController extends Controller
                 }
             }
         }
-        
+
         // Fallback: If no files found in allFiles(), try direct methods
         if (count($files) === 0) {
             // Check for attachments.* first (array notation from FormData)
@@ -1676,8 +1676,8 @@ class SupplierController extends Controller
                 $dotFiles = is_array($dot) ? $dot : [$dot];
                 foreach ($dotFiles as $file) {
                     if ($file && $file->isValid()) {
-                        $identifier = $file->getClientOriginalName() . '|' . $file->getSize() . '|' . $file->getMimeType();
-                        if (!in_array($identifier, $fileIdentifiers)) {
+                        $identifier = $file->getClientOriginalName().'|'.$file->getSize().'|'.$file->getMimeType();
+                        if (! in_array($identifier, $fileIdentifiers)) {
                             $files[] = $file;
                             $fileIdentifiers[] = $identifier;
                         }
@@ -1685,15 +1685,15 @@ class SupplierController extends Controller
                 }
                 Log::info('Supplier updateAttachments: Found files via attachments.*', ['count' => count($files)]);
             }
-            
+
             // Also check for direct 'attachments' (single file or already array)
             $direct = $request->file('attachments');
             if ($direct) {
                 $directFiles = is_array($direct) ? $direct : [$direct];
                 foreach ($directFiles as $file) {
                     if ($file && $file->isValid()) {
-                        $identifier = $file->getClientOriginalName() . '|' . $file->getSize() . '|' . $file->getMimeType();
-                        if (!in_array($identifier, $fileIdentifiers)) {
+                        $identifier = $file->getClientOriginalName().'|'.$file->getSize().'|'.$file->getMimeType();
+                        if (! in_array($identifier, $fileIdentifiers)) {
                             $files[] = $file;
                             $fileIdentifiers[] = $identifier;
                         }
@@ -1702,13 +1702,13 @@ class SupplierController extends Controller
                 Log::info('Supplier updateAttachments: Found files via attachments', ['count' => count($files)]);
             }
         }
-        
+
         Log::info('Supplier updateAttachments files', [
             'files_count' => count($files),
             'newFileMetadata_count' => count($newFileMetadata),
             'hasFiles' => $hasFiles,
         ]);
-        
+
         // Only process files if we have them AND metadata
         if (count($files) === 0 && count($newFileMetadata) > 0) {
             Log::warning('Supplier updateAttachments: Have metadata but no files!', [
@@ -1723,6 +1723,7 @@ class SupplierController extends Controller
             // Skip if file is null, not valid, or not an instance of UploadedFile
             if (! $file || ! $file->isValid()) {
                 Log::warning('Supplier updateAttachments: Invalid file', ['index' => $index]);
+
                 continue;
             }
 
@@ -1748,7 +1749,7 @@ class SupplierController extends Controller
                     'category' => $category,
                     'is_public' => $isPublic,
                 ]);
-                
+
                 Log::info('Supplier updateAttachments: Created attachment', [
                     'attachment_id' => $attachment->id,
                     'file_name' => $attachment->file_name,

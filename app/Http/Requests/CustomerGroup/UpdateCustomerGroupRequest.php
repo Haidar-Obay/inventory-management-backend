@@ -21,4 +21,3 @@ class UpdateCustomerGroupRequest extends FormRequest
         ];
     }
 }
-

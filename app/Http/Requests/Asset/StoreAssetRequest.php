@@ -15,7 +15,7 @@ class StoreAssetRequest extends FormRequest
     public function rules(): array
     {
         $sectionId = $this->input('section_id');
-        
+
         return [
             'section_id' => 'required|exists:sections,id',
             'name' => [

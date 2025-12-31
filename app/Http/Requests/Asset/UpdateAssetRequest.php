@@ -17,7 +17,7 @@ class UpdateAssetRequest extends FormRequest
         $asset = $this->route('asset');
         $assetId = $asset?->id ?? $asset;
         $sectionId = $this->input('section_id') ?? $asset?->section_id;
-        
+
         return [
             'section_id' => 'sometimes|exists:sections,id',
             'name' => [

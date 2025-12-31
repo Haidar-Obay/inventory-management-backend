@@ -449,7 +449,7 @@ class UpdateCustomerRequest extends FormRequest
                     // Only validate as file if files are actually being uploaded
                     if ($this->hasFile('attachments') || $this->hasFile('attachments.*')) {
                         // Validate as file
-                        if (!($value instanceof \Illuminate\Http\UploadedFile)) {
+                        if (! ($value instanceof \Illuminate\Http\UploadedFile)) {
                             $fail('The '.$attribute.' must be a file.');
                         }
                         // Validate file type
@@ -458,7 +458,7 @@ class UpdateCustomerRequest extends FormRequest
                         if ($value instanceof \Illuminate\Http\UploadedFile) {
                             $mime = $value->getMimeType();
                             $extension = strtolower($value->getClientOriginalExtension());
-                            if (!in_array($mime, $allowedMimes) && !in_array($extension, $allowedExtensions)) {
+                            if (! in_array($mime, $allowedMimes) && ! in_array($extension, $allowedExtensions)) {
                                 $fail('The '.$attribute.' must be a file of type: jpg, jpeg, png, pdf, docx, xlsx, txt.');
                             }
                             // Validate file size (10MB = 10240 KB)

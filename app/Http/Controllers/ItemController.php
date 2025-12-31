@@ -289,10 +289,10 @@ class ItemController extends Controller
             // When using attachments[] in FormData, Laravel receives it as attachments.*
             $files = [];
             $fileIdentifiers = []; // Track files by identifier to avoid duplicates
-            
+
             // Check allFiles() first to get all files, then deduplicate
             $allFiles = $request->allFiles();
-            
+
             // Collect all files from allFiles() (this is the most reliable source)
             foreach ($allFiles as $key => $file) {
                 if (strpos($key, 'attachment') !== false) {
@@ -300,8 +300,8 @@ class ItemController extends Controller
                     foreach ($fileArray as $f) {
                         if ($f && $f->isValid()) {
                             // Use a combination of name and size as identifier to avoid duplicates
-                            $identifier = $f->getClientOriginalName() . '|' . $f->getSize() . '|' . $f->getMimeType();
-                            if (!in_array($identifier, $fileIdentifiers)) {
+                            $identifier = $f->getClientOriginalName().'|'.$f->getSize().'|'.$f->getMimeType();
+                            if (! in_array($identifier, $fileIdentifiers)) {
                                 $files[] = $f;
                                 $fileIdentifiers[] = $identifier;
                             }
@@ -309,7 +309,7 @@ class ItemController extends Controller
                     }
                 }
             }
-            
+
             // Fallback: If no files found in allFiles(), try direct methods
             if (count($files) === 0) {
                 // Check for attachments.* first (array notation from FormData)
@@ -318,8 +318,8 @@ class ItemController extends Controller
                     $dotFiles = is_array($dot) ? $dot : [$dot];
                     foreach ($dotFiles as $file) {
                         if ($file && $file->isValid()) {
-                            $identifier = $file->getClientOriginalName() . '|' . $file->getSize() . '|' . $file->getMimeType();
-                            if (!in_array($identifier, $fileIdentifiers)) {
+                            $identifier = $file->getClientOriginalName().'|'.$file->getSize().'|'.$file->getMimeType();
+                            if (! in_array($identifier, $fileIdentifiers)) {
                                 $files[] = $file;
                                 $fileIdentifiers[] = $identifier;
                             }
@@ -333,8 +333,8 @@ class ItemController extends Controller
                     $directFiles = is_array($direct) ? $direct : [$direct];
                     foreach ($directFiles as $file) {
                         if ($file && $file->isValid()) {
-                            $identifier = $file->getClientOriginalName() . '|' . $file->getSize() . '|' . $file->getMimeType();
-                            if (!in_array($identifier, $fileIdentifiers)) {
+                            $identifier = $file->getClientOriginalName().'|'.$file->getSize().'|'.$file->getMimeType();
+                            if (! in_array($identifier, $fileIdentifiers)) {
                                 $files[] = $file;
                                 $fileIdentifiers[] = $identifier;
                             }

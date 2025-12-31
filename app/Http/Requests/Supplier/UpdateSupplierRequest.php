@@ -31,34 +31,34 @@ class UpdateSupplierRequest extends FormRequest
             'all_input_keys' => array_keys($this->all()),
             'all_files_keys' => array_keys($this->allFiles()),
         ]);
-        
+
         // If this is FormData with a 'data' field, decode it and merge into request
         // Try input('data') even if has('data') returns false
         $rawData = $this->input('data');
-        
+
         // Also try to get from request content if input('data') is null
         // Note: getContent() might return empty if content was already consumed
         // Try to get from the underlying Symfony request
         $content = $this->getContent();
         $symfonyRequest = $this->instance();
         $symfonyContent = $symfonyRequest ? $symfonyRequest->getContent(false) : null;
-        
+
         Log::info('UpdateSupplierRequest prepareForValidation: Raw content check', [
-            'content_exists' => !empty($content),
+            'content_exists' => ! empty($content),
             'content_length' => strlen($content),
-            'symfony_content_exists' => !empty($symfonyContent),
+            'symfony_content_exists' => ! empty($symfonyContent),
             'symfony_content_length' => $symfonyContent ? strlen($symfonyContent) : 0,
             'content_preview' => substr($content ?: ($symfonyContent ?: ''), 0, 500),
             'request_method' => $this->method(),
             'request_uri' => $this->fullUrl(),
         ]);
-        
+
         // Use symfony content if available and main content is empty
         if (empty($content) && $symfonyContent) {
             $content = $symfonyContent;
         }
-        
-        if (!$rawData && $content) {
+
+        if (! $rawData && $content) {
             // Try to extract data from multipart/form-data
             // Pattern: name="data" followed by Content-Type and then the JSON data
             if (preg_match('/name="data"[\r\n]+Content-Type: [^\r\n]+[\r\n]+[\r\n]+(.*?)(?=------WebKitFormBoundary|$)/s', $content, $matches)) {
@@ -79,7 +79,7 @@ class UpdateSupplierRequest extends FormRequest
                     ]);
                 }
             }
-            
+
             // Also check for file fields in the content to confirm they exist
             $fileMatches = preg_match_all('/name="attachments\[\]"/', $content, $fileFieldMatches);
             if ($fileMatches > 0) {
@@ -88,7 +88,7 @@ class UpdateSupplierRequest extends FormRequest
                 ]);
             }
         }
-        
+
         if ($rawData) {
             $data = json_decode($rawData, true);
             if (is_array($data)) {
@@ -96,7 +96,7 @@ class UpdateSupplierRequest extends FormRequest
                     'has_attachments' => isset($data['attachments']),
                     'attachments_count' => isset($data['attachments']) ? count($data['attachments']) : 0,
                 ]);
-                
+
                 // Check if files exist in the raw content (Laravel might not have parsed them yet)
                 // Look for file fields in the multipart content
                 $hasFilesInContent = false;
@@ -107,8 +107,8 @@ class UpdateSupplierRequest extends FormRequest
                         Log::info('UpdateSupplierRequest prepareForValidation: Found file fields in raw content');
                     }
                 }
-                
-                // If files are being uploaded via 'attachments' or 'attachments[]' field, 
+
+                // If files are being uploaded via 'attachments' or 'attachments[]' field,
                 // store attachments metadata in a separate field before unsetting it
                 $hasFiles = $this->hasFile('attachments') || $this->hasFile('attachments.*') || $hasFilesInContent;
                 if ($hasFiles && isset($data['attachments'])) {
@@ -280,7 +280,7 @@ class UpdateSupplierRequest extends FormRequest
                     // Only validate as file if files are actually being uploaded
                     if ($this->hasFile('attachments') || $this->hasFile('attachments.*')) {
                         // Validate as file
-                        if (!($value instanceof \Illuminate\Http\UploadedFile)) {
+                        if (! ($value instanceof \Illuminate\Http\UploadedFile)) {
                             $fail('The '.$attribute.' must be a file.');
                         }
                         // Validate file type
@@ -289,7 +289,7 @@ class UpdateSupplierRequest extends FormRequest
                         if ($value instanceof \Illuminate\Http\UploadedFile) {
                             $mime = $value->getMimeType();
                             $extension = strtolower($value->getClientOriginalExtension());
-                            if (!in_array($mime, $allowedMimes) && !in_array($extension, $allowedExtensions)) {
+                            if (! in_array($mime, $allowedMimes) && ! in_array($extension, $allowedExtensions)) {
                                 $fail('The '.$attribute.' must be a file of type: jpg, jpeg, png, pdf, docx, xlsx, txt.');
                             }
                             // Validate file size (10MB = 10240 KB)

@@ -98,4 +98,3 @@ class ServiceAttachment extends Model implements Auditable
         return $query->where('category', $category);
     }
 }
-

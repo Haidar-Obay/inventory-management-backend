@@ -136,7 +136,7 @@ class ServiceController extends Controller
             $files = [];
             if ($request->hasFile('attachments.*')) {
                 $files = $request->file('attachments.*');
-                if (!is_array($files)) {
+                if (! is_array($files)) {
                     $files = [$files];
                 }
             } elseif ($request->hasFile('attachments')) {
@@ -322,17 +322,17 @@ class ServiceController extends Controller
             // Create new attachments from uploaded files
             $files = [];
             $fileIdentifiers = [];
-            
+
             // Check allFiles() first to get all files, then deduplicate
             $allFiles = $request->allFiles();
-            
+
             foreach ($allFiles as $key => $file) {
                 if (strpos($key, 'attachment') !== false) {
                     $fileArray = is_array($file) ? $file : [$file];
                     foreach ($fileArray as $f) {
                         if ($f && $f->isValid()) {
-                            $identifier = $f->getClientOriginalName() . '|' . $f->getSize() . '|' . $f->getMimeType();
-                            if (!in_array($identifier, $fileIdentifiers)) {
+                            $identifier = $f->getClientOriginalName().'|'.$f->getSize().'|'.$f->getMimeType();
+                            if (! in_array($identifier, $fileIdentifiers)) {
                                 $files[] = $f;
                                 $fileIdentifiers[] = $identifier;
                             }
@@ -340,7 +340,7 @@ class ServiceController extends Controller
                     }
                 }
             }
-            
+
             // Fallback: If no files found in allFiles(), try direct methods
             if (count($files) === 0) {
                 if ($request->hasFile('attachments.*')) {
@@ -348,8 +348,8 @@ class ServiceController extends Controller
                     $dotFiles = is_array($dotFiles) ? $dotFiles : [$dotFiles];
                     foreach ($dotFiles as $file) {
                         if ($file && $file->isValid()) {
-                            $identifier = $file->getClientOriginalName() . '|' . $file->getSize() . '|' . $file->getMimeType();
-                            if (!in_array($identifier, $fileIdentifiers)) {
+                            $identifier = $file->getClientOriginalName().'|'.$file->getSize().'|'.$file->getMimeType();
+                            if (! in_array($identifier, $fileIdentifiers)) {
                                 $files[] = $file;
                                 $fileIdentifiers[] = $identifier;
                             }
@@ -362,8 +362,8 @@ class ServiceController extends Controller
                     $directFiles = is_array($directFiles) ? $directFiles : [$directFiles];
                     foreach ($directFiles as $file) {
                         if ($file && $file->isValid()) {
-                            $identifier = $file->getClientOriginalName() . '|' . $file->getSize() . '|' . $file->getMimeType();
-                            if (!in_array($identifier, $fileIdentifiers)) {
+                            $identifier = $file->getClientOriginalName().'|'.$file->getSize().'|'.$file->getMimeType();
+                            if (! in_array($identifier, $fileIdentifiers)) {
                                 $files[] = $file;
                                 $fileIdentifiers[] = $identifier;
                             }

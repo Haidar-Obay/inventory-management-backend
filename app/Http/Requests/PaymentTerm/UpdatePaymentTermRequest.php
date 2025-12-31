@@ -22,4 +22,3 @@ class UpdatePaymentTermRequest extends FormRequest
         ];
     }
 }
-

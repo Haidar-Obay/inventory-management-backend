@@ -20,4 +20,3 @@ class StoreSupplierGroupRequest extends FormRequest
         ];
     }
 }
-

@@ -21,4 +21,3 @@ class StorePaymentTermRequest extends FormRequest
         ];
     }
 }
-
