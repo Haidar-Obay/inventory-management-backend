@@ -7,7 +7,6 @@ use App\Exports\ExportPDF;
 use App\Imports\DynamicExcelImport;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
 
 class WarehouseController extends Controller
@@ -15,24 +14,33 @@ class WarehouseController extends Controller
     public function index()
     {
         $tenantId = tenant('id');
-        $cacheKey = "warehouses_{$tenantId}";
+        $key = "tenant_{$tenantId}_warehouses";
 
-        return Cache::remember($cacheKey, 3600, function () {
-            return Warehouse::with('parentWarehouse')->get();
-        });
+        $warehouses = app('cache')->store('database')->get($key);
+
+        if (! $warehouses) {
+            $warehouses = Warehouse::with('parentWarehouse')->get();
+            app('cache')->store('database')->forever($key, $warehouses);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Warehouses fetched successfully.',
+            'data' => $warehouses,
+        ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate(Warehouse::$rules);
 
-        // Check if the parent warehouse exists and is not inactive
+        // Check if the parent warehouse exists and is active
         if (! empty($validated['sub_warehouse_of'])) {
             $parentWarehouse = Warehouse::find($validated['sub_warehouse_of']);
             if (! $parentWarehouse) {
                 return response()->json(['message' => 'Parent warehouse not found'], 404);
             }
-            if ($parentWarehouse->is_inactive) {
+            if (! $parentWarehouse->active) {
                 return response()->json(['message' => 'Cannot create sub-warehouse for an inactive parent warehouse'], 422);
             }
         }
@@ -41,7 +49,12 @@ class WarehouseController extends Controller
         $warehouse = new Warehouse($validated);
         $warehouse->id = $nextId;
         $warehouse->save();
-        Cache::forget('warehouses_'.tenant('id'));
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_warehouses");
+
+        // Load the parent warehouse relationship for the response
+        $warehouse->load('parentWarehouse');
 
         return response()->json($warehouse, 201);
     }
@@ -49,11 +62,20 @@ class WarehouseController extends Controller
     public function show(Warehouse $warehouse)
     {
         $tenantId = tenant('id');
-        $cacheKey = "warehouse_{$warehouse->id}_{$tenantId}";
+        $key = "tenant_{$tenantId}_warehouse_{$warehouse->id}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($warehouse) {
-            return $warehouse->load('parentWarehouse', 'subWarehouses');
-        });
+        $cachedWarehouse = app('cache')->store('database')->get($key);
+
+        if (! $cachedWarehouse) {
+            $cachedWarehouse = $warehouse->load('parentWarehouse', 'subWarehouses');
+            app('cache')->store('database')->forever($key, $cachedWarehouse);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Warehouse fetched successfully.',
+            'data' => $cachedWarehouse,
+        ]);
     }
 
     public function update(Request $request, Warehouse $warehouse)
@@ -69,7 +91,7 @@ class WarehouseController extends Controller
             if (! $parentWarehouse) {
                 return response()->json(['message' => 'Parent warehouse not found'], 404);
             }
-            if ($parentWarehouse->is_inactive) {
+            if (! $parentWarehouse->active) {
                 return response()->json(['message' => 'Cannot set an inactive warehouse as parent'], 422);
             }
             if ($warehouse->isSubWarehouseOf($parentWarehouse)) {
@@ -79,8 +101,12 @@ class WarehouseController extends Controller
 
         $warehouse->update($validated);
 
-        Cache::forget('warehouses_'.tenant('id'));
-        Cache::forget("warehouse_{$warehouse->id}_".tenant('id'));
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_warehouses");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_warehouse_{$warehouse->id}");
+
+        // Load the parent warehouse relationship for the response
+        $warehouse->load('parentWarehouse');
 
         return response()->json($warehouse);
     }
@@ -107,8 +133,10 @@ class WarehouseController extends Controller
         }
 
         $warehouse->delete();
-        Cache::forget('warehouses_'.tenant('id'));
-        Cache::forget("warehouse_{$warehouse->id}_".tenant('id'));
+
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_warehouses");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_warehouse_{$warehouse->id}");
 
         return response()->json([
             'status' => true,
@@ -165,7 +193,8 @@ class WarehouseController extends Controller
 
                 $warehouse->delete();
                 $deleted++;
-                Cache::forget("warehouse_{$id}_".tenant('id'));
+                $tenantId = tenant('id');
+                app('cache')->store('database')->forget("tenant_{$tenantId}_warehouse_{$id}");
             } catch (\Exception $e) {
                 $warehouse = Warehouse::find($id);
                 $identifier = $warehouse?->name ?? $warehouse?->code ?? "ID: {$id}";
@@ -177,7 +206,8 @@ class WarehouseController extends Controller
             }
         }
 
-        Cache::forget('warehouses_'.tenant('id'));
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_warehouses");
 
         return response()->json([
             'message' => 'Bulk delete completed.',
@@ -209,7 +239,7 @@ class WarehouseController extends Controller
 
         $fileName = 'warehouses_'.date('Y-m-d_H-i-s').'.pdf';
 
-        return Excel::download(new ExportPDF($warehousecontroller, ['id', 'code', 'name', 'active', 'created_at', 'updated_at'], ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At']), $fileName);
+        return Excel::download(new ExportPDF($warehouses, ['id', 'code', 'name', 'active', 'created_at', 'updated_at'], ['ID', 'Code', 'Name', 'Active', 'Created At', 'Updated At']), $fileName);
     }
 
     public function importFromExcel(Request $request)
@@ -285,7 +315,8 @@ class WarehouseController extends Controller
                 ], 422);
             }
 
-            Cache::forget('warehouses_'.tenant('id'));
+            $tenantId = tenant('id');
+            app('cache')->store('database')->forget("tenant_{$tenantId}_warehouses");
 
             return response()->json([
                 'message' => 'Warehouses imported successfully',

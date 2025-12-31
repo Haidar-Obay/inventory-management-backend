@@ -20,7 +20,10 @@ class Warehouse extends Model implements Auditable
     public $timestamps = true;
 
     protected $casts = [
-        'is_inactive' => 'boolean',
+        'active' => 'boolean',
+        'default_for_purchases' => 'boolean',
+        'default_for_sales' => 'boolean',
+        'default_for_storage' => 'boolean',
     ];
 
     // Validation rules for the model
@@ -28,7 +31,10 @@ class Warehouse extends Model implements Auditable
         'code' => 'required|string|max:50|unique:warehouses,code',
         'name' => 'required|string|max:255',
         'sub_warehouse_of' => 'nullable|exists:warehouses,id',
-        'is_inactive' => 'required|boolean',
+        'active' => 'required|boolean',
+        'default_for_purchases' => 'nullable|boolean',
+        'default_for_sales' => 'nullable|boolean',
+        'default_for_storage' => 'nullable|boolean',
     ];
 
     // Self-referential relationship for parent warehouse

@@ -59,7 +59,7 @@ class VisitController extends Controller
             'appointment.customers',
             'appointment.services',
             'services', // Load multiple services
-        ])->orderByDesc('arrived_at')->orderByDesc('id');
+        ])->orderBy('arrived_at')->orderBy('id');
 
         if ($date) {
             $query->whereDate('arrived_at', $date);

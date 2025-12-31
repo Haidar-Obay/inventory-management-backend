@@ -69,6 +69,7 @@ use App\Http\Controllers\SupplierGroupController;
 use App\Http\Controllers\TableTemplateController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskStatusController;
+use App\Http\Controllers\TaxGroupController;
 use App\Http\Controllers\TenantModuleController;
 use App\Http\Controllers\TenantPurgeController;
 use App\Http\Controllers\TradeController;
@@ -180,6 +181,7 @@ Route::middleware([
         Route::apiResource('branches', BranchController::class)->middleware('check.permission:branches,view');
         Route::apiResource('adjustment-types', AdjustmentTypeController::class);
         Route::apiResource('warehouses', WarehouseController::class)->middleware('check.permission:warehouses,view');
+        Route::apiResource('tax-groups', TaxGroupController::class)->middleware('check.permission:tax_groups,view');
         Route::apiResource('rooms', RoomController::class);
         Route::apiResource('sections', SectionController::class);
 
@@ -292,6 +294,7 @@ Route::middleware([
             Route::get('branches', [BranchController::class, 'exportExcell'])->middleware('check.permission:branches,export');
             Route::get('adjustment-types', [AdjustmentTypeController::class, 'exportExcell'])->middleware('check.permission:adjustment_types,export');
             Route::get('warehouses', [WarehouseController::class, 'exportExcell'])->middleware('check.permission:warehouses,export');
+            Route::get('tax-groups', [TaxGroupController::class, 'exportExcell'])->middleware('check.permission:tax_groups,export');
             Route::get('rooms', [RoomController::class, 'exportExcell'])->middleware('check.permission:rooms,export');
             Route::get('sections', [SectionController::class, 'exportExcell'])->middleware('check.permission:sections,export');
             Route::get('assets', [AssetController::class, 'exportExcell'])->middleware('check.permission:assets,export');
@@ -348,6 +351,7 @@ Route::middleware([
             Route::get('/branches', [BranchController::class, 'exportPdf'])->middleware('check.permission:branches,export');
             Route::get('/adjustment-types', [AdjustmentTypeController::class, 'exportPdf'])->middleware('check.permission:adjustment_types,export');
             Route::get('/warehouses', [WarehouseController::class, 'exportPdf'])->middleware('check.permission:warehouses,export');
+            Route::get('/tax-groups', [TaxGroupController::class, 'exportPdf'])->middleware('check.permission:tax_groups,export');
             Route::get('/rooms', [RoomController::class, 'exportPdf'])->middleware('check.permission:rooms,export');
             Route::get('/sections', [SectionController::class, 'exportPdf'])->middleware('check.permission:sections,export');
             Route::get('/assets', [AssetController::class, 'exportPdf'])->middleware('check.permission:assets,export');
@@ -407,6 +411,7 @@ Route::middleware([
             Route::post('/branches', [BranchController::class, 'importFromExcel'])->middleware('check.permission:branches,import');
             Route::post('/adjustment-types', [AdjustmentTypeController::class, 'importFromExcel'])->middleware('check.permission:adjustment_types,import');
             Route::post('/warehouses', [WarehouseController::class, 'importFromExcel'])->middleware('check.permission:warehouses,import');
+            Route::post('/tax-groups', [TaxGroupController::class, 'importFromExcel'])->middleware('check.permission:tax_groups,import');
             Route::post('/rooms', [RoomController::class, 'importFromExcel'])->middleware('check.permission:rooms,import');
             Route::post('/sections', [SectionController::class, 'importFromExcel'])->middleware('check.permission:sections,import');
             Route::post('/assets', [AssetController::class, 'importFromExcel'])->middleware('check.permission:assets,import');
@@ -464,7 +469,8 @@ Route::middleware([
             Route::delete('/suppliers', [SupplierController::class, 'bulkDelete']);
             Route::delete('/branches', [BranchController::class, 'bulkDelete']);
             Route::delete('/adjustment-types', [AdjustmentTypeController::class, 'bulkDelete']);
-            Route::delete('/warehouses', [WarehouseController::class, 'bulkDelete']);
+            Route::delete('/warehouses', [WarehouseController::class, 'bulkDelete'])->middleware('check.permission:warehouses,delete');
+            Route::delete('/tax-groups', [TaxGroupController::class, 'bulkDelete'])->middleware('check.permission:tax_groups,delete');
             Route::delete('/rooms', [RoomController::class, 'bulkDelete']);
             Route::delete('/sections', [SectionController::class, 'bulkDelete']);
             Route::delete('/assets', [AssetController::class, 'bulkDelete'])->middleware('check.permission:assets,delete');
