@@ -36,6 +36,7 @@ use App\Http\Controllers\DistributionChannelController;
 use App\Http\Controllers\DistrictController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventStatusController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ItemController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\MediaChannelController;
@@ -226,6 +227,7 @@ Route::middleware([
         Route::get('units/{unitOfMeasurement}/operations', [\App\Http\Controllers\UnitOfMeasurementController::class, 'operations'])->middleware('check.permission:unit_of_measurements,view');
         Route::get('units/{unitOfMeasurement}/conversions', [\App\Http\Controllers\UnitOfMeasurementController::class, 'conversions'])->middleware('check.permission:unit_of_measurements,view');
         Route::apiResource('unit-of-measurements', UnitOfMeasurementController::class)->middleware('check.permission:unit_of_measurements,view');
+        Route::apiResource('invoices', InvoiceController::class)->middleware('check.permission:invoices,view');
         Route::apiResource('customer-master-lists', CustomerMasterListController::class);
         Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');
         Route::apiResource('specialists', SpecialistController::class)->middleware('check.permission:specialists,view');
