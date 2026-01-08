@@ -91,9 +91,18 @@ class TableTemplateController extends Controller
             'salesChannels',
             'distributionChannels',
             'mediaChannels',
+            'mediaTypes',
             'businessTypes',
+            'serviceCategories',
+            'services',
             'customerMasterLists',
-        ]; // Add your valid tables heree
+            'suppliers',
+            'supplierGroups',
+            'associations',
+            'referrers',
+            'purchaseInvoice',
+            'salesInvoice',
+        ]; // Add your valid tables here
         if (! in_array($tableName, $validTables)) {
             return response()->json(['message' => 'Invalid table name'], 400);
         }

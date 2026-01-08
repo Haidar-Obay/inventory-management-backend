@@ -506,6 +506,7 @@ Route::middleware([
             Route::delete('/transportation-channels', [TransportationChannelController::class, 'bulkDelete']);
             Route::delete('/media-channels', [MediaChannelController::class, 'bulkDelete']);
             Route::delete('/items', [ItemController::class, 'bulkDelete']);
+            Route::delete('/invoices', [InvoiceController::class, 'bulkDelete'])->middleware('check.permission:invoices,delete');
             Route::delete('/specialities', [SpecialityController::class, 'bulkDelete']);
             Route::delete('/specialists', [SpecialistController::class, 'bulkDelete']);
             Route::delete('/services', [ServiceController::class, 'bulkDelete']);
@@ -760,6 +761,7 @@ Route::middleware([
     Route::post('/customers/search-by-phone', [CustomerController::class, 'searchByPhone']);
     Route::get('/customers/{customerId}/appointments', [CustomerController::class, 'getAppointmentHistory']);
     Route::get('/customers/{customerId}/visits', [CustomerController::class, 'getVisitHistory']);
+    Route::get('/customers/{customerId}/for-invoice', [CustomerController::class, 'getForInvoice']);
     Route::get('/names/cost-centers', [CostCenterController::class, 'getNames']);
     Route::get('/names/departments', [DepartmentController::class, 'getNames']);
     Route::get('/names/projects', [ProjectController::class, 'getNames']);
@@ -773,6 +775,7 @@ Route::middleware([
     Route::get('/names/salesmen', [SalesmanController::class, 'getNames']);
     Route::get('/names/trades', [TradeController::class, 'getNames']);
     Route::get('/names/items', [ItemController::class, 'getNames']);
+    Route::get('/items/{itemId}/for-invoice', [ItemController::class, 'getItemForInvoice']);
     Route::get('/names/suppliers', [SupplierController::class, 'getNames']);
     Route::get('/names/suppliers-brief', [SupplierController::class, 'getBrief']);
 });

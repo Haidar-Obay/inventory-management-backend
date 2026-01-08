@@ -2240,4 +2240,103 @@ class CustomerController extends Controller
             'data' => $visits,
         ]);
     }
+
+    /**
+     * Get customer data optimized for invoice creation
+     * Returns customer with payment terms, phones, and addresses
+     */
+    public function getForInvoice($customerId)
+    {
+        $customer = Customer::with([
+            'paymentTerm:id,name,code,nb_days',
+            'billingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
+            'shippingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
+            'openingBalances' => function ($query) {
+                $query->where('is_active', true)
+                    ->with('currency:id,code,name');
+            },
+        ])->find($customerId);
+
+        if (! $customer) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Customer not found.',
+            ], 404);
+        }
+
+        // Format phones array (only non-null values)
+        $phones = array_filter([
+            $customer->phone1,
+            $customer->phone2,
+            $customer->phone3,
+        ]);
+
+        // Format billing addresses
+        $billingAddresses = $customer->billingAddresses->map(function ($address) {
+            $parts = array_filter([
+                $address->address_line1,
+                $address->address_line2,
+                $address->building ? "Building: {$address->building}" : null,
+                $address->floor ? "Floor: {$address->floor}" : null,
+                $address->zip_code,
+            ]);
+
+            return [
+                'id' => $address->id,
+                'formatted' => implode(', ', $parts),
+                'address_line1' => $address->address_line1,
+                'address_line2' => $address->address_line2,
+            ];
+        });
+
+        // Format shipping addresses
+        $shippingAddresses = $customer->shippingAddresses->map(function ($address) {
+            $parts = array_filter([
+                $address->address_line1,
+                $address->address_line2,
+                $address->building ? "Building: {$address->building}" : null,
+                $address->floor ? "Floor: {$address->floor}" : null,
+                $address->zip_code,
+            ]);
+
+            return [
+                'id' => $address->id,
+                'formatted' => implode(', ', $parts),
+                'address_line1' => $address->address_line1,
+                'address_line2' => $address->address_line2,
+            ];
+        });
+
+        // Get currencies from active opening balances
+        $currencies = $customer->openingBalances->map(function ($openingBalance) {
+            return [
+                'id' => $openingBalance->currency->id,
+                'code' => $openingBalance->currency->code,
+                'name' => $openingBalance->currency->name,
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Customer data retrieved successfully.',
+            'data' => [
+                'id' => $customer->id,
+                'first_name' => $customer->first_name,
+                'middle_name' => $customer->middle_name,
+                'last_name' => $customer->last_name,
+                'display_name' => $customer->display_name,
+                'company_name' => $customer->company_name,
+                'phones' => array_values($phones),
+                'payment_term' => $customer->paymentTerm ? [
+                    'id' => $customer->paymentTerm->id,
+                    'name' => $customer->paymentTerm->name,
+                    'code' => $customer->paymentTerm->code,
+                    'nb_days' => $customer->paymentTerm->nb_days,
+                ] : null,
+                'billing_addresses' => $billingAddresses,
+                'shipping_addresses' => $shippingAddresses,
+                'currencies' => $currencies->values(),
+            ],
+        ]);
+    }
 }

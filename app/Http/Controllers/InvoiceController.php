@@ -157,12 +157,12 @@ class InvoiceController extends Controller
                 'status' => true,
                 'message' => 'Invoice created successfully.',
                 'data' => $invoice->load([
-                    'customer:id,code,name,display_name',
-                    'supplier:id,code,name,display_name',
+                    'customer:id,first_name,last_name,display_name,company_name',
+                    'supplier:id,first_name,last_name,display_name,company_name',
                     'currency:id,code,name',
-                    'salesman:id,code,name',
-                    'warehouse:id,code,name',
-                    'paymentTerm:id,code,name,nb_days',
+                    'salesman:id,name',
+                    'warehouse:id,name',
+                    'paymentTerm:id,name,nb_days',
                     'items.item:id,code,name',
                     'items.uom:id,name',
                     'items.warehouse:id,name',
@@ -229,12 +229,12 @@ class InvoiceController extends Controller
                 'status' => true,
                 'message' => 'Invoice updated successfully.',
                 'data' => $invoice->load([
-                    'customer:id,code,name,display_name',
-                    'supplier:id,code,name,display_name',
+                    'customer:id,first_name,last_name,display_name,company_name',
+                    'supplier:id,first_name,last_name,display_name,company_name',
                     'currency:id,code,name',
-                    'salesman:id,code,name',
-                    'warehouse:id,code,name',
-                    'paymentTerm:id,code,name,nb_days',
+                    'salesman:id,name',
+                    'warehouse:id,name',
+                    'paymentTerm:id,name,nb_days',
                     'items.item:id,code,name',
                     'items.uom:id,name',
                     'items.warehouse:id,name',
@@ -278,6 +278,75 @@ class InvoiceController extends Controller
         }
     }
 
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'required|integer|exists:invoices,id',
+        ], [
+            'ids.required' => 'The ids field is required.',
+            'ids.array' => 'The ids must be an array.',
+            'ids.min' => 'At least one ID must be provided.',
+            'ids.*.required' => 'Each ID is required.',
+            'ids.*.integer' => 'Each ID must be an integer.',
+            'ids.*.exists' => 'One or more selected invoices do not exist.',
+        ]);
+
+        $tenantId = tenant('id');
+        $skipped = [];
+        $deleted = 0;
+
+        foreach ($request->ids as $id) {
+            try {
+                $invoice = Invoice::find($id);
+
+                if (! $invoice) {
+                    $skipped[] = [
+                        'id' => $id,
+                        'name' => "Invoice ID: {$id}",
+                        'reason' => 'Invoice not found.',
+                    ];
+
+                    continue;
+                }
+
+                // Delete the invoice (items will be deleted via cascade)
+                $invoice->delete();
+                $deleted++;
+
+                // Clear cache
+                app('cache')->store('database')->forget("tenant_{$tenantId}_invoice_{$id}");
+
+            } catch (\Illuminate\Database\QueryException $e) {
+                $invoice = Invoice::withTrashed()->find($id);
+                $identifier = $invoice ? ($invoice->invoice_number ? "Invoice #{$invoice->invoice_number}" : "Invoice ID: {$id}") : "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => 'Cannot delete invoice. It may be referenced by other records.',
+                ];
+            } catch (\Exception $e) {
+                $invoice = Invoice::withTrashed()->find($id);
+                $identifier = $invoice ? ($invoice->invoice_number ? "Invoice #{$invoice->invoice_number}" : "Invoice ID: {$id}") : "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => $e->getMessage(),
+                ];
+            }
+        }
+
+        // Clear invoices cache
+        app('cache')->store('database')->forget("tenant_{$tenantId}_invoices");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Bulk delete completed.',
+            'deleted_count' => $deleted,
+            'skipped' => $skipped,
+        ]);
+    }
+
     /**
      * Create an invoice item with proper calculations.
      */
@@ -305,14 +374,24 @@ class InvoiceController extends Controller
         $unitPrice = InvoiceItem::calculateUnitPrice($price, $conversion);
 
         // Calculate item totals
+        // Order: Subtotal → Tax → Discount → Total
+        // Tax is calculated on subtotal, then discount is applied after tax
         $quantity = $itemData['quantity'];
         $subtotal = $quantity * $price;
-        $discountPercent = $itemData['discount_percent'] ?? 0;
-        $discountAmount = $subtotal * ($discountPercent / 100);
-        $afterDiscount = $subtotal - $discountAmount;
+
+        // Step 1: Calculate tax on subtotal (before discount)
         $taxPercent = $itemData['tax_percent'] ?? 0;
-        $taxAmount = $afterDiscount * ($taxPercent / 100);
-        $total = $afterDiscount + $taxAmount;
+        $taxAmount = $subtotal * ($taxPercent / 100);
+
+        // Step 2: Add tax to subtotal
+        $afterTax = $subtotal + $taxAmount;
+
+        // Step 3: Apply discount on the amount after tax
+        $discountPercent = $itemData['discount_percent'] ?? 0;
+        $discountAmount = $afterTax * ($discountPercent / 100);
+
+        // Step 4: Final total = afterTax - discount
+        $total = $afterTax - $discountAmount;
 
         // Create invoice item
         $nextId = $this->computeNextAvailableId(InvoiceItem::class, 'id');

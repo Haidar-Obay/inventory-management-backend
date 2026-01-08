@@ -142,30 +142,30 @@ class Invoice extends Model implements Auditable
         // Calculate subtotal from all items (sum of item subtotals)
         $subtotal = $items->sum('subtotal');
 
-        // Apply document-level discount (discount_2)
-        $discountAmount = 0;
-        if ($this->discount_2_type && $this->discount_2_value) {
-            if ($this->discount_2_type === 'percent') {
-                $discountAmount = $subtotal * ($this->discount_2_value / 100);
-            } else {
-                $discountAmount = $this->discount_2_value;
-            }
-        }
-
-        $afterDiscount = $subtotal - $discountAmount;
-
         // Calculate total taxes from all items
-        // Tax for each item = (item subtotal - item discount) * (tax_percent / 100)
+        // Tax is calculated on subtotal (before discount) for each item
         $taxes = $items->sum(function ($item) {
-            $itemDiscount = $item->subtotal * ($item->discount_percent / 100);
-            $itemAfterDiscount = $item->subtotal - $itemDiscount;
-            $itemTax = $itemAfterDiscount * ($item->tax_percent / 100);
+            $itemSubtotal = $item->quantity * $item->price;
+            $itemTax = $itemSubtotal * ($item->tax_percent / 100);
 
             return $itemTax;
         });
 
-        // Net total = after discount + taxes
-        $netTotal = $afterDiscount + $taxes;
+        // Calculate total from all items (sum of item totals)
+        $total = $items->sum('total');
+
+        // Apply document-level discount (discount_2) on total
+        $discount2Amount = 0;
+        if ($this->discount_2_type && $this->discount_2_value) {
+            if ($this->discount_2_type === 'percent') {
+                $discount2Amount = $total * ($this->discount_2_value / 100);
+            } else {
+                $discount2Amount = $this->discount_2_value;
+            }
+        }
+
+        // Net total = total - discount2
+        $netTotal = $total - $discount2Amount;
 
         // Net to pay = net total + adjustment
         $netToPay = $netTotal + ($this->adjustment ?? 0);
