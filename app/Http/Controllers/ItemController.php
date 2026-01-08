@@ -1062,4 +1062,87 @@ class ItemController extends Controller
             'data' => $transformedItems,
         ]);
     }
+
+    /**
+     * Get item data optimized for invoice line entry.
+     * Returns item details with UOMs, prices based on customer's price_choice, barcodes, and tax info.
+     *
+     * @param  int  $itemId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getItemForInvoice($itemId, Request $request)
+    {
+        $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+        ]);
+
+        $item = Item::with([
+            'taxGroup:id,code,name,value',
+            'baseUom:id,name',
+            'unitOfMeasurements:id,name',
+        ])->find($itemId);
+
+        if (! $item) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Item not found.',
+            ], 404);
+        }
+
+        // Get customer's price choice
+        $customer = \App\Models\Customer::find($request->customer_id);
+        $priceChoice = $customer->price_choice ?? 'price1';
+
+        // Map price choice to column name
+        $priceColumn = match ($priceChoice) {
+            'price1' => 'price_1',
+            'price2' => 'price_2',
+            'price3' => 'price_3',
+            'price4' => 'price_4',
+            'price5' => 'price_5',
+            'price6' => 'price_6',
+            'last_invoice_price' => 'price_1', // Default to price_1 for now
+            default => 'price_1',
+        };
+
+        // Process UOMs with prices, barcodes, and calculations
+        $unitOfMeasurements = $item->unitOfMeasurements->map(function ($uom) use ($priceColumn, $item) {
+            $pivot = $uom->pivot;
+            $price = $pivot->{$priceColumn} ?? 0;
+            $conversion = $pivot->conversion ?? 1;
+
+            // Calculate unit price: price / conversion
+            $unitPrice = $conversion > 0 ? $price / $conversion : $price;
+
+            return [
+                'id' => $uom->id,
+                'name' => $uom->name,
+                'conversion' => (float) $conversion,
+                'operation' => $pivot->operation,
+                'barcodes' => $pivot->barcodes ?? [],
+                'price' => (float) $price,
+                'unit_price' => round($unitPrice, 2),
+                'is_base_uom' => $uom->id === $item->base_uom_id,
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Item data retrieved successfully.',
+            'data' => [
+                'id' => $item->id,
+                'code' => $item->code,
+                'name' => $item->name,
+                'sales_description' => $item->sales_description,
+                'base_uom_id' => $item->base_uom_id,
+                'tax' => $item->taxGroup ? [
+                    'id' => $item->taxGroup->id,
+                    'code' => $item->taxGroup->code,
+                    'name' => $item->taxGroup->name,
+                    'value' => (float) $item->taxGroup->value,
+                ] : null,
+                'unit_of_measurements' => $unitOfMeasurements,
+            ],
+        ]);
+    }
 }

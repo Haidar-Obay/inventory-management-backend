@@ -137,6 +137,10 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Payment Methods', 'code' => PageCode::PAYMENT_METHODS->value, 'path' => '/main/mainfiles/payment?tab=1', 'order' => 61, 'is_public' => false],
                     ['name' => 'Tax Groups', 'code' => PageCode::PAYMENT_TAX_GROUPS->value, 'path' => '/main/mainfiles/payment?tab=2', 'order' => 62, 'is_public' => false],
 
+                    // Invoices
+                    ['name' => 'Purchase Invoices', 'code' => PageCode::INVOICES_PURCHASE_INVOICES->value, 'path' => '/main/mainfiles/invoices?tab=0', 'order' => 63, 'is_public' => false],
+                    ['name' => 'Sales Invoices', 'code' => PageCode::INVOICES_SALES_INVOICES->value, 'path' => '/main/mainfiles/invoices?tab=1', 'order' => 64, 'is_public' => false],
+
                     // Units
                     ['name' => 'Unit Groups', 'code' => PageCode::UNITS_GROUPS->value, 'path' => '/main/mainfiles/units?tab=0', 'order' => 62, 'is_public' => false],
                     ['name' => 'Unit Of Measurements', 'code' => PageCode::UNITS_MEASUREMENTS->value, 'path' => '/main/mainfiles/units?tab=1', 'order' => 63, 'is_public' => false],

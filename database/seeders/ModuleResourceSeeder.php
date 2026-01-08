@@ -75,6 +75,11 @@ class ModuleResourceSeeder extends Seeder
             PageCode::PAYMENT_TERMS->value => 'payment_terms',
             PageCode::PAYMENT_METHODS->value => 'payment_methods',
             PageCode::PAYMENT_TAX_GROUPS->value => 'tax_groups',
+
+            // Invoices
+            PageCode::INVOICES_INVOICES->value => 'invoices',
+            PageCode::INVOICES_PURCHASE_INVOICES->value => 'invoices',
+            PageCode::INVOICES_SALES_INVOICES->value => 'invoices',
         ];
 
         // Get all modules
@@ -169,6 +174,7 @@ class ModuleResourceSeeder extends Seeder
                     'unit_of_measurements',
                     'warehouses',
                     'tax_groups',
+                    'invoices',
                 ],
             ];
 
