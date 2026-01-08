@@ -12,6 +12,101 @@ class CreateDefaultTableTemplates
 {
     use Dispatchable, InteractsWithQueue, SerializesModels;
 
+    /**
+     * Get custom width for a column, or return default 110px
+     */
+    private function getColumnWidth(string $columnName): string
+    {
+        $customWidths = [
+            // IDs and codes
+            'id' => '60px',
+            'code' => '80px',
+
+            // Names and titles
+            'name' => '150px',
+            'title' => '100px',
+            'first_name' => '100px',
+            'middle_name' => '100px',
+            'last_name' => '100px',
+            'display_name' => '150px',
+            'company_name' => '150px',
+
+            // Contact information
+            'phone1' => '110px',
+            'phone2' => '110px',
+            'phone3' => '110px',
+            'email' => '150px',
+            'address' => '200px',
+
+            // Dates
+            'date' => '100px',
+            'due_date' => '100px',
+            'start_date' => '100px',
+            'end_date' => '100px',
+            'expected_date' => '100px',
+            'valid_from' => '100px',
+            'valid_till' => '100px',
+            'exempted_from_date' => '120px',
+            'exempted_till_date' => '120px',
+
+            // Invoice specific
+            'invoice_number' => '130px',
+            'supplier' => '150px',
+            'customer' => '150px',
+            'currency' => '80px',
+            'warehouse' => '120px',
+            'subtotal' => '100px',
+            'taxes' => '100px',
+            'net_total' => '100px',
+            'net_to_pay' => '100px',
+            'adjustment' => '100px',
+
+            // Financial
+            'price' => '100px',
+            'normal_price' => '100px',
+            'cost_price' => '100px',
+            'discount_2_value' => '100px',
+            'markup_percentage' => '120px',
+            'markdown_percentage' => '120px',
+            'tax_rate' => '80px',
+            'commission_percent' => '100px',
+            'fix_commission' => '100px',
+
+            // Boolean flags
+            'active' => '70px',
+            'is_manager' => '90px',
+            'is_supervisor' => '100px',
+            'is_collector' => '90px',
+            'is_credit_card' => '110px',
+            'is_online_payment' => '130px',
+            'allow_credit' => '100px',
+            'accept_cheque' => '110px',
+            'taxable' => '70px',
+            'is_exempted' => '90px',
+            'black_listed' => '100px',
+            'one_time_account' => '130px',
+            'special_account' => '120px',
+            'pos_customer' => '100px',
+            'free_delivery_charge' => '140px',
+            'allowed_to_pay_for_guests' => '160px',
+
+            // Text fields
+            'description' => '200px',
+            'notes' => '200px',
+            'search_terms' => '150px',
+            'ref_2' => '100px',
+            'invoice_message' => '200px',
+
+            // Other common fields
+            'file_number' => '100px',
+            'bar_code' => '120px',
+            'nb_days' => '80px',
+            'quantity' => '80px',
+        ];
+
+        return $customWidths[$columnName] ?? '110px';
+    }
+
     public function handle()
     {
         if (! Schema::hasTable('table_templates')) {
@@ -113,6 +208,12 @@ class CreateDefaultTableTemplates
             'referrers' => [
                 'id', 'name', 'address', 'phone1', 'phone2', 'email', 'active', 'commission_percent', 'created_at', 'updated_at',
             ],
+            'purchaseInvoice' => [
+                'id', 'invoice_number', 'date', 'due_date', 'supplier', 'currency', 'warehouse', 'subtotal', 'taxes', 'net_total', 'net_to_pay', 'created_at',
+            ],
+            'salesInvoice' => [
+                'id', 'invoice_number', 'date', 'due_date', 'customer', 'currency', 'warehouse', 'subtotal', 'taxes', 'net_total', 'net_to_pay', 'created_at',
+            ],
 
         ];
 
@@ -126,11 +227,17 @@ class CreateDefaultTableTemplates
             $visibleColumns['created_at'] = false;
             $visibleColumns['updated_at'] = false;
 
+            // Create column_widths with custom widths where defined, otherwise 110px
+            $columnWidths = [];
+            foreach ($columns as $column) {
+                $columnWidths[$column] = $this->getColumnWidth($column);
+            }
+
             $template = [
                 'name' => 'Default',
                 'table_name' => $tableName,
                 'visible_columns' => $visibleColumns,
-                'column_widths' => array_fill_keys($columns, 110),
+                'column_widths' => $columnWidths,
                 'column_order' => array_values($columns),
                 'headerColor' => null,
                 'showHeaderSeparator' => true,
