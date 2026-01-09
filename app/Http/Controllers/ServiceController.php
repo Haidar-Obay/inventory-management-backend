@@ -201,8 +201,8 @@ class ServiceController extends Controller
             'attachments',
         ]);
 
-        // Attach needed items (with item)
-        $neededItems = ServiceNeededItem::with('item:id,code,name,unit,description')
+        // Attach needed items (with item and base UOM)
+        $neededItems = ServiceNeededItem::with(['item:id,code,name,base_uom_id', 'item.baseUom:id,name'])
             ->where('service_id', $service->id)
             ->get()
             ->map(function ($neededItem) {
@@ -211,8 +211,8 @@ class ServiceController extends Controller
                     'item_id' => $neededItem->item_id,
                     'item_code' => $neededItem->item->code ?? '',
                     'item_name' => $neededItem->item->name ?? '',
-                    'description' => $neededItem->item->description ?? '',
-                    'unit' => $neededItem->item->unit ?? '',
+                    'description' => $neededItem->description ?? '',
+                    'unit' => $neededItem->item->baseUom->name ?? '',
                     'quantity' => $neededItem->quantity,
                 ];
             });

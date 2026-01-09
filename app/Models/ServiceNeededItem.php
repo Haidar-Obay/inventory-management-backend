@@ -13,6 +13,7 @@ class ServiceNeededItem extends Model
     protected $fillable = [
         'service_id',
         'item_id',
+        'description',
         'quantity',
     ];
 

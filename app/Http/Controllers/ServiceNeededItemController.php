@@ -38,6 +38,7 @@ class ServiceNeededItemController extends Controller
             $rules = [
                 'service_id' => ['required', 'integer', 'exists:services,id'],
                 'item_id' => ['required', 'integer', 'exists:items,id'],
+                'description' => ['nullable', 'string'],
                 'quantity' => ['nullable', 'numeric', 'min:0'],
             ];
 
@@ -81,6 +82,7 @@ class ServiceNeededItemController extends Controller
         $validator = Validator::make($payload, [
             'service_id' => ['required', 'integer', 'exists:services,id'],
             'item_id' => ['required', 'integer', 'exists:items,id'],
+            'description' => ['nullable', 'string'],
             'quantity' => ['nullable', 'numeric', 'min:0'],
         ]);
         $validator->validate();
@@ -154,10 +156,10 @@ class ServiceNeededItemController extends Controller
         }
 
         $columns = [
-            'id', 'service_id', 'item_id', 'quantity', 'created_at', 'updated_at',
+            'id', 'service_id', 'item_id', 'description', 'quantity', 'created_at', 'updated_at',
         ];
         $headings = [
-            'ID', 'Service ID', 'Item ID', 'Quantity', 'Created At', 'Updated At',
+            'ID', 'Service ID', 'Item ID', 'Description', 'Quantity', 'Created At', 'Updated At',
         ];
 
         $fileName = 'service_needed_items_'.date('Y-m-d_H-i-s').'.xlsx';
@@ -167,7 +169,7 @@ class ServiceNeededItemController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $rows = ServiceNeededItem::select('id', 'service_id', 'item_id', 'quantity')->get();
+        $rows = ServiceNeededItem::select('id', 'service_id', 'item_id', 'description', 'quantity')->get();
         if ($rows->isEmpty()) {
             return response()->json(['message' => 'No service needed items found.'], 404);
         }
@@ -176,6 +178,7 @@ class ServiceNeededItemController extends Controller
             'id' => 'ID',
             'service_id' => 'Service ID',
             'item_id' => 'Item ID',
+            'description' => 'Description',
             'quantity' => 'Quantity',
         ];
         $pdf = $pdfService->generatePdf($title, $headers, $rows->toArray());
@@ -191,7 +194,7 @@ class ServiceNeededItemController extends Controller
 
         $import = new DynamicExcelImport(
             ServiceNeededItem::class,
-            ['service_id', 'item_id', 'quantity'],
+            ['service_id', 'item_id', 'description', 'quantity'],
             function ($row) {
                 $errors = [];
                 if (empty($row['service_id'])) {
@@ -210,6 +213,7 @@ class ServiceNeededItemController extends Controller
                 return [
                     'service_id' => (int) $row['service_id'],
                     'item_id' => (int) $row['item_id'],
+                    'description' => isset($row['description']) ? (string) $row['description'] : null,
                     'quantity' => isset($row['quantity']) ? (float) $row['quantity'] : 0,
                 ];
             }
