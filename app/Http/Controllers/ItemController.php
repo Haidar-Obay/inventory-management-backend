@@ -836,10 +836,22 @@ class ItemController extends Controller
 
     public function getUnitOfMeasurements(Item $item)
     {
+        // Eager load barcodes for each UOM pivot
         $uoms = $item->unitOfMeasurements()
             ->with('unitGroup')
             ->orderBy('name')
             ->get();
+
+        // Load barcodes for each UOM and attach to pivot
+        $uoms->each(function ($uom) {
+            $pivot = $uom->pivot;
+            // Get barcodes from dedicated table
+            $barcodes = \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $pivot->id)
+                ->pluck('barcode')
+                ->toArray();
+            // Attach barcodes to pivot as array (for frontend compatibility)
+            $pivot->barcodes = $barcodes;
+        });
 
         return response()->json([
             'status' => true,
@@ -878,7 +890,9 @@ class ItemController extends Controller
                 $row['operation'] = 'multiply';
                 $row['conversion'] = 1;
             }
-            ItemUnitOfMeasurement::updateOrCreate(
+
+            // Save UOM pivot data (without barcodes)
+            $itemUom = ItemUnitOfMeasurement::updateOrCreate(
                 [
                     'item_id' => $item->id,
                     'unit_of_measurement_id' => $row['unit_of_measurement_id'],
@@ -886,7 +900,6 @@ class ItemController extends Controller
                 [
                     'operation' => $row['operation'],
                     'conversion' => $row['conversion'],
-                    'barcodes' => $row['barcodes'] ?? null,
                     'price_1' => $row['price_1'] ?? null,
                     'price_2' => $row['price_2'] ?? null,
                     'price_3' => $row['price_3'] ?? null,
@@ -899,9 +912,45 @@ class ItemController extends Controller
                     'net_weight' => $row['net_weight'] ?? null,
                 ]
             );
+
+            // Handle barcodes in dedicated table
+            if (isset($row['barcodes']) && is_array($row['barcodes'])) {
+                // Delete existing barcodes for this item UOM
+                \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->delete();
+
+                // Insert new barcodes
+                $barcodesToInsert = [];
+                foreach ($row['barcodes'] as $index => $barcodeValue) {
+                    if (! empty(trim($barcodeValue))) {
+                        $barcodesToInsert[] = [
+                            'item_id' => $item->id,
+                            'item_unit_of_measurement_id' => $itemUom->id,
+                            'barcode' => trim($barcodeValue),
+                            'is_primary' => $index === 0, // First barcode is primary
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                    }
+                }
+
+                if (! empty($barcodesToInsert)) {
+                    \App\Models\ItemBarcode::insert($barcodesToInsert);
+                }
+            }
         }
 
         $result = $item->unitOfMeasurements()->with('unitGroup')->get();
+
+        // Load barcodes for each UOM and attach to pivot
+        $result->each(function ($uom) {
+            $pivot = $uom->pivot;
+            // Get barcodes from dedicated table
+            $barcodes = \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $pivot->id)
+                ->pluck('barcode')
+                ->toArray();
+            // Attach barcodes to pivot as array (for frontend compatibility)
+            $pivot->barcodes = $barcodes;
+        });
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
@@ -929,7 +978,12 @@ class ItemController extends Controller
             $data['conversion'] = 1;
         }
 
-        ItemUnitOfMeasurement::updateOrCreate(
+        // Extract barcodes if present
+        $barcodes = $data['barcodes'] ?? null;
+        unset($data['barcodes']); // Remove from pivot data
+
+        // Update or create the pivot
+        $itemUom = ItemUnitOfMeasurement::updateOrCreate(
             [
                 'item_id' => $item->id,
                 'unit_of_measurement_id' => $unitOfMeasurement->id,
@@ -937,10 +991,43 @@ class ItemController extends Controller
             $data
         );
 
+        // Handle barcodes in dedicated table
+        if (isset($barcodes) && is_array($barcodes)) {
+            // Delete existing barcodes for this item UOM
+            \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->delete();
+
+            // Insert new barcodes
+            $barcodesToInsert = [];
+            foreach ($barcodes as $index => $barcodeValue) {
+                if (! empty(trim($barcodeValue))) {
+                    $barcodesToInsert[] = [
+                        'item_id' => $item->id,
+                        'item_unit_of_measurement_id' => $itemUom->id,
+                        'barcode' => trim($barcodeValue),
+                        'is_primary' => $index === 0, // First barcode is primary
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+
+            if (! empty($barcodesToInsert)) {
+                \App\Models\ItemBarcode::insert($barcodesToInsert);
+            }
+        }
+
         $uom = $item->unitOfMeasurements()
             ->where('unit_of_measurements.id', $unitOfMeasurement->id)
             ->with('unitGroup')
             ->first();
+
+        // Load barcodes and attach to pivot
+        if ($uom && $uom->pivot) {
+            $barcodes = \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $uom->pivot->id)
+                ->pluck('barcode')
+                ->toArray();
+            $uom->pivot->barcodes = $barcodes;
+        }
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
@@ -1106,7 +1193,35 @@ class ItemController extends Controller
         };
 
         // Process UOMs with prices, barcodes, and calculations
-        $unitOfMeasurements = $item->unitOfMeasurements->map(function ($uom) use ($priceColumn, $item) {
+        // Load unitOfMeasurements with pivot data
+        $item->load('unitOfMeasurements');
+
+        // Get all item_unit_of_measurement IDs to load barcodes efficiently
+        // Try to get pivot IDs, if not available, query pivot table directly
+        $itemUomIds = [];
+        foreach ($item->unitOfMeasurements as $uom) {
+            $pivotId = $uom->pivot->id ?? $uom->pivot->getKey();
+            // If still not available, query pivot table directly
+            if (! $pivotId) {
+                $pivot = \App\Models\ItemUnitOfMeasurement::where('item_id', $item->id)
+                    ->where('unit_of_measurement_id', $uom->id)
+                    ->first();
+                $pivotId = $pivot?->id;
+            }
+            if ($pivotId) {
+                $itemUomIds[] = $pivotId;
+            }
+        }
+
+        $barcodesByItemUomId = [];
+        if (! empty($itemUomIds)) {
+            $allBarcodes = \App\Models\ItemBarcode::whereIn('item_unit_of_measurement_id', $itemUomIds)->get();
+            foreach ($allBarcodes as $barcode) {
+                $barcodesByItemUomId[$barcode->item_unit_of_measurement_id][] = $barcode->barcode;
+            }
+        }
+
+        $unitOfMeasurements = $item->unitOfMeasurements->map(function ($uom) use ($priceColumn, $item, $barcodesByItemUomId) {
             $pivot = $uom->pivot;
             $price = $pivot->{$priceColumn} ?? 0;
             $conversion = $pivot->conversion ?? 1;
@@ -1114,12 +1229,25 @@ class ItemController extends Controller
             // Calculate unit price: price / conversion
             $unitPrice = $conversion > 0 ? $price / $conversion : $price;
 
+            // Get pivot ID (try multiple methods)
+            $pivotId = $pivot->id ?? $pivot->getKey();
+            if (! $pivotId) {
+                // Fallback: query pivot table directly
+                $pivotModel = \App\Models\ItemUnitOfMeasurement::where('item_id', $item->id)
+                    ->where('unit_of_measurement_id', $uom->id)
+                    ->first();
+                $pivotId = $pivotModel?->id;
+            }
+
+            // Get barcodes from dedicated table (using pre-loaded data)
+            $barcodes = $pivotId ? ($barcodesByItemUomId[$pivotId] ?? []) : [];
+
             return [
                 'id' => $uom->id,
                 'name' => $uom->name,
                 'conversion' => (float) $conversion,
                 'operation' => $pivot->operation,
-                'barcodes' => $pivot->barcodes ?? [],
+                'barcodes' => $barcodes,
                 'price' => (float) $price,
                 'unit_price' => round($unitPrice, 2),
                 'is_base_uom' => $uom->id === $item->base_uom_id,
@@ -1142,6 +1270,178 @@ class ItemController extends Controller
                     'value' => (float) $item->taxGroup->value,
                 ] : null,
                 'unit_of_measurements' => $unitOfMeasurements,
+            ],
+        ]);
+    }
+
+    /**
+     * Find item by barcode for invoice entry
+     * Searches through all item_unit_of_measurement barcodes
+     *
+     * @return JsonResponse
+     */
+    public function getItemByBarcode(Request $request)
+    {
+        $request->validate([
+            'barcode' => 'required|string|max:255',
+            'customer_id' => 'required|exists:customers,id',
+        ]);
+
+        $barcode = trim($request->barcode);
+        $customerId = $request->customer_id;
+
+        // Search for barcode in dedicated table (fast indexed lookup)
+        $itemBarcode = \App\Models\ItemBarcode::where('barcode', $barcode)->first();
+
+        if (! $itemBarcode) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Item not found for this barcode.',
+            ], 404);
+        }
+
+        // Get the item_unit_of_measurement from the barcode record
+        $itemUom = \App\Models\ItemUnitOfMeasurement::where('id', $itemBarcode->item_unit_of_measurement_id)
+            ->first();
+
+        if (! $itemUom) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Item unit of measurement not found for this barcode.',
+            ], 404);
+        }
+
+        // Load the item with all necessary relationships
+        $item = Item::with([
+            'taxGroup:id,code,name,value',
+            'baseUom:id,name',
+            'unitOfMeasurements:id,name',
+        ])->find($itemUom->item_id);
+
+        if (! $item) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Item not found.',
+            ], 404);
+        }
+
+        // Get customer's price choice
+        $customer = \App\Models\Customer::find($customerId);
+        $priceChoice = $customer->price_choice ?? 'price1';
+
+        // Map price choice to column name
+        $priceColumn = match ($priceChoice) {
+            'price1' => 'price_1',
+            'price2' => 'price_2',
+            'price3' => 'price_3',
+            'price4' => 'price_4',
+            'price5' => 'price_5',
+            'price6' => 'price_6',
+            'last_invoice_price' => 'price_1',
+            default => 'price_1',
+        };
+
+        // Get the matched UOM
+        $matchedUomId = $itemUom->unit_of_measurement_id;
+        $matchedUom = $item->unitOfMeasurements->find($matchedUomId);
+
+        if (! $matchedUom) {
+            return response()->json([
+                'status' => false,
+                'message' => 'UOM not found for this barcode.',
+            ], 404);
+        }
+
+        // Get price and conversion from the matched itemUom
+        $price = $itemUom->{$priceColumn} ?? 0;
+        $conversion = $itemUom->conversion ?? 1;
+        $unitPrice = $conversion > 0 ? $price / $conversion : $price;
+
+        // Get all UOMs for the item (for dropdown) - similar to getItemForInvoice
+        // Reload item with unitOfMeasurements relationship to get pivot data
+        $item->load('unitOfMeasurements');
+
+        // Get all item_unit_of_measurement IDs to load barcodes efficiently
+        // Try to get pivot IDs, if not available, query pivot table directly
+        $itemUomIds = [];
+        foreach ($item->unitOfMeasurements as $uom) {
+            $pivotId = $uom->pivot->id ?? $uom->pivot->getKey();
+            // If still not available, query pivot table directly
+            if (! $pivotId) {
+                $pivot = \App\Models\ItemUnitOfMeasurement::where('item_id', $item->id)
+                    ->where('unit_of_measurement_id', $uom->id)
+                    ->first();
+                $pivotId = $pivot?->id;
+            }
+            if ($pivotId) {
+                $itemUomIds[] = $pivotId;
+            }
+        }
+
+        $barcodesByItemUomId = [];
+        if (! empty($itemUomIds)) {
+            $allBarcodes = \App\Models\ItemBarcode::whereIn('item_unit_of_measurement_id', $itemUomIds)->get();
+            foreach ($allBarcodes as $barcode) {
+                $barcodesByItemUomId[$barcode->item_unit_of_measurement_id][] = $barcode->barcode;
+            }
+        }
+
+        $unitOfMeasurements = $item->unitOfMeasurements->map(function ($uom) use ($priceColumn, $item, $barcodesByItemUomId) {
+            $pivot = $uom->pivot;
+            $price = $pivot->{$priceColumn} ?? 0;
+            $conversion = $pivot->conversion ?? 1;
+            $unitPrice = $conversion > 0 ? $price / $conversion : $price;
+
+            // Get pivot ID (try multiple methods)
+            $pivotId = $pivot->id ?? $pivot->getKey();
+            if (! $pivotId) {
+                // Fallback: query pivot table directly
+                $pivotModel = \App\Models\ItemUnitOfMeasurement::where('item_id', $item->id)
+                    ->where('unit_of_measurement_id', $uom->id)
+                    ->first();
+                $pivotId = $pivotModel?->id;
+            }
+
+            // Get barcodes from dedicated table (using pre-loaded data)
+            $barcodes = $pivotId ? ($barcodesByItemUomId[$pivotId] ?? []) : [];
+
+            return [
+                'id' => $uom->id,
+                'name' => $uom->name,
+                'conversion' => (float) $conversion,
+                'operation' => $pivot->operation,
+                'barcodes' => $barcodes,
+                'price' => (float) $price,
+                'unit_price' => round($unitPrice, 2),
+                'is_base_uom' => $uom->id === $item->base_uom_id,
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Item found by barcode.',
+            'data' => [
+                'id' => $item->id,
+                'code' => $item->code,
+                'name' => $item->name,
+                'sales_description' => $item->sales_description,
+                'base_uom_id' => $item->base_uom_id,
+                'tax' => $item->taxGroup ? [
+                    'id' => $item->taxGroup->id,
+                    'code' => $item->taxGroup->code,
+                    'name' => $item->taxGroup->name,
+                    'value' => (float) $item->taxGroup->value,
+                ] : null,
+                'unit_of_measurements' => $unitOfMeasurements,
+                // Include the matched UOM for auto-selection
+                'matched_uom' => [
+                    'id' => $matchedUom->id,
+                    'name' => $matchedUom->name,
+                    'barcode' => $barcode,
+                    'price' => (float) $price,
+                    'unit_price' => round($unitPrice, 2),
+                    'conversion' => (float) $conversion,
+                ],
             ],
         ]);
     }

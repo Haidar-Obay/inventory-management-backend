@@ -189,7 +189,6 @@ class ItemSeeder extends Seeder
                     $baseUom->id => [
                         'operation' => 'multiply',
                         'conversion' => 1,
-                        'barcodes' => ['BC-'.$item->code.'-001', 'BC-'.$item->code.'-002'],
                         'price_1' => 100.00 + ($index * 10),
                         'price_2' => 90.00 + ($index * 10),
                         'price_3' => 80.00 + ($index * 10),
@@ -202,13 +201,31 @@ class ItemSeeder extends Seeder
                         'net_weight' => 1.8 + ($index * 0.1),
                     ],
                 ]);
+
+                // Get the item UOM pivot to insert barcodes
+                $itemUom = \App\Models\ItemUnitOfMeasurement::where('item_id', $item->id)
+                    ->where('unit_of_measurement_id', $baseUom->id)
+                    ->first();
+
+                if ($itemUom) {
+                    // Insert barcodes into dedicated table
+                    $barcodes = ['BC-'.$item->code.'-001', 'BC-'.$item->code.'-002'];
+                    foreach ($barcodes as $barcodeIndex => $barcode) {
+                        \App\Models\ItemBarcode::create([
+                            'item_id' => $item->id,
+                            'item_unit_of_measurement_id' => $itemUom->id,
+                            'barcode' => $barcode,
+                            'is_primary' => $barcodeIndex === 0,
+                        ]);
+                    }
+                }
+
                 // Optionally attach an additional UOM (e.g., Box) with a sample conversion
                 if ($purchaseUom && $purchaseUom->id !== $baseUom->id) {
                     $item->unitOfMeasurements()->syncWithoutDetaching([
                         $purchaseUom->id => [
                             'operation' => 'multiply',
                             'conversion' => 10, // example: 1 box = 10 pieces
-                            'barcodes' => ['BC-'.$item->code.'-BOX-001'],
                             'price_1' => 950.00 + ($index * 50),
                             'gross_volume' => 12.0 + ($index * 0.5),
                             'gross_weight' => 20.0 + ($index * 0.5),
@@ -216,6 +233,21 @@ class ItemSeeder extends Seeder
                             'net_weight' => 18.0 + ($index * 0.5),
                         ],
                     ]);
+
+                    // Get the purchase UOM pivot to insert barcodes
+                    $purchaseItemUom = \App\Models\ItemUnitOfMeasurement::where('item_id', $item->id)
+                        ->where('unit_of_measurement_id', $purchaseUom->id)
+                        ->first();
+
+                    if ($purchaseItemUom) {
+                        // Insert barcode into dedicated table
+                        \App\Models\ItemBarcode::create([
+                            'item_id' => $item->id,
+                            'item_unit_of_measurement_id' => $purchaseItemUom->id,
+                            'barcode' => 'BC-'.$item->code.'-BOX-001',
+                            'is_primary' => true,
+                        ]);
+                    }
                 }
             }
         }

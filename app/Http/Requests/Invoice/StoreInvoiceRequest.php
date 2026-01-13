@@ -39,7 +39,7 @@ class StoreInvoiceRequest extends FormRequest
                 'integer',
                 'exists:salesmen,id',
             ],
-            'warehouse_id' => 'required|integer|exists:warehouses,id',
+            'warehouse_id' => 'nullable|integer|exists:warehouses,id',
             'payment_term_id' => 'nullable|integer|exists:payment_terms,id',
 
             // Reference
@@ -70,7 +70,7 @@ class StoreInvoiceRequest extends FormRequest
             'shipping_to_addresses.*' => 'string',
 
             // Invoice items
-            'items' => 'required|array|min:1',
+            'items' => 'required|array',
             'items.*.item_id' => 'required|integer|exists:items,id',
             'items.*.barcode' => 'nullable|string',
             'items.*.description' => 'required|string',
@@ -94,8 +94,7 @@ class StoreInvoiceRequest extends FormRequest
             'supplier_id.required_if' => 'Supplier is required for purchase invoices.',
             'currency_id.required' => 'Currency is required.',
             'warehouse_id.required' => 'Warehouse is required.',
-            'items.required' => 'At least one item is required.',
-            'items.min' => 'At least one item is required.',
+            'items.required' => 'Items field is required.',
             'items.*.item_id.required' => 'Item ID is required for each invoice item.',
             'items.*.quantity.required' => 'Quantity is required for each invoice item.',
             'items.*.price.required' => 'Price is required for each invoice item.',

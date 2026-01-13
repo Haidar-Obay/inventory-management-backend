@@ -209,6 +209,7 @@ Route::middleware([
         Route::apiResource('media-channels', MediaChannelController::class);
         Route::get('items/services/list', [ItemController::class, 'getServiceItems'])->middleware('check.permission:items,view');
         Route::get('items/all', [ItemController::class, 'getAllItems'])->middleware('check.permission:items,view');
+        Route::get('items/by-barcode', [ItemController::class, 'getItemByBarcode'])->middleware('check.permission:items,view'); // Must come before apiResource
         Route::apiResource('items', ItemController::class)->middleware('check.permission:items,view');
         Route::post('items/{item}/attachments', [ItemController::class, 'uploadAttachment'])->middleware('check.permission:items,view');
         Route::get('items/{item}/attachments', [ItemController::class, 'getAttachments'])->middleware('check.permission:items,view');
@@ -227,6 +228,7 @@ Route::middleware([
         Route::get('units/{unitOfMeasurement}/operations', [\App\Http\Controllers\UnitOfMeasurementController::class, 'operations'])->middleware('check.permission:unit_of_measurements,view');
         Route::get('units/{unitOfMeasurement}/conversions', [\App\Http\Controllers\UnitOfMeasurementController::class, 'conversions'])->middleware('check.permission:unit_of_measurements,view');
         Route::apiResource('unit-of-measurements', UnitOfMeasurementController::class)->middleware('check.permission:unit_of_measurements,view');
+        Route::get('invoices/next-number', [InvoiceController::class, 'getNextInvoiceNumber'])->middleware('check.permission:invoices,view');
         Route::apiResource('invoices', InvoiceController::class)->middleware('check.permission:invoices,view');
         Route::apiResource('customer-master-lists', CustomerMasterListController::class);
         Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');

@@ -134,6 +134,7 @@ class Invoice extends Model implements Auditable
     /**
      * Recalculate all financial totals based on items.
      * This should be called after items are added/updated.
+     * Order: Subtotal → Discount → Tax → Discount2 → Net Total
      */
     public function recalculateTotals(): void
     {
@@ -143,29 +144,34 @@ class Invoice extends Model implements Auditable
         $subtotal = $items->sum('subtotal');
 
         // Calculate total taxes from all items
-        // Tax is calculated on subtotal (before discount) for each item
+        // Tax is calculated on (subtotal - discount) for each item
         $taxes = $items->sum(function ($item) {
             $itemSubtotal = $item->quantity * $item->price;
-            $itemTax = $itemSubtotal * ($item->tax_percent / 100);
+            // Step 1: Apply discount on subtotal
+            $itemDiscountAmount = $itemSubtotal * ($item->discount_percent / 100);
+            // Step 2: Calculate amount after discount
+            $itemAfterDiscount = $itemSubtotal - $itemDiscountAmount;
+            // Step 3: Calculate tax on the amount after discount
+            $itemTax = $itemAfterDiscount * ($item->tax_percent / 100);
 
             return $itemTax;
         });
 
-        // Calculate total from all items (sum of item totals)
-        $total = $items->sum('total');
-
-        // Apply document-level discount (discount_2) on total
+        // Apply document-level discount (discount_2) on subtotal (before taxes)
         $discount2Amount = 0;
         if ($this->discount_2_type && $this->discount_2_value) {
             if ($this->discount_2_type === 'percent') {
-                $discount2Amount = $total * ($this->discount_2_value / 100);
+                $discount2Amount = $subtotal * ($this->discount_2_value / 100);
             } else {
                 $discount2Amount = $this->discount_2_value;
             }
         }
 
-        // Net total = total - discount2
-        $netTotal = $total - $discount2Amount;
+        // Calculate amount after discount2
+        $afterDiscount2 = $subtotal - $discount2Amount;
+
+        // Net total = afterDiscount2 + taxes
+        $netTotal = $afterDiscount2 + $taxes;
 
         // Net to pay = net total + adjustment
         $netToPay = $netTotal + ($this->adjustment ?? 0);

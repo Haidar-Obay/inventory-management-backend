@@ -68,7 +68,7 @@ class UpdateInvoiceRequest extends FormRequest
             'shipping_to_addresses.*' => 'string',
 
             // Invoice items
-            'items' => 'sometimes|array|min:1',
+            'items' => 'sometimes|array',
             'items.*.item_id' => 'required_with:items|integer|exists:items,id',
             'items.*.barcode' => 'nullable|string',
             'items.*.description' => 'required_with:items|string',
@@ -87,7 +87,6 @@ class UpdateInvoiceRequest extends FormRequest
         return [
             'invoice_type.required' => 'The invoice type is required.',
             'date.date' => 'The invoice date must be a valid date.',
-            'items.min' => 'At least one item is required.',
             'items.*.item_id.required_with' => 'Item ID is required for each invoice item.',
             'items.*.quantity.required_with' => 'Quantity is required for each invoice item.',
             'items.*.price.required_with' => 'Price is required for each invoice item.',
