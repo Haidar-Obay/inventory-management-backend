@@ -68,25 +68,25 @@ class InvoiceItem extends Model implements Auditable
 
     /**
      * Calculate and update item totals.
-     * Order: Subtotal → Tax → Discount → Total
-     * Tax is calculated on subtotal, then discount is applied after tax
+     * Order: Subtotal → Discount → Tax → Total
+     * Discount is calculated on subtotal, then tax is calculated on (subtotal - discount)
      */
     public function calculateTotals(): void
     {
         // Subtotal = quantity * price
         $subtotal = $this->quantity * $this->price;
 
-        // Step 1: Calculate tax on subtotal (before discount)
-        $taxAmount = $subtotal * ($this->tax_percent / 100);
+        // Step 1: Apply discount on subtotal (before tax)
+        $discountAmount = $subtotal * ($this->discount_percent / 100);
 
-        // Step 2: Add tax to subtotal
-        $afterTax = $subtotal + $taxAmount;
+        // Step 2: Calculate amount after discount
+        $afterDiscount = $subtotal - $discountAmount;
 
-        // Step 3: Apply discount on the amount after tax
-        $discountAmount = $afterTax * ($this->discount_percent / 100);
+        // Step 3: Calculate tax on the amount after discount
+        $taxAmount = $afterDiscount * ($this->tax_percent / 100);
 
-        // Step 4: Final total = afterTax - discount
-        $total = $afterTax - $discountAmount;
+        // Step 4: Final total = afterDiscount + tax
+        $total = $afterDiscount + $taxAmount;
 
         $this->update([
             'subtotal' => $subtotal,

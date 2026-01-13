@@ -139,13 +139,21 @@ class Item extends Model implements Auditable
         return $this->belongsToMany(UnitOfMeasurement::class, 'item_unit_of_measurement')
             ->using(ItemUnitOfMeasurement::class)
             ->withPivot([
+                'id', // Include pivot ID for barcode lookups
                 'operation', 'conversion',
-                'barcodes',
                 'price_1', 'price_2', 'price_3', 'price_4', 'price_5', 'price_6',
                 'gross_volume', 'gross_weight',
                 'net_volume', 'net_weight',
             ])
             ->withTimestamps();
+    }
+
+    /**
+     * Get all barcodes for this item
+     */
+    public function barcodes()
+    {
+        return $this->hasMany(ItemBarcode::class);
     }
 
     // Many-to-many relationship with customer master lists

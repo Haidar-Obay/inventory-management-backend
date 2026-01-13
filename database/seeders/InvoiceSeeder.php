@@ -277,8 +277,8 @@ class InvoiceSeeder extends Seeder
                 ]
             );
 
-            // Attach UOM with barcodes
-            ItemUnitOfMeasurement::firstOrCreate(
+            // Attach UOM
+            $itemUom = ItemUnitOfMeasurement::firstOrCreate(
                 [
                     'item_id' => $item->id,
                     'unit_of_measurement_id' => $baseUom->id,
@@ -286,9 +286,18 @@ class InvoiceSeeder extends Seeder
                 [
                     'operation' => 'multiply',
                     'conversion' => 1,
-                    'barcodes' => ['BARCODE'.str_pad($item->id, 6, '0', STR_PAD_LEFT)],
                 ]
             );
+
+            // Insert barcode into dedicated table
+            if ($itemUom->wasRecentlyCreated) {
+                \App\Models\ItemBarcode::create([
+                    'item_id' => $item->id,
+                    'item_unit_of_measurement_id' => $itemUom->id,
+                    'barcode' => 'BARCODE'.str_pad($item->id, 6, '0', STR_PAD_LEFT),
+                    'is_primary' => true,
+                ]);
+            }
         }
     }
 
@@ -547,7 +556,8 @@ class InvoiceSeeder extends Seeder
                 ->where('unit_of_measurement_id', $uom->id)
                 ->first();
             $conversion = $pivot->conversion ?? 1;
-            $barcodes = $pivot->barcodes ?? [];
+            // Get barcodes from dedicated table
+            $barcodes = $pivot ? $pivot->barcodes->pluck('barcode')->toArray() : [];
         }
 
         if (! $uom) {

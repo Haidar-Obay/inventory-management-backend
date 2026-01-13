@@ -106,6 +106,29 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * Get the next available invoice number for preview (does not reserve it)
+     */
+    public function getNextInvoiceNumber(Request $request): JsonResponse
+    {
+        $request->validate([
+            'invoice_type' => 'required|in:purchase,sale',
+            'year' => 'nullable|integer|min:2000|max:9999',
+        ]);
+
+        $invoiceType = $request->invoice_type;
+        $year = $request->has('year') ? (int) $request->year : null;
+
+        // Generate next invoice number (read-only, no lock since it's just preview)
+        $numberData = $this->invoiceNumberService->generateInvoiceNumberWithSequence($invoiceType, $year);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Next invoice number retrieved successfully.',
+            'data' => $numberData,
+        ]);
+    }
+
     public function store(StoreInvoiceRequest $request): JsonResponse
     {
         DB::beginTransaction();
@@ -115,14 +138,59 @@ class InvoiceController extends Controller
             $items = $data['items'] ?? [];
             unset($data['items']);
 
-            // Generate invoice number
+            // Handle invoice number: use provided one if available and valid, otherwise generate new
             $invoiceType = $data['invoice_type'];
             $year = isset($data['date']) ? (int) date('Y', strtotime($data['date'])) : null;
-            $numberData = $this->invoiceNumberService->generateInvoiceNumberWithSequence($invoiceType, $year);
 
-            $data['invoice_number'] = $numberData['invoice_number'];
-            $data['year'] = $numberData['year'];
-            $data['sequence_number'] = $numberData['sequence_number'];
+            $finalInvoiceNumber = null;
+            $finalYear = null;
+            $finalSequence = null;
+
+            // If invoice_number is provided, check if it's still available
+            if (isset($data['invoice_number']) && ! empty($data['invoice_number'])) {
+                $providedNumber = $data['invoice_number'];
+
+                // Check if the provided number is still available
+                $exists = Invoice::where('invoice_number', $providedNumber)->exists();
+
+                if (! $exists) {
+                    // Number is available, use it
+                    // Extract year and sequence from the number (format: "26-0")
+                    $parts = explode('-', $providedNumber);
+                    if (count($parts) === 2) {
+                        $yearLastTwo = (int) $parts[0];
+                        $sequence = (int) $parts[1];
+                        // Reconstruct full year (assume 2000s)
+                        $fullYear = 2000 + $yearLastTwo;
+
+                        $finalInvoiceNumber = $providedNumber;
+                        $finalYear = $fullYear;
+                        $finalSequence = $sequence;
+                    } else {
+                        // Invalid format, generate new
+                        $numberData = $this->invoiceNumberService->generateInvoiceNumberWithSequence($invoiceType, $year);
+                        $finalInvoiceNumber = $numberData['invoice_number'];
+                        $finalYear = $numberData['year'];
+                        $finalSequence = $numberData['sequence_number'];
+                    }
+                } else {
+                    // Number is taken, generate a new one
+                    $numberData = $this->invoiceNumberService->generateInvoiceNumberWithSequence($invoiceType, $year);
+                    $finalInvoiceNumber = $numberData['invoice_number'];
+                    $finalYear = $numberData['year'];
+                    $finalSequence = $numberData['sequence_number'];
+                }
+            } else {
+                // No number provided, generate new
+                $numberData = $this->invoiceNumberService->generateInvoiceNumberWithSequence($invoiceType, $year);
+                $finalInvoiceNumber = $numberData['invoice_number'];
+                $finalYear = $numberData['year'];
+                $finalSequence = $numberData['sequence_number'];
+            }
+
+            $data['invoice_number'] = $finalInvoiceNumber;
+            $data['year'] = $finalYear;
+            $data['sequence_number'] = $finalSequence;
 
             // Calculate due date if payment term is provided
             if (isset($data['payment_term_id']) && isset($data['date'])) {
@@ -167,6 +235,7 @@ class InvoiceController extends Controller
                     'items.uom:id,name',
                     'items.warehouse:id,name',
                 ]),
+                'invoice_number' => $finalInvoiceNumber, // Include final invoice number in response
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -364,9 +433,11 @@ class InvoiceController extends Controller
             throw new \Exception("UOM {$uomId} is not associated with item {$item->id}");
         }
 
-        // Get barcode from item_unit_of_measurement.barcodes array
-        $barcodes = $itemUom->barcodes ?? [];
-        $barcode = ! empty($barcodes) ? $barcodes[0] : null; // Use first barcode if available
+        // Get barcode from dedicated item_barcodes table
+        $itemBarcode = \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)
+            ->where('is_primary', true)
+            ->first();
+        $barcode = $itemBarcode ? $itemBarcode->barcode : null;
 
         // Calculate unit price: price / conversion
         $price = $itemData['price'];
@@ -374,24 +445,24 @@ class InvoiceController extends Controller
         $unitPrice = InvoiceItem::calculateUnitPrice($price, $conversion);
 
         // Calculate item totals
-        // Order: Subtotal → Tax → Discount → Total
-        // Tax is calculated on subtotal, then discount is applied after tax
+        // Order: Subtotal → Discount → Tax → Total
+        // Discount is calculated on subtotal, then tax is calculated on (subtotal - discount)
         $quantity = $itemData['quantity'];
         $subtotal = $quantity * $price;
 
-        // Step 1: Calculate tax on subtotal (before discount)
-        $taxPercent = $itemData['tax_percent'] ?? 0;
-        $taxAmount = $subtotal * ($taxPercent / 100);
-
-        // Step 2: Add tax to subtotal
-        $afterTax = $subtotal + $taxAmount;
-
-        // Step 3: Apply discount on the amount after tax
+        // Step 1: Apply discount on subtotal (before tax)
         $discountPercent = $itemData['discount_percent'] ?? 0;
-        $discountAmount = $afterTax * ($discountPercent / 100);
+        $discountAmount = $subtotal * ($discountPercent / 100);
 
-        // Step 4: Final total = afterTax - discount
-        $total = $afterTax - $discountAmount;
+        // Step 2: Calculate amount after discount
+        $afterDiscount = $subtotal - $discountAmount;
+
+        // Step 3: Calculate tax on the amount after discount
+        $taxPercent = $itemData['tax_percent'] ?? 0;
+        $taxAmount = $afterDiscount * ($taxPercent / 100);
+
+        // Step 4: Final total = afterDiscount + tax
+        $total = $afterDiscount + $taxAmount;
 
         // Create invoice item
         $nextId = $this->computeNextAvailableId(InvoiceItem::class, 'id');

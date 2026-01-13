@@ -33,7 +33,6 @@ class UnitOfMeasurement extends Model implements Auditable
             ->using(ItemUnitOfMeasurement::class)
             ->withPivot([
                 'operation', 'conversion',
-                'barcodes',
                 'price_1', 'price_2', 'price_3', 'price_4', 'price_5', 'price_6',
                 'gross_volume', 'gross_weight',
                 'net_volume', 'net_weight',

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->foreignId('unit_of_measurement_id')->constrained('unit_of_measurements')->cascadeOnDelete();
             $table->enum('operation', ['multiply', 'divide'])->default('multiply');
             $table->decimal('conversion', 10, 4)->default(1);
-            $table->json('barcodes')->nullable(); // Array of barcode strings
+            // Barcodes moved to dedicated item_barcodes table for better performance
             $table->decimal('price_1', 12, 2)->nullable();
             $table->decimal('price_2', 12, 2)->nullable();
             $table->decimal('price_3', 12, 2)->nullable();
