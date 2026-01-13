@@ -26,7 +26,6 @@ class Customer extends Model implements Auditable
         'exempted' => 'boolean',
         'exempted_from_date' => 'date',
         'exempted_till_date' => 'date',
-        'showMessageField' => 'boolean',
         'allow_credit' => 'boolean',
         'accept_cheques' => 'boolean',
         'active' => 'boolean',
@@ -878,7 +877,7 @@ class Customer extends Model implements Auditable
     // Message functionality helper methods
     public function hasInvoiceMessage()
     {
-        return $this->showMessageField && ! empty($this->message);
+        return ! empty($this->message);
     }
 
     public function getInvoiceMessage()
@@ -886,18 +885,16 @@ class Customer extends Model implements Auditable
         return $this->hasInvoiceMessage() ? $this->message : null;
     }
 
-    public function setInvoiceMessage($message, $enabled = true)
+    public function setInvoiceMessage($message)
     {
         $this->update([
-            'showMessageField' => $enabled,
-            'message' => $enabled ? $message : null,
+            'message' => $message,
         ]);
     }
 
     public function disableInvoiceMessage()
     {
         $this->update([
-            'showMessageField' => false,
             'message' => null,
         ]);
     }

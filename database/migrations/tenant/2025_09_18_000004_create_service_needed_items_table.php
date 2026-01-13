@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('service_id')->constrained('services')->onDelete('cascade');
             $table->foreignId('item_id')->nullable()->constrained('items')->onDelete('restrict');
+            $table->text('description')->nullable();
             $table->decimal('quantity', 12, 3)->default(0);
             $table->timestamps();
         });

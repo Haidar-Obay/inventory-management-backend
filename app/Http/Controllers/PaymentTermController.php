@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\PaymentTerm\StorePaymentTermRequest;
+use App\Http\Requests\PaymentTerm\UpdatePaymentTermRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\PaymentTerm;
 use Illuminate\Http\Request;
@@ -30,14 +32,9 @@ class PaymentTermController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StorePaymentTermRequest $request)
     {
-        $validated = $request->validate([
-            'code' => 'required|string|unique:payment_terms,code',
-            'name' => 'required|string|unique:payment_terms,name',
-            'nb_days' => 'required|integer|min:0',
-            'active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $nextId = $this->computeNextAvailableId(PaymentTerm::class, 'id');
         $paymentTerm = new PaymentTerm($validated);
@@ -71,14 +68,9 @@ class PaymentTermController extends Controller
         ]);
     }
 
-    public function update(Request $request, PaymentTerm $paymentTerm)
+    public function update(UpdatePaymentTermRequest $request, PaymentTerm $paymentTerm)
     {
-        $validated = $request->validate([
-            'code' => 'required|string|unique:payment_terms,code,'.$paymentTerm->id,
-            'name' => 'required|string|unique:payment_terms,name,'.$paymentTerm->id,
-            'nb_days' => 'required|integer|min:0',
-            'active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $paymentTerm->update($validated);
         $tenantId = tenant('id');

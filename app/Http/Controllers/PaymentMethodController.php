@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\PaymentMethod\StorePaymentMethodRequest;
+use App\Http\Requests\PaymentMethod\UpdatePaymentMethodRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\PaymentMethod;
 use Illuminate\Http\Request;
@@ -30,15 +32,9 @@ class PaymentMethodController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StorePaymentMethodRequest $request)
     {
-        $validated = $request->validate([
-            'code' => 'required|string|max:50|unique:payment_methods,code',
-            'name' => 'required|string|max:255|unique:payment_methods,name',
-            'is_credit_card' => 'required|boolean',
-            'is_online_payment' => 'required|boolean',
-            'active' => 'required|boolean',
-        ]);
+        $validated = $request->validated();
 
         $nextId = $this->computeNextAvailableId(PaymentMethod::class, 'id');
         $paymentMethod = new PaymentMethod($validated);
@@ -72,15 +68,9 @@ class PaymentMethodController extends Controller
         ]);
     }
 
-    public function update(Request $request, PaymentMethod $paymentMethod)
+    public function update(UpdatePaymentMethodRequest $request, PaymentMethod $paymentMethod)
     {
-        $validated = $request->validate([
-            'code' => 'required|string|max:50|unique:payment_methods,code,'.$paymentMethod->id,
-            'name' => 'required|string|max:255|unique:payment_methods,name,'.$paymentMethod->id,
-            'is_credit_card' => 'required|boolean',
-            'is_online_payment' => 'required|boolean',
-            'active' => 'required|boolean',
-        ]);
+        $validated = $request->validated();
 
         $paymentMethod->update($validated);
         $tenantId = tenant('id');

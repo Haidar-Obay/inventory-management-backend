@@ -297,7 +297,8 @@ class StoreCustomerRequest extends FormRequest
             // Status flags
             'active' => 'nullable|boolean',
             'black_listed' => 'nullable|boolean',
-            'blacklisted_reason' => 'nullable|string|max:1000|required_if:black_listed,true',
+            // blacklisted_reason is optional even when black_listed is true
+            'blacklisted_reason' => 'nullable|string|max:1000',
             'status' => 'nullable|in:Normal,VIP',
             'one_time_account' => 'nullable|boolean',
             'special_account' => 'nullable|boolean',
@@ -307,7 +308,6 @@ class StoreCustomerRequest extends FormRequest
             'send_invoice' => 'nullable|in:email,sms,whatsapp,all',
 
             // Message functionality
-            'showMessageField' => 'nullable|boolean',
             'message' => 'nullable|string|max:1000',
 
             // Primary contact

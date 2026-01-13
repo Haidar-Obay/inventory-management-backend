@@ -13,6 +13,26 @@ class UpdateItemRequest extends FormRequest
         return true;
     }
 
+    /**
+     * Override the validation behavior to handle FormData with 'data' field
+     */
+    protected function prepareForValidation()
+    {
+        // If this is FormData with a 'data' field, decode it and merge into request
+        if ($this->has('data')) {
+            $data = json_decode($this->input('data'), true);
+            if (is_array($data)) {
+                // If files are being uploaded via 'attachments' field, store attachments metadata
+                // in a separate field before unsetting it, so the controller can access it
+                if ($this->hasFile('attachments') && isset($data['attachments'])) {
+                    $this->merge(['_attachment_metadata' => $data['attachments']]);
+                    unset($data['attachments']);
+                }
+                $this->merge($data);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -43,7 +63,7 @@ class UpdateItemRequest extends FormRequest
             'category_id' => 'nullable|integer|exists:categories,id',
             'brand_id' => 'nullable|integer|exists:brands,id',
             'parent_id' => 'nullable|integer|exists:items,id',
-            'tax_group_id' => 'required|integer|exists:tax_groups,id',
+            'tax_group_id' => 'nullable|integer|exists:tax_groups,id',
         ];
     }
 
@@ -53,7 +73,6 @@ class UpdateItemRequest extends FormRequest
             'code.required' => 'The item code is required.',
             'code.unique' => 'The code has already been taken.',
             'name.required' => 'The item name is required.',
-            'tax_group_id.required' => 'The tax group is required.',
             'tax_group_id.exists' => 'The selected tax group does not exist.',
         ];
     }

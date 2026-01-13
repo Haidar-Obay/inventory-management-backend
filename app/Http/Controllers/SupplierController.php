@@ -195,7 +195,8 @@ class SupplierController extends Controller
         $supplier->load([
             'supplierGroup:id,name,code,active',
             'trade:id,name,code,active',
-            'businessType:id,name,code,active',
+            // 'business_types' table does not have an 'active' column, so we only select existing columns
+            'businessType:id,name,code',
             'paymentTerm:id,code,name,active',
             'paymentMethod:id,code,name,active',
             'currency:id,code,name,iso_code,symbol,active',
@@ -226,9 +227,9 @@ class SupplierController extends Controller
             'primaryShippingAddress.zone:id,name',
             'primaryContact:id,name,title,work_phone,mobile,position,extension,is_primary',
             'contacts:id,name,title,work_phone,mobile,position,extension,is_primary',
-            'attachments:id,file_name,file_path,file_type,file_size,description,category,is_public',
+            'attachments:id,supplier_id,file_name,file_path,file_type,file_size,description,category,is_public,created_at,updated_at',
             // Opening balances with currency
-            'openingBalances:id,currency_id,opening_amount,opening_date,notes,is_active',
+            'openingBalances:id,currency_id,opening_amount,opening_date,notes,is_active,currency_id',
             'openingBalances.currency:id,code,name,iso_code',
             // Credit limits with currency
             'creditLimits:id,currency_id,credit_limit,used_credit,available_credit,notes,is_active',
@@ -237,6 +238,12 @@ class SupplierController extends Controller
             'chequeLimits:id,currency_id,max_cheques,used_cheques,available_cheques,notes,is_active',
             'chequeLimits.currency:id,code,name,iso_code',
         ]);
+
+        // Load active opening balances with currency (multi-currency table)
+        $openingBalances = $supplier->openingBalances()
+            ->where('is_active', true)
+            ->with('currency:id,code,name,iso_code')
+            ->get();
 
         // Transform the response to include all supplier data comprehensively
         $transformedData = [
@@ -267,10 +274,14 @@ class SupplierController extends Controller
             'taxed_till_date' => $supplier->taxed_till_date,
             'subjected_to_tax' => $supplier->subjected_to_tax,
             'added_tax' => $supplier->added_tax,
+            'exempted' => $supplier->exempted,
+            'exempted_from' => $supplier->exempted_from,
+            'exemption_reference' => $supplier->exemption_reference,
+            'exempted_from_date' => $supplier->exempted_from_date,
+            'exempted_till_date' => $supplier->exempted_till_date,
             'catalog' => $supplier->catalog,
             'is_foreign' => $supplier->is_foreign,
             'active' => $supplier->active,
-            'add_message' => $supplier->add_message,
             'message' => $supplier->message,
             'notes' => $supplier->notes,
             'created_at' => $supplier->created_at,
@@ -509,8 +520,8 @@ class SupplierController extends Controller
                 'is_primary' => $supplier->primaryContact->is_primary,
             ] : null,
 
-            // All contacts with full details
-            'contacts' => $supplier->contacts->map(function ($contact) {
+            // All contacts with full details - always query fresh, like in CustomerController
+            'contacts' => $supplier->contacts()->get()->map(function ($contact) {
                 return [
                     'id' => $contact->id,
                     'name' => $contact->name,
@@ -537,20 +548,37 @@ class SupplierController extends Controller
                 ];
             }),
 
-            // Opening balances with currency info
-            'opening_balances' => $supplier->openingBalances->map(function ($openingBalance) {
-                return [
-                    'id' => $openingBalance->id,
-                    'currency_id' => $openingBalance->currency_id,
-                    'currency_code' => optional($openingBalance->currency)->code,
-                    'currency_name' => optional($openingBalance->currency)->name,
-                    'currency_iso_code' => optional($openingBalance->currency)->iso_code,
-                    'opening_amount' => $openingBalance->opening_amount,
-                    'opening_date' => $openingBalance->opening_date,
-                    'notes' => $openingBalance->notes,
-                    'is_active' => $openingBalance->is_active,
-                ];
-            }),
+            // Opening balances with currency info (multi-currency table)
+            // Use active rows from supplier_opening_balances; if none exist, fall back to legacy single opening_amount/opening_date
+            'opening_balances' => $openingBalances->isNotEmpty()
+                ? $openingBalances->map(function ($openingBalance) {
+                    return [
+                        'id' => $openingBalance->id,
+                        'currency_id' => $openingBalance->currency_id,
+                        'currency_code' => optional($openingBalance->currency)->code,
+                        'currency_name' => optional($openingBalance->currency)->name,
+                        'currency_iso_code' => optional($openingBalance->currency)->iso_code,
+                        'opening_amount' => $openingBalance->opening_amount,
+                        'opening_date' => $openingBalance->opening_date,
+                        'notes' => $openingBalance->notes,
+                        'is_active' => $openingBalance->is_active,
+                    ];
+                })
+                : (
+                    ! is_null($supplier->opening_amount)
+                        ? collect([[
+                            'id' => null,
+                            'currency_id' => $supplier->currency_id,
+                            'currency_code' => optional($supplier->currency)->code,
+                            'currency_name' => optional($supplier->currency)->name,
+                            'currency_iso_code' => optional($supplier->currency)->iso_code,
+                            'opening_amount' => $supplier->opening_amount,
+                            'opening_date' => $supplier->opening_date,
+                            'notes' => null,
+                            'is_active' => true,
+                        ]])
+                        : collect([])
+                ),
 
             // Credit limits with currency info
             'credit_limits' => $supplier->creditLimits->map(function ($creditLimit) {
@@ -615,9 +643,28 @@ class SupplierController extends Controller
             }
 
             // Handle attachments
-            if ($request->has('attachments')) {
-                $this->updateAttachments($supplier, $request);
-            }
+            // Check for files OR JSON attachments array (when editing without new files)
+            // Also check if files exist using file() method (more reliable for FormData)
+            $hasAttachments = $request->hasFile('attachments')
+                || $request->hasFile('attachments.*')
+                || $request->file('attachments') !== null
+                || $request->file('attachments.*') !== null
+                || $request->has('attachments');
+
+            // Always try to call updateAttachments - it will handle the logic internally
+            // This ensures we don't miss files that might not be detected by hasFile()
+            Log::info('Supplier update: Checking attachments', [
+                'hasFile_attachments' => $request->hasFile('attachments'),
+                'hasFile_attachments_dot' => $request->hasFile('attachments.*'),
+                'file_attachments' => $request->file('attachments') !== null ? 'exists' : 'null',
+                'file_attachments_dot' => $request->file('attachments.*') !== null ? 'exists' : 'null',
+                'has_attachments' => $request->has('attachments'),
+                'has_data' => $request->has('data'),
+                'input_data_exists' => $request->input('data') !== null,
+                'all_files_keys' => array_keys($request->allFiles()),
+                'content_type' => $request->header('Content-Type'),
+            ]);
+            $this->updateAttachments($supplier, $request);
 
             // Handle multi-currency opening balances
             if ($request->has('opening_balances')) {
@@ -778,7 +825,7 @@ class SupplierController extends Controller
                 'search_terms', 'indicator', 'opening_amount', 'opening_date', 'credit_limit',
                 'payment_day', 'track_payment', 'settlement_method', 'accept_cheques',
                 'max_cheques', 'taxable', 'taxed_from_date', 'taxed_till_date',
-                'subjected_to_tax', 'added_tax', 'is_foreign', 'active', 'add_message',
+                'subjected_to_tax', 'added_tax', 'is_foreign', 'active',
                 'message', 'notes', 'created_at', 'updated_at',
             ];
 
@@ -852,7 +899,6 @@ class SupplierController extends Controller
                     'Added Tax' => $supplier->added_tax,
                     'Is Foreign' => $supplier->is_foreign ? 'Yes' : 'No',
                     'Active' => $supplier->active ? 'Yes' : 'No',
-                    'Add Message' => $supplier->add_message ? 'Yes' : 'No',
                     'Message' => $supplier->message,
                     'Notes' => $supplier->notes,
                     'Created At' => $supplier->created_at,
@@ -975,7 +1021,6 @@ class SupplierController extends Controller
                     'catalog',
                     'is_foreign',
                     'active',
-                    'add_message',
                     'message',
                     'contacts_id',
                 ],
@@ -1073,7 +1118,6 @@ class SupplierController extends Controller
                         'catalog' => $row['catalog'] ?? null,
                         'is_foreign' => $row['is_foreign'] ?? null,
                         'active' => isset($row['active']) ? (bool) $row['active'] : true,
-                        'add_message' => $row['add_message'] ?? null,
                         'message' => $row['message'] ?? null,
                         'contacts_id' => $row['contacts_id'] ?? null,
                     ];
@@ -1477,14 +1521,311 @@ class SupplierController extends Controller
 
     private function updateAttachments($supplier, $request)
     {
-        // Remove existing attachments
-        foreach ($supplier->attachments as $attachment) {
-            $relativePath = str_replace(url('/storage'), '', $attachment->file_path);
-            Storage::disk('public')->delete($relativePath);
-            $attachment->delete();
+        $tenantId = tenant('id');
+
+        // Check if files are present - try multiple ways Laravel might receive them
+        // When using attachments[] in FormData, Laravel might receive it as attachments.*
+        $hasFiles = $request->hasFile('attachments')
+            || $request->hasFile('attachments.*')
+            || $request->file('attachments') !== null
+            || $request->file('attachments.*') !== null;
+
+        Log::info('Supplier updateAttachments: Entry', [
+            'hasFiles' => $hasFiles,
+            'hasFile_attachments' => $request->hasFile('attachments'),
+            'hasFile_attachments_dot' => $request->hasFile('attachments.*'),
+            'file_attachments' => $request->file('attachments') !== null ? 'exists' : 'null',
+            'file_attachments_dot' => $request->file('attachments.*') !== null ? 'exists' : 'null',
+        ]);
+
+        // Get attachment data from JSON (includes existing attachments with IDs + new file metadata)
+        // Note: prepareForValidation stores attachments in '_attachment_metadata' before unsetting
+        // to avoid validation conflict, so we can access it from there
+        $attachmentDataFromJson = [];
+
+        // Try multiple ways to get the data
+        // 1. Check for _attachment_metadata (set by prepareForValidation)
+        if ($request->has('_attachment_metadata')) {
+            $attachmentDataFromJson = $request->input('_attachment_metadata', []);
+            Log::info('Supplier updateAttachments: Got metadata from _attachment_metadata', ['count' => count($attachmentDataFromJson)]);
+        }
+        // 2. Try to get from raw data field (even if has('data') returns false, input('data') might work)
+        elseif ($request->input('data')) {
+            $rawData = $request->input('data');
+            if (is_string($rawData)) {
+                $data = json_decode($rawData, true);
+                $attachmentDataFromJson = $data['attachments'] ?? [];
+                Log::info('Supplier updateAttachments: Got metadata from data string', ['count' => count($attachmentDataFromJson)]);
+            } elseif (is_array($rawData)) {
+                $attachmentDataFromJson = $rawData['attachments'] ?? [];
+                Log::info('Supplier updateAttachments: Got metadata from data array', ['count' => count($attachmentDataFromJson)]);
+            }
+        }
+        // 3. Try to get from all() in case data was merged
+        elseif (isset($request->all()['attachments'])) {
+            $attachmentDataFromJson = $request->all()['attachments'];
+            Log::info('Supplier updateAttachments: Got metadata from all()', ['count' => count($attachmentDataFromJson)]);
         }
 
-        // Create new attachments
-        $this->createAttachments($supplier, $request);
+        // Also check raw request content for FormData
+        if (empty($attachmentDataFromJson) && $request->getContent()) {
+            parse_str($request->getContent(), $parsed);
+            if (isset($parsed['data'])) {
+                $data = json_decode($parsed['data'], true);
+                $attachmentDataFromJson = $data['attachments'] ?? [];
+                Log::info('Supplier updateAttachments: Got metadata from raw content', ['count' => count($attachmentDataFromJson)]);
+            }
+        }
+
+        // Log for debugging
+        Log::info('Supplier updateAttachments', [
+            'hasFiles' => $hasFiles,
+            'has_attachment_metadata' => $request->has('_attachment_metadata'),
+            'attachment_metadata_count' => count($attachmentDataFromJson),
+            'file_attachments' => $request->hasFile('attachments'),
+            'file_attachments_dot' => $request->hasFile('attachments.*'),
+        ]);
+
+        // Separate existing attachments (with IDs) from new file metadata (without IDs)
+        $existingAttachmentIds = [];
+        $attachmentMetadataMap = [];
+        $newFileMetadata = [];
+
+        foreach ($attachmentDataFromJson as $attData) {
+            if (isset($attData['id']) && is_numeric($attData['id'])) {
+                // Existing attachment - keep it
+                $existingAttachmentIds[] = $attData['id'];
+                $attachmentMetadataMap[$attData['id']] = $attData;
+            } else {
+                // New file metadata (will be matched with uploaded files)
+                $newFileMetadata[] = $attData;
+            }
+        }
+
+        // Delete attachments that are not in the keep list
+        $existingAttachments = $supplier->attachments;
+        foreach ($existingAttachments as $existingAttachment) {
+            if (! in_array($existingAttachment->id, $existingAttachmentIds)) {
+                // Delete file from storage
+                $relativePath = str_replace(url('/storage'), '', $existingAttachment->file_path);
+                Storage::disk('public')->delete($relativePath);
+                // Delete attachment record
+                $existingAttachment->delete();
+            } else {
+                // Update existing attachment metadata if provided
+                $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
+                if ($metadata) {
+                    if (isset($metadata['description'])) {
+                        $existingAttachment->description = $metadata['description'];
+                    }
+                    if (isset($metadata['is_public'])) {
+                        $existingAttachment->is_public = $metadata['is_public'];
+                    }
+                    if (isset($metadata['category'])) {
+                        $existingAttachment->category = $metadata['category'];
+                    }
+                    $existingAttachment->save();
+                }
+            }
+        }
+
+        // Create new attachments from uploaded files
+        // When using attachments[] in FormData, Laravel receives it as attachments.*
+        $files = [];
+        $fileIdentifiers = []; // Track files by identifier to avoid duplicates
+
+        // Check allFiles() first to get all files, then deduplicate
+        $allFiles = $request->allFiles();
+        Log::info('Supplier updateAttachments: Checking allFiles()', [
+            'allFiles_keys' => array_keys($allFiles),
+            'allFiles_count' => count($allFiles),
+        ]);
+
+        // Collect all files from allFiles() (this is the most reliable source)
+        foreach ($allFiles as $key => $file) {
+            if (strpos($key, 'attachment') !== false) {
+                $fileArray = is_array($file) ? $file : [$file];
+                foreach ($fileArray as $f) {
+                    if ($f && $f->isValid()) {
+                        // Use a combination of name and size as identifier to avoid duplicates
+                        $identifier = $f->getClientOriginalName().'|'.$f->getSize().'|'.$f->getMimeType();
+                        if (! in_array($identifier, $fileIdentifiers)) {
+                            $files[] = $f;
+                            $fileIdentifiers[] = $identifier;
+                            Log::info('Supplier updateAttachments: Added file', [
+                                'key' => $key,
+                                'name' => $f->getClientOriginalName(),
+                                'size' => $f->getSize(),
+                            ]);
+                        } else {
+                            Log::info('Supplier updateAttachments: Skipped duplicate file', [
+                                'key' => $key,
+                                'name' => $f->getClientOriginalName(),
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback: If no files found in allFiles(), try direct methods
+        if (count($files) === 0) {
+            // Check for attachments.* first (array notation from FormData)
+            $dot = $request->file('attachments.*');
+            if ($dot) {
+                $dotFiles = is_array($dot) ? $dot : [$dot];
+                foreach ($dotFiles as $file) {
+                    if ($file && $file->isValid()) {
+                        $identifier = $file->getClientOriginalName().'|'.$file->getSize().'|'.$file->getMimeType();
+                        if (! in_array($identifier, $fileIdentifiers)) {
+                            $files[] = $file;
+                            $fileIdentifiers[] = $identifier;
+                        }
+                    }
+                }
+                Log::info('Supplier updateAttachments: Found files via attachments.*', ['count' => count($files)]);
+            }
+
+            // Also check for direct 'attachments' (single file or already array)
+            $direct = $request->file('attachments');
+            if ($direct) {
+                $directFiles = is_array($direct) ? $direct : [$direct];
+                foreach ($directFiles as $file) {
+                    if ($file && $file->isValid()) {
+                        $identifier = $file->getClientOriginalName().'|'.$file->getSize().'|'.$file->getMimeType();
+                        if (! in_array($identifier, $fileIdentifiers)) {
+                            $files[] = $file;
+                            $fileIdentifiers[] = $identifier;
+                        }
+                    }
+                }
+                Log::info('Supplier updateAttachments: Found files via attachments', ['count' => count($files)]);
+            }
+        }
+
+        Log::info('Supplier updateAttachments files', [
+            'files_count' => count($files),
+            'newFileMetadata_count' => count($newFileMetadata),
+            'hasFiles' => $hasFiles,
+        ]);
+
+        // Only process files if we have them AND metadata
+        if (count($files) === 0 && count($newFileMetadata) > 0) {
+            Log::warning('Supplier updateAttachments: Have metadata but no files!', [
+                'allFiles_keys' => array_keys($request->allFiles()),
+                'request_method' => $request->method(),
+                'content_type' => $request->header('Content-Type'),
+            ]);
+        }
+
+        // Match uploaded files with metadata (new files come after existing attachments in the array)
+        foreach ($files as $index => $file) {
+            // Skip if file is null, not valid, or not an instance of UploadedFile
+            if (! $file || ! $file->isValid()) {
+                Log::warning('Supplier updateAttachments: Invalid file', ['index' => $index]);
+
+                continue;
+            }
+
+            try {
+                $path = Storage::disk('public')->putFile(
+                    "tenants/{$tenantId}/suppliers/{$supplier->id}/attachments",
+                    $file
+                );
+
+                // Find matching metadata for this file (new files start after existing attachments)
+                $metadata = $newFileMetadata[$index] ?? [];
+                $description = $metadata['description'] ?? '';
+                $category = $metadata['category'] ?? 'document';
+                $isPublic = $metadata['is_public'] ?? true;
+
+                $attachment = SupplierAttachment::create([
+                    'supplier_id' => $supplier->id,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_path' => url(Storage::url($path)),
+                    'file_type' => $file->getMimeType(),
+                    'file_size' => $file->getSize(),
+                    'description' => $description,
+                    'category' => $category,
+                    'is_public' => $isPublic,
+                ]);
+
+                Log::info('Supplier updateAttachments: Created attachment', [
+                    'attachment_id' => $attachment->id,
+                    'file_name' => $attachment->file_name,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Supplier updateAttachments: Error creating attachment', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
+
+        // Handle attachments with new structure (JSON data)
+        // Only process if no files were uploaded (files are handled above)
+        // and if attachments is an array (not file uploads)
+        if ($request->has('attachments') && ! $request->hasFile('attachments') && ! $request->hasFile('attachments.*')) {
+            $attachments = $request->input('attachments');
+            if (is_array($attachments)) {
+                // Get IDs of attachments that should be kept (existing attachments with IDs, not new file uploads)
+                $attachmentIdsToKeep = [];
+                $attachmentMetadataMap = []; // Map of ID => metadata for updates
+
+                foreach ($attachments as $attachmentData) {
+                    // If attachment has an ID, it's an existing attachment that should be kept
+                    if (isset($attachmentData['id']) && is_numeric($attachmentData['id'])) {
+                        $attachmentIdsToKeep[] = $attachmentData['id'];
+                        $attachmentMetadataMap[$attachmentData['id']] = $attachmentData;
+                    }
+                }
+
+                // Delete attachments that are not in the keep list
+                $existingAttachments = $supplier->attachments;
+                foreach ($existingAttachments as $existingAttachment) {
+                    if (! in_array($existingAttachment->id, $attachmentIdsToKeep)) {
+                        // Delete file from storage
+                        $relativePath = str_replace(url('/storage'), '', $existingAttachment->file_path);
+                        Storage::disk('public')->delete($relativePath);
+                        // Delete attachment record
+                        $existingAttachment->delete();
+                    } else {
+                        // Update existing attachment metadata if provided
+                        $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
+                        if ($metadata) {
+                            if (isset($metadata['description'])) {
+                                $existingAttachment->description = $metadata['description'];
+                            }
+                            if (isset($metadata['is_public'])) {
+                                $existingAttachment->is_public = $metadata['is_public'];
+                            }
+                            $existingAttachment->save();
+                        }
+                    }
+                }
+
+                // Create new attachments from file URLs (if any)
+                foreach ($attachments as $attachmentData) {
+                    // Skip if this is an existing attachment (has ID)
+                    if (isset($attachmentData['id']) && is_numeric($attachmentData['id'])) {
+                        continue;
+                    }
+
+                    // Only create attachment if we have a valid file path or file URL
+                    $filePath = $attachmentData['file_url'] ?? $attachmentData['file_path'] ?? null;
+                    if ($filePath && ! empty(trim($filePath))) {
+                        SupplierAttachment::create([
+                            'supplier_id' => $supplier->id,
+                            'file_name' => $attachmentData['file_name'] ?? 'Unknown',
+                            'file_path' => $filePath,
+                            'file_type' => $attachmentData['file_type'] ?? null,
+                            'file_size' => $attachmentData['file_size'] ?? null,
+                            'description' => $attachmentData['description'] ?? '',
+                            'category' => $attachmentData['category'] ?? 'document',
+                        ]);
+                    }
+                }
+            }
+        }
     }
 }

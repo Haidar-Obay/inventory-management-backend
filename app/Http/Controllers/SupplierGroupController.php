@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\SupplierGroup\StoreSupplierGroupRequest;
+use App\Http\Requests\SupplierGroup\UpdateSupplierGroupRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\SupplierGroup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 
 class SupplierGroupController extends Controller
@@ -33,13 +34,9 @@ class SupplierGroupController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreSupplierGroupRequest $request)
     {
-        $validated = $request->validate([
-            'code' => 'required|string|unique:supplier_groups,code',
-            'name' => 'required|string',
-            'active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $nextId = $this->computeNextAvailableId(SupplierGroup::class, 'id');
         $supplierGroup = new SupplierGroup($validated);
@@ -76,17 +73,9 @@ class SupplierGroupController extends Controller
         ]);
     }
 
-    public function update(Request $request, SupplierGroup $supplierGroup)
+    public function update(UpdateSupplierGroupRequest $request, SupplierGroup $supplierGroup)
     {
-        $validated = $request->validate([
-            'code' => [
-                'sometimes',
-                'string',
-                Rule::unique('supplier_groups', 'code')->ignore($supplierGroup->id),
-            ],
-            'name' => 'sometimes|string',
-            'active' => 'sometimes|boolean',
-        ]);
+        $validated = $request->validated();
 
         $supplierGroup->update($validated);
 

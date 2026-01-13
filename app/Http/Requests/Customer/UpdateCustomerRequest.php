@@ -24,9 +24,10 @@ class UpdateCustomerRequest extends FormRequest
         if ($this->has('data')) {
             $data = json_decode($this->input('data'), true);
             if (is_array($data)) {
-                // If files are being uploaded via 'attachments' field, exclude attachments from merged data
-                // to avoid validation conflict (Laravel will see attachments as file uploads, not array)
-                if ($this->hasFile('attachments')) {
+                // If files are being uploaded via 'attachments' field, store attachments metadata
+                // in a separate field before unsetting it, so the controller can access it
+                if ($this->hasFile('attachments') && isset($data['attachments'])) {
+                    $this->merge(['_attachment_metadata' => $data['attachments']]);
                     unset($data['attachments']);
                 }
                 $this->merge($data);
@@ -353,7 +354,8 @@ class UpdateCustomerRequest extends FormRequest
             // Status flags
             'active' => 'sometimes|nullable|boolean',
             'black_listed' => 'sometimes|nullable|boolean',
-            'blacklisted_reason' => 'sometimes|nullable|string|max:1000|required_if:black_listed,true',
+            // blacklisted_reason is optional even when black_listed is true
+            'blacklisted_reason' => 'sometimes|nullable|string|max:1000',
             'status' => 'sometimes|nullable|in:Normal,VIP',
             'one_time_account' => 'sometimes|nullable|boolean',
             'special_account' => 'sometimes|nullable|boolean',
@@ -363,7 +365,6 @@ class UpdateCustomerRequest extends FormRequest
             'send_invoice' => 'sometimes|nullable|in:email,sms,whatsapp,all',
 
             // Message functionality
-            'showMessageField' => 'sometimes|nullable|boolean',
             'message' => 'sometimes|nullable|string|max:1000',
 
             // Primary contact
@@ -436,11 +437,40 @@ class UpdateCustomerRequest extends FormRequest
             // Attachments (handled separately in controller)
             // Attachments: support both file uploads and/or metadata
             // When files are uploaded, Laravel automatically validates them as files
-            // When only metadata is provided, validate as array
+            // When only metadata is provided (edit mode with existing attachments), validate as array of objects
             // We exclude attachments from merged data when files are present (in prepareForValidation)
             // So validation only runs on array when no files are present
             'attachments' => 'nullable',
-            'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,docx,xlsx,txt|max:10240',
+            // File validation (only applies when files are uploaded)
+            // When no files are uploaded, attachments will be array of objects with IDs (existing attachments)
+            // Use conditional validation: only validate as file if files are actually being uploaded
+            'attachments.*' => [
+                function ($attribute, $value, $fail) {
+                    // Only validate as file if files are actually being uploaded
+                    if ($this->hasFile('attachments') || $this->hasFile('attachments.*')) {
+                        // Validate as file
+                        if (! ($value instanceof \Illuminate\Http\UploadedFile)) {
+                            $fail('The '.$attribute.' must be a file.');
+                        }
+                        // Validate file type
+                        $allowedMimes = ['image/jpeg', 'image/png', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/plain'];
+                        $allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf', 'docx', 'xlsx', 'txt'];
+                        if ($value instanceof \Illuminate\Http\UploadedFile) {
+                            $mime = $value->getMimeType();
+                            $extension = strtolower($value->getClientOriginalExtension());
+                            if (! in_array($mime, $allowedMimes) && ! in_array($extension, $allowedExtensions)) {
+                                $fail('The '.$attribute.' must be a file of type: jpg, jpeg, png, pdf, docx, xlsx, txt.');
+                            }
+                            // Validate file size (10MB = 10240 KB)
+                            if ($value->getSize() > 10240 * 1024) {
+                                $fail('The '.$attribute.' must not be larger than 10MB.');
+                            }
+                        }
+                    }
+                    // If no files are being uploaded, allow JSON objects (existing attachments)
+                    // No validation needed for JSON objects
+                },
+            ],
 
             // Credit limits validation (matching controller logic)
             'credit_limits' => 'sometimes|array',

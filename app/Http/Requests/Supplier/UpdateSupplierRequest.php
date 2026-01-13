@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Supplier;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class UpdateSupplierRequest extends FormRequest
@@ -20,17 +21,113 @@ class UpdateSupplierRequest extends FormRequest
      */
     protected function prepareForValidation()
     {
+        // Log to see if this method is being called
+        Log::info('UpdateSupplierRequest prepareForValidation: Entry', [
+            'has_data' => $this->has('data'),
+            'input_data' => $this->input('data') !== null ? 'exists' : 'null',
+            'hasFile_attachments' => $this->hasFile('attachments'),
+            'hasFile_attachments_dot' => $this->hasFile('attachments.*'),
+            'content_type' => $this->header('Content-Type'),
+            'all_input_keys' => array_keys($this->all()),
+            'all_files_keys' => array_keys($this->allFiles()),
+        ]);
+
         // If this is FormData with a 'data' field, decode it and merge into request
-        if ($this->has('data')) {
-            $data = json_decode($this->input('data'), true);
+        // Try input('data') even if has('data') returns false
+        $rawData = $this->input('data');
+
+        // Also try to get from request content if input('data') is null
+        // Note: getContent() might return empty if content was already consumed
+        // Try to get from the underlying Symfony request
+        $content = $this->getContent();
+        $symfonyRequest = $this->instance();
+        $symfonyContent = $symfonyRequest ? $symfonyRequest->getContent(false) : null;
+
+        Log::info('UpdateSupplierRequest prepareForValidation: Raw content check', [
+            'content_exists' => ! empty($content),
+            'content_length' => strlen($content),
+            'symfony_content_exists' => ! empty($symfonyContent),
+            'symfony_content_length' => $symfonyContent ? strlen($symfonyContent) : 0,
+            'content_preview' => substr($content ?: ($symfonyContent ?: ''), 0, 500),
+            'request_method' => $this->method(),
+            'request_uri' => $this->fullUrl(),
+        ]);
+
+        // Use symfony content if available and main content is empty
+        if (empty($content) && $symfonyContent) {
+            $content = $symfonyContent;
+        }
+
+        if (! $rawData && $content) {
+            // Try to extract data from multipart/form-data
+            // Pattern: name="data" followed by Content-Type and then the JSON data
+            if (preg_match('/name="data"[\r\n]+Content-Type: [^\r\n]+[\r\n]+[\r\n]+(.*?)(?=------WebKitFormBoundary|$)/s', $content, $matches)) {
+                $rawData = trim($matches[1]);
+                Log::info('UpdateSupplierRequest prepareForValidation: Found data in raw content', [
+                    'data_length' => strlen($rawData),
+                    'data_preview' => substr($rawData, 0, 100),
+                ]);
+            } else {
+                // Try simpler pattern - just look for the data field
+                if (preg_match('/name="data"[\r\n]+(.*?)(?=------WebKitFormBoundary|$)/s', $content, $matches)) {
+                    $rawData = trim($matches[1]);
+                    // Remove Content-Type line if present
+                    $rawData = preg_replace('/^Content-Type: [^\r\n]+[\r\n]+/m', '', $rawData);
+                    Log::info('UpdateSupplierRequest prepareForValidation: Found data with simpler pattern', [
+                        'data_length' => strlen($rawData),
+                        'data_preview' => substr($rawData, 0, 100),
+                    ]);
+                }
+            }
+
+            // Also check for file fields in the content to confirm they exist
+            $fileMatches = preg_match_all('/name="attachments\[\]"/', $content, $fileFieldMatches);
+            if ($fileMatches > 0) {
+                Log::info('UpdateSupplierRequest prepareForValidation: Found file fields in content', [
+                    'file_fields_count' => $fileMatches,
+                ]);
+            }
+        }
+
+        if ($rawData) {
+            $data = json_decode($rawData, true);
             if (is_array($data)) {
-                // If files are being uploaded via 'attachments' field, exclude attachments from merged data
-                // to avoid validation conflict (Laravel will see attachments as file uploads, not array)
-                if ($this->hasFile('attachments')) {
+                Log::info('UpdateSupplierRequest prepareForValidation: Decoded data', [
+                    'has_attachments' => isset($data['attachments']),
+                    'attachments_count' => isset($data['attachments']) ? count($data['attachments']) : 0,
+                ]);
+
+                // Check if files exist in the raw content (Laravel might not have parsed them yet)
+                // Look for file fields in the multipart content
+                $hasFilesInContent = false;
+                if ($content) {
+                    // Check for attachments[] or attachments fields in the raw content
+                    if (preg_match('/name="attachments\[\]"/', $content) || preg_match('/name="attachments"/', $content)) {
+                        $hasFilesInContent = true;
+                        Log::info('UpdateSupplierRequest prepareForValidation: Found file fields in raw content');
+                    }
+                }
+
+                // If files are being uploaded via 'attachments' or 'attachments[]' field,
+                // store attachments metadata in a separate field before unsetting it
+                $hasFiles = $this->hasFile('attachments') || $this->hasFile('attachments.*') || $hasFilesInContent;
+                if ($hasFiles && isset($data['attachments'])) {
+                    Log::info('UpdateSupplierRequest prepareForValidation: Storing attachment metadata', [
+                        'hasFiles_detected' => $hasFiles,
+                        'hasFilesInContent' => $hasFilesInContent,
+                    ]);
+                    $this->merge(['_attachment_metadata' => $data['attachments']]);
                     unset($data['attachments']);
                 }
                 $this->merge($data);
+            } else {
+                Log::warning('UpdateSupplierRequest prepareForValidation: Failed to decode data', [
+                    'raw_data_type' => gettype($rawData),
+                    'raw_data_length' => is_string($rawData) ? strlen($rawData) : 0,
+                ]);
             }
+        } else {
+            Log::warning('UpdateSupplierRequest prepareForValidation: No data field found');
         }
     }
 
@@ -112,7 +209,6 @@ class UpdateSupplierRequest extends FormRequest
             // Status flags
             'is_foreign' => ['nullable', 'boolean'],
             'active' => ['nullable', 'boolean'],
-            'add_message' => ['nullable', 'boolean'],
             'message' => ['nullable', 'string'],
 
             // Addresses
@@ -148,6 +244,18 @@ class UpdateSupplierRequest extends FormRequest
             'shipping_addresses.*.notes' => ['nullable', 'string'],
             'shipping_addresses.*.is_primary' => ['nullable', 'boolean'],
 
+            // Taxes
+            'taxable' => ['sometimes', 'nullable', 'boolean'],
+            'taxed_from_date' => ['sometimes', 'nullable', 'date'],
+            'taxed_till_date' => ['sometimes', 'nullable', 'date'],
+            'subjected_to_tax' => ['sometimes', 'nullable', 'boolean'],
+            'added_tax' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
+            'exempted' => ['sometimes', 'nullable', 'boolean'],
+            'exempted_from' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'exemption_reference' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'exempted_from_date' => ['sometimes', 'nullable', 'date'],
+            'exempted_till_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:exempted_from_date'],
+
             // Contacts
             'contacts' => ['nullable', 'array'],
             'contacts.*.title' => ['nullable', 'string', 'max:255'],
@@ -160,12 +268,42 @@ class UpdateSupplierRequest extends FormRequest
 
             // Attachments: support both file uploads and/or metadata
             // When files are uploaded, Laravel automatically validates them as files
-            // When only metadata is provided, validate as array
+            // When only metadata is provided (edit mode with existing attachments), validate as array of objects
             // We exclude attachments from merged data when files are present (in prepareForValidation)
             // So validation only runs on array when no files are present
             'attachments' => ['nullable'],
-            'attachments.*' => ['sometimes', 'file', 'mimes:jpg,jpeg,png,pdf,docx,xlsx,txt', 'max:10240'],
-            // If only metadata is provided (no files), these are optional per item
+            // File validation (only applies when files are uploaded)
+            // When no files are uploaded, attachments will be array of objects with IDs (existing attachments)
+            // Use conditional validation: only validate as file if files are actually being uploaded
+            'attachments.*' => [
+                function ($attribute, $value, $fail) {
+                    // Only validate as file if files are actually being uploaded
+                    if ($this->hasFile('attachments') || $this->hasFile('attachments.*')) {
+                        // Validate as file
+                        if (! ($value instanceof \Illuminate\Http\UploadedFile)) {
+                            $fail('The '.$attribute.' must be a file.');
+                        }
+                        // Validate file type
+                        $allowedMimes = ['image/jpeg', 'image/png', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/plain'];
+                        $allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf', 'docx', 'xlsx', 'txt'];
+                        if ($value instanceof \Illuminate\Http\UploadedFile) {
+                            $mime = $value->getMimeType();
+                            $extension = strtolower($value->getClientOriginalExtension());
+                            if (! in_array($mime, $allowedMimes) && ! in_array($extension, $allowedExtensions)) {
+                                $fail('The '.$attribute.' must be a file of type: jpg, jpeg, png, pdf, docx, xlsx, txt.');
+                            }
+                            // Validate file size (10MB = 10240 KB)
+                            if ($value->getSize() > 10240 * 1024) {
+                                $fail('The '.$attribute.' must not be larger than 10MB.');
+                            }
+                        }
+                    }
+                    // If no files are being uploaded, allow JSON objects (existing attachments)
+                    // No validation needed for JSON objects
+                },
+            ],
+            // Metadata validation (applies when attachments are JSON objects, not files)
+            'attachments.*.id' => ['sometimes', 'nullable', 'integer', 'exists:supplier_attachments,id'],
             'attachments.*.file_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'attachments.*.file_url' => ['sometimes', 'nullable', 'url'],
             'attachments.*.file_type' => ['sometimes', 'nullable', 'string', 'max:100'],

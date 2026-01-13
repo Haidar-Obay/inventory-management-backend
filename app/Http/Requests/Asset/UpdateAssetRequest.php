@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Asset;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateAssetRequest extends FormRequest
 {
@@ -13,9 +14,20 @@ class UpdateAssetRequest extends FormRequest
 
     public function rules(): array
     {
+        $asset = $this->route('asset');
+        $assetId = $asset?->id ?? $asset;
+        $sectionId = $this->input('section_id') ?? $asset?->section_id;
+
         return [
             'section_id' => 'sometimes|exists:sections,id',
-            'name' => 'sometimes|string|max:255',
+            'name' => [
+                'sometimes',
+                'string',
+                'max:255',
+                $sectionId ? Rule::unique('assets', 'name')
+                    ->where('section_id', $sectionId)
+                    ->ignore($assetId) : 'sometimes',
+            ],
             'type' => 'sometimes|in:machine,bed,equipment,furniture,other',
             'status' => 'sometimes|in:active,maintenance,inactive,retired',
         ];

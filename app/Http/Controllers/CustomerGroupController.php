@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Exports\Export;
 use App\Exports\ExportPDF;
+use App\Http\Requests\CustomerGroup\StoreCustomerGroupRequest;
+use App\Http\Requests\CustomerGroup\UpdateCustomerGroupRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\CustomerGroup;
 use Illuminate\Http\Request;
@@ -32,10 +34,10 @@ class CustomerGroupController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreCustomerGroupRequest $request)
     {
         $tenantId = tenant('id');
-        $data = $request->all();
+        $data = $request->validated();
         $nextId = $this->computeNextAvailableId(CustomerGroup::class, 'id');
         $customerGroup = new CustomerGroup($data);
         $customerGroup->id = $nextId;
@@ -60,10 +62,10 @@ class CustomerGroupController extends Controller
         ]);
     }
 
-    public function update(Request $request, CustomerGroup $customerGroup)
+    public function update(UpdateCustomerGroupRequest $request, CustomerGroup $customerGroup)
     {
         $tenantId = tenant('id');
-        $customerGroup->update($request->all());
+        $customerGroup->update($request->validated());
         app('cache')->store('database')->forget("tenant_{$tenantId}_customer_groups");
 
         return response()->json([

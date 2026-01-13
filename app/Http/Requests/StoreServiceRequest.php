@@ -12,6 +12,25 @@ class StoreServiceRequest extends FormRequest
         return true;
     }
 
+    /**
+     * Override the validation behavior to handle FormData with 'data' field
+     */
+    protected function prepareForValidation()
+    {
+        // If this is FormData with a 'data' field, decode it and merge into request
+        if ($this->has('data')) {
+            $data = json_decode($this->input('data'), true);
+            if (is_array($data)) {
+                // If files are being uploaded via 'attachments' field, exclude attachments from merged data
+                // to avoid validation conflict (Laravel will see attachments as file uploads, not array)
+                if ($this->hasFile('attachments') || $this->hasFile('attachments.*')) {
+                    unset($data['attachments']);
+                }
+                $this->merge($data);
+            }
+        }
+    }
+
     public function rules(): array
     {
         return [
@@ -52,7 +71,6 @@ class StoreServiceRequest extends FormRequest
             'cost_price' => ['nullable', 'numeric', 'min:0'],
             'birthday_price' => ['nullable', 'numeric', 'min:0'],
             'wedding_price' => ['nullable', 'numeric', 'min:0'],
-            'image' => ['nullable'],
             'service_color' => ['nullable', 'string', 'max:50'],
             'service_sex' => ['nullable', Rule::in(['male', 'female', 'both'])],
             'active' => ['boolean'],

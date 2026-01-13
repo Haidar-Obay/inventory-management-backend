@@ -139,7 +139,6 @@ class CustomerController extends Controller
             // Handle message field
             if ($request->filled('message')) {
                 $validated['message'] = $request->input('message');
-                $validated['showMessageField'] = true;
             }
 
             // Convert empty date strings to null for database compatibility
@@ -490,7 +489,6 @@ class CustomerController extends Controller
             'free_delivery_charge' => $customer->free_delivery_charge,
             'print_invoice_language' => $customer->print_invoice_language,
             'send_invoice' => $customer->send_invoice,
-            'showMessageField' => $customer->showMessageField,
             'message' => $customer->message,
             'notes' => $customer->notes,
             'created_at' => $customer->created_at,
@@ -1070,33 +1068,78 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle contacts
+            // Handle contacts - update existing or create new
             if ($request->has('contacts')) {
-                // Remove existing contacts and create new ones
-                $customer->contacts()->delete();
+                $contacts = $request->input('contacts');
+                $existingContacts = $customer->contacts()->get()->keyBy('id');
+                $existingContactIds = $existingContacts->keys()->toArray();
+                $incomingContactIds = [];
 
-                foreach ($request->input('contacts') as $contactData) {
+                // Find existing primary contact
+                $existingPrimaryContact = $customer->contacts()->where('is_primary', true)->first();
+
+                foreach ($contacts as $contactData) {
                     $isPrimary = isset($contactData['is_primary']) && (bool) $contactData['is_primary'];
+                    $contactId = isset($contactData['id']) ? (int) $contactData['id'] : null;
 
-                    $nextContactId = $this->computeNextAvailableId(\App\Models\CustomerContact::class, 'id');
-                    $contact = new \App\Models\CustomerContact([
-                        'customer_id' => $customer->id,
-                        'title' => $contactData['title'] ?? null,
-                        'name' => $contactData['name'],
-                        'work_phone' => $contactData['work_phone'] ?? null,
-                        'mobile' => $contactData['mobile'] ?? null,
-                        'email' => $contactData['email'] ?? null,
-                        'position' => $contactData['position'] ?? null,
-                        'extension' => $contactData['extension'] ?? null,
-                        'is_primary' => $isPrimary,
-                    ]);
-                    $contact->id = $nextContactId;
-                    $contact->save();
-
-                    // Set as primary contact if specified (also updates customer.contacts_id)
-                    if ($isPrimary) {
-                        $customer->setPrimaryContact($contact->id);
+                    // For primary contact without ID, try to find existing primary contact
+                    if ($isPrimary && ! $contactId && $existingPrimaryContact) {
+                        $contactId = $existingPrimaryContact->id;
                     }
+
+                    // Check if this is an existing contact (has ID and exists in database)
+                    if ($contactId && isset($existingContacts[$contactId])) {
+                        // Update existing contact
+                        $contact = $existingContacts[$contactId];
+                        $contact->update([
+                            'title' => $contactData['title'] ?? null,
+                            'name' => $contactData['name'],
+                            'work_phone' => $contactData['work_phone'] ?? null,
+                            'mobile' => $contactData['mobile'] ?? null,
+                            'email' => $contactData['email'] ?? null,
+                            'position' => $contactData['position'] ?? null,
+                            'extension' => $contactData['extension'] ?? null,
+                            'is_primary' => $isPrimary,
+                        ]);
+
+                        // Set as primary contact if specified (also updates customer.contacts_id)
+                        if ($isPrimary) {
+                            $customer->setPrimaryContact($contact->id);
+                        }
+
+                        $incomingContactIds[] = $contactId;
+                    } else {
+                        // Create new contact
+                        $nextContactId = $this->computeNextAvailableId(\App\Models\CustomerContact::class, 'id');
+                        $contact = new \App\Models\CustomerContact([
+                            'customer_id' => $customer->id,
+                            'title' => $contactData['title'] ?? null,
+                            'name' => $contactData['name'],
+                            'work_phone' => $contactData['work_phone'] ?? null,
+                            'mobile' => $contactData['mobile'] ?? null,
+                            'email' => $contactData['email'] ?? null,
+                            'position' => $contactData['position'] ?? null,
+                            'extension' => $contactData['extension'] ?? null,
+                            'is_primary' => $isPrimary,
+                        ]);
+                        $contact->id = $nextContactId;
+                        $contact->save();
+
+                        // Set as primary contact if specified (also updates customer.contacts_id)
+                        if ($isPrimary) {
+                            $customer->setPrimaryContact($contact->id);
+                        }
+
+                        $incomingContactIds[] = $contact->id;
+                    }
+                }
+
+                // Delete contacts that are no longer in the request
+                $contactsToDelete = array_diff($existingContactIds, $incomingContactIds);
+                if (! empty($contactsToDelete)) {
+                    \App\Models\CustomerContact::whereIn('id', $contactsToDelete)
+                        ->where('customer_id', $customer->id)
+                        ->delete();
                 }
             }
 
@@ -1109,36 +1152,121 @@ class CustomerController extends Controller
             if ($request->hasFile('attachments') || $request->hasFile('attachments.*')) {
                 $tenantId = tenant('id');
 
-                // Delete existing attachments
-                foreach ($customer->attachments as $attachment) {
-                    $relativePath = str_replace(url('/storage'), '', $attachment->file_path);
-                    Storage::disk('public')->delete($relativePath);
-                    $attachment->delete();
+                // Get attachment data from JSON (includes existing attachments with IDs + new file metadata)
+                // Note: prepareForValidation stores attachments in '_attachment_metadata' before unsetting
+                // to avoid validation conflict, so we can access it from there
+                $attachmentDataFromJson = [];
+                if ($request->has('_attachment_metadata')) {
+                    // Get from the stored metadata (set by prepareForValidation)
+                    $attachmentDataFromJson = $request->input('_attachment_metadata', []);
+                } elseif ($request->has('data')) {
+                    // Fallback: try to get from raw data field (if prepareForValidation didn't run)
+                    $data = json_decode($request->input('data'), true);
+                    $attachmentDataFromJson = $data['attachments'] ?? [];
                 }
 
-                // Create new attachments
-                $files = [];
-                $direct = $request->file('attachments');
-                if ($direct) {
-                    $files = is_array($direct) ? $direct : [$direct];
+                // Separate existing attachments (with IDs) from new file metadata (without IDs)
+                $existingAttachmentIds = [];
+                $attachmentMetadataMap = [];
+                $newFileMetadata = [];
+
+                foreach ($attachmentDataFromJson as $attData) {
+                    if (isset($attData['id']) && is_numeric($attData['id'])) {
+                        // Existing attachment - keep it
+                        $existingAttachmentIds[] = $attData['id'];
+                        $attachmentMetadataMap[$attData['id']] = $attData;
+                    } else {
+                        // New file metadata (will be matched with uploaded files)
+                        $newFileMetadata[] = $attData;
+                    }
                 }
-                // Also merge attachments[]
-                $dot = $request->file('attachments.*');
-                if (is_array($dot)) {
-                    foreach ($dot as $item) {
-                        if ($item) {
-                            $files[] = $item;
+
+                // Delete attachments that are not in the keep list
+                $existingAttachments = $customer->attachments;
+                foreach ($existingAttachments as $existingAttachment) {
+                    if (! in_array($existingAttachment->id, $existingAttachmentIds)) {
+                        // Delete file from storage
+                        $relativePath = str_replace(url('/storage'), '', $existingAttachment->file_path);
+                        Storage::disk('public')->delete($relativePath);
+                        // Delete attachment record
+                        $existingAttachment->delete();
+                    } else {
+                        // Update existing attachment metadata if provided
+                        $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
+                        if ($metadata) {
+                            if (isset($metadata['description'])) {
+                                $existingAttachment->description = $metadata['description'];
+                            }
+                            if (isset($metadata['is_public'])) {
+                                $existingAttachment->is_public = $metadata['is_public'];
+                            }
+                            if (isset($metadata['category'])) {
+                                $existingAttachment->category = $metadata['category'];
+                            }
+                            $existingAttachment->save();
                         }
                     }
                 }
 
-                // Get attachment metadata from the decoded data if available
-                $attachmentMetadata = [];
-                if ($request->has('data')) {
-                    $data = json_decode($request->input('data'), true);
-                    $attachmentMetadata = $data['attachments'] ?? [];
+                // Create new attachments from uploaded files
+                // When using attachments[] in FormData, Laravel receives it as attachments.*
+                $files = [];
+                $fileIdentifiers = []; // Track files by identifier to avoid duplicates
+
+                // Check allFiles() first to get all files, then deduplicate
+                $allFiles = $request->allFiles();
+
+                // Collect all files from allFiles() (this is the most reliable source)
+                foreach ($allFiles as $key => $file) {
+                    if (strpos($key, 'attachment') !== false) {
+                        $fileArray = is_array($file) ? $file : [$file];
+                        foreach ($fileArray as $f) {
+                            if ($f && $f->isValid()) {
+                                // Use a combination of name and size as identifier to avoid duplicates
+                                $identifier = $f->getClientOriginalName().'|'.$f->getSize().'|'.$f->getMimeType();
+                                if (! in_array($identifier, $fileIdentifiers)) {
+                                    $files[] = $f;
+                                    $fileIdentifiers[] = $identifier;
+                                }
+                            }
+                        }
+                    }
                 }
 
+                // Fallback: If no files found in allFiles(), try direct methods
+                if (count($files) === 0) {
+                    // Check for attachments.* first (array notation from FormData)
+                    $dot = $request->file('attachments.*');
+                    if ($dot) {
+                        $dotFiles = is_array($dot) ? $dot : [$dot];
+                        foreach ($dotFiles as $file) {
+                            if ($file && $file->isValid()) {
+                                $identifier = $file->getClientOriginalName().'|'.$file->getSize().'|'.$file->getMimeType();
+                                if (! in_array($identifier, $fileIdentifiers)) {
+                                    $files[] = $file;
+                                    $fileIdentifiers[] = $identifier;
+                                }
+                            }
+                        }
+                    }
+
+                    // Also check for direct 'attachments' (single file or already array)
+                    $direct = $request->file('attachments');
+                    if ($direct) {
+                        $directFiles = is_array($direct) ? $direct : [$direct];
+                        foreach ($directFiles as $file) {
+                            if ($file && $file->isValid()) {
+                                $identifier = $file->getClientOriginalName().'|'.$file->getSize().'|'.$file->getMimeType();
+                                if (! in_array($identifier, $fileIdentifiers)) {
+                                    $files[] = $file;
+                                    $fileIdentifiers[] = $identifier;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Match uploaded files with metadata (new files come after existing attachments in the array)
                 foreach ($files as $index => $file) {
                     // Skip if file is null, not valid, or not an instance of UploadedFile
                     if (! $file || ! $file->isValid()) {
@@ -1150,9 +1278,11 @@ class CustomerController extends Controller
                         $file
                     );
 
-                    // Find matching metadata for this file
-                    $metadata = $attachmentMetadata[$index] ?? [];
+                    // Find matching metadata for this file (new files start after existing attachments)
+                    $metadata = $newFileMetadata[$index] ?? [];
                     $description = $metadata['description'] ?? '';
+                    $category = $metadata['category'] ?? 'document';
+                    $isPublic = $metadata['is_public'] ?? true;
 
                     CustomerAttachment::create([
                         'customer_id' => $customer->id,
@@ -1161,7 +1291,8 @@ class CustomerController extends Controller
                         'file_type' => $file->getMimeType(),
                         'file_size' => $file->getSize(),
                         'description' => $description,
-                        'category' => 'document',
+                        'category' => $category,
+                        'is_public' => $isPublic,
                     ]);
                 }
             }
@@ -1169,7 +1300,7 @@ class CustomerController extends Controller
             // Handle attachments with new structure (JSON data)
             // Only process if no files were uploaded (files are handled above)
             // and if attachments is an array (not file uploads)
-            if ($request->has('attachments') && ! $request->hasFile('attachments')) {
+            if ($request->has('attachments') && ! $request->hasFile('attachments') && ! $request->hasFile('attachments.*')) {
                 $attachments = $request->input('attachments');
                 if (is_array($attachments)) {
                     // Get IDs of attachments that should be kept (existing attachments with IDs, not new file uploads)
@@ -1202,6 +1333,9 @@ class CustomerController extends Controller
                                 }
                                 if (isset($metadata['is_public'])) {
                                     $existingAttachment->is_public = $metadata['is_public'];
+                                }
+                                if (isset($metadata['category'])) {
+                                    $existingAttachment->category = $metadata['category'];
                                 }
                                 $existingAttachment->save();
                             }
@@ -1479,7 +1613,6 @@ class CustomerController extends Controller
             'free_delivery_charge',
             'print_invoice_language',
             'send_invoice',
-            'showMessageField',
             'message',
             'contacts_id',
             'notes',
@@ -1614,7 +1747,6 @@ class CustomerController extends Controller
             'free_delivery_charge',
             'print_invoice_language',
             'send_invoice',
-            'showMessageField',
             'message',
             'contacts_id',
             'notes',
@@ -1694,7 +1826,6 @@ class CustomerController extends Controller
             'free_delivery_charge' => 'Free Delivery Charge',
             'print_invoice_language' => 'Print Invoice Language',
             'send_invoice' => 'Send Invoice',
-            'showMessageField' => 'Add Message',
             'message' => 'Invoice Message',
             'contacts_id' => 'Contacts ID',
             'notes' => 'Notes',
@@ -1964,7 +2095,6 @@ class CustomerController extends Controller
                         'free_delivery_charge' => boolval($row['free_delivery_charge'] ?? false),
                         'print_invoice_language' => $row['print_invoice_language'] ?? 'English',
                         'send_invoice' => $row['send_invoice'] ?? 'email',
-                        'showMessageField' => boolval($row['showMessageField'] ?? false),
                         'message' => $row['message'] ?? null,
                         'contacts_id' => $row['contacts_id'] ?? null,
                         'notes' => $row['notes'] ?? null,

@@ -29,7 +29,6 @@ class ServiceSeeder extends Seeder
             'cost_price' => 120,
             'birthday_price' => 200,
             'wedding_price' => 350,
-            'image' => null,
             'service_color' => '#2E86DE',
             'service_sex' => 'both',
             'active' => true,
