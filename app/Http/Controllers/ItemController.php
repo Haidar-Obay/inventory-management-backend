@@ -1445,4 +1445,121 @@ class ItemController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Find item by code for invoice entry
+     *
+     * @return JsonResponse
+     */
+    public function getItemByCode(Request $request)
+    {
+        $request->validate([
+            'item_code' => 'required|string|max:255',
+            'customer_id' => 'required|exists:customers,id',
+        ]);
+
+        $itemCode = trim($request->item_code);
+        $customerId = $request->customer_id;
+
+        $item = Item::with([
+            'taxGroup:id,code,name,value',
+            'baseUom:id,name',
+            'unitOfMeasurements:id,name',
+        ])->whereRaw('LOWER(code) = LOWER(?)', [$itemCode])->first();
+
+        if (! $item) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Item not found for this code.',
+            ], 404);
+        }
+
+        // Get customer's price choice
+        $customer = \App\Models\Customer::find($customerId);
+        $priceChoice = $customer->price_choice ?? 'price1';
+
+        // Map price choice to column name
+        $priceColumn = match ($priceChoice) {
+            'price1' => 'price_1',
+            'price2' => 'price_2',
+            'price3' => 'price_3',
+            'price4' => 'price_4',
+            'price5' => 'price_5',
+            'price6' => 'price_6',
+            'last_invoice_price' => 'price_1',
+            default => 'price_1',
+        };
+
+        // Get all UOMs for the item (for dropdown)
+        $item->load('unitOfMeasurements');
+
+        $itemUomIds = [];
+        foreach ($item->unitOfMeasurements as $uom) {
+            $pivotId = $uom->pivot->id ?? $uom->pivot->getKey();
+            if (! $pivotId) {
+                $pivot = \App\Models\ItemUnitOfMeasurement::where('item_id', $item->id)
+                    ->where('unit_of_measurement_id', $uom->id)
+                    ->first();
+                $pivotId = $pivot?->id;
+            }
+            if ($pivotId) {
+                $itemUomIds[] = $pivotId;
+            }
+        }
+
+        $barcodesByItemUomId = [];
+        if (! empty($itemUomIds)) {
+            $allBarcodes = \App\Models\ItemBarcode::whereIn('item_unit_of_measurement_id', $itemUomIds)->get();
+            foreach ($allBarcodes as $barcode) {
+                $barcodesByItemUomId[$barcode->item_unit_of_measurement_id][] = $barcode->barcode;
+            }
+        }
+
+        $unitOfMeasurements = $item->unitOfMeasurements->map(function ($uom) use ($priceColumn, $item, $barcodesByItemUomId) {
+            $pivot = $uom->pivot;
+            $price = $pivot->{$priceColumn} ?? 0;
+            $conversion = $pivot->conversion ?? 1;
+            $unitPrice = $conversion > 0 ? $price / $conversion : $price;
+
+            $pivotId = $pivot->id ?? $pivot->getKey();
+            $barcodes = $barcodesByItemUomId[$pivotId] ?? [];
+
+            return [
+                'id' => $uom->id,
+                'name' => $uom->name,
+                'conversion' => (float) $conversion,
+                'operation' => $pivot->operation,
+                'barcodes' => $barcodes,
+                'price' => (float) $price,
+                'unit_price' => round($unitPrice, 2),
+                'is_base_uom' => $uom->id === $item->base_uom_id,
+            ];
+        });
+
+        // Auto-select the base UOM if available
+        $defaultUom = $unitOfMeasurements->firstWhere('is_base_uom');
+        if (! $defaultUom && $unitOfMeasurements->isNotEmpty()) {
+            $defaultUom = $unitOfMeasurements->first(); // Fallback to first UOM
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Item found by code.',
+            'data' => [
+                'id' => $item->id,
+                'code' => $item->code,
+                'name' => $item->name,
+                'sales_description' => $item->sales_description,
+                'base_uom_id' => $item->base_uom_id,
+                'tax' => $item->taxGroup ? [
+                    'id' => $item->taxGroup->id,
+                    'code' => $item->taxGroup->code,
+                    'name' => $item->taxGroup->name,
+                    'value' => (float) $item->taxGroup->value,
+                ] : null,
+                'unit_of_measurements' => $unitOfMeasurements,
+                'matched_uom' => $defaultUom, // Include the matched UOM for auto-selection
+            ],
+        ]);
+    }
 }
