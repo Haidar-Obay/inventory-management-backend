@@ -210,6 +210,7 @@ Route::middleware([
         Route::get('items/services/list', [ItemController::class, 'getServiceItems'])->middleware('check.permission:items,view');
         Route::get('items/all', [ItemController::class, 'getAllItems'])->middleware('check.permission:items,view');
         Route::get('items/by-barcode', [ItemController::class, 'getItemByBarcode'])->middleware('check.permission:items,view'); // Must come before apiResource
+        Route::get('items/by-code', [ItemController::class, 'getItemByCode'])->middleware('check.permission:items,view'); // Must come before apiResource
         Route::apiResource('items', ItemController::class)->middleware('check.permission:items,view');
         Route::post('items/{item}/attachments', [ItemController::class, 'uploadAttachment'])->middleware('check.permission:items,view');
         Route::get('items/{item}/attachments', [ItemController::class, 'getAttachments'])->middleware('check.permission:items,view');
