@@ -444,6 +444,15 @@ class InvoiceController extends Controller
         $conversion = $itemUom->conversion ?? 1;
         $unitPrice = InvoiceItem::calculateUnitPrice($price, $conversion);
 
+        // Calculate unit display: conversion + base UOM name (e.g., "12pieces")
+        $unit = null;
+        if ($item->base_uom_id) {
+            $baseUom = \App\Models\UnitOfMeasurement::find($item->base_uom_id);
+            if ($baseUom) {
+                $unit = $conversion.$baseUom->name;
+            }
+        }
+
         // Calculate item totals
         // Order: Subtotal → Discount → Tax → Total
         // Discount is calculated on subtotal, then tax is calculated on (subtotal - discount)
@@ -476,6 +485,7 @@ class InvoiceController extends Controller
             'quantity' => $quantity,
             'price' => $price,
             'unit_price' => $unitPrice,
+            'unit' => $unit,
             'discount_percent' => $discountPercent,
             'tax_percent' => $taxPercent,
             'subtotal' => $subtotal,

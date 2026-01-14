@@ -1461,17 +1461,49 @@ class ItemController extends Controller
         $itemCode = trim($request->item_code);
         $customerId = $request->customer_id;
 
+        // First try exact match
         $item = Item::with([
             'taxGroup:id,code,name,value',
             'baseUom:id,name',
             'unitOfMeasurements:id,name',
         ])->whereRaw('LOWER(code) = LOWER(?)', [$itemCode])->first();
 
+        // If exact match not found, try partial match and return multiple results
         if (! $item) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Item not found for this code.',
-            ], 404);
+            $items = Item::with([
+                'taxGroup:id,code,name,value',
+                'baseUom:id,name',
+                'unitOfMeasurements:id,name',
+            ])->whereRaw('LOWER(code) LIKE LOWER(?)', ['%'.$itemCode.'%'])
+                ->limit(50) // Limit to prevent too many results
+                ->get();
+
+            // If multiple matches found, return them for user selection
+            if ($items->count() > 1) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Multiple items found.',
+                    'multiple' => true,
+                    'data' => $items->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'code' => $item->code,
+                            'name' => $item->name,
+                        ];
+                    })->toArray(),
+                ]);
+            }
+
+            // If single match found from partial search, use it
+            if ($items->count() === 1) {
+                $item = $items->first();
+            } else {
+                // No matches found
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Item not found for this code.',
+                ], 404);
+            }
         }
 
         // Get customer's price choice

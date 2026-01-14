@@ -29,6 +29,7 @@ class InvoiceItem extends Model implements Auditable
         'quantity',
         'price',
         'unit_price',
+        'unit',
         'discount_percent',
         'tax_percent',
         'subtotal',
