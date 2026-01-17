@@ -303,6 +303,7 @@ class StoreCustomerRequest extends FormRequest
             'one_time_account' => 'nullable|boolean',
             'special_account' => 'nullable|boolean',
             'pos_customer' => 'nullable|boolean',
+            'cash_customer' => 'nullable|boolean',
             'free_delivery_charge' => 'nullable|boolean',
             'print_invoice_language' => 'nullable|in:English,Arabic',
             'send_invoice' => 'nullable|in:email,sms,whatsapp,all',

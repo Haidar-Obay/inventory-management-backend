@@ -360,6 +360,7 @@ class UpdateCustomerRequest extends FormRequest
             'one_time_account' => 'sometimes|nullable|boolean',
             'special_account' => 'sometimes|nullable|boolean',
             'pos_customer' => 'sometimes|nullable|boolean',
+            'cash_customer' => 'sometimes|nullable|boolean',
             'free_delivery_charge' => 'sometimes|nullable|boolean',
             'print_invoice_language' => 'sometimes|nullable|in:English,Arabic',
             'send_invoice' => 'sometimes|nullable|in:email,sms,whatsapp,all',
