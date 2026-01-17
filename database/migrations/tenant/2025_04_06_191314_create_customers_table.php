@@ -92,6 +92,7 @@ return new class extends Migration
             $table->boolean('one_time_account')->default(true);
             $table->boolean('special_account')->default(false);
             $table->boolean('pos_customer')->default(false);
+            $table->boolean('cash_customer')->default(false);
             $table->boolean('free_delivery_charge')->default(false);
             $table->enum('print_invoice_language', ['English', 'Arabic'])->default('English');
             $table->enum('send_invoice', ['email', 'sms', 'whatsapp', 'all'])->default('email');

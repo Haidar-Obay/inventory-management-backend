@@ -33,6 +33,7 @@ class Customer extends Model implements Auditable
         'one_time_account' => 'boolean',
         'special_account' => 'boolean',
         'pos_customer' => 'boolean',
+        'cash_customer' => 'boolean',
         'free_delivery_charge' => 'boolean',
         'global_discount' => 'decimal:2',
         'markup_percentage' => 'decimal:2',
