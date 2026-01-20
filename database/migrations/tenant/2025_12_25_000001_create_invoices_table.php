@@ -32,8 +32,17 @@ return new class extends Migration
             $table->foreignId('warehouse_id')->constrained('warehouses')->restrictOnDelete();
             $table->foreignId('payment_term_id')->nullable()->constrained('payment_terms')->nullOnDelete(); // For due_date calculation
 
+            // Denormalized data (snapshots at invoice time)
+            $table->string('customer_name')->nullable(); // Customer name at invoice time
+            $table->string('salesman_name')->nullable(); // Salesman name at invoice time
+            $table->string('customer_phone_number')->nullable(); // Customer phone at invoice time
+
             // Reference
             $table->string('ref_2')->nullable(); // Reference number
+            $table->string('sales_order')->nullable(); // Sales order number
+
+            // Exchange rate
+            $table->decimal('exchange_rate', 12, 4)->nullable()->default(1.0000); // Exchange rate for currency conversion
 
             // Document-level discount
             $table->enum('discount_2_type', ['percent', 'amount'])->nullable();

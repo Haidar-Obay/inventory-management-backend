@@ -17,6 +17,7 @@ use App\Http\Requests\Item\UploadItemAttachmentRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Item;
 use App\Models\ItemAttachment;
+use App\Models\ItemBarcode;
 use App\Models\ItemUnitOfMeasurement;
 use App\Models\Supplier;
 use App\Models\UnitOfMeasurement;
@@ -83,6 +84,12 @@ class ItemController extends Controller
         ]);
     }
 
+    /**
+     * Get basic item details with relationships.
+     * Simple endpoint for general item information.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function show(Item $item)
     {
         $tenantId = tenant('id');
@@ -104,9 +111,154 @@ class ItemController extends Controller
             app('cache')->store('database')->forever($key, $cachedItem);
         }
 
+        // Transform to array and convert camelCase to snake_case for frontend
+        $itemArray = $cachedItem->toArray();
+
+        // Map camelCase relationships to snake_case
+        if (isset($itemArray['companyCode'])) {
+            $itemArray['company_code'] = $itemArray['companyCode'];
+            unset($itemArray['companyCode']);
+        }
+        if (isset($itemArray['productLine'])) {
+            $itemArray['product_line'] = $itemArray['productLine'];
+            unset($itemArray['productLine']);
+        }
+        if (isset($itemArray['baseUom'])) {
+            $itemArray['base_uom'] = $itemArray['baseUom'];
+            unset($itemArray['baseUom']);
+        }
+        if (isset($itemArray['taxGroup'])) {
+            $itemArray['tax_group'] = $itemArray['taxGroup'];
+            unset($itemArray['taxGroup']);
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'Item details fetched successfully.',
+            'data' => $itemArray,
+        ]);
+    }
+
+    /**
+     * Get item with all relationships for preview/detail view.
+     * Optimized with eager loading and efficient barcode queries.
+     * Includes suppliers, UOMs with prices, barcodes, and all detailed information.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getItemForPreview(Item $item)
+    {
+        $tenantId = tenant('id');
+        $key = "tenant_{$tenantId}_item_preview_{$item->id}";
+
+        $cachedItem = app('cache')->store('database')->get($key);
+
+        if (! $cachedItem) {
+            // Load all basic relationships with minimal columns
+            $item->load([
+                'trade:id,name',
+                'companyCode:id,name',
+                'productLine:id,name',
+                'category:id,name',
+                'brand:id,name',
+                'taxGroup:id,code,name,value',
+                'baseUom:id,name',
+                'purchaseUom:id,name',
+                'salesUom:id,name',
+                'parent:id,code,name',
+            ]);
+
+            // Load suppliers with pivot data
+            $item->load([
+                'suppliers' => function ($query) {
+                    $query->select('suppliers.id', 'suppliers.company_name', 'suppliers.first_name', 'suppliers.last_name', 'suppliers.display_name')
+                        ->orderBy('item_supplier.is_primary', 'desc');
+                },
+            ]);
+
+            // Load unit of measurements with all pivot data
+            $item->load([
+                'unitOfMeasurements' => function ($query) {
+                    $query->select('unit_of_measurements.id', 'unit_of_measurements.name')
+                        ->orderBy('unit_of_measurements.name');
+                },
+            ]);
+
+            // Get all item_unit_of_measurement IDs for efficient barcode loading
+            $itemUomIds = $item->unitOfMeasurements->pluck('pivot.id')->filter()->toArray();
+
+            // Load barcodes for all UOMs in a single query
+            $barcodesByItemUomId = [];
+            if (! empty($itemUomIds)) {
+                $barcodes = ItemBarcode::whereIn('item_unit_of_measurement_id', $itemUomIds)
+                    ->select('id', 'item_unit_of_measurement_id', 'barcode', 'is_primary')
+                    ->orderBy('is_primary', 'desc')
+                    ->orderBy('barcode')
+                    ->get()
+                    ->groupBy('item_unit_of_measurement_id');
+
+                foreach ($barcodes as $itemUomId => $barcodeCollection) {
+                    $barcodesByItemUomId[$itemUomId] = $barcodeCollection->pluck('barcode')->toArray();
+                }
+            }
+
+            // Attach barcodes to each UOM pivot
+            foreach ($item->unitOfMeasurements as $uom) {
+                $pivotId = $uom->pivot->id ?? null;
+                if ($pivotId && isset($barcodesByItemUomId[$pivotId])) {
+                    $uom->pivot->setAttribute('barcodes', $barcodesByItemUomId[$pivotId]);
+                } else {
+                    $uom->pivot->setAttribute('barcodes', []);
+                }
+            }
+
+            // Transform to array and convert camelCase to snake_case for frontend
+            $itemArray = $item->toArray();
+
+            // Map camelCase relationships to snake_case
+            if (isset($itemArray['companyCode'])) {
+                $itemArray['company_code'] = $itemArray['companyCode'];
+                unset($itemArray['companyCode']);
+            }
+            if (isset($itemArray['productLine'])) {
+                $itemArray['product_line'] = $itemArray['productLine'];
+                unset($itemArray['productLine']);
+            }
+            if (isset($itemArray['baseUom'])) {
+                $itemArray['base_uom'] = $itemArray['baseUom'];
+                unset($itemArray['baseUom']);
+            }
+            if (isset($itemArray['purchaseUom'])) {
+                $itemArray['purchase_uom'] = $itemArray['purchaseUom'];
+                unset($itemArray['purchaseUom']);
+            }
+            if (isset($itemArray['salesUom'])) {
+                $itemArray['sales_uom'] = $itemArray['salesUom'];
+                unset($itemArray['salesUom']);
+            }
+            if (isset($itemArray['taxGroup'])) {
+                $itemArray['tax_group'] = $itemArray['taxGroup'];
+                unset($itemArray['taxGroup']);
+            }
+
+            // Transform unit_of_measurements array
+            if (isset($itemArray['unit_of_measurements'])) {
+                foreach ($itemArray['unit_of_measurements'] as &$uom) {
+                    if (isset($uom['pivot']['barcodes'])) {
+                        // Barcodes already attached in pivot
+                    }
+                }
+            }
+
+            $cachedItem = $itemArray;
+
+            // Cache for 1 hour (items don't change frequently, but we want fresh data)
+            app('cache')->store('database')->put($key, $cachedItem, now()->addHour());
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Item preview data fetched successfully.',
             'data' => $cachedItem,
         ]);
     }
@@ -202,6 +354,7 @@ class ItemController extends Controller
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_preview_{$item->id}");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
         app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
@@ -461,6 +614,7 @@ class ItemController extends Controller
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_preview_{$item->id}");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
         app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
@@ -520,6 +674,7 @@ class ItemController extends Controller
         $item->delete();
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_preview_{$item->id}");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
         app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
@@ -938,6 +1093,7 @@ class ItemController extends Controller
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_preview_{$item->id}");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
         app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
@@ -982,6 +1138,7 @@ class ItemController extends Controller
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_preview_{$item->id}");
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
         app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
         app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
@@ -1879,6 +2036,83 @@ class ItemController extends Controller
                 'unit_of_measurements' => $unitOfMeasurements,
                 'matched_uom' => $defaultUom, // Include the matched UOM for auto-selection
             ],
+        ]);
+    }
+
+    /**
+     * Search items by barcode (partial match) for help grid
+     * Returns list of items with their barcodes, UOMs, and item names
+     *
+     * @return JsonResponse
+     */
+    public function searchItemsByBarcode(Request $request)
+    {
+        $request->validate([
+            'barcode' => 'nullable|string|max:255',
+            'customer_id' => 'required|exists:customers,id',
+        ]);
+
+        $barcodeSearch = trim($request->barcode ?? '');
+        $customerId = $request->customer_id;
+
+        // Get customer's price choice for future use
+        $customer = \App\Models\Customer::find($customerId);
+        $priceChoice = $customer->price_choice ?? 'price1';
+
+        // Map price choice to column name
+        $priceColumn = match ($priceChoice) {
+            'price1' => 'price_1',
+            'price2' => 'price_2',
+            'price3' => 'price_3',
+            'price4' => 'price_4',
+            'price5' => 'price_5',
+            'price6' => 'price_6',
+            'last_invoice_price' => 'price_1',
+            default => 'price_1',
+        };
+
+        // Query barcodes with partial match
+        $query = \App\Models\ItemBarcode::with([
+            'itemUnitOfMeasurement.item:id,code,name',
+            'itemUnitOfMeasurement.unitOfMeasurement:id,name',
+        ]);
+
+        if ($barcodeSearch) {
+            $query->where('barcode', 'LIKE', '%'.$barcodeSearch.'%');
+        }
+
+        // Limit results to prevent too many
+        $itemBarcodes = $query->limit(100)->get();
+
+        // Transform data to include: id, item_name, uom_name, barcode
+        $results = $itemBarcodes->map(function ($itemBarcode) {
+            $itemUom = $itemBarcode->itemUnitOfMeasurement;
+            if (! $itemUom) {
+                return;
+            }
+
+            $item = $itemUom->item;
+            $uom = $itemUom->unitOfMeasurement;
+
+            if (! $item || ! $uom) {
+                return;
+            }
+
+            return [
+                'id' => $itemBarcode->id, // Use barcode ID as unique identifier (each barcode has unique ID)
+                'item_id' => $item->id, // Item ID for reference
+                'item_name' => $item->name,
+                'uom_name' => $uom->name,
+                'barcode' => $itemBarcode->barcode,
+                'uom_id' => $uom->id, // UOM ID for selection
+                'item_uom_id' => $itemUom->id, // ItemUnitOfMeasurement ID for fetching full data
+            ];
+        })->filter()->values(); // Remove nulls and reindex
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Items found by barcode.',
+            'data' => $results,
         ]);
     }
 }

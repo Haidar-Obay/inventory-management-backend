@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
@@ -32,6 +33,22 @@ class ItemUnitOfMeasurement extends Pivot
         'net_volume' => 'decimal:4',
         'net_weight' => 'decimal:4',
     ];
+
+    /**
+     * Get the item that owns this unit of measurement
+     */
+    public function item(): BelongsTo
+    {
+        return $this->belongsTo(Item::class, 'item_id');
+    }
+
+    /**
+     * Get the unit of measurement
+     */
+    public function unitOfMeasurement(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasurement::class, 'unit_of_measurement_id');
+    }
 
     /**
      * Get all barcodes for this item unit of measurement
