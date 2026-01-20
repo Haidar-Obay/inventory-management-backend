@@ -41,7 +41,7 @@ class ItemController extends Controller
             'category:id,name',
             'brand:id,name',
             'taxGroup:id,code,name,value',
-            'baseUom:id,name',
+            'baseUom:id,name,unit_group_id',
             'parent:id,code,name',
         ])
             ->where('type', '!=', ItemType::SERVICE)
@@ -98,7 +98,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
-                'baseUom:id,name',
+                'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
             ]);
             app('cache')->store('database')->forever($key, $cachedItem);
@@ -216,7 +216,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
-                'baseUom:id,name',
+                'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
                 'attachments',
             ]),
@@ -475,7 +475,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
-                'baseUom:id,name',
+                'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
                 'attachments',
             ]),
@@ -1200,29 +1200,25 @@ class ItemController extends Controller
                 ]
             );
 
-            // Handle barcodes in dedicated table
-            if (isset($row['barcodes']) && is_array($row['barcodes'])) {
-                // Delete existing barcodes for this item UOM
-                \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->delete();
-
-                // Insert new barcodes
-                $barcodesToInsert = [];
-                foreach ($row['barcodes'] as $index => $barcodeValue) {
-                    if (! empty(trim($barcodeValue))) {
-                        $barcodesToInsert[] = [
-                            'item_id' => $item->id,
-                            'item_unit_of_measurement_id' => $itemUom->id,
-                            'barcode' => trim($barcodeValue),
-                            'is_primary' => $index === 0, // First barcode is primary
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
+            // Sync barcodes to item_barcodes (never to item_unit_of_measurement). Replace any existing for this pivot.
+            $barcodes = is_array($row['barcodes'] ?? null) ? $row['barcodes'] : [];
+            \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->delete();
+            $barcodesToInsert = [];
+            foreach ($barcodes as $index => $barcodeValue) {
+                $v = is_scalar($barcodeValue) ? trim((string) $barcodeValue) : '';
+                if ($v !== '') {
+                    $barcodesToInsert[] = [
+                        'item_id' => $item->id,
+                        'item_unit_of_measurement_id' => $itemUom->id,
+                        'barcode' => $v,
+                        'is_primary' => count($barcodesToInsert) === 0,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
                 }
-
-                if (! empty($barcodesToInsert)) {
-                    \App\Models\ItemBarcode::insert($barcodesToInsert);
-                }
+            }
+            if (! empty($barcodesToInsert)) {
+                \App\Models\ItemBarcode::insert($barcodesToInsert);
             }
         }
 
@@ -1265,11 +1261,11 @@ class ItemController extends Controller
             $data['conversion'] = 1;
         }
 
-        // Extract barcodes if present
-        $barcodes = $data['barcodes'] ?? null;
-        unset($data['barcodes']); // Remove from pivot data
+        // Extract barcodes (saved to item_barcodes, not pivot) and remove from pivot data
+        $barcodes = is_array($data['barcodes'] ?? null) ? $data['barcodes'] : [];
+        unset($data['barcodes']);
 
-        // Update or create the pivot
+        // Update or create the pivot (no barcode columns)
         $itemUom = ItemUnitOfMeasurement::updateOrCreate(
             [
                 'item_id' => $item->id,
@@ -1278,29 +1274,24 @@ class ItemController extends Controller
             $data
         );
 
-        // Handle barcodes in dedicated table
-        if (isset($barcodes) && is_array($barcodes)) {
-            // Delete existing barcodes for this item UOM
-            \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->delete();
-
-            // Insert new barcodes
-            $barcodesToInsert = [];
-            foreach ($barcodes as $index => $barcodeValue) {
-                if (! empty(trim($barcodeValue))) {
-                    $barcodesToInsert[] = [
-                        'item_id' => $item->id,
-                        'item_unit_of_measurement_id' => $itemUom->id,
-                        'barcode' => trim($barcodeValue),
-                        'is_primary' => $index === 0, // First barcode is primary
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
+        // Sync barcodes to item_barcodes. Replace any existing for this pivot.
+        \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->delete();
+        $barcodesToInsert = [];
+        foreach ($barcodes as $barcodeValue) {
+            $v = is_scalar($barcodeValue) ? trim((string) $barcodeValue) : '';
+            if ($v !== '') {
+                $barcodesToInsert[] = [
+                    'item_id' => $item->id,
+                    'item_unit_of_measurement_id' => $itemUom->id,
+                    'barcode' => $v,
+                    'is_primary' => count($barcodesToInsert) === 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
-
-            if (! empty($barcodesToInsert)) {
-                \App\Models\ItemBarcode::insert($barcodesToInsert);
-            }
+        }
+        if (! empty($barcodesToInsert)) {
+            \App\Models\ItemBarcode::insert($barcodesToInsert);
         }
 
         $uom = $item->unitOfMeasurements()
@@ -1386,7 +1377,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
-                'baseUom:id,name',
+                'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
             ])
                 ->where('type', '!=', ItemType::SERVICE)
@@ -1452,7 +1443,7 @@ class ItemController extends Controller
 
         $item = Item::with([
             'taxGroup:id,code,name,value',
-            'baseUom:id,name',
+            'baseUom:id,name,unit_group_id',
             'unitOfMeasurements:id,name',
         ])->find($itemId);
 
@@ -1601,7 +1592,7 @@ class ItemController extends Controller
         // Load the item with all necessary relationships
         $item = Item::with([
             'taxGroup:id,code,name,value',
-            'baseUom:id,name',
+            'baseUom:id,name,unit_group_id',
             'unitOfMeasurements:id,name',
         ])->find($itemUom->item_id);
 
@@ -1751,7 +1742,7 @@ class ItemController extends Controller
         // First try exact match
         $item = Item::with([
             'taxGroup:id,code,name,value',
-            'baseUom:id,name',
+            'baseUom:id,name,unit_group_id',
             'unitOfMeasurements:id,name',
         ])->whereRaw('LOWER(code) = LOWER(?)', [$itemCode])->first();
 
@@ -1759,7 +1750,7 @@ class ItemController extends Controller
         if (! $item) {
             $items = Item::with([
                 'taxGroup:id,code,name,value',
-                'baseUom:id,name',
+                'baseUom:id,name,unit_group_id',
                 'unitOfMeasurements:id,name',
             ])->whereRaw('LOWER(code) LIKE LOWER(?)', ['%'.$itemCode.'%'])
                 ->limit(50) // Limit to prevent too many results
