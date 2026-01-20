@@ -26,6 +26,7 @@ return new class extends Migration
             $table->decimal('quantity', 10, 4);
             $table->decimal('price', 12, 2); // Price of the selected UOM
             $table->decimal('unit_price', 12, 2); // Base unit price: price / conversion_factor
+            $table->string('unit')->nullable(); // Display unit: conversion + base UOM name (e.g., "12pieces")
             $table->decimal('discount_percent', 5, 2)->default(0); // 0-100
             $table->decimal('tax_percent', 5, 2)->default(0); // 0-100
 
