@@ -200,6 +200,10 @@ class InvoiceController extends Controller
                 }
             }
 
+            // Note: Frontend is responsible for sending customer_name, salesman_name, and customer_phone_number
+            // These fields are denormalized snapshots at invoice creation time
+            // Backend will use the values sent from frontend (no auto-population from relationships)
+
             // Create invoice
             $nextId = $this->computeNextAvailableId(Invoice::class, 'id');
             $invoice = new Invoice($data);
@@ -268,6 +272,10 @@ class InvoiceController extends Controller
                     }
                 }
             }
+
+            // Note: Frontend is responsible for sending customer_name, salesman_name, and customer_phone_number
+            // These fields are denormalized snapshots at invoice creation time
+            // Backend will use the values sent from frontend (no auto-population from relationships)
 
             // Update invoice
             $invoice->update($data);

@@ -42,6 +42,8 @@ class UpdateInvoiceRequest extends FormRequest
 
             // Reference
             'ref_2' => 'nullable|string|max:255',
+            'sales_order' => 'nullable|string|max:255',
+            'exchange_rate' => 'nullable|numeric|min:0',
 
             // Document-level discount
             'discount_2_type' => 'nullable|in:percent,amount',
@@ -56,6 +58,11 @@ class UpdateInvoiceRequest extends FormRequest
 
             // Notes
             'notes' => 'nullable|string',
+
+            // Denormalized data (snapshots at invoice time)
+            'customer_name' => 'nullable|string|max:255',
+            'salesman_name' => 'nullable|string|max:255',
+            'customer_phone_number' => 'nullable|string|max:255',
 
             // Contact info (JSON arrays)
             'billing_to_phones' => 'nullable|array',

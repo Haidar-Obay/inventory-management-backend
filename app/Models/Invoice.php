@@ -34,6 +34,8 @@ class Invoice extends Model implements Auditable
         'warehouse_id',
         'payment_term_id',
         'ref_2',
+        'sales_order',
+        'exchange_rate',
         'discount_2_type',
         'discount_2_value',
         'subtotal',
@@ -46,6 +48,9 @@ class Invoice extends Model implements Auditable
         'billing_to_addresses',
         'shipping_to_phones',
         'shipping_to_addresses',
+        'customer_name',
+        'salesman_name',
+        'customer_phone_number',
     ];
 
     protected $casts = [
@@ -55,6 +60,7 @@ class Invoice extends Model implements Auditable
         'date' => 'date',
         'due_date' => 'date',
         'discount_2_value' => 'decimal:2',
+        'exchange_rate' => 'decimal:4',
         'subtotal' => 'decimal:2',
         'taxes' => 'decimal:2',
         'net_total' => 'decimal:2',
