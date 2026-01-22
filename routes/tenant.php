@@ -210,7 +210,9 @@ Route::middleware([
         Route::get('items/services/list', [ItemController::class, 'getServiceItems'])->middleware('check.permission:items,view');
         Route::get('items/all', [ItemController::class, 'getAllItems'])->middleware('check.permission:items,view');
         Route::get('items/by-barcode', [ItemController::class, 'getItemByBarcode'])->middleware('check.permission:items,view'); // Must come before apiResource
+        Route::get('items/search-by-barcode', [ItemController::class, 'searchItemsByBarcode'])->middleware('check.permission:items,view'); // Search items by barcode (partial match) for help grid
         Route::get('items/by-code', [ItemController::class, 'getItemByCode'])->middleware('check.permission:items,view'); // Must come before apiResource
+        Route::get('items/{item}/preview', [ItemController::class, 'getItemForPreview'])->middleware('check.permission:items,view'); // Preview endpoint - must come before apiResource
         Route::apiResource('items', ItemController::class)->middleware('check.permission:items,view');
         // Explicit POST route for items update with FormData (method spoofing support)
         Route::post('items/{item}', [ItemController::class, 'update'])->middleware('check.permission:items,view');

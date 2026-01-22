@@ -2167,8 +2167,17 @@ class CustomerController extends Controller
 
         $customers = app('cache')->store('database')->get($key);
 
-        if (! $customers) {
-            $customers = Customer::select('id', 'first_name', 'middle_name', 'last_name')
+        // Check if cached data has phone field, if not regenerate cache
+        $needsRegeneration = false;
+        if ($customers && $customers->isNotEmpty()) {
+            $firstCustomer = $customers->first();
+            if (! isset($firstCustomer['phone'])) {
+                $needsRegeneration = true;
+            }
+        }
+
+        if (! $customers || $needsRegeneration) {
+            $customers = Customer::select('id', 'first_name', 'middle_name', 'last_name', 'phone1')
                 ->orderBy('first_name')
                 ->get()
                 ->map(function ($customer) {
@@ -2181,6 +2190,7 @@ class CustomerController extends Controller
                     return [
                         'id' => $customer->id,
                         'name' => trim(implode(' ', array_filter($parts))),
+                        'phone' => $customer->phone1 ?? '',
                     ];
                 });
 
@@ -2379,6 +2389,7 @@ class CustomerController extends Controller
     {
         $customer = Customer::with([
             'paymentTerm:id,name,code,nb_days',
+            'salesman:id,name',
             'billingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
             'shippingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
             'openingBalances' => function ($query) {
@@ -2457,6 +2468,12 @@ class CustomerController extends Controller
                 'display_name' => $customer->display_name,
                 'company_name' => $customer->company_name,
                 'phones' => array_values($phones),
+                'one_time_account' => $customer->one_time_account,
+                'salesman_id' => $customer->salesman_id,
+                'salesman' => $customer->salesman ? [
+                    'id' => $customer->salesman->id,
+                    'name' => $customer->salesman->name,
+                ] : null,
                 'payment_term' => $customer->paymentTerm ? [
                     'id' => $customer->paymentTerm->id,
                     'name' => $customer->paymentTerm->name,
