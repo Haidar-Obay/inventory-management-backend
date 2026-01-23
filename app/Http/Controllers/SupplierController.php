@@ -197,7 +197,7 @@ class SupplierController extends Controller
             'trade:id,name,code,active',
             // 'business_types' table does not have an 'active' column, so we only select existing columns
             'businessType:id,name,code',
-            'paymentTerm:id,code,name,active',
+            'paymentTerm:id,code,name,nb_days,active',
             'paymentMethod:id,code,name,active',
             'currency:id,code,name,iso_code,symbol,active',
             'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
@@ -310,6 +310,7 @@ class SupplierController extends Controller
                 'id' => $supplier->paymentTerm->id,
                 'code' => $supplier->paymentTerm->code,
                 'name' => $supplier->paymentTerm->name,
+                'nb_days' => $supplier->paymentTerm->nb_days,
                 'active' => $supplier->paymentTerm->active,
             ] : null,
             'payment_method' => $supplier->paymentMethod ? [
