@@ -207,6 +207,7 @@ class UpdateSupplierRequest extends FormRequest
             'catalog' => ['nullable', 'string'],
 
             // Status flags
+            'invoicing_mode' => ['nullable', 'string', 'in:open price,predefined,last price'],
             'is_foreign' => ['nullable', 'boolean'],
             'active' => ['nullable', 'boolean'],
             'message' => ['nullable', 'string'],

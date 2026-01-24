@@ -64,6 +64,7 @@ return new class extends Migration
             $table->text('catalog')->nullable();
 
             // Status flags
+            $table->enum('invoicing_mode', ['open price', 'predefined', 'last price'])->nullable();
             $table->boolean('is_foreign')->default(false);
             $table->boolean('active')->default(true);
             $table->text('message')->nullable()->comment('Custom message for this supplier');
