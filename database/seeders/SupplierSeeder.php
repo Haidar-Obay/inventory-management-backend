@@ -33,6 +33,16 @@ class SupplierSeeder extends Seeder
             ['code' => 'DEFAULT'],
             ['name' => 'Default Payment Term', 'nb_days' => 30, 'active' => true]
         );
+        
+        // Create payment term with 0 days (for immediate payment)
+        PaymentTerm::firstOrCreate(
+            ['code' => 'IMMEDIATE'],
+            [
+                'name' => 'Immediate Payment',
+                'nb_days' => 0,
+                'active' => true,
+            ]
+        );
 
         $paymentMethod = PaymentMethod::firstOrCreate(
             ['code' => 'DEFAULT'],
