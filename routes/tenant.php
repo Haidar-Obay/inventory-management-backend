@@ -301,6 +301,7 @@ Route::middleware([
             Route::get('brands', [BrandController::class, 'exportExcel'])->middleware('check.permission:brands,export');
             Route::get('product-lines', [ProductLineController::class, 'exportExcel'])->middleware('check.permission:product_lines,export');
             Route::get('categories', [CategoryController::class, 'exportExcell'])->middleware('check.permission:categories,export');
+            Route::get('sub-categories', [SubCategoryController::class, 'exportExcell'])->middleware('check.permission:sub_categories,export');
             Route::get('supplier-groups', [SupplierGroupController::class, 'exportExcell'])->middleware('check.permission:supplier_groups,export');
             Route::get('suppliers', [SupplierController::class, 'exportExcell'])->middleware('check.permission:suppliers,export');
             Route::get('branches', [BranchController::class, 'exportExcell'])->middleware('check.permission:branches,export');
@@ -359,6 +360,7 @@ Route::middleware([
             Route::get('/brands', [BrandController::class, 'exportPdf'])->middleware('check.permission:brands,export');
             Route::get('/product-lines', [ProductLineController::class, 'exportPdf'])->middleware('check.permission:product_lines,export');
             Route::get('/categories', [CategoryController::class, 'exportPdf'])->middleware('check.permission:categories,export');
+            Route::get('/sub-categories', [SubCategoryController::class, 'exportPdf'])->middleware('check.permission:sub_categories,export');
             Route::get('/supplier-groups', [SupplierGroupController::class, 'exportPdf'])->middleware('check.permission:supplier_groups,export');
             Route::get('/suppliers', [SupplierController::class, 'exportPdf'])->middleware('check.permission:suppliers,export');
             Route::get('/branches', [BranchController::class, 'exportPdf'])->middleware('check.permission:branches,export');
@@ -420,6 +422,7 @@ Route::middleware([
             Route::post('/brands', [BrandController::class, 'importFromExcel'])->middleware('check.permission:brands,import');
             Route::post('/product-lines', [ProductLineController::class, 'importFromExcel'])->middleware('check.permission:product_lines,import');
             Route::post('/categories', [CategoryController::class, 'importFromExcel'])->middleware('check.permission:categories,import');
+            Route::post('/sub-categories', [SubCategoryController::class, 'importFromExcel'])->middleware('check.permission:sub_categories,import');
             Route::post('/supplier-groups', [SupplierGroupController::class, 'importFromExcel'])->middleware('check.permission:supplier_groups,import');
             Route::post('/suppliers', [SupplierController::class, 'importFromExcel'])->middleware('check.permission:suppliers,import');
             Route::post('/branches', [BranchController::class, 'importFromExcel'])->middleware('check.permission:branches,import');
