@@ -42,6 +42,7 @@ class ItemController extends Controller
             'category:id,name',
             'brand:id,name',
             'taxGroup:id,code,name,value',
+            'itemGroup:id,code,name',
             'baseUom:id,name,unit_group_id',
             'parent:id,code,name',
         ])
@@ -69,6 +70,10 @@ class ItemController extends Controller
             if (isset($itemArray['taxGroup'])) {
                 $itemArray['tax_group'] = $itemArray['taxGroup'];
                 unset($itemArray['taxGroup']);
+            }
+            if (isset($itemArray['itemGroup'])) {
+                $itemArray['item_group'] = $itemArray['itemGroup'];
+                unset($itemArray['itemGroup']);
             }
 
             return $itemArray;
@@ -105,6 +110,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
             ]);
@@ -130,6 +136,10 @@ class ItemController extends Controller
         if (isset($itemArray['taxGroup'])) {
             $itemArray['tax_group'] = $itemArray['taxGroup'];
             unset($itemArray['taxGroup']);
+        }
+        if (isset($itemArray['itemGroup'])) {
+            $itemArray['item_group'] = $itemArray['itemGroup'];
+            unset($itemArray['itemGroup']);
         }
 
         return response()->json([
@@ -162,6 +172,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name',
                 'purchaseUom:id,name',
                 'salesUom:id,name',
@@ -239,6 +250,10 @@ class ItemController extends Controller
             if (isset($itemArray['taxGroup'])) {
                 $itemArray['tax_group'] = $itemArray['taxGroup'];
                 unset($itemArray['taxGroup']);
+            }
+            if (isset($itemArray['itemGroup'])) {
+                $itemArray['item_group'] = $itemArray['itemGroup'];
+                unset($itemArray['itemGroup']);
             }
 
             // Transform unit_of_measurements array
@@ -369,6 +384,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
                 'attachments',
@@ -629,6 +645,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
                 'attachments',
@@ -1534,6 +1551,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
             ])
@@ -1574,6 +1592,10 @@ class ItemController extends Controller
                 $itemArray['tax_group'] = $itemArray['taxGroup'];
                 unset($itemArray['taxGroup']);
             }
+            if (isset($itemArray['itemGroup'])) {
+                $itemArray['item_group'] = $itemArray['itemGroup'];
+                unset($itemArray['itemGroup']);
+            }
 
             return $itemArray;
         });
@@ -1600,6 +1622,7 @@ class ItemController extends Controller
 
         $item = Item::with([
             'taxGroup:id,code,name,value',
+            'itemGroup:id,code,name',
             'baseUom:id,name,unit_group_id',
             'unitOfMeasurements:id,name',
         ])->find($itemId);
@@ -1749,6 +1772,7 @@ class ItemController extends Controller
         // Load the item with all necessary relationships
         $item = Item::with([
             'taxGroup:id,code,name,value',
+            'itemGroup:id,code,name',
             'baseUom:id,name,unit_group_id',
             'unitOfMeasurements:id,name',
         ])->find($itemUom->item_id);
@@ -1899,6 +1923,7 @@ class ItemController extends Controller
         // First try exact match
         $item = Item::with([
             'taxGroup:id,code,name,value',
+            'itemGroup:id,code,name',
             'baseUom:id,name,unit_group_id',
             'unitOfMeasurements:id,name',
         ])->whereRaw('LOWER(code) = LOWER(?)', [$itemCode])->first();
@@ -1907,6 +1932,7 @@ class ItemController extends Controller
         if (! $item) {
             $items = Item::with([
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'unitOfMeasurements:id,name',
             ])->whereRaw('LOWER(code) LIKE LOWER(?)', ['%'.$itemCode.'%'])

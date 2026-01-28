@@ -24,6 +24,7 @@ return new class extends Migration
             $table->foreignId('category_id')->nullable()->constrained('categories')->nullOnDelete();
             $table->foreignId('brand_id')->nullable()->constrained('brands')->nullOnDelete();
             $table->foreignId('tax_group_id')->nullable()->constrained('tax_groups')->nullOnDelete();
+            $table->foreignId('item_group_id')->nullable()->constrained('item_groups')->nullOnDelete();
 
             // Pricing / discount
             $table->decimal('discount_percent', 5, 2)->default(0); // 0-100

@@ -134,6 +134,9 @@ class CreateDefaultTableTemplates
             'subCategories' => [
                 'id', 'name', 'category_id', 'category.name', 'created_at', 'updated_at',
             ],
+            'itemGroups' => [
+                'id', 'code', 'name', 'active', 'created_at', 'updated_at',
+            ],
             'brands' => [
                 'id', 'code', 'name', 'sub_brand_of', 'active', 'created_at', 'updated_at',
             ],

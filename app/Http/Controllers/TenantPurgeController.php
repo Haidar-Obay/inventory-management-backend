@@ -43,6 +43,7 @@ class TenantPurgeController extends Controller
         'sub_categories',
         'categories',
         'brands',
+        'item_groups',
         'items',
         'customer_groups',
         'salesmen',

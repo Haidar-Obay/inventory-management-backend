@@ -39,6 +39,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventStatusController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\ItemGroupController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\MediaChannelController;
 use App\Http\Controllers\MediaTypeController;
@@ -158,6 +159,7 @@ Route::middleware([
         Route::apiResource('product-lines', ProductLineController::class)->middleware('check.permission:product_lines,view');
         Route::apiResource('categories', CategoryController::class)->middleware('check.permission:categories,view');
         Route::apiResource('sub-categories', SubCategoryController::class)->middleware('check.permission:sub_categories,view');
+        Route::apiResource('item-groups', ItemGroupController::class)->middleware('check.permission:item_groups,view');
         Route::apiResource('supplier-groups', SupplierGroupController::class)->middleware('check.permission:supplier_groups,view');
         Route::apiResource('suppliers', SupplierController::class)->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
 
@@ -289,6 +291,7 @@ Route::middleware([
             Route::get('districts', [DistrictController::class, 'exportExcell'])->middleware('check.permission:districts,export');
             Route::get('currencies', [CurrencyController::class, 'exportExcell'])->middleware('check.permission:currencies,export');
             Route::get('customer-groups', [CustomerGroupController::class, 'exportExcel'])->middleware('check.permission:customer_groups,export');
+            Route::get('item-groups', [ItemGroupController::class, 'exportExcel'])->middleware('check.permission:item_groups,export');
             Route::get('payment-methods', [PaymentMethodController::class, 'exportExcell'])->middleware('check.permission:payment_methods,export');
             Route::get('payment-terms', [PaymentTermController::class, 'exportExcell'])->middleware('check.permission:payment_terms,export');
             Route::get('salesmen', [SalesmanController::class, 'exportExcell'])->middleware('check.permission:salesmen,export');
@@ -346,6 +349,7 @@ Route::middleware([
             Route::get('/zones', [ZoneController::class, 'exportPdf'])->middleware('check.permission:zones,export');
             Route::get('/currencies', [CurrencyController::class, 'exportPdf'])->middleware('check.permission:currencies,export');
             Route::get('/customer-groups', [CustomerGroupController::class, 'exportPdf'])->middleware('check.permission:customer_groups,export');
+            Route::get('/item-groups', [ItemGroupController::class, 'exportPdf'])->middleware('check.permission:item_groups,export');
             Route::get('/payment-methods', [PaymentMethodController::class, 'exportPdf'])->middleware('check.permission:payment_methods,export');
             Route::get('/payment-terms', [PaymentTermController::class, 'exportPdf'])->middleware('check.permission:payment_terms,export');
             Route::get('/salesmen', [SalesmanController::class, 'exportPdf'])->middleware('check.permission:salesmen,export');
@@ -406,6 +410,7 @@ Route::middleware([
             Route::post('/districts', [DistrictController::class, 'importFromExcel'])->middleware('check.permission:districts,import');
             Route::post('/currencies', [CurrencyController::class, 'importFromExcel'])->middleware('check.permission:currencies,import');
             Route::post('/customer-groups', [CustomerGroupController::class, 'importFromExcel'])->middleware('check.permission:customer_groups,import');
+            Route::post('/item-groups', [ItemGroupController::class, 'importFromExcel'])->middleware('check.permission:item_groups,import');
             Route::post('/payment-methods', [PaymentMethodController::class, 'importFromExcel'])->middleware('check.permission:payment_methods,import');
             Route::post('/payment-terms', [PaymentTermController::class, 'importFromExcel'])->middleware('check.permission:payment_terms,import');
             Route::post('/salesmen', [SalesmanController::class, 'importFromExcel'])->middleware('check.permission:salesmen,import');
@@ -473,6 +478,7 @@ Route::middleware([
             Route::delete('/product-lines', [ProductLineController::class, 'bulkDelete']);
             Route::delete('/categories', [CategoryController::class, 'bulkDelete']);
             Route::delete('/sub-categories', [SubCategoryController::class, 'bulkDelete']);
+            Route::delete('/item-groups', [ItemGroupController::class, 'bulkDelete']);
             Route::delete('/unit-groups', [UnitGroupController::class, 'bulkDelete']);
             Route::delete('/unit-of-measurements', [UnitOfMeasurementController::class, 'bulkDelete']);
             Route::delete('/supplier-groups', [SupplierGroupController::class, 'bulkDelete']);
@@ -784,6 +790,7 @@ Route::middleware([
     Route::get('/names/transportation-channels', [TransportationChannelController::class, 'getNames']);
     Route::get('/names/media-channels', [MediaChannelController::class, 'getNames']);
     Route::get('/names/customer-groups', [CustomerGroupController::class, 'getNames']);
+    Route::get('/names/item-groups', [ItemGroupController::class, 'getNames']);
     Route::get('/names/salesmen', [SalesmanController::class, 'getNames']);
     Route::get('/names/trades', [TradeController::class, 'getNames']);
     Route::get('/names/items', [ItemController::class, 'getNames']);
