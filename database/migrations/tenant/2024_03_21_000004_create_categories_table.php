@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('code')->unique();
             $table->string('name');
-            $table->foreignId('subcategory_of')->nullable()->constrained('categories')->onDelete('restrict');
+            $table->foreignId('product_line_id')->nullable()->constrained('product_lines')->onDelete('restrict');
             $table->boolean('active')->default(false);
             $table->timestamps();
             $table->softDeletes();

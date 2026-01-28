@@ -16,6 +16,7 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\BusinessTypeController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\CompanyCodeController;
 use App\Http\Controllers\CostCenterController;
@@ -156,6 +157,7 @@ Route::middleware([
         Route::apiResource('brands', BrandController::class)->middleware('check.permission:brands,view');
         Route::apiResource('product-lines', ProductLineController::class)->middleware('check.permission:product_lines,view');
         Route::apiResource('categories', CategoryController::class)->middleware('check.permission:categories,view');
+        Route::apiResource('sub-categories', SubCategoryController::class)->middleware('check.permission:sub_categories,view');
         Route::apiResource('supplier-groups', SupplierGroupController::class)->middleware('check.permission:supplier_groups,view');
         Route::apiResource('suppliers', SupplierController::class)->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
 
@@ -470,6 +472,7 @@ Route::middleware([
             Route::delete('/brands', [BrandController::class, 'bulkDelete']);
             Route::delete('/product-lines', [ProductLineController::class, 'bulkDelete']);
             Route::delete('/categories', [CategoryController::class, 'bulkDelete']);
+            Route::delete('/sub-categories', [SubCategoryController::class, 'bulkDelete']);
             Route::delete('/unit-groups', [UnitGroupController::class, 'bulkDelete']);
             Route::delete('/unit-of-measurements', [UnitOfMeasurementController::class, 'bulkDelete']);
             Route::delete('/supplier-groups', [SupplierGroupController::class, 'bulkDelete']);

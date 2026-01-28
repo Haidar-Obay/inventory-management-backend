@@ -21,4 +21,12 @@ class ProductLine extends Model implements Auditable
     protected $casts = [
         'active' => 'boolean',
     ];
+
+    /**
+     * Get the categories for the product line.
+     */
+    public function categories()
+    {
+        return $this->hasMany(Category::class, 'product_line_id');
+    }
 }

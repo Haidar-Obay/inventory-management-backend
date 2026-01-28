@@ -42,6 +42,7 @@ class BootstrapTenantRbac implements ShouldQueue
             // Configuration/Reference Data
             ['resource_key' => 'brands', 'resource_label' => 'Brand Management'],
             ['resource_key' => 'categories', 'resource_label' => 'Category Management'],
+            ['resource_key' => 'sub_categories', 'resource_label' => 'Sub Category Management'],
             ['resource_key' => 'customer_groups', 'resource_label' => 'Customer Group Management'],
             ['resource_key' => 'supplier_groups', 'resource_label' => 'Supplier Group Management'],
             ['resource_key' => 'service_categories', 'resource_label' => 'Service Category Management'],
