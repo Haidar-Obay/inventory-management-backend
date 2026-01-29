@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Category;
+use App\Models\SubCategory;
 use Illuminate\Database\Seeder;
 
 class CategorySeeder extends Seeder
@@ -30,19 +31,38 @@ class CategorySeeder extends Seeder
             $categoryIds[$category['code']] = $created->id;
         }
 
-        // Create subcategories
-        $subCategories = [
-            ['code' => 'CAT005', 'name' => 'Mobile Phones', 'subcategory_of' => $categoryIds['CAT001'], 'active' => true],
-            ['code' => 'CAT006', 'name' => 'Laptops', 'subcategory_of' => $categoryIds['CAT001'], 'active' => true],
-            ['code' => 'CAT007', 'name' => 'Men\'s Clothing', 'subcategory_of' => $categoryIds['CAT002'], 'active' => true],
-            ['code' => 'CAT008', 'name' => 'Women\'s Clothing', 'subcategory_of' => $categoryIds['CAT002'], 'active' => true],
-            ['code' => 'CAT009', 'name' => 'Furniture', 'subcategory_of' => $categoryIds['CAT004'], 'active' => true],
+        // Create child categories (no subcategory_of; links go in sub_categories)
+        $childCategories = [
+            ['code' => 'CAT005', 'name' => 'Mobile Phones', 'active' => true],
+            ['code' => 'CAT006', 'name' => 'Laptops', 'active' => true],
+            ['code' => 'CAT007', 'name' => 'Men\'s Clothing', 'active' => true],
+            ['code' => 'CAT008', 'name' => 'Women\'s Clothing', 'active' => true],
+            ['code' => 'CAT009', 'name' => 'Furniture', 'active' => true],
         ];
 
-        foreach ($subCategories as $subCategory) {
-            Category::firstOrCreate(
-                ['code' => $subCategory['code']],
-                $subCategory
+        foreach ($childCategories as $child) {
+            $created = Category::firstOrCreate(
+                ['code' => $child['code']],
+                $child
+            );
+            $categoryIds[$child['code']] = $created->id;
+        }
+
+        // Create sub_category rows: name + category_id (parent)
+        $links = [
+            ['CAT001', 'CAT005'], ['CAT001', 'CAT006'],
+            ['CAT002', 'CAT007'], ['CAT002', 'CAT008'],
+            ['CAT004', 'CAT009'],
+        ];
+        foreach ($links as [$parentCode, $childCode]) {
+            $childName = collect($childCategories)->firstWhere('code', $childCode)['name']
+                ?? collect($mainCategories)->firstWhere('code', $childCode)['name']
+                ?? 'Sub';
+            SubCategory::firstOrCreate(
+                [
+                    'category_id' => $categoryIds[$parentCode],
+                    'name' => $childName,
+                ]
             );
         }
     }

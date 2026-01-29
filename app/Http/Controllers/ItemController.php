@@ -22,6 +22,7 @@ use App\Models\ItemUnitOfMeasurement;
 use App\Models\Supplier;
 use App\Models\UnitOfMeasurement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -42,6 +43,7 @@ class ItemController extends Controller
             'category:id,name',
             'brand:id,name',
             'taxGroup:id,code,name,value',
+            'itemGroup:id,code,name',
             'baseUom:id,name,unit_group_id',
             'parent:id,code,name',
         ])
@@ -69,6 +71,10 @@ class ItemController extends Controller
             if (isset($itemArray['taxGroup'])) {
                 $itemArray['tax_group'] = $itemArray['taxGroup'];
                 unset($itemArray['taxGroup']);
+            }
+            if (isset($itemArray['itemGroup'])) {
+                $itemArray['item_group'] = $itemArray['itemGroup'];
+                unset($itemArray['itemGroup']);
             }
 
             return $itemArray;
@@ -105,6 +111,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
             ]);
@@ -130,6 +137,10 @@ class ItemController extends Controller
         if (isset($itemArray['taxGroup'])) {
             $itemArray['tax_group'] = $itemArray['taxGroup'];
             unset($itemArray['taxGroup']);
+        }
+        if (isset($itemArray['itemGroup'])) {
+            $itemArray['item_group'] = $itemArray['itemGroup'];
+            unset($itemArray['itemGroup']);
         }
 
         return response()->json([
@@ -162,6 +173,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name',
                 'purchaseUom:id,name',
                 'salesUom:id,name',
@@ -239,6 +251,10 @@ class ItemController extends Controller
             if (isset($itemArray['taxGroup'])) {
                 $itemArray['tax_group'] = $itemArray['taxGroup'];
                 unset($itemArray['taxGroup']);
+            }
+            if (isset($itemArray['itemGroup'])) {
+                $itemArray['item_group'] = $itemArray['itemGroup'];
+                unset($itemArray['itemGroup']);
             }
 
             // Transform unit_of_measurements array
@@ -369,6 +385,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
                 'attachments',
@@ -629,6 +646,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
                 'attachments',
@@ -1053,6 +1071,48 @@ class ItemController extends Controller
             'message' => 'Item names fetched successfully.',
             'data' => $items,
         ]);
+    }
+
+    /**
+     * Lightweight list for Needed Items section: id, code, name, and unit (from base_uom).
+     */
+    public function listForNeededItems()
+    {
+        try {
+            $items = Item::select('id', 'code', 'name', 'base_uom_id')
+                ->where('active', true)
+                ->with('baseUom:id,name')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'code' => $item->code,
+                        'name' => $item->name,
+                        'unit' => $item->baseUom ? [
+                            'id' => $item->baseUom->id,
+                            'name' => $item->baseUom->name,
+                        ] : null,
+                        // Also include base_uom for backward compatibility
+                        'base_uom' => $item->baseUom ? [
+                            'id' => $item->baseUom->id,
+                            'name' => $item->baseUom->name,
+                        ] : null,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Items for needed items section retrieved successfully',
+                'data' => $items,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve items for needed items section',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function uploadAttachment(UploadItemAttachmentRequest $request, Item $item)
@@ -1534,6 +1594,7 @@ class ItemController extends Controller
                 'category:id,name',
                 'brand:id,name',
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
             ])
@@ -1574,6 +1635,10 @@ class ItemController extends Controller
                 $itemArray['tax_group'] = $itemArray['taxGroup'];
                 unset($itemArray['taxGroup']);
             }
+            if (isset($itemArray['itemGroup'])) {
+                $itemArray['item_group'] = $itemArray['itemGroup'];
+                unset($itemArray['itemGroup']);
+            }
 
             return $itemArray;
         });
@@ -1600,6 +1665,7 @@ class ItemController extends Controller
 
         $item = Item::with([
             'taxGroup:id,code,name,value',
+            'itemGroup:id,code,name',
             'baseUom:id,name,unit_group_id',
             'unitOfMeasurements:id,name',
         ])->find($itemId);
@@ -1719,11 +1785,9 @@ class ItemController extends Controller
     {
         $request->validate([
             'barcode' => 'required|string|max:255',
-            'customer_id' => 'required|exists:customers,id',
         ]);
 
         $barcode = trim($request->barcode);
-        $customerId = $request->customer_id;
 
         // Search for barcode in dedicated table (fast indexed lookup)
         $itemBarcode = \App\Models\ItemBarcode::where('barcode', $barcode)->first();
@@ -1749,6 +1813,7 @@ class ItemController extends Controller
         // Load the item with all necessary relationships
         $item = Item::with([
             'taxGroup:id,code,name,value',
+            'itemGroup:id,code,name',
             'baseUom:id,name,unit_group_id',
             'unitOfMeasurements:id,name',
         ])->find($itemUom->item_id);
@@ -1759,22 +1824,6 @@ class ItemController extends Controller
                 'message' => 'Item not found.',
             ], 404);
         }
-
-        // Get customer's price choice
-        $customer = \App\Models\Customer::find($customerId);
-        $priceChoice = $customer->price_choice ?? 'price1';
-
-        // Map price choice to column name
-        $priceColumn = match ($priceChoice) {
-            'price1' => 'price_1',
-            'price2' => 'price_2',
-            'price3' => 'price_3',
-            'price4' => 'price_4',
-            'price5' => 'price_5',
-            'price6' => 'price_6',
-            'last_invoice_price' => 'price_1',
-            default => 'price_1',
-        };
 
         // Get the matched UOM
         $matchedUomId = $itemUom->unit_of_measurement_id;
@@ -1787,10 +1836,8 @@ class ItemController extends Controller
             ], 404);
         }
 
-        // Get price and conversion from the matched itemUom
-        $price = $itemUom->{$priceColumn} ?? 0;
+        // Get conversion from the matched itemUom
         $conversion = $itemUom->conversion ?? 1;
-        $unitPrice = $conversion > 0 ? $price / $conversion : $price;
 
         // Get all UOMs for the item (for dropdown) - similar to getItemForInvoice
         // Reload item with unitOfMeasurements relationship to get pivot data
@@ -1821,11 +1868,17 @@ class ItemController extends Controller
             }
         }
 
-        $unitOfMeasurements = $item->unitOfMeasurements->map(function ($uom) use ($priceColumn, $item, $barcodesByItemUomId) {
+        $unitOfMeasurements = $item->unitOfMeasurements->map(function ($uom) use ($item, $barcodesByItemUomId) {
             $pivot = $uom->pivot;
-            $price = $pivot->{$priceColumn} ?? 0;
             $conversion = $pivot->conversion ?? 1;
-            $unitPrice = $conversion > 0 ? $price / $conversion : $price;
+
+            // Get all price columns
+            $price1 = $pivot->price_1 ?? 0;
+            $price2 = $pivot->price_2 ?? 0;
+            $price3 = $pivot->price_3 ?? 0;
+            $price4 = $pivot->price_4 ?? 0;
+            $price5 = $pivot->price_5 ?? 0;
+            $price6 = $pivot->price_6 ?? 0;
 
             // Get pivot ID (try multiple methods)
             $pivotId = $pivot->id ?? $pivot->getKey();
@@ -1846,8 +1899,14 @@ class ItemController extends Controller
                 'conversion' => (float) $conversion,
                 'operation' => $pivot->operation,
                 'barcodes' => $barcodes,
-                'price' => (float) $price,
-                'unit_price' => round($unitPrice, 2),
+                'price_1' => (float) $price1,
+                'price_2' => (float) $price2,
+                'price_3' => (float) $price3,
+                'price_4' => (float) $price4,
+                'price_5' => (float) $price5,
+                'price_6' => (float) $price6,
+                'net_weight' => (float) ($pivot->net_weight ?? 0),
+                'net_volume' => (float) ($pivot->net_volume ?? 0),
                 'is_base_uom' => $uom->id === $item->base_uom_id,
             ];
         });
@@ -1859,9 +1918,16 @@ class ItemController extends Controller
                 'id' => $item->id,
                 'code' => $item->code,
                 'name' => $item->name,
+                'purchase_description' => $item->purchase_description,
                 'sales_description' => $item->sales_description,
                 'base_uom_id' => $item->base_uom_id,
                 'tax' => $item->taxGroup ? [
+                    'id' => $item->taxGroup->id,
+                    'code' => $item->taxGroup->code,
+                    'name' => $item->taxGroup->name,
+                    'value' => (float) $item->taxGroup->value,
+                ] : null,
+                'tax_group' => $item->taxGroup ? [
                     'id' => $item->taxGroup->id,
                     'code' => $item->taxGroup->code,
                     'name' => $item->taxGroup->name,
@@ -1873,9 +1939,15 @@ class ItemController extends Controller
                     'id' => $matchedUom->id,
                     'name' => $matchedUom->name,
                     'barcode' => $barcode,
-                    'price' => (float) $price,
-                    'unit_price' => round($unitPrice, 2),
+                    'price_1' => (float) ($itemUom->price_1 ?? 0),
+                    'price_2' => (float) ($itemUom->price_2 ?? 0),
+                    'price_3' => (float) ($itemUom->price_3 ?? 0),
+                    'price_4' => (float) ($itemUom->price_4 ?? 0),
+                    'price_5' => (float) ($itemUom->price_5 ?? 0),
+                    'price_6' => (float) ($itemUom->price_6 ?? 0),
                     'conversion' => (float) $conversion,
+                    'net_weight' => (float) ($itemUom->net_weight ?? 0),
+                    'net_volume' => (float) ($itemUom->net_volume ?? 0),
                 ],
             ],
         ]);
@@ -1890,15 +1962,14 @@ class ItemController extends Controller
     {
         $request->validate([
             'item_code' => 'required|string|max:255',
-            'customer_id' => 'required|exists:customers,id',
         ]);
 
         $itemCode = trim($request->item_code);
-        $customerId = $request->customer_id;
 
         // First try exact match
         $item = Item::with([
             'taxGroup:id,code,name,value',
+            'itemGroup:id,code,name',
             'baseUom:id,name,unit_group_id',
             'unitOfMeasurements:id,name',
         ])->whereRaw('LOWER(code) = LOWER(?)', [$itemCode])->first();
@@ -1907,6 +1978,7 @@ class ItemController extends Controller
         if (! $item) {
             $items = Item::with([
                 'taxGroup:id,code,name,value',
+                'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'unitOfMeasurements:id,name',
             ])->whereRaw('LOWER(code) LIKE LOWER(?)', ['%'.$itemCode.'%'])
@@ -1941,22 +2013,6 @@ class ItemController extends Controller
             }
         }
 
-        // Get customer's price choice
-        $customer = \App\Models\Customer::find($customerId);
-        $priceChoice = $customer->price_choice ?? 'price1';
-
-        // Map price choice to column name
-        $priceColumn = match ($priceChoice) {
-            'price1' => 'price_1',
-            'price2' => 'price_2',
-            'price3' => 'price_3',
-            'price4' => 'price_4',
-            'price5' => 'price_5',
-            'price6' => 'price_6',
-            'last_invoice_price' => 'price_1',
-            default => 'price_1',
-        };
-
         // Get all UOMs for the item (for dropdown)
         $item->load('unitOfMeasurements');
 
@@ -1982,11 +2038,17 @@ class ItemController extends Controller
             }
         }
 
-        $unitOfMeasurements = $item->unitOfMeasurements->map(function ($uom) use ($priceColumn, $item, $barcodesByItemUomId) {
+        $unitOfMeasurements = $item->unitOfMeasurements->map(function ($uom) use ($item, $barcodesByItemUomId) {
             $pivot = $uom->pivot;
-            $price = $pivot->{$priceColumn} ?? 0;
             $conversion = $pivot->conversion ?? 1;
-            $unitPrice = $conversion > 0 ? $price / $conversion : $price;
+
+            // Get all price columns
+            $price1 = $pivot->price_1 ?? 0;
+            $price2 = $pivot->price_2 ?? 0;
+            $price3 = $pivot->price_3 ?? 0;
+            $price4 = $pivot->price_4 ?? 0;
+            $price5 = $pivot->price_5 ?? 0;
+            $price6 = $pivot->price_6 ?? 0;
 
             $pivotId = $pivot->id ?? $pivot->getKey();
             $barcodes = $barcodesByItemUomId[$pivotId] ?? [];
@@ -1997,8 +2059,14 @@ class ItemController extends Controller
                 'conversion' => (float) $conversion,
                 'operation' => $pivot->operation,
                 'barcodes' => $barcodes,
-                'price' => (float) $price,
-                'unit_price' => round($unitPrice, 2),
+                'price_1' => (float) $price1,
+                'price_2' => (float) $price2,
+                'price_3' => (float) $price3,
+                'price_4' => (float) $price4,
+                'price_5' => (float) $price5,
+                'price_6' => (float) $price6,
+                'net_weight' => (float) ($pivot->net_weight ?? 0),
+                'net_volume' => (float) ($pivot->net_volume ?? 0),
                 'is_base_uom' => $uom->id === $item->base_uom_id,
             ];
         });
@@ -2016,9 +2084,17 @@ class ItemController extends Controller
                 'id' => $item->id,
                 'code' => $item->code,
                 'name' => $item->name,
+                'description' => $item->description,
+                'purchase_description' => $item->purchase_description,
                 'sales_description' => $item->sales_description,
                 'base_uom_id' => $item->base_uom_id,
                 'tax' => $item->taxGroup ? [
+                    'id' => $item->taxGroup->id,
+                    'code' => $item->taxGroup->code,
+                    'name' => $item->taxGroup->name,
+                    'value' => (float) $item->taxGroup->value,
+                ] : null,
+                'tax_group' => $item->taxGroup ? [
                     'id' => $item->taxGroup->id,
                     'code' => $item->taxGroup->code,
                     'name' => $item->taxGroup->name,
@@ -2040,27 +2116,9 @@ class ItemController extends Controller
     {
         $request->validate([
             'barcode' => 'nullable|string|max:255',
-            'customer_id' => 'required|exists:customers,id',
         ]);
 
         $barcodeSearch = trim($request->barcode ?? '');
-        $customerId = $request->customer_id;
-
-        // Get customer's price choice for future use
-        $customer = \App\Models\Customer::find($customerId);
-        $priceChoice = $customer->price_choice ?? 'price1';
-
-        // Map price choice to column name
-        $priceColumn = match ($priceChoice) {
-            'price1' => 'price_1',
-            'price2' => 'price_2',
-            'price3' => 'price_3',
-            'price4' => 'price_4',
-            'price5' => 'price_5',
-            'price6' => 'price_6',
-            'last_invoice_price' => 'price_1',
-            default => 'price_1',
-        };
 
         // Query barcodes with partial match
         $query = \App\Models\ItemBarcode::with([
@@ -2104,6 +2162,99 @@ class ItemController extends Controller
             'status' => true,
             'message' => 'Items found by barcode.',
             'data' => $results,
+        ]);
+    }
+
+    /**
+     * Get item cost from supplier (from item_supplier pivot table)
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getSupplierCost(Request $request, Item $item)
+    {
+        $request->validate([
+            'supplier_id' => 'required|integer|exists:suppliers,id',
+        ]);
+
+        $supplierId = $request->supplier_id;
+
+        // Get cost from item_supplier pivot table
+        $itemSupplier = DB::table('item_supplier')
+            ->where('item_id', $item->id)
+            ->where('supplier_id', $supplierId)
+            ->select('cost', 'currency')
+            ->first();
+
+        if (! $itemSupplier || is_null($itemSupplier->cost)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Supplier cost not found for this item.',
+                'data' => null,
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Supplier cost retrieved successfully.',
+            'data' => [
+                'cost' => (float) $itemSupplier->cost,
+                'currency' => $itemSupplier->currency,
+            ],
+        ]);
+    }
+
+    /**
+     * Get last invoice price for item from supplier
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getLastInvoicePrice(Request $request)
+    {
+        $request->validate([
+            'supplier_id' => 'required|integer|exists:suppliers,id',
+            'item_id' => 'required|integer|exists:items,id',
+            'uom_id' => 'nullable|integer|exists:unit_of_measurements,id',
+        ]);
+
+        $supplierId = $request->supplier_id;
+        $itemId = $request->item_id;
+        $uomId = $request->uom_id;
+
+        // Query for last invoice item with this supplier and item
+        $query = \App\Models\InvoiceItem::with(['invoice:id,date,invoice_number'])
+            ->whereHas('invoice', function ($q) use ($supplierId) {
+                $q->where('invoice_type', 'purchase')
+                    ->where('supplier_id', $supplierId);
+            })
+            ->where('item_id', $itemId);
+
+        // If UOM is provided, match it for better accuracy
+        if ($uomId) {
+            $query->where('uom_id', $uomId);
+        }
+
+        $lastInvoiceItem = $query->orderByDesc('id')
+            ->orderByDesc('created_at')
+            ->first();
+
+        if (! $lastInvoiceItem) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Last invoice price not found for this item.',
+                'data' => null,
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Last invoice price retrieved successfully.',
+            'data' => [
+                'price' => (float) $lastInvoiceItem->price,
+                'unit_price' => (float) $lastInvoiceItem->unit_price,
+                'uom_id' => $lastInvoiceItem->uom_id,
+                'invoice_date' => $lastInvoiceItem->invoice->date?->format('Y-m-d'),
+                'invoice_number' => $lastInvoiceItem->invoice->invoice_number,
+            ],
         ]);
     }
 }

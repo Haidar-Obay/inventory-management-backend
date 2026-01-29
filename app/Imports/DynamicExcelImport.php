@@ -229,6 +229,7 @@ class DynamicExcelImport implements SkipsEmptyRows, ToModel, WithEvents, WithHea
             'brands' => ['code'],
             'categories' => ['code'],
             'customer_groups' => ['code'],
+            'item_groups' => ['code'],
             'supplier_groups' => ['code'],
             'payment_terms' => ['code'],
             'branches' => ['code'],

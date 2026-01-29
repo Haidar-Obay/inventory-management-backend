@@ -129,6 +129,90 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * Get the last purchase invoice for a supplier
+     * Returns full invoice data including header and items
+     */
+    public function getLastInvoice(Request $request): JsonResponse
+    {
+        $request->validate([
+            'supplier_id' => 'required|integer|exists:suppliers,id',
+        ]);
+
+        $supplierId = $request->supplier_id;
+
+        // Get last purchase invoice for this supplier with all relationships
+        $lastInvoice = Invoice::where('supplier_id', $supplierId)
+            ->where('invoice_type', 'purchase')
+            ->orderBy('date', 'desc')
+            ->orderBy('sequence_number', 'desc')
+            ->with([
+                'items' => function ($query) {
+                    $query->select([
+                        'id',
+                        'invoice_id',
+                        'item_id',
+                        'barcode',
+                        'description',
+                        'uom_id',
+                        'warehouse_id',
+                        'quantity',
+                        'price',
+                        'unit_price',
+                        'discount_percent',
+                        'tax_percent',
+                    ]);
+                },
+                'currency:id,code,name',
+                'paymentTerm:id,code,name,nb_days',
+            ])
+            ->first();
+
+        if (! $lastInvoice) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No previous purchase invoice found for this supplier.',
+                'data' => null,
+            ], 404);
+        }
+
+        // Transform invoice to match frontend format
+        $invoiceData = [
+            'date' => $lastInvoice->date,
+            'due_date' => $lastInvoice->due_date,
+            'supplier_invoice_number' => $lastInvoice->supplier_invoice_number,
+            'supplier_invoice_date' => $lastInvoice->supplier_invoice_date,
+            'currency_id' => $lastInvoice->currency_id,
+            'payment_term_id' => $lastInvoice->payment_term_id,
+            'exchange_rate' => $lastInvoice->exchange_rate,
+            'notes' => $lastInvoice->notes,
+            'discount_2_type' => $lastInvoice->discount_2_type,
+            'discount_2_value' => (float) $lastInvoice->discount_2_value,
+            'adjustment' => (float) $lastInvoice->adjustment,
+            'items' => $lastInvoice->items->map(function ($item) {
+                return [
+                    'item_id' => $item->item_id,
+                    'barcode' => $item->barcode,
+                    'description' => $item->description,
+                    'uom_id' => $item->uom_id,
+                    'warehouse_id' => $item->warehouse_id,
+                    'quantity' => (float) $item->quantity,
+                    'price' => (float) $item->price,
+                    'unit_price' => (float) $item->unit_price,
+                    'discount' => (float) $item->discount_percent,
+                    'tax' => (float) $item->tax_percent,
+                ];
+            }),
+        ];
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Last invoice retrieved successfully.',
+            'data' => $invoiceData,
+            'invoice_number' => $lastInvoice->invoice_number,
+        ]);
+    }
+
     public function store(StoreInvoiceRequest $request): JsonResponse
     {
         DB::beginTransaction();

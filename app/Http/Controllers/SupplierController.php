@@ -142,12 +142,40 @@ class SupplierController extends Controller
 
             // Handle multi-currency cheque limits
             if ($request->input('cheque_limits')) {
+                // Get currencies that have opening balances from the request
+                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
+                    ->pluck('currency_id')
+                    ->filter()
+                    ->toArray();
+
                 foreach ($request->input('cheque_limits') as $chequeLimitData) {
-                    $supplier->setChequeLimitForCurrency(
-                        $chequeLimitData['currency_id'],
-                        $chequeLimitData['max_cheques'],
-                        $chequeLimitData['notes'] ?? null
-                    );
+                    // Skip empty, null, or zero values (cleared fields)
+                    $maxCheques = $chequeLimitData['max_cheques'] ?? null;
+                    if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
+                        continue;
+                    }
+
+                    // Check if this currency has an opening balance
+                    if (in_array($chequeLimitData['currency_id'], $openingBalanceCurrencies)) {
+                        try {
+                            // Create cheque limit directly using computeNextAvailableId
+                            $nextChequeId = $this->computeNextAvailableId(\App\Models\SupplierChequeLimit::class, 'id');
+                            $supplierCheque = new \App\Models\SupplierChequeLimit([
+                                'supplier_id' => $supplier->id,
+                                'currency_id' => $chequeLimitData['currency_id'],
+                                'max_cheques' => $maxCheques,
+                                'used_cheques' => 0,
+                                'available_cheques' => $maxCheques,
+                                'notes' => $chequeLimitData['notes'] ?? null,
+                                'is_active' => true,
+                            ]);
+                            $supplierCheque->id = $nextChequeId;
+                            $supplierCheque->save();
+                        } catch (\Exception $e) {
+                            // Re-throw the exception to trigger transaction rollback
+                            throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
+                        }
+                    }
                 }
             }
 
@@ -198,7 +226,7 @@ class SupplierController extends Controller
             'trade:id,name,code,active',
             // 'business_types' table does not have an 'active' column, so we only select existing columns
             'businessType:id,name,code',
-            'paymentTerm:id,code,name,active',
+            'paymentTerm:id,code,name,nb_days,active',
             'paymentMethod:id,code,name,active',
             'currency:id,code,name,iso_code,symbol,active',
             'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
@@ -242,6 +270,16 @@ class SupplierController extends Controller
 
         // Load active opening balances with currency (multi-currency table)
         $openingBalances = $supplier->openingBalances()
+            ->where('is_active', true)
+            ->with('currency:id,code,name,iso_code')
+            ->get();
+
+        // Load active credit limits and cheque limits with currency (like customer controller)
+        $creditLimits = $supplier->creditLimits()
+            ->where('is_active', true)
+            ->with('currency:id,code,name,iso_code')
+            ->get();
+        $chequeLimits = $supplier->chequeLimits()
             ->where('is_active', true)
             ->with('currency:id,code,name,iso_code')
             ->get();
@@ -312,6 +350,7 @@ class SupplierController extends Controller
                 'id' => $supplier->paymentTerm->id,
                 'code' => $supplier->paymentTerm->code,
                 'name' => $supplier->paymentTerm->name,
+                'nb_days' => $supplier->paymentTerm->nb_days,
                 'active' => $supplier->paymentTerm->active,
             ] : null,
             'payment_method' => $supplier->paymentMethod ? [
@@ -582,8 +621,8 @@ class SupplierController extends Controller
                         : collect([])
                 ),
 
-            // Credit limits with currency info
-            'credit_limits' => $supplier->creditLimits->map(function ($creditLimit) {
+            // Credit limits with currency info (use explicitly loaded collection)
+            'credit_limits' => $creditLimits->map(function ($creditLimit) {
                 return [
                     'id' => $creditLimit->id,
                     'currency_id' => $creditLimit->currency_id,
@@ -598,8 +637,8 @@ class SupplierController extends Controller
                 ];
             }),
 
-            // Cheque limits with currency info
-            'cheque_limits' => $supplier->chequeLimits->map(function ($chequeLimit) {
+            // Cheque limits with currency info (use explicitly loaded collection)
+            'cheque_limits' => $chequeLimits->map(function ($chequeLimit) {
                 return [
                     'id' => $chequeLimit->id,
                     'currency_id' => $chequeLimit->currency_id,
@@ -619,6 +658,186 @@ class SupplierController extends Controller
             'status' => 'success',
             'message' => 'Supplier retrieved successfully',
             'data' => $transformedData,
+        ]);
+    }
+
+    /**
+     * Get supplier data optimized for purchase invoice
+     * Returns only essential fields needed for purchase invoice creation
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    /**
+     * Get items related to a supplier with costs and purchase UOM
+     * Optimized endpoint for loading supplier items in purchase invoice
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getItems(Supplier $supplier)
+    {
+        // Get items related to this supplier with pivot data (cost)
+        $items = $supplier->items()
+            ->where('items.active', true) // Only active items
+            ->whereNotNull('items.purchase_uom_id') // Only items with purchase UOM
+            ->select([
+                'items.id',
+                'items.code',
+                'items.name',
+                'items.purchase_description',
+                'items.purchase_uom_id',
+                'items.tax_group_id',
+            ])
+            ->withPivot(['cost', 'original_code', 'currency', 'is_primary'])
+            ->with([
+                // Load purchase UOM
+                'purchaseUom:id,name',
+                // Load tax group
+                'taxGroup:id,code,name,value',
+                // Load all UOMs with pivot data (we'll filter to purchase UOM in PHP)
+                'unitOfMeasurements' => function ($query) {
+                    $query->select([
+                        'unit_of_measurements.id',
+                        'unit_of_measurements.name',
+                    ])
+                        ->withPivot([
+                            'id',
+                            'operation',
+                            'conversion',
+                            'price_1',
+                            'net_weight',
+                            'net_volume',
+                        ]);
+                },
+            ])
+            ->orderBy('items.code')
+            ->get();
+
+        // Get all item UOM pivot IDs for batch barcode loading
+        $itemUomPivotIds = [];
+        foreach ($items as $item) {
+            foreach ($item->unitOfMeasurements as $uom) {
+                if ($uom->pivot && $uom->pivot->id) {
+                    $itemUomPivotIds[] = $uom->pivot->id;
+                }
+            }
+        }
+
+        // Batch load barcodes
+        $barcodesByPivotId = [];
+        if (! empty($itemUomPivotIds)) {
+            $barcodes = \App\Models\ItemBarcode::whereIn('item_unit_of_measurement_id', $itemUomPivotIds)
+                ->select('item_unit_of_measurement_id', 'barcode')
+                ->get()
+                ->groupBy('item_unit_of_measurement_id');
+
+            foreach ($barcodes as $pivotId => $barcodeGroup) {
+                $barcodesByPivotId[$pivotId] = $barcodeGroup->pluck('barcode')->toArray();
+            }
+        }
+
+        // Transform items to include purchase UOM data
+        $transformedItems = $items->map(function ($item) use ($barcodesByPivotId) {
+            // Get purchase UOM
+            $purchaseUom = $item->purchaseUom;
+
+            if (! $purchaseUom) {
+                return; // Skip items without purchase UOM
+            }
+
+            // Get purchase UOM pivot data (from item_unit_of_measurement)
+            $purchaseUomPivot = $item->unitOfMeasurements->firstWhere('id', $purchaseUom->id);
+
+            // Get supplier cost from pivot
+            $supplierCost = $item->pivot->cost ?? null;
+
+            // Get barcodes for purchase UOM
+            $barcodes = [];
+            if ($purchaseUomPivot && $purchaseUomPivot->pivot && $purchaseUomPivot->pivot->id) {
+                $pivotId = $purchaseUomPivot->pivot->id;
+                $barcodes = $barcodesByPivotId[$pivotId] ?? [];
+            }
+
+            return [
+                'id' => $item->id,
+                'code' => $item->code,
+                'name' => $item->name,
+                'purchase_description' => $item->purchase_description,
+                'supplier_cost' => $supplierCost ? (float) $supplierCost : null,
+                'tax_group' => $item->taxGroup ? [
+                    'id' => $item->taxGroup->id,
+                    'code' => $item->taxGroup->code,
+                    'name' => $item->taxGroup->name,
+                    'value' => (float) $item->taxGroup->value,
+                ] : null,
+                'purchase_uom' => [
+                    'id' => $purchaseUom->id,
+                    'name' => $purchaseUom->name,
+                    'conversion' => $purchaseUomPivot?->pivot?->conversion ? (float) $purchaseUomPivot->pivot->conversion : 1,
+                    'operation' => $purchaseUomPivot?->pivot?->operation ?? 'multiply',
+                    'price_1' => $purchaseUomPivot?->pivot?->price_1 ? (float) $purchaseUomPivot->pivot->price_1 : 0,
+                    'net_weight' => $purchaseUomPivot?->pivot?->net_weight ? (float) $purchaseUomPivot->pivot->net_weight : 0,
+                    'net_volume' => $purchaseUomPivot?->pivot?->net_volume ? (float) $purchaseUomPivot->pivot->net_volume : 0,
+                    'barcodes' => $barcodes,
+                ],
+            ];
+        })->filter()->values(); // Remove nulls and reindex
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Supplier items fetched successfully.',
+            'data' => $transformedItems,
+        ]);
+    }
+
+    public function getForPurchaseInvoice(Supplier $supplier)
+    {
+        // Load only essential relationships
+        $supplier->load([
+            'paymentTerm:id,code,name,nb_days,active',
+        ]);
+
+        // Load active opening balances with currency (for currency selection)
+        $openingBalances = $supplier->openingBalances()
+            ->where('is_active', true)
+            ->with('currency:id,code,name,iso_code')
+            ->get();
+
+        // Transform opening balances to include flattened currency fields
+        $openingBalancesData = $openingBalances->map(function ($balance) {
+            return [
+                'id' => $balance->id,
+                'currency_id' => $balance->currency_id,
+                'currency_code' => $balance->currency->code ?? null,
+                'currency_name' => $balance->currency->name ?? null,
+                'currency_iso_code' => $balance->currency->iso_code ?? null,
+                'opening_amount' => $balance->opening_amount,
+                'opening_date' => $balance->opening_date,
+                'notes' => $balance->notes,
+                'is_active' => $balance->is_active,
+            ];
+        });
+
+        // Return only essential data for purchase invoice
+        $data = [
+            'id' => $supplier->id,
+            'display_name' => $supplier->display_name,
+            'company_name' => $supplier->company_name,
+            'phone1' => $supplier->phone1, // For help popover
+            'invoicing_mode' => $supplier->invoicing_mode,
+            'payment_term' => $supplier->paymentTerm ? [
+                'id' => $supplier->paymentTerm->id,
+                'code' => $supplier->paymentTerm->code,
+                'name' => $supplier->paymentTerm->name,
+                'nb_days' => $supplier->paymentTerm->nb_days,
+                'active' => $supplier->paymentTerm->active,
+            ] : null,
+            'opening_balances' => $openingBalancesData,
+        ];
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Supplier data for purchase invoice retrieved successfully',
+            'data' => $data,
         ]);
     }
 
@@ -682,13 +901,47 @@ class SupplierController extends Controller
             }
 
             // Handle multi-currency cheque limits
-            if ($request->has('cheque_limits')) {
+            // Always delete existing cheque limits first (like customer) to handle cleared fields
+            // This ensures that when fields are cleared in frontend, they are deleted in backend
+            // Delete regardless of whether cheque_limits is in request (handles case when all are cleared)
+            $supplier->chequeLimits()->delete();
+
+            // Get currencies that have opening balances from the request
+            $openingBalanceCurrencies = collect($request->input('opening_balances', []))
+                ->pluck('currency_id')
+                ->filter()
+                ->toArray();
+
+            // Recreate only the ones that are in the request (non-empty values)
+            if ($request->has('cheque_limits') && is_array($request->input('cheque_limits'))) {
                 foreach ($request->input('cheque_limits') as $chequeLimitData) {
-                    $supplier->setChequeLimitForCurrency(
-                        $chequeLimitData['currency_id'],
-                        $chequeLimitData['max_cheques'],
-                        $chequeLimitData['notes'] ?? null
-                    );
+                    // Skip empty, null, or zero values (cleared fields)
+                    $maxCheques = $chequeLimitData['max_cheques'] ?? null;
+                    if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
+                        continue;
+                    }
+
+                    // Check if this currency has an opening balance
+                    if (in_array($chequeLimitData['currency_id'], $openingBalanceCurrencies)) {
+                        try {
+                            // Create cheque limit directly using computeNextAvailableId
+                            $nextChequeId = $this->computeNextAvailableId(\App\Models\SupplierChequeLimit::class, 'id');
+                            $supplierCheque = new \App\Models\SupplierChequeLimit([
+                                'supplier_id' => $supplier->id,
+                                'currency_id' => $chequeLimitData['currency_id'],
+                                'max_cheques' => $maxCheques,
+                                'used_cheques' => 0,
+                                'available_cheques' => $maxCheques,
+                                'notes' => $chequeLimitData['notes'] ?? null,
+                                'is_active' => true,
+                            ]);
+                            $supplierCheque->id = $nextChequeId;
+                            $supplierCheque->save();
+                        } catch (\Exception $e) {
+                            // Re-throw the exception to trigger transaction rollback
+                            throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
+                        }
+                    }
                 }
             }
 
@@ -1243,6 +1496,60 @@ class SupplierController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve supplier brief list',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Lightweight list for Item Supplier Management section: id, name, and currency from first active opening balance.
+     */
+    public function listForItemSupplierManagement()
+    {
+        try {
+            $suppliers = Supplier::select('id', 'display_name', 'company_name', 'first_name', 'last_name')
+                ->where('active', true)
+                ->with(['openingBalances' => function ($q) {
+                    $q->where('is_active', true)->orderBy('id')->with('currency:id,code,name');
+                }])
+                ->orderBy('display_name')
+                ->get()
+                ->map(function ($supplier) {
+                    // Get all currencies from active opening balances
+                    $currencies = $supplier->openingBalances
+                        ->filter(function ($ob) {
+                            return $ob->relationLoaded('currency') && $ob->currency;
+                        })
+                        ->map(function ($ob) {
+                            return [
+                                'id' => $ob->currency->id,
+                                'code' => $ob->currency->code,
+                                'name' => $ob->currency->name,
+                            ];
+                        })
+                        ->values()
+                        ->toArray();
+
+                    // First currency (for auto-selection)
+                    $firstCurrency = ! empty($currencies) ? $currencies[0] : null;
+
+                    return [
+                        'id' => $supplier->id,
+                        'name' => $supplier->display_name ?: $supplier->company_name ?: trim($supplier->first_name.' '.$supplier->last_name) ?: '',
+                        'currency' => $firstCurrency, // First currency for backward compatibility and auto-selection
+                        'currencies' => $currencies, // All currencies for dropdown
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Suppliers for item supplier management retrieved successfully',
+                'data' => $suppliers,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve suppliers for item supplier management',
                 'error' => $e->getMessage(),
             ], 500);
         }

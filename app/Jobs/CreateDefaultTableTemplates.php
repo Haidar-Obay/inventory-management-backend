@@ -24,6 +24,7 @@ class CreateDefaultTableTemplates
 
             // Names and titles
             'name' => '150px',
+            'product_line.name' => '150px',
             'title' => '100px',
             'first_name' => '100px',
             'middle_name' => '100px',
@@ -128,7 +129,13 @@ class CreateDefaultTableTemplates
                 'id', 'code', 'name', 'price', 'created_at', 'updated_at',
             ],
             'categories' => [
-                'id', 'code', 'name', 'subcategory_of', 'active', 'created_at', 'updated_at',
+                'id', 'code', 'name', 'product_line.name', 'active', 'created_at', 'updated_at',
+            ],
+            'subCategories' => [
+                'id', 'name', 'category_id', 'category.name', 'created_at', 'updated_at',
+            ],
+            'itemGroups' => [
+                'id', 'code', 'name', 'active', 'created_at', 'updated_at',
             ],
             'brands' => [
                 'id', 'code', 'name', 'sub_brand_of', 'active', 'created_at', 'updated_at',

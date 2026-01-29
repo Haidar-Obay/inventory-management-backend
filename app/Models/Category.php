@@ -24,18 +24,26 @@ class Category extends Model implements Auditable
     ];
 
     /**
-     * Get the parent category of this category.
+     * Get the product line that owns the category.
      */
-    public function parentCategory()
+    public function productLine()
     {
-        return $this->belongsTo(Category::class, 'subcategory_of');
+        return $this->belongsTo(ProductLine::class, 'product_line_id');
     }
 
     /**
-     * Get the subcategories of this category.
+     * SubCategory records where this category is the parent (name + category_id).
+     */
+    public function subCategoryLinks()
+    {
+        return $this->hasMany(SubCategory::class, 'category_id');
+    }
+
+    /**
+     * Subcategories under this category (SubCategory models with name, category_id).
      */
     public function subcategories()
     {
-        return $this->hasMany(Category::class, 'subcategory_of');
+        return $this->hasMany(SubCategory::class, 'category_id');
     }
 }

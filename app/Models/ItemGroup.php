@@ -3,16 +3,17 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 use OwenIt\Auditing\Contracts\Auditable;
 
-class ProductLine extends Model implements Auditable
+class ItemGroup extends Model implements Auditable
 {
-    use AuditableTrait;
+    use AuditableTrait, SoftDeletes;
 
     protected $guarded = ['id'];
 
-    protected $table = 'product_lines';
+    protected $table = 'item_groups';
 
     protected $primaryKey = 'id';
 
@@ -23,10 +24,10 @@ class ProductLine extends Model implements Auditable
     ];
 
     /**
-     * Get the categories for the product line.
+     * Get the items in this group.
      */
-    public function categories()
+    public function items()
     {
-        return $this->hasMany(Category::class, 'product_line_id');
+        return $this->hasMany(Item::class, 'item_group_id');
     }
 }

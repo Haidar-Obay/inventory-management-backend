@@ -53,9 +53,11 @@ class ModuleSeeder extends Seeder
                     // Inventory Management
                     ['name' => 'Product Lines', 'code' => PageCode::ITEMS_PRODUCT_LINES->value, 'path' => '/main/mainfiles/items?tab=0', 'order' => 10, 'is_public' => false],
                     ['name' => 'Categories', 'code' => PageCode::ITEMS_CATEGORIES->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 11, 'is_public' => false],
-                    ['name' => 'Brands', 'code' => PageCode::ITEMS_BRANDS->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 12, 'is_public' => false],
-                    ['name' => 'Items', 'code' => PageCode::ITEMS_ITEMS->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 13, 'is_public' => false],
-                    ['name' => 'Warehouses', 'code' => PageCode::ITEMS_WAREHOUSES->value, 'path' => '/main/mainfiles/items?tab=4', 'order' => 14, 'is_public' => false],
+                    ['name' => 'Sub Categories', 'code' => PageCode::ITEMS_SUB_CATEGORIES->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 12, 'is_public' => false],
+                    ['name' => 'Item Groups', 'code' => PageCode::ITEMS_GROUPS->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 13, 'is_public' => false],
+                    ['name' => 'Brands', 'code' => PageCode::ITEMS_BRANDS->value, 'path' => '/main/mainfiles/items?tab=4', 'order' => 14, 'is_public' => false],
+                    ['name' => 'Items', 'code' => PageCode::ITEMS_ITEMS->value, 'path' => '/main/mainfiles/items?tab=5', 'order' => 15, 'is_public' => false],
+                    ['name' => 'Warehouses', 'code' => PageCode::ITEMS_WAREHOUSES->value, 'path' => '/main/mainfiles/items?tab=6', 'order' => 16, 'is_public' => false],
 
                     // Suppliers and Customers
                     ['name' => 'Suppliers', 'code' => PageCode::SUPPLIERS_SUPPLIERS->value, 'path' => '/main/mainfiles/supplier?tab=1', 'order' => 20, 'is_public' => false],
@@ -112,9 +114,11 @@ class ModuleSeeder extends Seeder
                     // Main Files - Items
                     ['name' => 'Product Lines', 'code' => PageCode::ITEMS_PRODUCT_LINES->value, 'path' => '/main/mainfiles/items?tab=0', 'order' => 20, 'is_public' => false],
                     ['name' => 'Categories', 'code' => PageCode::ITEMS_CATEGORIES->value, 'path' => '/main/mainfiles/items?tab=1', 'order' => 21, 'is_public' => false],
-                    ['name' => 'Brands', 'code' => PageCode::ITEMS_BRANDS->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 22, 'is_public' => false],
-                    ['name' => 'Items', 'code' => PageCode::ITEMS_ITEMS->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 23, 'is_public' => false],
-                    ['name' => 'Warehouses', 'code' => PageCode::ITEMS_WAREHOUSES->value, 'path' => '/main/mainfiles/items?tab=4', 'order' => 24, 'is_public' => false],
+                    ['name' => 'Sub Categories', 'code' => PageCode::ITEMS_SUB_CATEGORIES->value, 'path' => '/main/mainfiles/items?tab=2', 'order' => 22, 'is_public' => false],
+                    ['name' => 'Item Groups', 'code' => PageCode::ITEMS_GROUPS->value, 'path' => '/main/mainfiles/items?tab=3', 'order' => 23, 'is_public' => false],
+                    ['name' => 'Brands', 'code' => PageCode::ITEMS_BRANDS->value, 'path' => '/main/mainfiles/items?tab=4', 'order' => 24, 'is_public' => false],
+                    ['name' => 'Items', 'code' => PageCode::ITEMS_ITEMS->value, 'path' => '/main/mainfiles/items?tab=5', 'order' => 25, 'is_public' => false],
+                    ['name' => 'Warehouses', 'code' => PageCode::ITEMS_WAREHOUSES->value, 'path' => '/main/mainfiles/items?tab=6', 'order' => 26, 'is_public' => false],
 
                     // Main Files - Customers
                     ['name' => 'Customer Groups', 'code' => PageCode::CUSTOMERS_GROUPS->value, 'path' => '/main/mainfiles/customer?tab=0', 'order' => 30, 'is_public' => false],

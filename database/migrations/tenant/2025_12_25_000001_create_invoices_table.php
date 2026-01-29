@@ -40,6 +40,8 @@ return new class extends Migration
             // Reference
             $table->string('ref_2')->nullable(); // Reference number
             $table->string('sales_order')->nullable(); // Sales order number
+            $table->string('supplier_invoice_number')->nullable(); // Supplier invoice number (for purchase invoices)
+            $table->date('supplier_invoice_date')->nullable(); // Supplier invoice date (date when supplier created the invoice, for purchase invoices)
 
             // Exchange rate
             $table->decimal('exchange_rate', 12, 4)->nullable()->default(1.0000); // Exchange rate for currency conversion
@@ -54,6 +56,12 @@ return new class extends Migration
             $table->decimal('net_total', 12, 2)->default(0);
             $table->decimal('adjustment', 12, 2)->default(0); // Can be positive or negative
             $table->decimal('net_to_pay', 12, 2)->default(0); // net_total + adjustment
+
+            // Physical totals (calculated, stored for performance and audit - mainly for purchase invoices)
+            $table->decimal('total_boxes', 10, 4)->default(0)->nullable(); // Total boxes across all items
+            $table->decimal('total_pieces', 10, 4)->default(0)->nullable(); // Total pieces across all items
+            $table->decimal('total_weight', 10, 4)->default(0)->nullable(); // Total weight (sum of quantity * weight per unit)
+            $table->decimal('total_volume', 10, 4)->default(0)->nullable(); // Total volume (sum of quantity * volume per unit)
 
             // Notes
             $table->text('notes')->nullable();

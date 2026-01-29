@@ -70,6 +70,16 @@ class CustomerSeeder extends Seeder
             ]
         );
 
+        // Create payment term with 0 days (for immediate payment)
+        PaymentTerm::firstOrCreate(
+            ['code' => 'IMMEDIATE'],
+            [
+                'name' => 'Immediate Payment',
+                'nb_days' => 0,
+                'active' => true,
+            ]
+        );
+
         // Create a default payment method if none exists
         $paymentMethod = PaymentMethod::firstOrCreate(
             ['code' => 'CASH'],

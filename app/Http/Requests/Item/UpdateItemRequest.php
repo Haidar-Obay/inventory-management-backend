@@ -64,6 +64,7 @@ class UpdateItemRequest extends FormRequest
             'brand_id' => 'nullable|integer|exists:brands,id',
             'parent_id' => 'nullable|integer|exists:items,id',
             'tax_group_id' => 'nullable|integer|exists:tax_groups,id',
+            'item_group_id' => 'nullable|integer|exists:item_groups,id',
         ];
     }
 

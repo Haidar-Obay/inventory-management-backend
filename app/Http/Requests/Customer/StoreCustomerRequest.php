@@ -74,12 +74,25 @@ class StoreCustomerRequest extends FormRequest
             'associations.*' => 'exists:associations,id',
 
             // Salesmen relationships with active validation
-            'salesman_id' => 'nullable|exists:salesmen,id',
+            'salesman_id' => [
+                'nullable',
+                'exists:salesmen,id',
+                function ($attribute, $value, $fail) {
+                    $oneTimeAccount = $this->input('one_time_account');
+                    if ($value && $oneTimeAccount === true) {
+                        $fail('Salesman cannot be assigned to a one-time account customer.');
+                    }
+                },
+            ],
             'collector_id' => [
                 'nullable',
                 'exists:salesmen,id',
                 function ($attribute, $value, $fail) {
-                    if ($value) {
+                    $oneTimeAccount = $this->input('one_time_account');
+                    if ($value && $oneTimeAccount === true) {
+                        $fail('Collector cannot be assigned to a one-time account customer.');
+                    }
+                    if ($value && $oneTimeAccount !== true) {
                         $salesman = Salesman::find($value);
                         if ($salesman && ! $salesman->active) {
                             $fail('The selected collector is inactive and cannot be assigned to a customer.');
@@ -91,7 +104,11 @@ class StoreCustomerRequest extends FormRequest
                 'nullable',
                 'exists:salesmen,id',
                 function ($attribute, $value, $fail) {
-                    if ($value) {
+                    $oneTimeAccount = $this->input('one_time_account');
+                    if ($value && $oneTimeAccount === true) {
+                        $fail('Supervisor cannot be assigned to a one-time account customer.');
+                    }
+                    if ($value && $oneTimeAccount !== true) {
                         $salesman = Salesman::find($value);
                         if ($salesman && ! $salesman->active) {
                             $fail('The selected supervisor is inactive and cannot be assigned to a customer.');
@@ -103,7 +120,11 @@ class StoreCustomerRequest extends FormRequest
                 'nullable',
                 'exists:salesmen,id',
                 function ($attribute, $value, $fail) {
-                    if ($value) {
+                    $oneTimeAccount = $this->input('one_time_account');
+                    if ($value && $oneTimeAccount === true) {
+                        $fail('Manager cannot be assigned to a one-time account customer.');
+                    }
+                    if ($value && $oneTimeAccount !== true) {
                         $salesman = Salesman::find($value);
                         if ($salesman && ! $salesman->active) {
                             $fail('The selected manager is inactive and cannot be assigned to a customer.');
@@ -129,7 +150,11 @@ class StoreCustomerRequest extends FormRequest
                 'nullable',
                 'exists:payment_terms,id',
                 function ($attribute, $value, $fail) {
-                    if ($value) {
+                    $oneTimeAccount = $this->input('one_time_account');
+                    if ($value && $oneTimeAccount === true) {
+                        $fail('Payment term cannot be assigned to a one-time account customer.');
+                    }
+                    if ($value && $oneTimeAccount !== true) {
                         $paymentTerm = PaymentTerm::find($value);
                         if ($paymentTerm && ! $paymentTerm->active) {
                             $fail('The selected payment term is inactive and cannot be assigned to a customer.');
@@ -352,10 +377,19 @@ class StoreCustomerRequest extends FormRequest
 
             // Cheque limits with new structure
             'max_cheques' => 'nullable|array',
-            'max_cheques.*' => 'integer|min:0',
+            'max_cheques.*' => 'nullable|integer|min:0',
 
             // Opening balances with new structure
-            'opening_balances' => 'nullable|array',
+            'opening_balances' => [
+                'nullable',
+                'array',
+                function ($attribute, $value, $fail) {
+                    $oneTimeAccount = $this->input('one_time_account');
+                    if (! empty($value) && is_array($value) && count($value) > 0 && $oneTimeAccount === true) {
+                        $fail('Opening balances cannot be set for a one-time account customer.');
+                    }
+                },
+            ],
             'opening_balances.*.currency' => 'required|string|max:10',
             'opening_balances.*.amount' => 'required|numeric',
             'opening_balances.*.date' => 'nullable|date',

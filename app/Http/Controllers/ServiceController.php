@@ -68,6 +68,32 @@ class ServiceController extends Controller
     }
 
     /**
+     * Lightweight list for service pricing (e.g. specialist drawer): id and name only.
+     */
+    public function listNames(): JsonResponse
+    {
+        try {
+            $services = Service::select('id', 'name')
+                ->where('active', true)
+                ->orderBy('name')
+                ->get()
+                ->map(fn ($s) => ['id' => $s->id, 'name' => $s->name]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Service names retrieved successfully',
+                'data' => $services,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve service names',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Check if service has reached its hour capacity
      */
     protected function checkServiceCapacityReached(int $serviceId, int $capacity, string $startAt, string $endAt, ?int $excludeAppointmentId = null): bool

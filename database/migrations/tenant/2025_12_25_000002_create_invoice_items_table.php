@@ -18,7 +18,7 @@ return new class extends Migration
 
             // Snapshot data at time of invoice (for historical accuracy)
             $table->string('barcode')->nullable(); // From item_unit_of_measurement.barcodes array
-            $table->text('description'); // Snapshot of item description
+            $table->text('description')->nullable(); // Snapshot of item description
             $table->foreignId('uom_id')->constrained('unit_of_measurements')->restrictOnDelete();
             $table->foreignId('warehouse_id')->constrained('warehouses')->restrictOnDelete();
 

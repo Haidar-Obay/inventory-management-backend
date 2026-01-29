@@ -38,6 +38,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventStatusController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\ItemGroupController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\MediaChannelController;
 use App\Http\Controllers\MediaTypeController;
@@ -64,6 +65,7 @@ use App\Http\Controllers\ServiceNeededItemController;
 use App\Http\Controllers\SetupWizardController;
 use App\Http\Controllers\SpecialistController;
 use App\Http\Controllers\SpecialityController;
+use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierGroupController;
@@ -156,7 +158,12 @@ Route::middleware([
         Route::apiResource('brands', BrandController::class)->middleware('check.permission:brands,view');
         Route::apiResource('product-lines', ProductLineController::class)->middleware('check.permission:product_lines,view');
         Route::apiResource('categories', CategoryController::class)->middleware('check.permission:categories,view');
+        Route::apiResource('sub-categories', SubCategoryController::class)->middleware('check.permission:sub_categories,view');
+        Route::apiResource('item-groups', ItemGroupController::class)->middleware('check.permission:item_groups,view');
         Route::apiResource('supplier-groups', SupplierGroupController::class)->middleware('check.permission:supplier_groups,view');
+        Route::get('suppliers/{supplier}/for-purchase-invoice', [SupplierController::class, 'getForPurchaseInvoice'])->middleware('check.permission:suppliers,view'); // Optimized endpoint for purchase invoice
+        Route::get('suppliers/{supplier}/items', [SupplierController::class, 'getItems'])->middleware('check.permission:suppliers,view'); // Get supplier items with costs and purchase UOM
+        Route::get('suppliers/for-item-management', [SupplierController::class, 'listForItemSupplierManagement'])->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
         Route::apiResource('suppliers', SupplierController::class)->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
 
         // Supplier Opening Balances
@@ -209,10 +216,13 @@ Route::middleware([
         Route::apiResource('media-channels', MediaChannelController::class);
         Route::get('items/services/list', [ItemController::class, 'getServiceItems'])->middleware('check.permission:items,view');
         Route::get('items/all', [ItemController::class, 'getAllItems'])->middleware('check.permission:items,view');
+        Route::get('items/for-needed-items', [ItemController::class, 'listForNeededItems'])->middleware('check.permission:items,view');
         Route::get('items/by-barcode', [ItemController::class, 'getItemByBarcode'])->middleware('check.permission:items,view'); // Must come before apiResource
         Route::get('items/search-by-barcode', [ItemController::class, 'searchItemsByBarcode'])->middleware('check.permission:items,view'); // Search items by barcode (partial match) for help grid
         Route::get('items/by-code', [ItemController::class, 'getItemByCode'])->middleware('check.permission:items,view'); // Must come before apiResource
         Route::get('items/{item}/preview', [ItemController::class, 'getItemForPreview'])->middleware('check.permission:items,view'); // Preview endpoint - must come before apiResource
+        Route::get('items/{item}/supplier-cost', [ItemController::class, 'getSupplierCost'])->middleware('check.permission:items,view'); // Get supplier cost for item
+        Route::get('items/last-invoice-price', [ItemController::class, 'getLastInvoicePrice'])->middleware('check.permission:items,view'); // Get last invoice price
         Route::apiResource('items', ItemController::class)->middleware('check.permission:items,view');
         // Explicit POST route for items update with FormData (method spoofing support)
         Route::post('items/{item}', [ItemController::class, 'update'])->middleware('check.permission:items,view');
@@ -234,10 +244,12 @@ Route::middleware([
         Route::get('units/{unitOfMeasurement}/conversions', [\App\Http\Controllers\UnitOfMeasurementController::class, 'conversions'])->middleware('check.permission:unit_of_measurements,view');
         Route::apiResource('unit-of-measurements', UnitOfMeasurementController::class)->middleware('check.permission:unit_of_measurements,view');
         Route::get('invoices/next-number', [InvoiceController::class, 'getNextInvoiceNumber'])->middleware('check.permission:invoices,view');
+        Route::get('invoices/last-invoice', [InvoiceController::class, 'getLastInvoice'])->middleware('check.permission:invoices,view');
         Route::apiResource('invoices', InvoiceController::class)->middleware('check.permission:invoices,view');
         Route::apiResource('customer-master-lists', CustomerMasterListController::class);
         Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');
         Route::apiResource('specialists', SpecialistController::class)->middleware('check.permission:specialists,view');
+        Route::get('services/names', [ServiceController::class, 'listNames'])->middleware('check.permission:services,view');
         Route::apiResource('services', ServiceController::class)->middleware('check.permission:services,view');
         // Explicit POST route for services update with FormData (method spoofing support)
         Route::post('services/{service}', [ServiceController::class, 'update'])->middleware('check.permission:services,view');
@@ -287,6 +299,7 @@ Route::middleware([
             Route::get('districts', [DistrictController::class, 'exportExcell'])->middleware('check.permission:districts,export');
             Route::get('currencies', [CurrencyController::class, 'exportExcell'])->middleware('check.permission:currencies,export');
             Route::get('customer-groups', [CustomerGroupController::class, 'exportExcel'])->middleware('check.permission:customer_groups,export');
+            Route::get('item-groups', [ItemGroupController::class, 'exportExcel'])->middleware('check.permission:item_groups,export');
             Route::get('payment-methods', [PaymentMethodController::class, 'exportExcell'])->middleware('check.permission:payment_methods,export');
             Route::get('payment-terms', [PaymentTermController::class, 'exportExcell'])->middleware('check.permission:payment_terms,export');
             Route::get('salesmen', [SalesmanController::class, 'exportExcell'])->middleware('check.permission:salesmen,export');
@@ -296,6 +309,7 @@ Route::middleware([
             Route::get('brands', [BrandController::class, 'exportExcel'])->middleware('check.permission:brands,export');
             Route::get('product-lines', [ProductLineController::class, 'exportExcel'])->middleware('check.permission:product_lines,export');
             Route::get('categories', [CategoryController::class, 'exportExcell'])->middleware('check.permission:categories,export');
+            Route::get('sub-categories', [SubCategoryController::class, 'exportExcell'])->middleware('check.permission:sub_categories,export');
             Route::get('supplier-groups', [SupplierGroupController::class, 'exportExcell'])->middleware('check.permission:supplier_groups,export');
             Route::get('suppliers', [SupplierController::class, 'exportExcell'])->middleware('check.permission:suppliers,export');
             Route::get('branches', [BranchController::class, 'exportExcell'])->middleware('check.permission:branches,export');
@@ -344,6 +358,7 @@ Route::middleware([
             Route::get('/zones', [ZoneController::class, 'exportPdf'])->middleware('check.permission:zones,export');
             Route::get('/currencies', [CurrencyController::class, 'exportPdf'])->middleware('check.permission:currencies,export');
             Route::get('/customer-groups', [CustomerGroupController::class, 'exportPdf'])->middleware('check.permission:customer_groups,export');
+            Route::get('/item-groups', [ItemGroupController::class, 'exportPdf'])->middleware('check.permission:item_groups,export');
             Route::get('/payment-methods', [PaymentMethodController::class, 'exportPdf'])->middleware('check.permission:payment_methods,export');
             Route::get('/payment-terms', [PaymentTermController::class, 'exportPdf'])->middleware('check.permission:payment_terms,export');
             Route::get('/salesmen', [SalesmanController::class, 'exportPdf'])->middleware('check.permission:salesmen,export');
@@ -353,6 +368,7 @@ Route::middleware([
             Route::get('/brands', [BrandController::class, 'exportPdf'])->middleware('check.permission:brands,export');
             Route::get('/product-lines', [ProductLineController::class, 'exportPdf'])->middleware('check.permission:product_lines,export');
             Route::get('/categories', [CategoryController::class, 'exportPdf'])->middleware('check.permission:categories,export');
+            Route::get('/sub-categories', [SubCategoryController::class, 'exportPdf'])->middleware('check.permission:sub_categories,export');
             Route::get('/supplier-groups', [SupplierGroupController::class, 'exportPdf'])->middleware('check.permission:supplier_groups,export');
             Route::get('/suppliers', [SupplierController::class, 'exportPdf'])->middleware('check.permission:suppliers,export');
             Route::get('/branches', [BranchController::class, 'exportPdf'])->middleware('check.permission:branches,export');
@@ -404,6 +420,7 @@ Route::middleware([
             Route::post('/districts', [DistrictController::class, 'importFromExcel'])->middleware('check.permission:districts,import');
             Route::post('/currencies', [CurrencyController::class, 'importFromExcel'])->middleware('check.permission:currencies,import');
             Route::post('/customer-groups', [CustomerGroupController::class, 'importFromExcel'])->middleware('check.permission:customer_groups,import');
+            Route::post('/item-groups', [ItemGroupController::class, 'importFromExcel'])->middleware('check.permission:item_groups,import');
             Route::post('/payment-methods', [PaymentMethodController::class, 'importFromExcel'])->middleware('check.permission:payment_methods,import');
             Route::post('/payment-terms', [PaymentTermController::class, 'importFromExcel'])->middleware('check.permission:payment_terms,import');
             Route::post('/salesmen', [SalesmanController::class, 'importFromExcel'])->middleware('check.permission:salesmen,import');
@@ -413,6 +430,7 @@ Route::middleware([
             Route::post('/brands', [BrandController::class, 'importFromExcel'])->middleware('check.permission:brands,import');
             Route::post('/product-lines', [ProductLineController::class, 'importFromExcel'])->middleware('check.permission:product_lines,import');
             Route::post('/categories', [CategoryController::class, 'importFromExcel'])->middleware('check.permission:categories,import');
+            Route::post('/sub-categories', [SubCategoryController::class, 'importFromExcel'])->middleware('check.permission:sub_categories,import');
             Route::post('/supplier-groups', [SupplierGroupController::class, 'importFromExcel'])->middleware('check.permission:supplier_groups,import');
             Route::post('/suppliers', [SupplierController::class, 'importFromExcel'])->middleware('check.permission:suppliers,import');
             Route::post('/branches', [BranchController::class, 'importFromExcel'])->middleware('check.permission:branches,import');
@@ -470,6 +488,8 @@ Route::middleware([
             Route::delete('/brands', [BrandController::class, 'bulkDelete']);
             Route::delete('/product-lines', [ProductLineController::class, 'bulkDelete']);
             Route::delete('/categories', [CategoryController::class, 'bulkDelete']);
+            Route::delete('/sub-categories', [SubCategoryController::class, 'bulkDelete']);
+            Route::delete('/item-groups', [ItemGroupController::class, 'bulkDelete']);
             Route::delete('/unit-groups', [UnitGroupController::class, 'bulkDelete']);
             Route::delete('/unit-of-measurements', [UnitOfMeasurementController::class, 'bulkDelete']);
             Route::delete('/supplier-groups', [SupplierGroupController::class, 'bulkDelete']);
@@ -781,6 +801,7 @@ Route::middleware([
     Route::get('/names/transportation-channels', [TransportationChannelController::class, 'getNames']);
     Route::get('/names/media-channels', [MediaChannelController::class, 'getNames']);
     Route::get('/names/customer-groups', [CustomerGroupController::class, 'getNames']);
+    Route::get('/names/item-groups', [ItemGroupController::class, 'getNames']);
     Route::get('/names/salesmen', [SalesmanController::class, 'getNames']);
     Route::get('/names/trades', [TradeController::class, 'getNames']);
     Route::get('/names/items', [ItemController::class, 'getNames']);

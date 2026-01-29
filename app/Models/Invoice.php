@@ -35,6 +35,8 @@ class Invoice extends Model implements Auditable
         'payment_term_id',
         'ref_2',
         'sales_order',
+        'supplier_invoice_number',
+        'supplier_invoice_date',
         'exchange_rate',
         'discount_2_type',
         'discount_2_value',
@@ -43,6 +45,10 @@ class Invoice extends Model implements Auditable
         'net_total',
         'adjustment',
         'net_to_pay',
+        'total_boxes',
+        'total_pieces',
+        'total_weight',
+        'total_volume',
         'notes',
         'billing_to_phones',
         'billing_to_addresses',
@@ -59,6 +65,7 @@ class Invoice extends Model implements Auditable
         'sequence_number' => 'integer',
         'date' => 'date',
         'due_date' => 'date',
+        'supplier_invoice_date' => 'date',
         'discount_2_value' => 'decimal:2',
         'exchange_rate' => 'decimal:4',
         'subtotal' => 'decimal:2',
@@ -66,6 +73,10 @@ class Invoice extends Model implements Auditable
         'net_total' => 'decimal:2',
         'adjustment' => 'decimal:2',
         'net_to_pay' => 'decimal:2',
+        'total_boxes' => 'decimal:4',
+        'total_pieces' => 'decimal:4',
+        'total_weight' => 'decimal:4',
+        'total_volume' => 'decimal:4',
         'billing_to_phones' => 'array',
         'billing_to_addresses' => 'array',
         'shipping_to_phones' => 'array',
@@ -138,13 +149,13 @@ class Invoice extends Model implements Auditable
     }
 
     /**
-     * Recalculate all financial totals based on items.
+     * Recalculate all financial totals and physical totals based on items.
      * This should be called after items are added/updated.
      * Order: Subtotal → Discount → Tax → Discount2 → Net Total
      */
     public function recalculateTotals(): void
     {
-        $items = $this->items;
+        $items = $this->items()->with(['uom', 'item'])->get();
 
         // Calculate subtotal from all items (sum of item subtotals)
         $subtotal = $items->sum('subtotal');
@@ -182,12 +193,54 @@ class Invoice extends Model implements Auditable
         // Net to pay = net total + adjustment
         $netToPay = $netTotal + ($this->adjustment ?? 0);
 
+        // Calculate physical totals (mainly for purchase invoices)
+        $totalBoxes = 0;
+        $totalPieces = 0;
+        $totalWeight = 0;
+        $totalVolume = 0;
+
+        foreach ($items as $item) {
+            $uom = $item->uom;
+            if (! $uom) {
+                continue;
+            }
+
+            $uomName = strtolower(trim($uom->name ?? ''));
+
+            // Count boxes and pieces based on UOM name
+            if ($uomName === 'box' || $uomName === 'boxes') {
+                $totalBoxes += $item->quantity;
+            } elseif ($uomName === 'piece' || $uomName === 'pieces') {
+                $totalPieces += $item->quantity;
+            }
+
+            // Get weight and volume from item_unit_of_measurement pivot
+            // Query the pivot table directly for better performance
+            $itemUomPivot = \App\Models\ItemUnitOfMeasurement::where('item_id', $item->item_id)
+                ->where('unit_of_measurement_id', $item->uom_id)
+                ->first();
+
+            if ($itemUomPivot) {
+                // Use net_weight/net_volume if available, otherwise gross_weight/gross_volume
+                $weightPerUnit = $itemUomPivot->net_weight ?? $itemUomPivot->gross_weight ?? 0;
+                $volumePerUnit = $itemUomPivot->net_volume ?? $itemUomPivot->gross_volume ?? 0;
+
+                // Calculate total weight and volume for this item
+                $totalWeight += $item->quantity * $weightPerUnit;
+                $totalVolume += $item->quantity * $volumePerUnit;
+            }
+        }
+
         // Update invoice
         $this->update([
             'subtotal' => $subtotal,
             'taxes' => $taxes,
             'net_total' => $netTotal,
             'net_to_pay' => $netToPay,
+            'total_boxes' => $totalBoxes,
+            'total_pieces' => $totalPieces,
+            'total_weight' => $totalWeight,
+            'total_volume' => $totalVolume,
         ]);
     }
 }
