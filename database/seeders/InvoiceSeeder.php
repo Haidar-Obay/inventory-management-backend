@@ -114,7 +114,7 @@ class InvoiceSeeder extends Seeder
                 ]
             );
         }
-        
+
         // Ensure payment term with 0 days exists (for immediate payment)
         PaymentTerm::firstOrCreate(
             ['code' => 'IMMEDIATE'],

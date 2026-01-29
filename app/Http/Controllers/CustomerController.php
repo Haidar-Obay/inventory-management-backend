@@ -280,19 +280,19 @@ class CustomerController extends Controller
             // Handle cheque limits with new structure (after opening balances)
             if ($request->has('max_cheques')) {
                 $chequeLimits = $request->input('max_cheques');
-                
+
                 // Get currencies that have opening balances from the request
                 $openingBalanceCurrencies = collect($request->input('opening_balances', []))
                     ->pluck('currency')
                     ->filter()
                     ->toArray();
-                
+
                 foreach ($chequeLimits as $currencyCode => $maxCheques) {
                     // Skip empty, null, or zero values (cleared fields)
                     if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
                         continue;
                     }
-                    
+
                     // Find currency by code
                     $currency = \App\Models\Currency::where('code', $currencyCode)->first();
                     if ($currency) {
@@ -1092,7 +1092,7 @@ class CustomerController extends Controller
                     if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
                         continue;
                     }
-                    
+
                     // Find currency by code
                     $currency = \App\Models\Currency::where('code', $currencyCode)->first();
                     if ($currency) {

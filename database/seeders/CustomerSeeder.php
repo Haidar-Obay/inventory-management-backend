@@ -69,7 +69,7 @@ class CustomerSeeder extends Seeder
                 'active' => true,
             ]
         );
-        
+
         // Create payment term with 0 days (for immediate payment)
         PaymentTerm::firstOrCreate(
             ['code' => 'IMMEDIATE'],

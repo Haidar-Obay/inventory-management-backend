@@ -513,7 +513,7 @@ class UpdateCustomerRequest extends FormRequest
                 'array',
                 function ($attribute, $value, $fail) {
                     $oneTimeAccount = $this->input('one_time_account');
-                    if (!empty($value) && is_array($value) && count($value) > 0 && $oneTimeAccount === true) {
+                    if (! empty($value) && is_array($value) && count($value) > 0 && $oneTimeAccount === true) {
                         $fail('Opening balances cannot be set for a one-time account customer.');
                     }
                 },

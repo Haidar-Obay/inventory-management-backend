@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\AdjustmentTypeController;   
+use App\Http\Controllers\AdjustmentTypeController;
 use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AssociationContactController;
@@ -16,7 +16,6 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\BusinessTypeController;
 use App\Http\Controllers\CategoryController;
-use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\CompanyCodeController;
 use App\Http\Controllers\CostCenterController;
@@ -66,6 +65,7 @@ use App\Http\Controllers\ServiceNeededItemController;
 use App\Http\Controllers\SetupWizardController;
 use App\Http\Controllers\SpecialistController;
 use App\Http\Controllers\SpecialityController;
+use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierGroupController;

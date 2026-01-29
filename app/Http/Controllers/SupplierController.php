@@ -1531,7 +1531,7 @@ class SupplierController extends Controller
                         ->toArray();
 
                     // First currency (for auto-selection)
-                    $firstCurrency = !empty($currencies) ? $currencies[0] : null;
+                    $firstCurrency = ! empty($currencies) ? $currencies[0] : null;
 
                     return [
                         'id' => $supplier->id,
