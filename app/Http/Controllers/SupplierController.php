@@ -1320,6 +1320,60 @@ class SupplierController extends Controller
         }
     }
 
+    /**
+     * Lightweight list for Item Supplier Management section: id, name, and currency from first active opening balance.
+     */
+    public function listForItemSupplierManagement()
+    {
+        try {
+            $suppliers = Supplier::select('id', 'display_name', 'company_name', 'first_name', 'last_name')
+                ->where('active', true)
+                ->with(['openingBalances' => function ($q) {
+                    $q->where('is_active', true)->orderBy('id')->with('currency:id,code,name');
+                }])
+                ->orderBy('display_name')
+                ->get()
+                ->map(function ($supplier) {
+                    // Get all currencies from active opening balances
+                    $currencies = $supplier->openingBalances
+                        ->filter(function ($ob) {
+                            return $ob->relationLoaded('currency') && $ob->currency;
+                        })
+                        ->map(function ($ob) {
+                            return [
+                                'id' => $ob->currency->id,
+                                'code' => $ob->currency->code,
+                                'name' => $ob->currency->name,
+                            ];
+                        })
+                        ->values()
+                        ->toArray();
+
+                    // First currency (for auto-selection)
+                    $firstCurrency = !empty($currencies) ? $currencies[0] : null;
+
+                    return [
+                        'id' => $supplier->id,
+                        'name' => $supplier->display_name ?: $supplier->company_name ?: trim($supplier->first_name.' '.$supplier->last_name) ?: '',
+                        'currency' => $firstCurrency, // First currency for backward compatibility and auto-selection
+                        'currencies' => $currencies, // All currencies for dropdown
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Suppliers for item supplier management retrieved successfully',
+                'data' => $suppliers,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve suppliers for item supplier management',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     // Helper methods for address management
     private function createBillingAddress($supplier, $request)
     {

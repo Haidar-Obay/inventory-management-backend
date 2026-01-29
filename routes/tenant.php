@@ -161,6 +161,7 @@ Route::middleware([
         Route::apiResource('sub-categories', SubCategoryController::class)->middleware('check.permission:sub_categories,view');
         Route::apiResource('item-groups', ItemGroupController::class)->middleware('check.permission:item_groups,view');
         Route::apiResource('supplier-groups', SupplierGroupController::class)->middleware('check.permission:supplier_groups,view');
+        Route::get('suppliers/for-item-management', [SupplierController::class, 'listForItemSupplierManagement'])->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
         Route::apiResource('suppliers', SupplierController::class)->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
 
         // Supplier Opening Balances
@@ -213,6 +214,7 @@ Route::middleware([
         Route::apiResource('media-channels', MediaChannelController::class);
         Route::get('items/services/list', [ItemController::class, 'getServiceItems'])->middleware('check.permission:items,view');
         Route::get('items/all', [ItemController::class, 'getAllItems'])->middleware('check.permission:items,view');
+        Route::get('items/for-needed-items', [ItemController::class, 'listForNeededItems'])->middleware('check.permission:items,view');
         Route::get('items/by-barcode', [ItemController::class, 'getItemByBarcode'])->middleware('check.permission:items,view'); // Must come before apiResource
         Route::get('items/search-by-barcode', [ItemController::class, 'searchItemsByBarcode'])->middleware('check.permission:items,view'); // Search items by barcode (partial match) for help grid
         Route::get('items/by-code', [ItemController::class, 'getItemByCode'])->middleware('check.permission:items,view'); // Must come before apiResource
@@ -242,6 +244,7 @@ Route::middleware([
         Route::apiResource('customer-master-lists', CustomerMasterListController::class);
         Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');
         Route::apiResource('specialists', SpecialistController::class)->middleware('check.permission:specialists,view');
+        Route::get('services/names', [ServiceController::class, 'listNames'])->middleware('check.permission:services,view');
         Route::apiResource('services', ServiceController::class)->middleware('check.permission:services,view');
         // Explicit POST route for services update with FormData (method spoofing support)
         Route::post('services/{service}', [ServiceController::class, 'update'])->middleware('check.permission:services,view');

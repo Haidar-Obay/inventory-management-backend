@@ -1072,6 +1072,48 @@ class ItemController extends Controller
         ]);
     }
 
+    /**
+     * Lightweight list for Needed Items section: id, code, name, and unit (from base_uom).
+     */
+    public function listForNeededItems()
+    {
+        try {
+            $items = Item::select('id', 'code', 'name', 'base_uom_id')
+                ->where('active', true)
+                ->with('baseUom:id,name')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'code' => $item->code,
+                        'name' => $item->name,
+                        'unit' => $item->baseUom ? [
+                            'id' => $item->baseUom->id,
+                            'name' => $item->baseUom->name,
+                        ] : null,
+                        // Also include base_uom for backward compatibility
+                        'base_uom' => $item->baseUom ? [
+                            'id' => $item->baseUom->id,
+                            'name' => $item->baseUom->name,
+                        ] : null,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Items for needed items section retrieved successfully',
+                'data' => $items,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve items for needed items section',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function uploadAttachment(UploadItemAttachmentRequest $request, Item $item)
     {
         $tenantId = tenant('id');
