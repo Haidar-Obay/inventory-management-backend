@@ -678,7 +678,6 @@ class SupplierController extends Controller
         // Get items related to this supplier with pivot data (cost)
         $items = $supplier->items()
             ->where('items.active', true) // Only active items
-            ->whereNotNull('items.purchase_uom_id') // Only items with purchase UOM
             ->select([
                 'items.id',
                 'items.code',
@@ -737,23 +736,28 @@ class SupplierController extends Controller
 
         // Transform items to include purchase UOM data
         $transformedItems = $items->map(function ($item) use ($barcodesByPivotId) {
-            // Get purchase UOM
+            // Get purchase UOM, or use first available UOM if purchase UOM doesn't exist
             $purchaseUom = $item->purchaseUom;
+            $uomToUse = $purchaseUom;
 
-            if (! $purchaseUom) {
-                return; // Skip items without purchase UOM
+            // If no purchase UOM, try to use the first available UOM
+            if (! $uomToUse && $item->unitOfMeasurements->isNotEmpty()) {
+                $uomToUse = $item->unitOfMeasurements->first();
             }
 
-            // Get purchase UOM pivot data (from item_unit_of_measurement)
-            $purchaseUomPivot = $item->unitOfMeasurements->firstWhere('id', $purchaseUom->id);
+            // Get UOM pivot data (from item_unit_of_measurement)
+            $uomPivot = null;
+            if ($uomToUse) {
+                $uomPivot = $item->unitOfMeasurements->firstWhere('id', $uomToUse->id);
+            }
 
             // Get supplier cost from pivot
             $supplierCost = $item->pivot->cost ?? null;
 
-            // Get barcodes for purchase UOM
+            // Get barcodes for UOM
             $barcodes = [];
-            if ($purchaseUomPivot && $purchaseUomPivot->pivot && $purchaseUomPivot->pivot->id) {
-                $pivotId = $purchaseUomPivot->pivot->id;
+            if ($uomPivot && $uomPivot->pivot && $uomPivot->pivot->id) {
+                $pivotId = $uomPivot->pivot->id;
                 $barcodes = $barcodesByPivotId[$pivotId] ?? [];
             }
 
@@ -769,16 +773,16 @@ class SupplierController extends Controller
                     'name' => $item->taxGroup->name,
                     'value' => (float) $item->taxGroup->value,
                 ] : null,
-                'purchase_uom' => [
-                    'id' => $purchaseUom->id,
-                    'name' => $purchaseUom->name,
-                    'conversion' => $purchaseUomPivot?->pivot?->conversion ? (float) $purchaseUomPivot->pivot->conversion : 1,
-                    'operation' => $purchaseUomPivot?->pivot?->operation ?? 'multiply',
-                    'price_1' => $purchaseUomPivot?->pivot?->price_1 ? (float) $purchaseUomPivot->pivot->price_1 : 0,
-                    'net_weight' => $purchaseUomPivot?->pivot?->net_weight ? (float) $purchaseUomPivot->pivot->net_weight : 0,
-                    'net_volume' => $purchaseUomPivot?->pivot?->net_volume ? (float) $purchaseUomPivot->pivot->net_volume : 0,
+                'purchase_uom' => $uomToUse ? [
+                    'id' => $uomToUse->id,
+                    'name' => $uomToUse->name,
+                    'conversion' => $uomPivot?->pivot?->conversion ? (float) $uomPivot->pivot->conversion : 1,
+                    'operation' => $uomPivot?->pivot?->operation ?? 'multiply',
+                    'price_1' => $uomPivot?->pivot?->price_1 ? (float) $uomPivot->pivot->price_1 : 0,
+                    'net_weight' => $uomPivot?->pivot?->net_weight ? (float) $uomPivot->pivot->net_weight : 0,
+                    'net_volume' => $uomPivot?->pivot?->net_volume ? (float) $uomPivot->pivot->net_volume : 0,
                     'barcodes' => $barcodes,
-                ],
+                ] : null,
             ];
         })->filter()->values(); // Remove nulls and reindex
 
