@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 
 class ItemUnitOfMeasurement extends Pivot
 {
+    /** Pivot table has an id column; must be true so pivot id is loaded and included in JSON (needed for barcode lookups). */
+    public $incrementing = true;
+
     protected $table = 'item_unit_of_measurement';
 
     protected $fillable = [
