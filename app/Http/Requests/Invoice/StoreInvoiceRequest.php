@@ -82,7 +82,7 @@ class StoreInvoiceRequest extends FormRequest
             'items' => 'required|array',
             'items.*.item_id' => 'required|integer|exists:items,id',
             'items.*.barcode' => 'nullable|string',
-            'items.*.description' => 'required|string',
+            'items.*.description' => 'nullable|string',
             'items.*.uom_id' => 'required|integer|exists:unit_of_measurements,id',
             'items.*.warehouse_id' => 'required|integer|exists:warehouses,id',
             'items.*.quantity' => 'required|numeric|min:0.0001',

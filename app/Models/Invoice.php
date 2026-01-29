@@ -201,7 +201,7 @@ class Invoice extends Model implements Auditable
 
         foreach ($items as $item) {
             $uom = $item->uom;
-            if (!$uom) {
+            if (! $uom) {
                 continue;
             }
 

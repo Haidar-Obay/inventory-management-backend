@@ -623,6 +623,186 @@ class SupplierController extends Controller
         ]);
     }
 
+    /**
+     * Get supplier data optimized for purchase invoice
+     * Returns only essential fields needed for purchase invoice creation
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    /**
+     * Get items related to a supplier with costs and purchase UOM
+     * Optimized endpoint for loading supplier items in purchase invoice
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getItems(Supplier $supplier)
+    {
+        // Get items related to this supplier with pivot data (cost)
+        $items = $supplier->items()
+            ->where('items.active', true) // Only active items
+            ->whereNotNull('items.purchase_uom_id') // Only items with purchase UOM
+            ->select([
+                'items.id',
+                'items.code',
+                'items.name',
+                'items.purchase_description',
+                'items.purchase_uom_id',
+                'items.tax_group_id',
+            ])
+            ->withPivot(['cost', 'original_code', 'currency', 'is_primary'])
+            ->with([
+                // Load purchase UOM
+                'purchaseUom:id,name',
+                // Load tax group
+                'taxGroup:id,code,name,value',
+                // Load all UOMs with pivot data (we'll filter to purchase UOM in PHP)
+                'unitOfMeasurements' => function ($query) {
+                    $query->select([
+                        'unit_of_measurements.id',
+                        'unit_of_measurements.name',
+                    ])
+                        ->withPivot([
+                            'id',
+                            'operation',
+                            'conversion',
+                            'price_1',
+                            'net_weight',
+                            'net_volume',
+                        ]);
+                },
+            ])
+            ->orderBy('items.code')
+            ->get();
+
+        // Get all item UOM pivot IDs for batch barcode loading
+        $itemUomPivotIds = [];
+        foreach ($items as $item) {
+            foreach ($item->unitOfMeasurements as $uom) {
+                if ($uom->pivot && $uom->pivot->id) {
+                    $itemUomPivotIds[] = $uom->pivot->id;
+                }
+            }
+        }
+
+        // Batch load barcodes
+        $barcodesByPivotId = [];
+        if (! empty($itemUomPivotIds)) {
+            $barcodes = \App\Models\ItemBarcode::whereIn('item_unit_of_measurement_id', $itemUomPivotIds)
+                ->select('item_unit_of_measurement_id', 'barcode')
+                ->get()
+                ->groupBy('item_unit_of_measurement_id');
+
+            foreach ($barcodes as $pivotId => $barcodeGroup) {
+                $barcodesByPivotId[$pivotId] = $barcodeGroup->pluck('barcode')->toArray();
+            }
+        }
+
+        // Transform items to include purchase UOM data
+        $transformedItems = $items->map(function ($item) use ($barcodesByPivotId) {
+            // Get purchase UOM
+            $purchaseUom = $item->purchaseUom;
+
+            if (! $purchaseUom) {
+                return; // Skip items without purchase UOM
+            }
+
+            // Get purchase UOM pivot data (from item_unit_of_measurement)
+            $purchaseUomPivot = $item->unitOfMeasurements->firstWhere('id', $purchaseUom->id);
+
+            // Get supplier cost from pivot
+            $supplierCost = $item->pivot->cost ?? null;
+
+            // Get barcodes for purchase UOM
+            $barcodes = [];
+            if ($purchaseUomPivot && $purchaseUomPivot->pivot && $purchaseUomPivot->pivot->id) {
+                $pivotId = $purchaseUomPivot->pivot->id;
+                $barcodes = $barcodesByPivotId[$pivotId] ?? [];
+            }
+
+            return [
+                'id' => $item->id,
+                'code' => $item->code,
+                'name' => $item->name,
+                'purchase_description' => $item->purchase_description,
+                'supplier_cost' => $supplierCost ? (float) $supplierCost : null,
+                'tax_group' => $item->taxGroup ? [
+                    'id' => $item->taxGroup->id,
+                    'code' => $item->taxGroup->code,
+                    'name' => $item->taxGroup->name,
+                    'value' => (float) $item->taxGroup->value,
+                ] : null,
+                'purchase_uom' => [
+                    'id' => $purchaseUom->id,
+                    'name' => $purchaseUom->name,
+                    'conversion' => $purchaseUomPivot?->pivot?->conversion ? (float) $purchaseUomPivot->pivot->conversion : 1,
+                    'operation' => $purchaseUomPivot?->pivot?->operation ?? 'multiply',
+                    'price_1' => $purchaseUomPivot?->pivot?->price_1 ? (float) $purchaseUomPivot->pivot->price_1 : 0,
+                    'net_weight' => $purchaseUomPivot?->pivot?->net_weight ? (float) $purchaseUomPivot->pivot->net_weight : 0,
+                    'net_volume' => $purchaseUomPivot?->pivot?->net_volume ? (float) $purchaseUomPivot->pivot->net_volume : 0,
+                    'barcodes' => $barcodes,
+                ],
+            ];
+        })->filter()->values(); // Remove nulls and reindex
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Supplier items fetched successfully.',
+            'data' => $transformedItems,
+        ]);
+    }
+
+    public function getForPurchaseInvoice(Supplier $supplier)
+    {
+        // Load only essential relationships
+        $supplier->load([
+            'paymentTerm:id,code,name,nb_days,active',
+        ]);
+
+        // Load active opening balances with currency (for currency selection)
+        $openingBalances = $supplier->openingBalances()
+            ->where('is_active', true)
+            ->with('currency:id,code,name,iso_code')
+            ->get();
+
+        // Transform opening balances to include flattened currency fields
+        $openingBalancesData = $openingBalances->map(function ($balance) {
+            return [
+                'id' => $balance->id,
+                'currency_id' => $balance->currency_id,
+                'currency_code' => $balance->currency->code ?? null,
+                'currency_name' => $balance->currency->name ?? null,
+                'currency_iso_code' => $balance->currency->iso_code ?? null,
+                'opening_amount' => $balance->opening_amount,
+                'opening_date' => $balance->opening_date,
+                'notes' => $balance->notes,
+                'is_active' => $balance->is_active,
+            ];
+        });
+
+        // Return only essential data for purchase invoice
+        $data = [
+            'id' => $supplier->id,
+            'display_name' => $supplier->display_name,
+            'company_name' => $supplier->company_name,
+            'phone1' => $supplier->phone1, // For help popover
+            'invoicing_mode' => $supplier->invoicing_mode,
+            'payment_term' => $supplier->paymentTerm ? [
+                'id' => $supplier->paymentTerm->id,
+                'code' => $supplier->paymentTerm->code,
+                'name' => $supplier->paymentTerm->name,
+                'nb_days' => $supplier->paymentTerm->nb_days,
+                'active' => $supplier->paymentTerm->active,
+            ] : null,
+            'opening_balances' => $openingBalancesData,
+        ];
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Supplier data for purchase invoice retrieved successfully',
+            'data' => $data,
+        ]);
+    }
+
     public function update(UpdateSupplierRequest $request, Supplier $supplier)
     {
         try {
