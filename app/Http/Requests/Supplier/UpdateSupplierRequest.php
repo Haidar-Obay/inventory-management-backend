@@ -190,7 +190,7 @@ class UpdateSupplierRequest extends FormRequest
 
             'cheque_limits' => ['nullable', 'array'],
             'cheque_limits.*.currency_id' => ['required', 'exists:currencies,id'],
-            'cheque_limits.*.max_cheques' => ['required', 'integer', 'min:0'],
+            'cheque_limits.*.max_cheques' => ['nullable', 'integer', 'min:0'],
             'cheque_limits.*.notes' => ['nullable', 'string', 'max:1000'],
 
             // More Options

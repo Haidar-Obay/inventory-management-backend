@@ -280,12 +280,39 @@ class CustomerController extends Controller
             // Handle cheque limits with new structure (after opening balances)
             if ($request->has('max_cheques')) {
                 $chequeLimits = $request->input('max_cheques');
+                
+                // Get currencies that have opening balances from the request
+                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
+                    ->pluck('currency')
+                    ->filter()
+                    ->toArray();
+                
                 foreach ($chequeLimits as $currencyCode => $maxCheques) {
+                    // Skip empty, null, or zero values (cleared fields)
+                    if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
+                        continue;
+                    }
+                    
                     // Find currency by code
                     $currency = \App\Models\Currency::where('code', $currencyCode)->first();
                     if ($currency) {
                         try {
-                            $customer->setChequeLimit($currency->id, $maxCheques);
+                            // Check if this currency has an opening balance
+                            if (in_array($currencyCode, $openingBalanceCurrencies)) {
+                                // Create cheque limit directly using computeNextAvailableId
+                                $nextChequeId = $this->computeNextAvailableId(\App\Models\CustomerChequeLimit::class, 'id');
+                                $customerCheque = new \App\Models\CustomerChequeLimit([
+                                    'customer_id' => $customer->id,
+                                    'currency_id' => $currency->id,
+                                    'max_cheques' => $maxCheques,
+                                    'used_cheques' => 0,
+                                    'available_cheques' => $maxCheques,
+                                    'notes' => null,
+                                    'is_active' => true,
+                                ]);
+                                $customerCheque->id = $nextChequeId;
+                                $customerCheque->save();
+                            }
                         } catch (\Exception $e) {
                             // Re-throw the exception to trigger transaction rollback
                             throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
@@ -1054,12 +1081,38 @@ class CustomerController extends Controller
                 // Delete existing cheque limits completely instead of just marking as inactive
                 $customer->chequeLimits()->delete();
 
+                // Get the currencies that have opening balances (from the request data)
+                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
+                    ->pluck('currency')
+                    ->filter()
+                    ->toArray();
+
                 foreach ($request->input('max_cheques') as $currencyCode => $maxCheques) {
+                    // Skip empty, null, or zero values (cleared fields)
+                    if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
+                        continue;
+                    }
+                    
                     // Find currency by code
                     $currency = \App\Models\Currency::where('code', $currencyCode)->first();
                     if ($currency) {
                         try {
-                            $customer->setChequeLimit($currency->id, $maxCheques);
+                            // Check if this currency has an opening balance (from request data, not database)
+                            if (in_array($currencyCode, $openingBalanceCurrencies)) {
+                                // Create cheque limit directly using computeNextAvailableId
+                                $nextChequeId = $this->computeNextAvailableId(\App\Models\CustomerChequeLimit::class, 'id');
+                                $customerCheque = new \App\Models\CustomerChequeLimit([
+                                    'customer_id' => $customer->id,
+                                    'currency_id' => $currency->id,
+                                    'max_cheques' => $maxCheques,
+                                    'used_cheques' => 0,
+                                    'available_cheques' => $maxCheques,
+                                    'notes' => null,
+                                    'is_active' => true,
+                                ]);
+                                $customerCheque->id = $nextChequeId;
+                                $customerCheque->save();
+                            }
                         } catch (\Exception $e) {
                             // Re-throw the exception to trigger transaction rollback
                             throw new \Exception('Cheque limit validation failed: '.$e->getMessage());

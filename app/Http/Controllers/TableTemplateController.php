@@ -74,6 +74,7 @@ class TableTemplateController extends Controller
             'salesmen',
             'items',
             'categories',
+            'subCategories',
             'brands',
             'productLines',
             'projects',

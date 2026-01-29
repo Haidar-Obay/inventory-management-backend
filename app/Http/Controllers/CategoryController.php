@@ -20,7 +20,7 @@ class CategoryController extends Controller
         $categories = app('cache')->store('database')->get($key);
 
         if (! $categories) {
-            $categories = Category::with('parentCategory')->get();
+            $categories = Category::with('productLine')->get();
             app('cache')->store('database')->forever($key, $categories);
         }
 
@@ -36,33 +36,14 @@ class CategoryController extends Controller
         $request->validate([
             'code' => 'required|string|unique:categories,code',
             'name' => 'required|string',
-            'subcategory_of' => 'nullable|exists:categories,id',
+            'product_line_id' => 'nullable|exists:product_lines,id',
             'active' => 'boolean',
         ]);
 
-        // Check if the parent category is not itself a subcategory
-        if ($request->subcategory_of) {
-            $parentCategory = Category::find($request->subcategory_of);
-            if ($parentCategory->subcategory_of) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Cannot create subcategory under another subcategory. Only top-level categories can have subcategories.',
-                ], 422);
-            }
-        }
-
-        // Prevent circular references
-        if ($request->subcategory_of) {
-            $parentCategory = Category::find($request->subcategory_of);
-            if ($parentCategory->subcategory_of === $request->subcategory_of) {
-                return response()->json(['message' => 'Circular reference detected in category hierarchy'], 422);
-            }
-        }
-
-        // Normalize subcategory_of: convert empty string to null
-        $data = $request->all();
-        if (isset($data['subcategory_of']) && $data['subcategory_of'] === '') {
-            $data['subcategory_of'] = null;
+        // Normalize product_line_id: convert empty string to null
+        $data = $request->only(['code', 'name', 'product_line_id', 'active']);
+        if (isset($data['product_line_id']) && $data['product_line_id'] === '') {
+            $data['product_line_id'] = null;
         }
 
         $nextId = $this->computeNextAvailableId(Category::class, 'id');
@@ -83,7 +64,7 @@ class CategoryController extends Controller
 
     public function show(Category $category)
     {
-        $category = Category::with('parentCategory', 'subcategories')->find($category->id);
+        $category = Category::with('subcategories', 'productLine')->find($category->id);
 
         return response()->json([
             'status' => true,
@@ -97,37 +78,14 @@ class CategoryController extends Controller
         $request->validate([
             'code' => 'required|string|unique:categories,code,'.$category->id,
             'name' => 'required|string',
-            'subcategory_of' => 'nullable|exists:categories,id',
+            'product_line_id' => 'nullable|exists:product_lines,id',
             'active' => 'boolean',
         ]);
 
-        // Check if the parent category is not itself a subcategory
-        if ($request->subcategory_of) {
-            $parentCategory = Category::find($request->subcategory_of);
-            if ($parentCategory->subcategory_of) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Cannot assign subcategory under another subcategory. Only top-level categories can have subcategories.',
-                ], 422);
-            }
-        }
-
-        // Prevent circular references
-        if ($request->subcategory_of) {
-            if ($request->subcategory_of === $category->id) {
-                return response()->json(['message' => 'A category cannot be a subcategory of itself'], 422);
-            }
-
-            $parentCategory = Category::find($request->subcategory_of);
-            if ($parentCategory->subcategory_of === $category->id) {
-                return response()->json(['message' => 'Circular reference detected in category hierarchy'], 422);
-            }
-        }
-
-        // Normalize subcategory_of: convert empty string to null
-        $data = $request->all();
-        if (isset($data['subcategory_of']) && $data['subcategory_of'] === '') {
-            $data['subcategory_of'] = null;
+        // Normalize product_line_id: convert empty string to null
+        $data = $request->only(['code', 'name', 'product_line_id', 'active']);
+        if (isset($data['product_line_id']) && $data['product_line_id'] === '') {
+            $data['product_line_id'] = null;
         }
 
         $category->update($data);
@@ -148,7 +106,7 @@ class CategoryController extends Controller
         // Prevent deletion if related subcategories exist; include helpful details
         if ($category->subcategories()->exists()) {
             $count = $category->subcategories()->count();
-            $sampleIds = $category->subcategories()->select('categories.id')->limit(1)->pluck('id');
+            $sampleIds = $category->subcategories()->limit(1)->pluck('id');
 
             $identifier = $category->name ?? $category->code ?? "ID: {$category->id}";
 
@@ -206,7 +164,7 @@ class CategoryController extends Controller
                     $details = [
                         'subcategories' => [
                             'count' => $subcategoriesCount,
-                            'sample_ids' => $category->subcategories()->select('categories.id')->limit(1)->pluck('id'),
+                            'sample_ids' => $category->subcategories()->limit(1)->pluck('id'),
                         ],
                     ];
 
@@ -235,7 +193,7 @@ class CategoryController extends Controller
                         if ($subcategoriesCount > 0) {
                             $details['subcategories'] = [
                                 'count' => $subcategoriesCount,
-                                'sample_ids' => $category->subcategories()->select('categories.id')->limit(1)->pluck('id'),
+                                'sample_ids' => $category->subcategories()->limit(1)->pluck('id'),
                             ];
                         }
                     } catch (\Throwable $ignored) {
@@ -284,7 +242,7 @@ class CategoryController extends Controller
 
     public function exportExcell()
     {
-        $categories = Category::with('parentCategory')->orderBy('name');
+        $categories = Category::orderBy('name');
         $collection = $categories->get();
 
         if ($collection->isEmpty()) {
@@ -294,8 +252,8 @@ class CategoryController extends Controller
             ], 404);
         }
 
-        $columns = ['id', 'code', 'name', 'subcategory_of', 'active', 'created_at', 'updated_at'];
-        $headings = ['ID', 'Code', 'Name', 'Subcategory Of', 'Active', 'Created At', 'Updated At'];
+        $columns = ['id', 'code', 'name', 'product_line_id', 'active', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Code', 'Name', 'Product Line', 'Active', 'Created At', 'Updated At'];
 
         $fileName = 'categories_'.date('Y-m-d_H-i-s').'.xlsx';
 
@@ -304,8 +262,8 @@ class CategoryController extends Controller
 
     public function exportPdf()
     {
-        $categories = Category::with('parentCategory')
-            ->select('id', 'code', 'name', 'subcategory_of', 'active', 'created_at', 'updated_at')
+        $categories = Category::with('productLine')
+            ->select('id', 'code', 'name', 'product_line_id', 'active', 'created_at', 'updated_at')
             ->get();
 
         if ($categories->isEmpty()) {
@@ -320,7 +278,7 @@ class CategoryController extends Controller
             'id' => 'ID',
             'code' => 'Code',
             'name' => 'Name',
-            'subcategory_of' => 'Subcategory Of',
+            'product_line_id' => 'Product Line',
             'active' => 'Active',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
@@ -353,7 +311,7 @@ class CategoryController extends Controller
 
         // If type is 'mapping', use provided mapping, else use default
         $mapping = $request->input('mapping');
-        $fields = $mapping ? array_values($mapping) : ['code', 'name', 'subcategory_of', 'active'];
+        $fields = $mapping ? array_values($mapping) : ['code', 'name', 'product_line_id', 'active'];
 
         try {
             $import = new DynamicExcelImport(
@@ -368,21 +326,12 @@ class CategoryController extends Controller
                     $errors = [];
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
-                    $subcategoryKey = $mapping ? array_search('subcategory_of', $mapping) : 'subcategory_of';
 
                     if (($row[$codeKey] ?? '') === '') {
                         $errors[] = 'Missing code';
                     }
                     if (($row[$nameKey] ?? '') === '') {
                         $errors[] = 'Missing name';
-                    }
-
-                    // Validate parent category code if provided
-                    if (! empty($row[$subcategoryKey])) {
-                        $parentCategory = Category::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subcategoryKey])])->first();
-                        if (! $parentCategory) {
-                            $errors[] = "Parent category with code '{$row[$subcategoryKey]}' not found";
-                        }
                     }
 
                     return $errors;
@@ -393,25 +342,23 @@ class CategoryController extends Controller
                             $row[$k] = trim($v);
                         }
                     }
-                    $subcategoryOf = null;
-
                     $codeKey = $mapping ? array_search('code', $mapping) : 'code';
                     $nameKey = $mapping ? array_search('name', $mapping) : 'name';
-                    $subcategoryKey = $mapping ? array_search('subcategory_of', $mapping) : 'subcategory_of';
+                    $productLineKey = $mapping ? array_search('product_line_id', $mapping) : 'product_line_id';
                     $activeKey = $mapping ? array_search('active', $mapping) : 'active';
 
-                    // If subcategory_of is provided and not empty, look up the parent category by code
-                    if (! empty($row[$subcategoryKey])) {
-                        $parentCategory = Category::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower($row[$subcategoryKey])])->first();
-                        if ($parentCategory) {
-                            $subcategoryOf = $parentCategory->id;
+                    $productLineId = null;
+                    if (! empty($row[$productLineKey])) {
+                        $pl = \App\Models\ProductLine::whereRaw('LOWER(TRIM(code)) = ?', [mb_strtolower(trim($row[$productLineKey]))])->first();
+                        if ($pl) {
+                            $productLineId = $pl->id;
                         }
                     }
 
                     return [
                         'code' => $row[$codeKey] ?? null,
                         'name' => $row[$nameKey] ?? null,
-                        'subcategory_of' => $subcategoryOf,
+                        'product_line_id' => $productLineId,
                         'active' => boolval($row[$activeKey] ?? true),
                     ];
                 },
@@ -476,9 +423,7 @@ class CategoryController extends Controller
 
     public function getNames()
     {
-        // Only get top-level categories (not subcategories)
-        $categories = Category::whereNull('subcategory_of')
-            ->select('id', 'name', 'created_at', 'updated_at')
+        $categories = Category::select('id', 'name', 'created_at', 'updated_at')
             ->orderBy('name')
             ->get()
             ->map(function ($category) {

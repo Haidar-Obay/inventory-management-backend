@@ -142,12 +142,40 @@ class SupplierController extends Controller
 
             // Handle multi-currency cheque limits
             if ($request->input('cheque_limits')) {
+                // Get currencies that have opening balances from the request
+                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
+                    ->pluck('currency_id')
+                    ->filter()
+                    ->toArray();
+
                 foreach ($request->input('cheque_limits') as $chequeLimitData) {
-                    $supplier->setChequeLimitForCurrency(
-                        $chequeLimitData['currency_id'],
-                        $chequeLimitData['max_cheques'],
-                        $chequeLimitData['notes'] ?? null
-                    );
+                    // Skip empty, null, or zero values (cleared fields)
+                    $maxCheques = $chequeLimitData['max_cheques'] ?? null;
+                    if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
+                        continue;
+                    }
+
+                    // Check if this currency has an opening balance
+                    if (in_array($chequeLimitData['currency_id'], $openingBalanceCurrencies)) {
+                        try {
+                            // Create cheque limit directly using computeNextAvailableId
+                            $nextChequeId = $this->computeNextAvailableId(\App\Models\SupplierChequeLimit::class, 'id');
+                            $supplierCheque = new \App\Models\SupplierChequeLimit([
+                                'supplier_id' => $supplier->id,
+                                'currency_id' => $chequeLimitData['currency_id'],
+                                'max_cheques' => $maxCheques,
+                                'used_cheques' => 0,
+                                'available_cheques' => $maxCheques,
+                                'notes' => $chequeLimitData['notes'] ?? null,
+                                'is_active' => true,
+                            ]);
+                            $supplierCheque->id = $nextChequeId;
+                            $supplierCheque->save();
+                        } catch (\Exception $e) {
+                            // Re-throw the exception to trigger transaction rollback
+                            throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
+                        }
+                    }
                 }
             }
 
@@ -242,6 +270,16 @@ class SupplierController extends Controller
 
         // Load active opening balances with currency (multi-currency table)
         $openingBalances = $supplier->openingBalances()
+            ->where('is_active', true)
+            ->with('currency:id,code,name,iso_code')
+            ->get();
+
+        // Load active credit limits and cheque limits with currency (like customer controller)
+        $creditLimits = $supplier->creditLimits()
+            ->where('is_active', true)
+            ->with('currency:id,code,name,iso_code')
+            ->get();
+        $chequeLimits = $supplier->chequeLimits()
             ->where('is_active', true)
             ->with('currency:id,code,name,iso_code')
             ->get();
@@ -583,8 +621,8 @@ class SupplierController extends Controller
                         : collect([])
                 ),
 
-            // Credit limits with currency info
-            'credit_limits' => $supplier->creditLimits->map(function ($creditLimit) {
+            // Credit limits with currency info (use explicitly loaded collection)
+            'credit_limits' => $creditLimits->map(function ($creditLimit) {
                 return [
                     'id' => $creditLimit->id,
                     'currency_id' => $creditLimit->currency_id,
@@ -599,8 +637,8 @@ class SupplierController extends Controller
                 ];
             }),
 
-            // Cheque limits with currency info
-            'cheque_limits' => $supplier->chequeLimits->map(function ($chequeLimit) {
+            // Cheque limits with currency info (use explicitly loaded collection)
+            'cheque_limits' => $chequeLimits->map(function ($chequeLimit) {
                 return [
                     'id' => $chequeLimit->id,
                     'currency_id' => $chequeLimit->currency_id,
@@ -863,13 +901,47 @@ class SupplierController extends Controller
             }
 
             // Handle multi-currency cheque limits
-            if ($request->has('cheque_limits')) {
+            // Always delete existing cheque limits first (like customer) to handle cleared fields
+            // This ensures that when fields are cleared in frontend, they are deleted in backend
+            // Delete regardless of whether cheque_limits is in request (handles case when all are cleared)
+            $supplier->chequeLimits()->delete();
+
+            // Get currencies that have opening balances from the request
+            $openingBalanceCurrencies = collect($request->input('opening_balances', []))
+                ->pluck('currency_id')
+                ->filter()
+                ->toArray();
+
+            // Recreate only the ones that are in the request (non-empty values)
+            if ($request->has('cheque_limits') && is_array($request->input('cheque_limits'))) {
                 foreach ($request->input('cheque_limits') as $chequeLimitData) {
-                    $supplier->setChequeLimitForCurrency(
-                        $chequeLimitData['currency_id'],
-                        $chequeLimitData['max_cheques'],
-                        $chequeLimitData['notes'] ?? null
-                    );
+                    // Skip empty, null, or zero values (cleared fields)
+                    $maxCheques = $chequeLimitData['max_cheques'] ?? null;
+                    if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
+                        continue;
+                    }
+
+                    // Check if this currency has an opening balance
+                    if (in_array($chequeLimitData['currency_id'], $openingBalanceCurrencies)) {
+                        try {
+                            // Create cheque limit directly using computeNextAvailableId
+                            $nextChequeId = $this->computeNextAvailableId(\App\Models\SupplierChequeLimit::class, 'id');
+                            $supplierCheque = new \App\Models\SupplierChequeLimit([
+                                'supplier_id' => $supplier->id,
+                                'currency_id' => $chequeLimitData['currency_id'],
+                                'max_cheques' => $maxCheques,
+                                'used_cheques' => 0,
+                                'available_cheques' => $maxCheques,
+                                'notes' => $chequeLimitData['notes'] ?? null,
+                                'is_active' => true,
+                            ]);
+                            $supplierCheque->id = $nextChequeId;
+                            $supplierCheque->save();
+                        } catch (\Exception $e) {
+                            // Re-throw the exception to trigger transaction rollback
+                            throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
+                        }
+                    }
                 }
             }
 
@@ -1424,6 +1496,60 @@ class SupplierController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve supplier brief list',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Lightweight list for Item Supplier Management section: id, name, and currency from first active opening balance.
+     */
+    public function listForItemSupplierManagement()
+    {
+        try {
+            $suppliers = Supplier::select('id', 'display_name', 'company_name', 'first_name', 'last_name')
+                ->where('active', true)
+                ->with(['openingBalances' => function ($q) {
+                    $q->where('is_active', true)->orderBy('id')->with('currency:id,code,name');
+                }])
+                ->orderBy('display_name')
+                ->get()
+                ->map(function ($supplier) {
+                    // Get all currencies from active opening balances
+                    $currencies = $supplier->openingBalances
+                        ->filter(function ($ob) {
+                            return $ob->relationLoaded('currency') && $ob->currency;
+                        })
+                        ->map(function ($ob) {
+                            return [
+                                'id' => $ob->currency->id,
+                                'code' => $ob->currency->code,
+                                'name' => $ob->currency->name,
+                            ];
+                        })
+                        ->values()
+                        ->toArray();
+
+                    // First currency (for auto-selection)
+                    $firstCurrency = !empty($currencies) ? $currencies[0] : null;
+
+                    return [
+                        'id' => $supplier->id,
+                        'name' => $supplier->display_name ?: $supplier->company_name ?: trim($supplier->first_name.' '.$supplier->last_name) ?: '',
+                        'currency' => $firstCurrency, // First currency for backward compatibility and auto-selection
+                        'currencies' => $currencies, // All currencies for dropdown
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Suppliers for item supplier management retrieved successfully',
+                'data' => $suppliers,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve suppliers for item supplier management',
                 'error' => $e->getMessage(),
             ], 500);
         }
