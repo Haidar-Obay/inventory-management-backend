@@ -1442,6 +1442,7 @@ class ItemController extends Controller
                 $rowIndex++;
             }
             $message = 'One or more barcodes already exist (including duplicates within this item).';
+
             return response()->json([
                 'status' => false,
                 'message' => $message,
@@ -1570,6 +1571,7 @@ class ItemController extends Controller
             $duplicateBarcodes = $existingQuery->pluck('barcode')->toArray();
             if (! empty($duplicateBarcodes)) {
                 $message = 'One or more barcodes already exist.';
+
                 return response()->json([
                     'status' => false,
                     'message' => $message,
