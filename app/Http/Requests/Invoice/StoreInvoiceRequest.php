@@ -45,6 +45,8 @@ class StoreInvoiceRequest extends FormRequest
             // Reference
             'ref_2' => 'nullable|string|max:255',
             'sales_order' => 'nullable|string|max:255',
+            'supplier_invoice_number' => 'nullable|string|max:255',
+            'supplier_invoice_date' => 'nullable|date',
             'exchange_rate' => 'nullable|numeric|min:0',
 
             // Document-level discount
@@ -80,7 +82,7 @@ class StoreInvoiceRequest extends FormRequest
             'items' => 'required|array',
             'items.*.item_id' => 'required|integer|exists:items,id',
             'items.*.barcode' => 'nullable|string',
-            'items.*.description' => 'required|string',
+            'items.*.description' => 'nullable|string',
             'items.*.uom_id' => 'required|integer|exists:unit_of_measurements,id',
             'items.*.warehouse_id' => 'required|integer|exists:warehouses,id',
             'items.*.quantity' => 'required|numeric|min:0.0001',

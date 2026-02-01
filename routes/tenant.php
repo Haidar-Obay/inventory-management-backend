@@ -16,7 +16,6 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\BusinessTypeController;
 use App\Http\Controllers\CategoryController;
-use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\CompanyCodeController;
 use App\Http\Controllers\CostCenterController;
@@ -66,6 +65,7 @@ use App\Http\Controllers\ServiceNeededItemController;
 use App\Http\Controllers\SetupWizardController;
 use App\Http\Controllers\SpecialistController;
 use App\Http\Controllers\SpecialityController;
+use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierGroupController;
@@ -161,6 +161,8 @@ Route::middleware([
         Route::apiResource('sub-categories', SubCategoryController::class)->middleware('check.permission:sub_categories,view');
         Route::apiResource('item-groups', ItemGroupController::class)->middleware('check.permission:item_groups,view');
         Route::apiResource('supplier-groups', SupplierGroupController::class)->middleware('check.permission:supplier_groups,view');
+        Route::get('suppliers/{supplier}/for-purchase-invoice', [SupplierController::class, 'getForPurchaseInvoice'])->middleware('check.permission:suppliers,view'); // Optimized endpoint for purchase invoice
+        Route::get('suppliers/{supplier}/items', [SupplierController::class, 'getItems'])->middleware('check.permission:suppliers,view'); // Get supplier items with costs and purchase UOM
         Route::get('suppliers/for-item-management', [SupplierController::class, 'listForItemSupplierManagement'])->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
         Route::apiResource('suppliers', SupplierController::class)->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
 
@@ -219,6 +221,8 @@ Route::middleware([
         Route::get('items/search-by-barcode', [ItemController::class, 'searchItemsByBarcode'])->middleware('check.permission:items,view'); // Search items by barcode (partial match) for help grid
         Route::get('items/by-code', [ItemController::class, 'getItemByCode'])->middleware('check.permission:items,view'); // Must come before apiResource
         Route::get('items/{item}/preview', [ItemController::class, 'getItemForPreview'])->middleware('check.permission:items,view'); // Preview endpoint - must come before apiResource
+        Route::get('items/{item}/supplier-cost', [ItemController::class, 'getSupplierCost'])->middleware('check.permission:items,view'); // Get supplier cost for item
+        Route::get('items/last-invoice-price', [ItemController::class, 'getLastInvoicePrice'])->middleware('check.permission:items,view'); // Get last invoice price
         Route::apiResource('items', ItemController::class)->middleware('check.permission:items,view');
         // Explicit POST route for items update with FormData (method spoofing support)
         Route::post('items/{item}', [ItemController::class, 'update'])->middleware('check.permission:items,view');
@@ -240,6 +244,7 @@ Route::middleware([
         Route::get('units/{unitOfMeasurement}/conversions', [\App\Http\Controllers\UnitOfMeasurementController::class, 'conversions'])->middleware('check.permission:unit_of_measurements,view');
         Route::apiResource('unit-of-measurements', UnitOfMeasurementController::class)->middleware('check.permission:unit_of_measurements,view');
         Route::get('invoices/next-number', [InvoiceController::class, 'getNextInvoiceNumber'])->middleware('check.permission:invoices,view');
+        Route::get('invoices/last-invoice', [InvoiceController::class, 'getLastInvoice'])->middleware('check.permission:invoices,view');
         Route::apiResource('invoices', InvoiceController::class)->middleware('check.permission:invoices,view');
         Route::apiResource('customer-master-lists', CustomerMasterListController::class);
         Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');
