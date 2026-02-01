@@ -518,6 +518,7 @@ class UpdateCustomerRequest extends FormRequest
                     }
                 },
             ],
+            'opening_balances.*.id' => 'sometimes|nullable|integer',
             'opening_balances.*.currency' => 'required|string|max:10',
             'opening_balances.*.amount' => 'required|numeric',
             'opening_balances.*.date' => 'nullable|date',

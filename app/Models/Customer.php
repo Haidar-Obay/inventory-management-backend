@@ -831,6 +831,7 @@ class Customer extends Model implements Auditable
             ]);
         } else {
             $this->openingBalances()->create([
+                'id' => CustomerOpeningBalance::getNextAvailableId(),
                 'currency_id' => $currencyId,
                 'opening_amount' => $amount,
                 'opening_date' => $openingDate ?? now()->toDateString(),
