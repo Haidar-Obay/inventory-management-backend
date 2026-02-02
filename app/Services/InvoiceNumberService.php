@@ -9,7 +9,7 @@ class InvoiceNumberService
     /**
      * Generate the next invoice number for a given invoice type and year.
      * Format: "{year_last_2_digits}-{sequence_number}"
-     * Example: "25-0", "25-1", "25-2" for year 2025
+     * Example: "25-1", "25-2", "25-3" for year 2025
      *
      * @param  string  $invoiceType  'purchase' or 'sale'
      * @param  int|null  $year  Year (e.g., 2025). If null, uses current year.
@@ -27,7 +27,7 @@ class InvoiceNumberService
             ->lockForUpdate() // Prevent race conditions
             ->first();
 
-        $nextSequence = $lastInvoice ? ($lastInvoice->sequence_number + 1) : 0;
+        $nextSequence = $lastInvoice ? ($lastInvoice->sequence_number + 1) : 1;
 
         $invoiceNumber = "{$yearLastTwoDigits}-{$nextSequence}";
 
@@ -61,7 +61,7 @@ class InvoiceNumberService
             ->lockForUpdate()
             ->first();
 
-        $nextSequence = $lastInvoice ? ($lastInvoice->sequence_number + 1) : 0;
+        $nextSequence = $lastInvoice ? ($lastInvoice->sequence_number + 1) : 1;
 
         $invoiceNumber = "{$yearLastTwoDigits}-{$nextSequence}";
 

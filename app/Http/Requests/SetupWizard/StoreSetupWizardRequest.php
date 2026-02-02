@@ -27,7 +27,13 @@ class StoreSetupWizardRequest extends FormRequest
         $tenant = tenant();
         $plan = $tenant?->subscriptionPlan;
         $maxCurrencies = $plan?->max_currencies ?? 1;
-        $supportsMultiCurrency = $maxCurrencies > 1;
+
+        // Get available currency codes from central database
+        $availableCurrencyCodes = tenancy()->central(function () {
+            return \App\Models\AvailableCurrency::where('is_active', true)
+                ->pluck('code')
+                ->toArray();
+        });
 
         return [
             // Company Information
@@ -39,11 +45,33 @@ class StoreSetupWizardRequest extends FormRequest
             'preferred_mode' => ['required', Rule::in(['light', 'dark'])],
             'time_format' => ['required', Rule::in(['12', '24'])],
 
-            // Currency Settings
-            'primary_currency_id' => 'required|exists:currencies,id',
-            'secondary_currency_id' => $supportsMultiCurrency
-                ? ['nullable', 'exists:currencies,id', 'different:primary_currency_id']
-                : 'prohibited',
+            // Currency Settings - New format
+            'selected_currencies' => [
+                'required',
+                'array',
+                'min:1',
+                'max:'.$maxCurrencies,
+            ],
+            'selected_currencies.*' => [
+                'required',
+                'string',
+                Rule::in($availableCurrencyCodes),
+            ],
+            'primary_currency_code' => [
+                'required',
+                'string',
+                Rule::in($availableCurrencyCodes),
+                function ($attribute, $value, $fail) {
+                    $selectedCurrencies = $this->input('selected_currencies', []);
+                    if (! in_array($value, $selectedCurrencies)) {
+                        $fail('The primary currency must be one of the selected currencies.');
+                    }
+                },
+            ],
+            'currency_rates' => 'nullable|array',
+            'currency_rates.*' => 'nullable|numeric|min:0.0001',
+            'currency_rate_sources' => 'nullable|array',
+            'currency_rate_sources.*' => 'nullable|string|in:manual,api,scheduled',
 
             // Working Hours
             'working_time_from' => 'required|date_format:H:i',
@@ -58,13 +86,21 @@ class StoreSetupWizardRequest extends FormRequest
      */
     public function messages(): array
     {
+        $tenant = tenant();
+        $plan = $tenant?->subscriptionPlan;
+        $maxCurrencies = $plan?->max_currencies ?? 1;
+
         return [
             'company_name.required' => 'Company name is required.',
             'location.required' => 'Location is required.',
-            'primary_currency_id.required' => 'Primary currency is required.',
-            'primary_currency_id.exists' => 'Selected primary currency does not exist.',
-            'secondary_currency_id.prohibited' => 'Your subscription plan does not support multiple currencies.',
-            'secondary_currency_id.different' => 'Secondary currency must be different from primary currency.',
+            'selected_currencies.required' => 'Please select at least one currency.',
+            'selected_currencies.array' => 'Selected currencies must be an array.',
+            'selected_currencies.min' => 'Please select at least one currency.',
+            'selected_currencies.max' => "You can select a maximum of {$maxCurrencies} currency(ies) based on your subscription plan.",
+            'selected_currencies.*.required' => 'Each currency code is required.',
+            'selected_currencies.*.in' => 'One or more selected currencies are not available.',
+            'primary_currency_code.required' => 'Primary currency is required.',
+            'primary_currency_code.in' => 'The selected primary currency is not available.',
             'working_time_from.required' => 'Working time start is required.',
             'working_time_to.required' => 'Working time end is required.',
             'working_time_to.after' => 'Working time end must be after working time start.',

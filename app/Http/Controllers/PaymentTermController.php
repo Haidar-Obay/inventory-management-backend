@@ -249,10 +249,10 @@ class PaymentTermController extends Controller
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No payment terms found.'], 404);
         }
-        $columns = ['id', 'code', 'name', 'nb_days', 'active',
+        $columns = ['id', 'code', 'name', 'nb_days', 'active', 'primary',
             'created_at',
             'updated_at'];
-        $headings = ['ID', 'Code', 'Name', 'Number of Days', 'Active',
+        $headings = ['ID', 'Code', 'Name', 'Number of Days', 'Active', 'Primary',
             'Created At', 'Updated At'];
 
         return Excel::download(new Export($paymentTerms, $columns, $headings), 'payment_terms.xlsx');
@@ -260,7 +260,7 @@ class PaymentTermController extends Controller
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $paymentTerms = PaymentTerm::select('id', 'code', 'name', 'nb_days', 'active')->get();
+        $paymentTerms = PaymentTerm::select('id', 'code', 'name', 'nb_days', 'active', 'primary')->get();
         if ($paymentTerms->isEmpty()) {
             return response()->json(['message' => 'No payment terms found.'], 404);
         }
@@ -271,6 +271,7 @@ class PaymentTermController extends Controller
             'name' => 'Name',
             'nb_days' => 'Number of Days',
             'active' => 'Active',
+            'primary' => 'Primary',
         ];
         $data = $paymentTerms->toArray();
         $pdf = $pdfService->generatePdf($title, $headers, $data);
@@ -303,7 +304,7 @@ class PaymentTermController extends Controller
 
         $import = new DynamicExcelImport(
             PaymentTerm::class,
-            ['code', 'name', 'nb_days', 'active'],
+            ['code', 'name', 'nb_days', 'active', 'primary'],
             function ($row) use ($mapping) {
                 foreach ($row as $k => $v) {
                     if (is_string($v)) {
@@ -315,6 +316,7 @@ class PaymentTermController extends Controller
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $daysKey = $mapping ? array_search('nb_days', $mapping) : 'nb_days';
                 $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+                $primaryKey = $mapping ? array_search('primary', $mapping) : 'primary';
                 if ((($row[$codeKey] ?? '') === '')) {
                     $errors[] = 'Missing code';
                 }
@@ -337,12 +339,14 @@ class PaymentTermController extends Controller
                 $nameKey = $mapping ? array_search('name', $mapping) : 'name';
                 $daysKey = $mapping ? array_search('nb_days', $mapping) : 'nb_days';
                 $activeKey = $mapping ? array_search('active', $mapping) : 'active';
+                $primaryKey = $mapping ? array_search('primary', $mapping) : 'primary';
 
                 return [
                     'code' => $row[$codeKey] ?? null,
                     'name' => $row[$nameKey] ?? null,
                     'nb_days' => $row[$daysKey] ?? null,
                     'active' => isset($row[$activeKey]) ? (bool) $row[$activeKey] : true,
+                    'primary' => isset($row[$primaryKey]) ? (bool) $row[$primaryKey] : false,
                 ];
             },
             $mapping ? false : true // Disable header validation when mapping provided

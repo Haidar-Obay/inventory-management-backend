@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Central\AvailableCurrencyController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\ModulePageController;
 use App\Http\Controllers\ModuleResourceController;
@@ -100,6 +101,16 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::put('/{id}', [SubscriptionPlanController::class, 'update']);
             Route::delete('/{id}', [SubscriptionPlanController::class, 'destroy']);
             Route::get('/check-current-user-subscription', [SubscriptionPlanController::class, 'checkCurrentUserSubscription']);
+        });
+
+        // Available Currencies Management
+        Route::middleware(['auth:sanctum'])->prefix('available-currencies')->group(function () {
+            Route::get('/', [AvailableCurrencyController::class, 'index']);
+            Route::get('/{id}', [AvailableCurrencyController::class, 'show']);
+            Route::post('/', [AvailableCurrencyController::class, 'store']);
+            Route::put('/{id}', [AvailableCurrencyController::class, 'update']);
+            Route::delete('/{id}', [AvailableCurrencyController::class, 'destroy']);
+            Route::patch('/{id}/toggle-active', [AvailableCurrencyController::class, 'toggleActive']);
         });
 
         // Tenant Subscription Management

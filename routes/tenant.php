@@ -142,8 +142,10 @@ Route::middleware([
         Route::prefix('setup-wizard')->group(function () {
             Route::get('/', [SetupWizardController::class, 'index']);
             Route::get('/status', [SetupWizardController::class, 'checkStatus']);
-            Route::get('/currencies', [SetupWizardController::class, 'getCurrencies']);
+            Route::get('/available-currencies', [SetupWizardController::class, 'getAvailableCurrencies']);
+            Route::get('/currencies', [SetupWizardController::class, 'getCurrencies']); // Legacy endpoint
             Route::get('/subscription-info', [SetupWizardController::class, 'getSubscriptionInfo']);
+            Route::post('/fetch-exchange-rates', [SetupWizardController::class, 'fetchExchangeRates']);
             Route::post('/', [SetupWizardController::class, 'store']);
             Route::post('/reset', [SetupWizardController::class, 'reset']);
         });
@@ -179,6 +181,11 @@ Route::middleware([
         });
         Route::apiResource('payment-terms', PaymentTermController::class)->middleware('check.permission:payment_terms,view');
 
+        // Define specific currency routes BEFORE apiResource to avoid route conflicts
+        Route::get('currencies/exchange-rate', [CurrencyController::class, 'getExchangeRate'])->middleware('check.permission:currencies,view');
+        Route::post('currencies/convert', [CurrencyController::class, 'convert'])->middleware('check.permission:currencies,view');
+        Route::put('currencies/{id}/rate', [CurrencyController::class, 'updateRate'])->middleware('check.permission:currencies,update');
+        Route::get('currencies/{id}/rate-history', [CurrencyController::class, 'getRateHistory'])->middleware('check.permission:currencies,view');
         Route::apiResource('currencies', CurrencyController::class)->middleware(['subscription.limits:currency', 'check.permission:currencies,view']);
         Route::apiResource('salesmen', SalesmanController::class)->middleware('check.permission:salesmen,view');
         Route::apiResource('customers', CustomerController::class)->middleware(['subscription.limits:customer', 'check.permission:customers,view']);

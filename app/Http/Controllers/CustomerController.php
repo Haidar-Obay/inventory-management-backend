@@ -243,19 +243,17 @@ class CustomerController extends Controller
             // Handle opening balances FIRST (required before credit/cheque limits)
             if ($request->has('opening_balances')) {
                 foreach ($request->input('opening_balances') as $openingBalanceData) {
-                    // Find currency by code
                     $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
                     if ($currency) {
-                        try {
-                            $customer->setOpeningBalance(
-                                $currency->id,
-                                $openingBalanceData['amount'],
-                                $openingBalanceData['date'] ?? null
-                            );
-                        } catch (\Exception $e) {
-                            // Re-throw the exception to trigger transaction rollback
-                            throw new \Exception('Opening balance validation failed: '.$e->getMessage());
-                        }
+                        $nextId = $this->computeNextAvailableId(\App\Models\CustomerOpeningBalance::class);
+                        $customer->openingBalances()->create([
+                            'id' => $nextId,
+                            'currency_id' => $currency->id,
+                            'opening_amount' => $openingBalanceData['amount'],
+                            'opening_date' => $openingBalanceData['date'] ?? now()->toDateString(),
+                            'notes' => $openingBalanceData['notes'] ?? null,
+                            'is_active' => true,
+                        ]);
                     }
                 }
             }
@@ -511,6 +509,7 @@ class CustomerController extends Controller
             'black_listed' => $customer->black_listed,
             'blacklisted_reason' => $customer->blacklisted_reason,
             'one_time_account' => $customer->one_time_account,
+            'cash_customer' => $customer->cash_customer,
             'special_account' => $customer->special_account,
             'pos_customer' => $customer->pos_customer,
             'free_delivery_charge' => $customer->free_delivery_charge,
@@ -998,13 +997,22 @@ class CustomerController extends Controller
 
             $customer->update($validated);
 
-            // Handle opening balances FIRST (required before credit/cheque limits)
+            // Handle opening balances FIRST (required before credit/cheque limits) — stable IDs: update existing by id, create new, delete removed only
             if ($request->has('opening_balances')) {
-                // Delete existing opening balances completely instead of just marking as inactive
-                $customer->openingBalances()->delete();
+                $existingIds = $customer->openingBalances()->pluck('id')->toArray();
+                $requestIds = collect($request->input('opening_balances'))
+                    ->pluck('id')
+                    ->filter(fn ($id) => $id !== null && $id !== '')
+                    ->map(fn ($id) => (int) $id)
+                    ->unique()
+                    ->values()
+                    ->toArray();
+                $idsToDelete = array_diff($existingIds, $requestIds);
+                if (count($idsToDelete) > 0) {
+                    $customer->openingBalances()->whereIn('id', $idsToDelete)->delete();
+                }
 
                 foreach ($request->input('opening_balances') as $openingBalanceData) {
-                    // Resolve currency ID from either currency_id, numeric currency, or currency code
                     $currencyId = $openingBalanceData['currency_id'] ?? null;
                     if (! $currencyId && isset($openingBalanceData['currency'])) {
                         if (is_numeric($openingBalanceData['currency'])) {
@@ -1015,24 +1023,40 @@ class CustomerController extends Controller
                         }
                     }
 
-                    if ($currencyId) {
-                        $amount = $openingBalanceData['opening_amount'] ?? ($openingBalanceData['amount'] ?? null);
-                        $date = $openingBalanceData['opening_date'] ?? ($openingBalanceData['date'] ?? null);
+                    if (! $currencyId) {
+                        continue;
+                    }
 
-                        try {
-                            $customer->setOpeningBalance(
-                                $currencyId,
-                                $amount,
-                                $date
-                            );
-                        } catch (\Exception $e) {
-                            // Re-throw the exception to trigger transaction rollback
-                            throw new \Exception('Opening balance validation failed: '.$e->getMessage());
-                        }
+                    $amount = $openingBalanceData['opening_amount'] ?? ($openingBalanceData['amount'] ?? null);
+                    $date = $openingBalanceData['opening_date'] ?? ($openingBalanceData['date'] ?? null);
+                    $notes = $openingBalanceData['notes'] ?? null;
+                    $id = isset($openingBalanceData['id']) && $openingBalanceData['id'] !== '' && $openingBalanceData['id'] !== null
+                        ? (int) $openingBalanceData['id']
+                        : null;
+
+                    $existing = $id ? $customer->openingBalances()->where('id', $id)->first() : null;
+
+                    if ($existing) {
+                        $existing->update([
+                            'currency_id' => $currencyId,
+                            'opening_amount' => $amount,
+                            'opening_date' => $date ?? now()->toDateString(),
+                            'notes' => $notes,
+                            'is_active' => true,
+                        ]);
+                    } else {
+                        $nextId = $this->computeNextAvailableId(\App\Models\CustomerOpeningBalance::class);
+                        $customer->openingBalances()->create([
+                            'id' => $nextId,
+                            'currency_id' => $currencyId,
+                            'opening_amount' => $amount,
+                            'opening_date' => $date ?? now()->toDateString(),
+                            'notes' => $notes,
+                            'is_active' => true,
+                        ]);
                     }
                 }
 
-                // Reload the model and its relationships to ensure opening balances are available for credit limit checks
                 $customer->load('openingBalances');
             }
 

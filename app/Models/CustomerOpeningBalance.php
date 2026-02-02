@@ -9,7 +9,7 @@ class CustomerOpeningBalance extends Model implements Auditable
 {
     use \OwenIt\Auditing\Auditable;
 
-    protected $guarded = ['id'];
+    protected $fillable = ['id', 'customer_id', 'currency_id', 'opening_amount', 'opening_date', 'notes', 'is_active'];
 
     protected $table = 'customer_opening_balances';
 
@@ -32,6 +32,16 @@ class CustomerOpeningBalance extends Model implements Auditable
     public function currency()
     {
         return $this->belongsTo(Currency::class);
+    }
+
+    /**
+     * Next available id (same logic as Controller::computeNextAvailableId).
+     */
+    public static function getNextAvailableId(): int
+    {
+        $maxId = (new static)->newQuery()->max('id');
+
+        return $maxId !== null ? ((int) $maxId) + 1 : 1;
     }
 
     // Scopes

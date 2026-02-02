@@ -1347,14 +1347,22 @@ class ItemController extends Controller
             ->get();
 
         // Load barcodes for each UOM and attach to pivot
-        $uoms->each(function ($uom) {
+        $uoms->each(function ($uom) use ($item) {
             $pivot = $uom->pivot;
-            // Get barcodes from dedicated table
-            $barcodes = \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $pivot->id)
-                ->pluck('barcode')
-                ->toArray();
-            // Attach barcodes to pivot as array (for frontend compatibility)
-            $pivot->barcodes = $barcodes;
+            $pivotId = $pivot->id ?? null;
+            // Fallback: if pivot id is missing (e.g. before $incrementing = true on pivot model), resolve by item_id + unit_of_measurement_id
+            if (! $pivotId) {
+                $pivotRow = \App\Models\ItemUnitOfMeasurement::where('item_id', $item->id)
+                    ->where('unit_of_measurement_id', $uom->id)
+                    ->first();
+                $pivotId = $pivotRow?->id;
+            }
+            $barcodes = $pivotId
+                ? \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $pivotId)
+                    ->pluck('barcode')
+                    ->toArray()
+                : [];
+            $pivot->setAttribute('barcodes', $barcodes);
         });
 
         return response()->json([
@@ -1386,6 +1394,61 @@ class ItemController extends Controller
                 'operation' => 'multiply',
                 'conversion' => 1,
             ]);
+        }
+
+        // Validate barcodes before any DB changes: reject if duplicate within request, on another item, or on same item (another UOM)
+        $allRequestedBarcodes = [];
+        foreach ($validated['unit_of_measurements'] as $row) {
+            $barcodes = is_array($row['barcodes'] ?? null) ? $row['barcodes'] : [];
+            foreach ($barcodes as $barcodeValue) {
+                $v = is_scalar($barcodeValue) ? trim((string) $barcodeValue) : '';
+                if ($v !== '') {
+                    $allRequestedBarcodes[] = $v;
+                }
+            }
+        }
+        $uniqueRequested = array_unique($allRequestedBarcodes);
+        $duplicateWithinRequest = array_diff_assoc($allRequestedBarcodes, $uniqueRequested);
+        $duplicateWithinRequest = array_unique(array_values($duplicateWithinRequest));
+        $pivotIdsWeAreUpdating = ItemUnitOfMeasurement::where('item_id', $item->id)
+            ->whereIn('unit_of_measurement_id', collect($validated['unit_of_measurements'])->pluck('unit_of_measurement_id'))
+            ->pluck('id')
+            ->toArray();
+        $existingInDb = \App\Models\ItemBarcode::whereIn('barcode', $allRequestedBarcodes)
+            ->where(function ($q) use ($item, $pivotIdsWeAreUpdating) {
+                $q->where('item_id', '!=', $item->id)
+                    ->orWhereNotIn('item_unit_of_measurement_id', $pivotIdsWeAreUpdating);
+            })
+            ->pluck('barcode')
+            ->toArray();
+        $duplicateBarcodes = array_unique(array_merge($duplicateWithinRequest, $existingInDb));
+        if (! empty($duplicateBarcodes)) {
+            $errorsByField = [];
+            $rowIndex = 0;
+            foreach ($validated['unit_of_measurements'] as $row) {
+                $barcodes = is_array($row['barcodes'] ?? null) ? $row['barcodes'] : [];
+                $rowBarcodeValues = [];
+                foreach ($barcodes as $barcodeValue) {
+                    $v = is_scalar($barcodeValue) ? trim((string) $barcodeValue) : '';
+                    if ($v !== '') {
+                        $rowBarcodeValues[] = $v;
+                    }
+                }
+                $rowDuplicates = array_values(array_intersect($rowBarcodeValues, $duplicateBarcodes));
+                if (! empty($rowDuplicates)) {
+                    $fieldKey = $rowIndex === 0 ? 'barcodes' : 'uoms.'.($rowIndex - 1).'.barcodes';
+                    $errorsByField[$fieldKey] = 'One or more barcodes already exist. Duplicate(s): '.implode(', ', array_unique($rowDuplicates));
+                }
+                $rowIndex++;
+            }
+            $message = 'One or more barcodes already exist (including duplicates within this item).';
+
+            return response()->json([
+                'status' => false,
+                'message' => $message,
+                'duplicate_barcodes' => array_values($duplicateBarcodes),
+                'errors' => $errorsByField,
+            ], 422);
         }
 
         foreach ($validated['unit_of_measurements'] as $row) {
@@ -1420,19 +1483,29 @@ class ItemController extends Controller
             // Sync barcodes to item_barcodes (never to item_unit_of_measurement). Replace any existing for this pivot.
             $barcodes = is_array($row['barcodes'] ?? null) ? $row['barcodes'] : [];
             \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->delete();
-            $barcodesToInsert = [];
+            $barcodeValues = [];
             foreach ($barcodes as $index => $barcodeValue) {
                 $v = is_scalar($barcodeValue) ? trim((string) $barcodeValue) : '';
                 if ($v !== '') {
-                    $barcodesToInsert[] = [
-                        'item_id' => $item->id,
-                        'item_unit_of_measurement_id' => $itemUom->id,
-                        'barcode' => $v,
-                        'is_primary' => count($barcodesToInsert) === 0,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
+                    $barcodeValues[] = $v;
                 }
+            }
+            // Skip barcodes that already exist (unique constraint: barcode is global). Avoids duplicate key violation.
+            $existingBarcodes = \App\Models\ItemBarcode::whereIn('barcode', $barcodeValues)->pluck('barcode')->toArray();
+            $barcodesToInsert = [];
+            foreach ($barcodeValues as $index => $v) {
+                if (in_array($v, $existingBarcodes, true)) {
+                    continue;
+                }
+                $barcodesToInsert[] = [
+                    'item_id' => $item->id,
+                    'item_unit_of_measurement_id' => $itemUom->id,
+                    'barcode' => $v,
+                    'is_primary' => count($barcodesToInsert) === 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                $existingBarcodes[] = $v; // Prevent duplicate within same request
             }
             if (! empty($barcodesToInsert)) {
                 \App\Models\ItemBarcode::insert($barcodesToInsert);
@@ -1482,6 +1555,34 @@ class ItemController extends Controller
         $barcodes = is_array($data['barcodes'] ?? null) ? $data['barcodes'] : [];
         unset($data['barcodes']);
 
+        $barcodeValues = array_values(array_unique(array_filter(array_map(function ($b) {
+            return is_scalar($b) ? trim((string) $b) : '';
+        }, $barcodes))));
+        $barcodeValues = array_filter($barcodeValues, fn ($v) => $v !== '');
+        if (! empty($barcodeValues)) {
+            $currentPivot = ItemUnitOfMeasurement::where('item_id', $item->id)
+                ->where('unit_of_measurement_id', $unitOfMeasurement->id)
+                ->first();
+            $pivotId = $currentPivot?->id;
+            $existingQuery = \App\Models\ItemBarcode::whereIn('barcode', $barcodeValues);
+            if ($pivotId) {
+                $existingQuery->where('item_unit_of_measurement_id', '!=', $pivotId);
+            }
+            $duplicateBarcodes = $existingQuery->pluck('barcode')->toArray();
+            if (! empty($duplicateBarcodes)) {
+                $message = 'One or more barcodes already exist.';
+
+                return response()->json([
+                    'status' => false,
+                    'message' => $message,
+                    'duplicate_barcodes' => $duplicateBarcodes,
+                    'errors' => [
+                        'barcodes' => $message.' Duplicate(s): '.implode(', ', $duplicateBarcodes),
+                    ],
+                ], 422);
+            }
+        }
+
         // Update or create the pivot (no barcode columns)
         $itemUom = ItemUnitOfMeasurement::updateOrCreate(
             [
@@ -1493,19 +1594,25 @@ class ItemController extends Controller
 
         // Sync barcodes to item_barcodes. Replace any existing for this pivot.
         \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->delete();
+        $barcodeValues = array_values(array_unique(array_filter(array_map(function ($b) {
+            return is_scalar($b) ? trim((string) $b) : '';
+        }, $barcodes))));
+        $barcodeValues = array_filter($barcodeValues, fn ($v) => $v !== '');
+        $existingBarcodes = \App\Models\ItemBarcode::whereIn('barcode', $barcodeValues)->pluck('barcode')->toArray();
         $barcodesToInsert = [];
-        foreach ($barcodes as $barcodeValue) {
-            $v = is_scalar($barcodeValue) ? trim((string) $barcodeValue) : '';
-            if ($v !== '') {
-                $barcodesToInsert[] = [
-                    'item_id' => $item->id,
-                    'item_unit_of_measurement_id' => $itemUom->id,
-                    'barcode' => $v,
-                    'is_primary' => count($barcodesToInsert) === 0,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
+        foreach ($barcodeValues as $index => $v) {
+            if (in_array($v, $existingBarcodes, true)) {
+                continue;
             }
+            $barcodesToInsert[] = [
+                'item_id' => $item->id,
+                'item_unit_of_measurement_id' => $itemUom->id,
+                'barcode' => $v,
+                'is_primary' => count($barcodesToInsert) === 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+            $existingBarcodes[] = $v;
         }
         if (! empty($barcodesToInsert)) {
             \App\Models\ItemBarcode::insert($barcodesToInsert);

@@ -22,18 +22,18 @@ class SubscriptionPlanSeeder extends Seeder
             'max_users' => 5,
             'max_customers' => 100,
             'scheduler_mode' => 'basic',
-            'features' => [
-                'basic_inventory' => true,
-                'customer_management' => true,
-                'basic_reporting' => true,
-                'single_currency' => true,
-                'email_support' => true,
-                'multi_currency' => false,
-                'advanced_reporting' => false,
-                'priority_support' => false,
-                'api_access' => false,
-                'custom_integrations' => false,
-            ],
+            // 'features' => [
+            //     'basic_inventory' => true,
+            //     'customer_management' => true,
+            //     'basic_reporting' => true,
+            //     'single_currency' => true,
+            //     'email_support' => true,
+            //     'multi_currency' => false,
+            //     'advanced_reporting' => false,
+            //     'priority_support' => false,
+            //     'api_access' => false,
+            //     'custom_integrations' => false,
+            // ],
         ]);
 
         // Create Prime Plan

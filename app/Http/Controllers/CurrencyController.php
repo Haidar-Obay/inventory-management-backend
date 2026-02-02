@@ -8,7 +8,10 @@ use App\Http\Requests\Currency\StoreCurrencyRequest;
 use App\Http\Requests\Currency\UpdateCurrencyRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Currency;
+use App\Services\ExchangeRateService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -565,5 +568,190 @@ class CurrencyController extends Controller
             'rows_skipped_count' => $import->getSkippedCount(),
             'skipped_rows' => $import->getSkippedRows(),
         ]);
+    }
+
+    /**
+     * Update exchange rate for a currency (manual update).
+     */
+    public function updateRate(Request $request, $id)
+    {
+        $request->validate([
+            'rate' => 'required|numeric|min:0.0001',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $exchangeRateService = new ExchangeRateService;
+            $updatedBy = Auth::check() ? Auth::user()->name : 'System';
+            $currency = $exchangeRateService->updateRate(
+                $id,
+                (float) $request->rate,
+                'manual',
+                $updatedBy,
+                $request->notes
+            );
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Exchange rate updated successfully.',
+                'data' => $currency->load('exchangeRates'),
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to update exchange rate: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get exchange rate history for a currency.
+     */
+    public function getRateHistory($id)
+    {
+        try {
+            $currency = Currency::findOrFail($id);
+            $limit = request()->input('limit', 50);
+
+            $exchangeRateService = new ExchangeRateService;
+            $history = $exchangeRateService->getRateHistory($id, $limit);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Rate history retrieved successfully.',
+                'data' => [
+                    'currency' => $currency,
+                    'history' => $history,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to retrieve rate history: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Convert amount between two currencies.
+     */
+    public function convert(Request $request)
+    {
+        $request->validate([
+            'amount' => 'required|numeric|min:0',
+            'from_code' => 'required|string|exists:currencies,code',
+            'to_code' => 'required|string|exists:currencies,code',
+        ]);
+
+        try {
+            $exchangeRateService = new ExchangeRateService;
+            $convertedAmount = $exchangeRateService->convert(
+                (float) $request->amount,
+                $request->from_code,
+                $request->to_code
+            );
+
+            $rate = $exchangeRateService->getRate($request->from_code, $request->to_code);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Conversion successful.',
+                'data' => [
+                    'original_amount' => (float) $request->amount,
+                    'from_currency' => $request->from_code,
+                    'to_currency' => $request->to_code,
+                    'rate' => $rate,
+                    'converted_amount' => $convertedAmount,
+                ],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to convert: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get exchange rate for a currency (relative to primary currency).
+     * Used for invoice forms to auto-fill exchange_rate field.
+     */
+    public function getExchangeRate(Request $request): JsonResponse
+    {
+        $request->validate([
+            'currency_id' => 'required|integer|exists:currencies,id',
+            'date' => 'nullable|date', // Optional: for historical invoices
+        ]);
+
+        try {
+            $currency = Currency::findOrFail($request->currency_id);
+            $primaryCurrency = Currency::getPrimary();
+
+            if (! $primaryCurrency) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Primary currency not set.',
+                ], 422);
+            }
+
+            // If currency is primary, rate is always 1.0
+            if ($currency->isPrimary()) {
+                return response()->json([
+                    'status' => true,
+                    'data' => [
+                        'exchange_rate' => 1.0000,
+                        'is_primary' => true,
+                        'primary_currency' => [
+                            'code' => $primaryCurrency->code,
+                            'name' => $primaryCurrency->name,
+                            'symbol' => $primaryCurrency->symbol,
+                        ],
+                    ],
+                ]);
+            }
+
+            // Get rate for the selected currency (relative to primary)
+            // If date is provided, use historical rate, otherwise use current rate
+            $rate = $currency->rate;
+
+            if ($request->date) {
+                $exchangeRateService = new ExchangeRateService;
+                $historicalRate = $exchangeRateService->getRateForDate(
+                    $currency->id,
+                    $request->date
+                );
+                if ($historicalRate) {
+                    $rate = $historicalRate->rate;
+                }
+            }
+
+            return response()->json([
+                'status' => true,
+                'data' => [
+                    'exchange_rate' => (float) $rate,
+                    'is_primary' => false,
+                    'primary_currency' => [
+                        'code' => $primaryCurrency->code,
+                        'name' => $primaryCurrency->name,
+                        'symbol' => $primaryCurrency->symbol,
+                    ],
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to retrieve exchange rate: '.$e->getMessage(),
+            ], 500);
+        }
     }
 }
