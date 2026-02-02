@@ -171,8 +171,9 @@ class InvoiceSeeder extends Seeder
             'active' => true,
         ]);
 
-        // Create opening balance for currency
+        // Create opening balance for currency (explicit id to avoid sequence clash after other seeders)
         \App\Models\CustomerOpeningBalance::create([
+            'id' => \App\Models\CustomerOpeningBalance::getNextAvailableId(),
             'customer_id' => $customer->id,
             'currency_id' => $currency->id,
             'opening_amount' => 0,
@@ -333,18 +334,19 @@ class InvoiceSeeder extends Seeder
             // Get customer's available currencies from opening balances
             $customerCurrencies = $customer->openingBalances()->pluck('currency_id')->toArray();
             if (empty($customerCurrencies)) {
-                // Create opening balance if it doesn't exist
-                \App\Models\CustomerOpeningBalance::firstOrCreate(
-                    [
+                // Create opening balance if it doesn't exist (explicit id to avoid sequence clash)
+                $existing = \App\Models\CustomerOpeningBalance::where('customer_id', $customer->id)
+                    ->where('currency_id', $currency->id)->first();
+                if (! $existing) {
+                    \App\Models\CustomerOpeningBalance::create([
+                        'id' => \App\Models\CustomerOpeningBalance::getNextAvailableId(),
                         'customer_id' => $customer->id,
                         'currency_id' => $currency->id,
-                    ],
-                    [
                         'opening_amount' => 0,
                         'opening_date' => now()->toDateString(),
                         'is_active' => true,
-                    ]
-                );
+                    ]);
+                }
                 $currencyId = $currency->id;
             } else {
                 $currencyId = in_array($currency->id, $customerCurrencies) ? $currency->id : $customerCurrencies[0];

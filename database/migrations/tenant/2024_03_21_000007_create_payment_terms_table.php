@@ -14,6 +14,7 @@ return new class extends Migration
             $table->string('name');
             $table->integer('nb_days');
             $table->boolean('active')->default(false);
+            $table->boolean('primary')->default(false);
             $table->timestamps();
         });
     }

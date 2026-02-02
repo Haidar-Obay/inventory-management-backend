@@ -34,6 +34,17 @@ class WarehouseController extends Controller
     {
         $validated = $request->validate(Warehouse::$rules);
 
+        // At most one warehouse per default type (purchases, sales, storage)
+        if (! empty($validated['default_for_purchases']) && Warehouse::where('default_for_purchases', true)->exists()) {
+            return response()->json(['message' => 'Another warehouse is already set as default for purchases.'], 422);
+        }
+        if (! empty($validated['default_for_sales']) && Warehouse::where('default_for_sales', true)->exists()) {
+            return response()->json(['message' => 'Another warehouse is already set as default for sales.'], 422);
+        }
+        if (! empty($validated['default_for_storage']) && Warehouse::where('default_for_storage', true)->exists()) {
+            return response()->json(['message' => 'Another warehouse is already set as default for storage.'], 422);
+        }
+
         // Check if the parent warehouse exists and is active
         if (! empty($validated['sub_warehouse_of'])) {
             $parentWarehouse = Warehouse::find($validated['sub_warehouse_of']);
@@ -85,8 +96,23 @@ class WarehouseController extends Controller
 
         $validated = $request->validate($rules);
 
-        // Check if trying to set a sub-warehouse as parent
+        // At most one warehouse per default type (purchases, sales, storage)
+        if (! empty($validated['default_for_purchases']) && Warehouse::where('default_for_purchases', true)->where('id', '!=', $warehouse->id)->exists()) {
+            return response()->json(['message' => 'Another warehouse is already set as default for purchases.'], 422);
+        }
+        if (! empty($validated['default_for_sales']) && Warehouse::where('default_for_sales', true)->where('id', '!=', $warehouse->id)->exists()) {
+            return response()->json(['message' => 'Another warehouse is already set as default for sales.'], 422);
+        }
+        if (! empty($validated['default_for_storage']) && Warehouse::where('default_for_storage', true)->where('id', '!=', $warehouse->id)->exists()) {
+            return response()->json(['message' => 'Another warehouse is already set as default for storage.'], 422);
+        }
+
+        // Prevent circular reference: parent must not be self nor a descendant of this warehouse
         if (! empty($validated['sub_warehouse_of'])) {
+            $parentId = (int) $validated['sub_warehouse_of'];
+            if ($parentId === (int) $warehouse->id) {
+                return response()->json(['message' => 'Cannot set a sub-warehouse as parent (circular reference)'], 422);
+            }
             $parentWarehouse = Warehouse::find($validated['sub_warehouse_of']);
             if (! $parentWarehouse) {
                 return response()->json(['message' => 'Parent warehouse not found'], 404);
@@ -94,7 +120,8 @@ class WarehouseController extends Controller
             if (! $parentWarehouse->active) {
                 return response()->json(['message' => 'Cannot set an inactive warehouse as parent'], 422);
             }
-            if ($warehouse->isSubWarehouseOf($parentWarehouse)) {
+            // Reject if the selected parent is a descendant of this warehouse (would create a cycle)
+            if ($parentWarehouse->isSubWarehouseOf($warehouse)) {
                 return response()->json(['message' => 'Cannot set a sub-warehouse as parent (circular reference)'], 422);
             }
         }
@@ -218,15 +245,15 @@ class WarehouseController extends Controller
 
     public function exportExcell()
     {
-        $warehouses = Warehouse::with('parentWarehouse')->get();
+        $query = Warehouse::with('parentWarehouse');
 
-        if ($warehouses->isEmpty()) {
+        if ($query->count() === 0) {
             return response()->json(['message' => 'No warehouses to export'], 404);
         }
 
         $fileName = 'warehouses_'.date('Y-m-d_H-i-s').'.xlsx';
 
-        return Excel::download(new Export($warehouses, ['id', 'name', 'location', 'active', 'created_at', 'updated_at'], ['ID', 'Name', 'Location', 'Active', 'Created At', 'Updated At']), $fileName);
+        return Excel::download(new Export($query, ['id', 'code', 'name', 'active', 'default_for_purchases', 'default_for_sales', 'default_for_storage', 'created_at', 'updated_at'], ['ID', 'Code', 'Name', 'Active', 'Default for Purchases', 'Default for Sales', 'Default for Storage', 'Created At', 'Updated At']), $fileName);
     }
 
     public function exportPdf()

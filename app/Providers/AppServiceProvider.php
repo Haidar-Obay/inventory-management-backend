@@ -2,7 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\PaymentTerm;
+use App\Models\Warehouse;
 use App\Observers\AuditObserver;
+use App\Observers\PaymentTermObserver;
+use App\Observers\WarehouseObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\ServiceProvider;
 use OwenIt\Auditing\Models\Audit;
@@ -23,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Audit::observe(AuditObserver::class);
+        PaymentTerm::observe(PaymentTermObserver::class);
+        Warehouse::observe(WarehouseObserver::class);
 
         ResetPassword::createUrlUsing(function ($user, string $token) {
             // Replace this with your frontend URL
