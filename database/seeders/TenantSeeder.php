@@ -17,15 +17,88 @@ class TenantSeeder extends Seeder
      */
     public function run(): void
     {
+        // Get both plans
+        $primePlan = SubscriptionPlan::where('code', 'prime')->first();
         $defaultPlan = SubscriptionPlan::where('code', 'default')->first();
+
+        if (! $primePlan || ! $defaultPlan) {
+            throw new \Exception('Subscription plans not found. Please run SubscriptionPlanSeeder first.');
+        }
+
         $startDate = now();
         $endDate = $startDate->copy()->addMonth();
 
-        // Only seed the hadishokor tenant with the default plan
-        $tenant = Tenant::create([
+        // Create tenant with Prime Plan (multi-currency support)
+        $primeTenant = Tenant::create([
             'id' => 'hadishokor',
             'name' => 'hadishokor',
             'email' => 'hadishokor@gmail.com',
+            'subscription_plan_id' => $primePlan->id,
+            'subscription_start_date' => $startDate,
+            'subscription_end_date' => $endDate,
+            'subscription_status' => 'active',
+            'auto_renew' => true,
+            'last_billing_date' => $startDate,
+            'next_billing_date' => $endDate,
+        ]);
+        $primeTenant->domains()->create([
+            'domain' => 'hadishokor.'.env('CENTRAL_DOMAIN'),
+        ]);
+
+        // Assign modules to Prime tenant
+        tenancy()->central(function () use ($primeTenant, $primePlan) {
+            $general = Module::where('code', 'general_module')->first();
+            $beauty = Module::where('code', 'beauty_center')->first();
+            $stock = Module::where('code', 'stock_management')->first();
+            $syncData = [];
+
+            if ($general) {
+                $syncData[$general->id] = [
+                    'assigned_price' => 0.0,
+                    'is_included' => true,
+                    'subscription_plan_id' => $primePlan->id,
+                ];
+            }
+
+            if ($beauty) {
+                $syncData[$beauty->id] = [
+                    'assigned_price' => 0.0,
+                    'is_included' => true,
+                    'subscription_plan_id' => $primePlan->id,
+                ];
+            }
+            if ($stock) {
+                $syncData[$stock->id] = [
+                    'assigned_price' => 0.0,
+                    'is_included' => true,
+                    'subscription_plan_id' => $primePlan->id,
+                ];
+            }
+            if (! empty($syncData)) {
+                $primeTenant->modules()->syncWithoutDetaching($syncData);
+            }
+        });
+
+        // Initialize Prime tenant context
+        tenancy()->initialize($primeTenant);
+        \App\Jobs\CreateDefaultTableTemplates::dispatchSync();
+
+        // Create owner user for Prime tenant
+        $primeOwner = User::create([
+            'name' => 'hadishokor_owner',
+            'email' => 'hadishokor@gmail.com',
+            'password' => Hash::make('12345678'),
+            'active' => true,
+        ]);
+
+        // Bootstrap RBAC for Prime tenant
+        \App\Jobs\BootstrapTenantRbac::dispatchSync($primeOwner->id);
+
+        // Create tenant with Default Plan (single currency)
+        $defaultTenant = Tenant::create([
+            'id' => 'default_tenant',
+            'name' => 'default_tenant',
+            'email' => 'default@gmail.com',
             'subscription_plan_id' => $defaultPlan->id,
             'subscription_start_date' => $startDate,
             'subscription_end_date' => $endDate,
@@ -34,18 +107,17 @@ class TenantSeeder extends Seeder
             'last_billing_date' => $startDate,
             'next_billing_date' => $endDate,
         ]);
-        $tenant->domains()->create([
-            'domain' => 'hadishokor.'.env('CENTRAL_DOMAIN'),
+        $defaultTenant->domains()->create([
+            'domain' => 'default.'.env('CENTRAL_DOMAIN'), P,
         ]);
 
-        // Assign General Module, Beauty Center and Stock Management modules to the tenant in CENTRAL context
-        tenancy()->central(function () use ($tenant, $defaultPlan) {
+        // Assign modules to Default tenant
+        tenancy()->central(function () use ($defaultTenant, $defaultPlan) {
             $general = Module::where('code', 'general_module')->first();
             $beauty = Module::where('code', 'beauty_center')->first();
             $stock = Module::where('code', 'stock_management')->first();
             $syncData = [];
 
-            // Assign General Module first (highest priority for testing)
             if ($general) {
                 $syncData[$general->id] = [
                     'assigned_price' => 0.0,
@@ -69,24 +141,24 @@ class TenantSeeder extends Seeder
                 ];
             }
             if (! empty($syncData)) {
-                $tenant->modules()->syncWithoutDetaching($syncData);
+                $defaultTenant->modules()->syncWithoutDetaching($syncData);
             }
         });
 
-        // Initialize tenant context (for tenant DB setup and user/RBAC)
-        tenancy()->initialize($tenant);
+        // Initialize Default tenant context
+        tenancy()->initialize($defaultTenant);
         \App\Jobs\CreateDefaultTableTemplates::dispatchSync();
 
-        // Create the original owner user
-        $owner = User::create([
-            'name' => 'hadishokor_owner',
-            'email' => 'hadishokor@gmail.com',
+        // Create owner user for Default tenant
+        $defaultOwner = User::create([
+            'name' => 'default_owner',
+            'email' => 'default@gmail.com',
             'password' => Hash::make('12345678'),
             'active' => true,
         ]);
 
-        // Bootstrap RBAC system automatically
-        \App\Jobs\BootstrapTenantRbac::dispatchSync($owner->id);
+        // Bootstrap RBAC for Default tenant
+        \App\Jobs\BootstrapTenantRbac::dispatchSync($defaultOwner->id);
 
         // Clear cache
         tenancy()->central(fn () => Cache::store('database')->forget('central_tenants_all'));

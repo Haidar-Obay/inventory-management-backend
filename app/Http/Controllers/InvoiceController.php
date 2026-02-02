@@ -284,6 +284,13 @@ class InvoiceController extends Controller
                 }
             }
 
+            // Auto-fill exchange_rate if currency_id is set and exchange_rate is not provided
+            if (isset($data['currency_id']) && (! isset($data['exchange_rate']) || $data['exchange_rate'] === null || $data['exchange_rate'] == 0)) {
+                $invoice = new Invoice($data);
+                $invoice->autoFillExchangeRate();
+                $data['exchange_rate'] = $invoice->exchange_rate;
+            }
+
             // Note: Frontend is responsible for sending customer_name, salesman_name, and customer_phone_number
             // These fields are denormalized snapshots at invoice creation time
             // Backend will use the values sent from frontend (no auto-population from relationships)
@@ -355,6 +362,14 @@ class InvoiceController extends Controller
                         $data['due_date'] = \Carbon\Carbon::parse($date)->addDays($paymentTerm->nb_days)->toDateString();
                     }
                 }
+            }
+
+            // Auto-fill exchange_rate if currency_id is set/changed and exchange_rate is not provided
+            if (isset($data['currency_id']) && (! isset($data['exchange_rate']) || $data['exchange_rate'] === null || $data['exchange_rate'] == 0)) {
+                $tempInvoice = new Invoice($data);
+                $tempInvoice->currency_id = $data['currency_id'];
+                $tempInvoice->autoFillExchangeRate();
+                $data['exchange_rate'] = $tempInvoice->exchange_rate;
             }
 
             // Note: Frontend is responsible for sending customer_name, salesman_name, and customer_phone_number

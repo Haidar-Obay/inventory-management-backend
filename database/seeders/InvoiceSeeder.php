@@ -89,17 +89,10 @@ class InvoiceSeeder extends Seeder
             $this->createSampleWarehouse();
         }
 
-        // Ensure at least one currency exists
+        // Note: Currencies are now created via setup wizard, not seeded
+        // Ensure at least one currency exists (should be created via wizard)
         if (Currency::count() === 0) {
-            $this->command->info('Creating sample currency...');
-            Currency::firstOrCreate(
-                ['code' => 'USD'],
-                [
-                    'name' => 'US Dollar',
-                    'iso_code' => 'USD',
-                    'rate' => 1.0000,
-                ]
-            );
+            $this->command->warn('No currencies found. Please complete setup wizard to create currencies.');
         }
 
         // Ensure payment terms exist
@@ -157,14 +150,13 @@ class InvoiceSeeder extends Seeder
             ]
         );
 
-        $currency = Currency::firstOrCreate(
-            ['code' => 'USD'],
-            [
-                'name' => 'US Dollar',
-                'iso_code' => 'USD',
-                'rate' => 1.0000,
-            ]
-        );
+        // Note: Currencies are now created via setup wizard, not seeded
+        $currency = Currency::where('code', 'USD')->first();
+        if (! $currency) {
+            $this->command->warn('USD currency not found. Please complete setup wizard first.');
+
+            return;
+        }
 
         $customer = Customer::create([
             'code' => 'CUST001',
@@ -208,14 +200,13 @@ class InvoiceSeeder extends Seeder
             ]
         );
 
-        $currency = Currency::firstOrCreate(
-            ['code' => 'USD'],
-            [
-                'name' => 'US Dollar',
-                'iso_code' => 'USD',
-                'rate' => 1.0000,
-            ]
-        );
+        // Note: Currencies are now created via setup wizard, not seeded
+        $currency = Currency::where('code', 'USD')->first();
+        if (! $currency) {
+            $this->command->warn('USD currency not found. Please complete setup wizard first.');
+
+            return;
+        }
 
         $supplier = Supplier::create([
             'code' => 'SUPP001',

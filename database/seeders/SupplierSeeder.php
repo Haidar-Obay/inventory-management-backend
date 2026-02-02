@@ -49,14 +49,9 @@ class SupplierSeeder extends Seeder
             ['name' => 'Default Payment Method']
         );
 
-        $currency = Currency::firstOrCreate(
-            ['code' => 'USD'],
-            [
-                'name' => 'US Dollar',
-                'iso_code' => 'USD',
-                'rate' => 1.0000,
-            ]
-        );
+        // Note: Currencies are now created via setup wizard, not seeded
+        // Get existing currency if needed for supplier creation
+        $currency = Currency::where('code', 'USD')->first();
 
         $supplierGroup = SupplierGroup::firstOrCreate(
             ['code' => 'DEFAULT'],

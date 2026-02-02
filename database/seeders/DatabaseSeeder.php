@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             SubscriptionPlanSeeder::class,
             ModuleSeeder::class,
             ModuleResourceSeeder::class,
+            AvailableCurrencySeeder::class,
             TenantSeeder::class,
         ]);
 

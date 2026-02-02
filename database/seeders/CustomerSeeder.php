@@ -97,24 +97,14 @@ class CustomerSeeder extends Seeder
         $cityId = City::first()->id ?? 1;
         $districtId = District::first()->id ?? 1;
 
-        // Create default currencies
-        $usdCurrency = Currency::firstOrCreate(
-            ['code' => 'USD'],
-            [
-                'name' => 'US Dollar',
-                'iso_code' => 'USD',
-                'rate' => 1.0000,
-            ]
-        );
+        // Note: Currencies are now created via setup wizard, not seeded
+        // Get existing currencies if needed for customer creation
+        $usdCurrency = Currency::where('code', 'USD')->first();
+        $eurCurrency = Currency::where('code', 'EUR')->first();
 
-        $eurCurrency = Currency::firstOrCreate(
-            ['code' => 'EUR'],
-            [
-                'name' => 'Euro',
-                'iso_code' => 'EUR',
-                'rate' => 0.8500,
-            ]
-        );
+        if (! $usdCurrency || ! $eurCurrency) {
+            $this->command->warn('USD or EUR currency not found. Skipping currency-related seeding for customers.');
+        }
 
         // Create default related models if they don't exist
         $trade = Trade::firstOrCreate(
@@ -368,14 +358,16 @@ class CustomerSeeder extends Seeder
 
             // Create opening balances for multiple currencies FIRST (using the Customer model methods)
             if ($faker->boolean(30)) {
-                $customer->setOpeningBalance(
-                    $usdCurrency->id,
-                    $faker->numberBetween(1000, 10000),
-                    $faker->date(),
-                    $faker->optional()->sentence()
-                );
+                if ($usdCurrency) {
+                    $customer->setOpeningBalance(
+                        $usdCurrency->id,
+                        $faker->numberBetween(1000, 10000),
+                        $faker->date(),
+                        $faker->optional()->sentence()
+                    );
+                }
 
-                if ($faker->boolean(50)) {
+                if ($eurCurrency && $faker->boolean(50)) {
                     $customer->setOpeningBalance(
                         $eurCurrency->id,
                         $faker->numberBetween(800, 8000),
@@ -389,7 +381,7 @@ class CustomerSeeder extends Seeder
             // Only if customer allows credit AND has opening balances for those currencies
             if ($customer->allow_credit) {
                 // Only set credit limit for USD if opening balance exists
-                if ($customer->hasOpeningBalanceForCurrency($usdCurrency->id)) {
+                if ($usdCurrency && $customer->hasOpeningBalanceForCurrency($usdCurrency->id)) {
                     $customer->setCreditLimit(
                         $usdCurrency->id,
                         $faker->numberBetween(1000, 10000),
@@ -398,7 +390,7 @@ class CustomerSeeder extends Seeder
                 }
 
                 // Only set credit limit for EUR if opening balance exists
-                if ($customer->hasOpeningBalanceForCurrency($eurCurrency->id)) {
+                if ($eurCurrency && $customer->hasOpeningBalanceForCurrency($eurCurrency->id)) {
                     $customer->setCreditLimit(
                         $eurCurrency->id,
                         $faker->numberBetween(800, 8000),
@@ -411,7 +403,7 @@ class CustomerSeeder extends Seeder
             // Only if customer accepts cheques AND has opening balances for those currencies
             if ($customer->accept_cheques) {
                 // Only set cheque limit for USD if opening balance exists
-                if ($customer->hasOpeningBalanceForCurrency($usdCurrency->id)) {
+                if ($usdCurrency && $customer->hasOpeningBalanceForCurrency($usdCurrency->id)) {
                     $customer->setChequeLimit(
                         $usdCurrency->id,
                         $faker->numberBetween(1, 10),
@@ -420,7 +412,7 @@ class CustomerSeeder extends Seeder
                 }
 
                 // Only set cheque limit for EUR if opening balance exists
-                if ($customer->hasOpeningBalanceForCurrency($eurCurrency->id)) {
+                if ($eurCurrency && $customer->hasOpeningBalanceForCurrency($eurCurrency->id)) {
                     $customer->setChequeLimit(
                         $eurCurrency->id,
                         $faker->numberBetween(1, 8),
