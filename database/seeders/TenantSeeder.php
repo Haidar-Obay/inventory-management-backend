@@ -100,7 +100,7 @@ class TenantSeeder extends Seeder
             'name' => 'default',
             'email' => 'default@gmail.com',
             'subscription_plan_id' => $defaultPlan->id,
-            'subscription_start_date' => $startDate,    
+            'subscription_start_date' => $startDate,
             'subscription_end_date' => $endDate,
             'subscription_status' => 'active',
             'auto_renew' => true,
