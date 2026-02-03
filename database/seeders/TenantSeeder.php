@@ -30,9 +30,9 @@ class TenantSeeder extends Seeder
 
         // Create tenant with Prime Plan (multi-currency support)
         $primeTenant = Tenant::create([
-            'id' => 'hadishokor',
-            'name' => 'hadishokor',
-            'email' => 'hadishokor@gmail.com',
+            'id' => 'brain',
+            'name' => 'brain',
+            'email' => 'brain@gmail.com',
             'subscription_plan_id' => $primePlan->id,
             'subscription_start_date' => $startDate,
             'subscription_end_date' => $endDate,
@@ -42,7 +42,7 @@ class TenantSeeder extends Seeder
             'next_billing_date' => $endDate,
         ]);
         $primeTenant->domains()->create([
-            'domain' => 'hadishokor.'.env('CENTRAL_DOMAIN'),
+            'domain' => 'brain.'.env('CENTRAL_DOMAIN'),
         ]);
 
         // Assign modules to Prime tenant
@@ -85,8 +85,8 @@ class TenantSeeder extends Seeder
 
         // Create owner user for Prime tenant
         $primeOwner = User::create([
-            'name' => 'hadishokor_owner',
-            'email' => 'hadishokor@gmail.com',
+            'name' => 'brain_owner',
+            'email' => 'brain@gmail.com',
             'password' => Hash::make('12345678'),
             'active' => true,
         ]);
@@ -108,7 +108,7 @@ class TenantSeeder extends Seeder
             'next_billing_date' => $endDate,
         ]);
         $defaultTenant->domains()->create([
-            'domain' => 'default.'.env('CENTRAL_DOMAIN'), P,
+            'domain' => 'default.'.env('CENTRAL_DOMAIN'),
         ]);
 
         // Assign modules to Default tenant

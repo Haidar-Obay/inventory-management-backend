@@ -247,8 +247,9 @@ class SetupWizardController extends Controller
             if (! $apiKey) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Exchange rate API key not configured.',
-                ], 500);
+                    'message' => 'Exchange rate API is not configured. Please enter exchange rates manually.',
+                    'code' => 'API_KEY_NOT_CONFIGURED',
+                ], 422);
             }
 
             // Use primary currency as base for API
