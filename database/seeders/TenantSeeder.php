@@ -108,7 +108,7 @@ class TenantSeeder extends Seeder
             'next_billing_date' => $endDate,
         ]);
         $defaultTenant->domains()->create([
-            'domain' => 'default.'.env('CENTRAL_DOMAIN'), P,
+            'domain' => 'default.'.env('CENTRAL_DOMAIN'),
         ]);
 
         // Assign modules to Default tenant
