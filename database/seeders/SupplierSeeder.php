@@ -47,9 +47,9 @@ class SupplierSeeder extends Seeder
             ['name' => 'Default Payment Method']
         );
 
-        $supplierGroup = SupplierGroup::firstOrCreate(
-            ['code' => 'DEFAULT'],
-            ['name' => 'Default Supplier Group', 'active' => true]
-        );
+        // $supplierGroup = SupplierGroup::firstOrCreate(
+        //     ['code' => 'DEFAULT'],
+        //     ['name' => 'Default Supplier Group', 'active' => true]
+        // );
     }
 }
