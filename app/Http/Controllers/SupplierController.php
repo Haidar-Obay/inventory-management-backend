@@ -753,6 +753,14 @@ class SupplierController extends Controller
 
             // Get supplier cost from pivot
             $supplierCost = $item->pivot->cost ?? null;
+            $supplierCurrency = $item->pivot->currency ?? null;
+
+            // Look up currency ID from currency code
+            $currencyId = null;
+            if ($supplierCurrency) {
+                $currency = \App\Models\Currency::where('code', $supplierCurrency)->first();
+                $currencyId = $currency?->id;
+            }
 
             // Get barcodes for UOM
             $barcodes = [];
@@ -767,6 +775,8 @@ class SupplierController extends Controller
                 'name' => $item->name,
                 'purchase_description' => $item->purchase_description,
                 'supplier_cost' => $supplierCost ? (float) $supplierCost : null,
+                'supplier_currency' => $supplierCurrency,
+                'supplier_currency_id' => $currencyId,
                 'tax_group' => $item->taxGroup ? [
                     'id' => $item->taxGroup->id,
                     'code' => $item->taxGroup->code,

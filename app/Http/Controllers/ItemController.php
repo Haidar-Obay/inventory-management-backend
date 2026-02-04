@@ -2300,12 +2300,20 @@ class ItemController extends Controller
             ], 404);
         }
 
+        // Look up currency ID from currency code
+        $currencyId = null;
+        if ($itemSupplier->currency) {
+            $currency = \App\Models\Currency::where('code', $itemSupplier->currency)->first();
+            $currencyId = $currency?->id;
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'Supplier cost retrieved successfully.',
             'data' => [
                 'cost' => (float) $itemSupplier->cost,
                 'currency' => $itemSupplier->currency,
+                'currency_id' => $currencyId,
             ],
         ]);
     }
@@ -2328,7 +2336,7 @@ class ItemController extends Controller
         $uomId = $request->uom_id;
 
         // Query for last invoice item with this supplier and item
-        $query = \App\Models\InvoiceItem::with(['invoice:id,date,invoice_number'])
+        $query = \App\Models\InvoiceItem::with(['invoice:id,date,invoice_number,currency_id'])
             ->whereHas('invoice', function ($q) use ($supplierId) {
                 $q->where('invoice_type', 'purchase')
                     ->where('supplier_id', $supplierId);
@@ -2359,6 +2367,7 @@ class ItemController extends Controller
                 'price' => (float) $lastInvoiceItem->price,
                 'unit_price' => (float) $lastInvoiceItem->unit_price,
                 'uom_id' => $lastInvoiceItem->uom_id,
+                'currency_id' => $lastInvoiceItem->invoice->currency_id,
                 'invoice_date' => $lastInvoiceItem->invoice->date?->format('Y-m-d'),
                 'invoice_number' => $lastInvoiceItem->invoice->invoice_number,
             ],
