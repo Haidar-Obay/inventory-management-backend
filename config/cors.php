@@ -5,6 +5,10 @@ return [
     'allowed_methods' => ['*'],
     'allowed_origins' => [
         '*',
+        'http://hadishokor.app.localhost:3000',
+        'http://hadishokor.app.localhost:8000',
+        'http://hadishokor.localhost:3000',
+        'http://hadishokor.localhost:8000',
         'http://brain.app.localhost:3000',
         'http://brain.app.localhost:8000',
         'http://*.localhost:3000',
