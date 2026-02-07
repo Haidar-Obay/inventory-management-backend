@@ -410,7 +410,25 @@ class StoreCustomerRequest extends FormRequest
             // We exclude attachments from merged data when files are present (in prepareForValidation)
             // So validation only runs on array when no files are present
             'attachments' => 'nullable',
-            'attachments.*' => 'sometimes|file|mimes:jpg,jpeg,png,pdf,docx,xlsx,txt|max:10240',
+            'attachments.*' => [
+                'sometimes',
+                'file',
+                function ($attribute, $value, $fail) {
+                    if (! ($value instanceof \Illuminate\Http\UploadedFile)) {
+                        return;
+                    }
+                    $allowedMimes = ['image/jpeg', 'image/png', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'text/plain'];
+                    $allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf', 'docx', 'xlsx', 'txt'];
+                    $mime = $value->getMimeType();
+                    $extension = strtolower($value->getClientOriginalExtension());
+                    if (! in_array($mime, $allowedMimes) && ! in_array($extension, $allowedExtensions)) {
+                        $fail('The '.$attribute.' must be a file of type: jpg, jpeg, png, pdf, docx, xlsx, txt.');
+                    }
+                    if ($value->getSize() > 10240 * 1024) {
+                        $fail('The '.$attribute.' must not be larger than 10MB.');
+                    }
+                },
+            ],
             // If only metadata is provided (no files), these are optional per item
             'attachments.*.file_name' => 'sometimes|nullable|string|max:255',
             'attachments.*.file_url' => 'sometimes|nullable|url',

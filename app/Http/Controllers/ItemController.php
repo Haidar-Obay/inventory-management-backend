@@ -13,7 +13,7 @@ use App\Http\Requests\Item\StoreItemRequest;
 use App\Http\Requests\Item\UpdateItemRequest;
 use App\Http\Requests\Item\UpdateSupplierPivotRequest;
 use App\Http\Requests\Item\UpdateUOMPivotRequest;
-use App\Http\Requests\Item\UploadItemAttachmentRequest;
+use App\Http\Requests\Item\UploadItemAttachmentsRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Item;
 use App\Models\ItemAttachment;
@@ -1115,12 +1115,25 @@ class ItemController extends Controller
         }
     }
 
-    public function uploadAttachment(UploadItemAttachmentRequest $request, Item $item)
+    public function uploadAttachment(UploadItemAttachmentsRequest $request, Item $item)
+    {
+        $files = $request->file('attachments');
+        if (is_array($files) && count($files) > 0) {
+            return $this->uploadAttachmentsMultiple($request, $item);
+        }
+
+        return $this->uploadAttachmentSingle($request, $item);
+    }
+
+    /**
+     * Single file upload (legacy: attachment + description + category).
+     */
+    protected function uploadAttachmentSingle(UploadItemAttachmentsRequest $request, Item $item)
     {
         $tenantId = tenant('id');
         $validated = $request->validated();
         /** @var \Illuminate\Http\UploadedFile|null $file */
-        $file = request()->file('attachment');
+        $file = $request->file('attachment');
 
         if (! $file || ! $file->isValid()) {
             return response()->json([
@@ -1150,19 +1163,73 @@ class ItemController extends Controller
             'category' => $category,
         ]);
 
-        $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_items");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_item_preview_{$item->id}");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
+        $this->forgetItemCaches($tenantId, $item->id);
 
         return response()->json([
             'status' => true,
             'message' => 'Attachment uploaded successfully.',
             'data' => $attachment,
         ], 201);
+    }
+
+    /**
+     * Multiple files upload (attachments[] + optional data.attachments metadata).
+     */
+    protected function uploadAttachmentsMultiple(UploadItemAttachmentsRequest $request, Item $item)
+    {
+        $tenantId = tenant('id');
+        $files = $request->file('attachments');
+        if (! is_array($files)) {
+            $files = $files ? [$files] : [];
+        }
+        $metadata = [];
+        if ($request->has('data')) {
+            $decoded = json_decode($request->input('data'), true);
+            $metadata = $decoded['attachments'] ?? $decoded ?? [];
+        }
+        $created = [];
+        foreach ($files as $index => $file) {
+            if (! $file || ! $file->isValid()) {
+                continue;
+            }
+            $path = Storage::disk('public')->putFile(
+                "tenants/{$tenantId}/items/{$item->id}/attachments",
+                $file
+            );
+            $meta = $metadata[$index] ?? [];
+            $category = $meta['category'] ?? 'other';
+            if ($category === 'other') {
+                $mimeType = $file->getMimeType();
+                $category = str_starts_with($mimeType, 'image/') ? 'photo' : 'document';
+            }
+            $attachment = ItemAttachment::create([
+                'item_id' => $item->id,
+                'file_name' => $file->getClientOriginalName(),
+                'file_path' => url(Storage::url($path)),
+                'file_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'description' => $meta['description'] ?? null,
+                'category' => $category,
+            ]);
+            $created[] = $attachment;
+        }
+        $this->forgetItemCaches($tenantId, $item->id);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Attachments uploaded successfully.',
+            'data' => $created,
+        ], 201);
+    }
+
+    protected function forgetItemCaches(string $tenantId, int $itemId): void
+    {
+        app('cache')->store('database')->forget("tenant_{$tenantId}_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$itemId}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_preview_{$itemId}");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_item_names");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_service_items");
+        app('cache')->store('database')->forget("tenant_{$tenantId}_all_items");
     }
 
     public function getAttachments(Item $item)

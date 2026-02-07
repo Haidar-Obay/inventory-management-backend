@@ -188,6 +188,10 @@ Route::middleware([
         Route::get('currencies/{id}/rate-history', [CurrencyController::class, 'getRateHistory'])->middleware('check.permission:currencies,view');
         Route::apiResource('currencies', CurrencyController::class)->middleware(['subscription.limits:currency', 'check.permission:currencies,view']);
         Route::apiResource('salesmen', SalesmanController::class)->middleware('check.permission:salesmen,view');
+        // Customer attachments (dedicated endpoints; must be before apiResource)
+        Route::post('customers/{customer}/attachments', [CustomerController::class, 'uploadAttachments'])->middleware(['subscription.limits:customer', 'check.permission:customers,view']);
+        Route::get('customers/{customer}/attachments', [CustomerController::class, 'getAttachments'])->middleware(['check.permission:customers,view']);
+        Route::delete('customers/{customer}/attachments/{attachment}', [CustomerController::class, 'deleteAttachment'])->middleware(['check.permission:customers,view']);
         Route::apiResource('customers', CustomerController::class)->middleware(['subscription.limits:customer', 'check.permission:customers,view']);
         Route::apiResource('customer-groups', CustomerGroupController::class)->middleware('check.permission:customer_groups,view');
         // Route::apiResource('customer-attachments', CustomerAttachmentController::class);

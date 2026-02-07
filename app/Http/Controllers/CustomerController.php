@@ -6,6 +6,7 @@ use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
+use App\Http\Requests\Customer\UploadCustomerAttachmentsRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Address;
 use App\Models\Asset;
@@ -439,6 +440,93 @@ class CustomerController extends Controller
                 ]),
             ]);
         });
+    }
+
+    /**
+     * Upload attachments for a customer (dedicated endpoint; use after create/update without files).
+     */
+    public function uploadAttachments(UploadCustomerAttachmentsRequest $request, Customer $customer)
+    {
+        $tenantId = tenant('id');
+        $files = $request->file('attachments');
+        if (! is_array($files)) {
+            $files = $files ? [$files] : [];
+        }
+        $metadata = [];
+        if ($request->has('data')) {
+            $decoded = json_decode($request->input('data'), true);
+            $metadata = $decoded['attachments'] ?? $decoded ?? [];
+        }
+        $created = [];
+        foreach ($files as $index => $file) {
+            if (! $file || ! $file->isValid()) {
+                continue;
+            }
+            $path = Storage::disk('public')->putFile(
+                "tenants/{$tenantId}/customers/{$customer->id}/attachments",
+                $file
+            );
+            $meta = $metadata[$index] ?? [];
+            $attachment = CustomerAttachment::create([
+                'customer_id' => $customer->id,
+                'file_name' => $file->getClientOriginalName(),
+                'file_path' => url(Storage::url($path)),
+                'file_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'description' => $meta['description'] ?? '',
+                'category' => $meta['category'] ?? 'document',
+                'is_public' => $meta['is_public'] ?? true,
+            ]);
+            $created[] = $attachment;
+        }
+        $cacheKey = "tenant_{$tenantId}_customer_names";
+        app('cache')->store('database')->forget($cacheKey);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Attachments uploaded successfully.',
+            'data' => $created,
+        ], 201);
+    }
+
+    /**
+     * List attachments for a customer.
+     */
+    public function getAttachments(Customer $customer)
+    {
+        $attachments = $customer->attachments()->orderBy('created_at', 'desc')->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Attachments fetched successfully.',
+            'data' => $attachments,
+        ]);
+    }
+
+    /**
+     * Delete a customer attachment.
+     */
+    public function deleteAttachment(Customer $customer, CustomerAttachment $attachment)
+    {
+        if ($attachment->customer_id !== (int) $customer->id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Attachment does not belong to this customer.',
+            ], 403);
+        }
+        $filePath = str_replace(url('storage/'), '', $attachment->file_path);
+        $filePath = str_replace(url('/storage/'), '', $filePath);
+        if (Storage::disk('public')->exists($filePath)) {
+            Storage::disk('public')->delete($filePath);
+        }
+        $attachment->delete();
+        $tenantId = tenant('id');
+        app('cache')->store('database')->forget("tenant_{$tenantId}_customer_names");
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Attachment deleted successfully.',
+        ]);
     }
 
     public function show(Customer $customer)
