@@ -1281,13 +1281,30 @@ class ItemController extends Controller
         $suppliers = $item->suppliers()
             ->select('suppliers.id', 'suppliers.company_name', 'suppliers.first_name', 'suppliers.last_name')
             ->withPivot(['original_code', 'currency', 'cost', 'is_primary'])
+            ->with(['openingBalances' => function ($query) {
+                $query->where('is_active', true)->with('currency:id,code,name');
+            }])
             ->orderByDesc('pivot_is_primary')
             ->get();
+
+        $data = $suppliers->map(function ($supplier) {
+            $currencies = $supplier->openingBalances
+                ->map(fn ($ob) => $ob->currency)
+                ->filter()
+                ->unique('id')
+                ->values()
+                ->toArray();
+            $arr = $supplier->toArray();
+            unset($arr['opening_balances']);
+            $arr['currencies'] = $currencies;
+
+            return $arr;
+        });
 
         return response()->json([
             'status' => true,
             'message' => 'Item suppliers fetched successfully.',
-            'data' => $suppliers,
+            'data' => $data,
         ]);
     }
 
