@@ -18,6 +18,7 @@ class UploadItemAttachmentsRequest extends FormRequest
     public function rules(): array
     {
         $fileRule = 'file|max:10240';
+
         return [
             'attachment' => "required_without:attachments.0|nullable|{$fileRule}",
             'attachments' => 'required_without:attachment|nullable|array',
