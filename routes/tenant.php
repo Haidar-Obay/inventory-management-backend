@@ -166,6 +166,9 @@ Route::middleware([
         Route::get('suppliers/{supplier}/for-purchase-invoice', [SupplierController::class, 'getForPurchaseInvoice'])->middleware('check.permission:suppliers,view'); // Optimized endpoint for purchase invoice
         Route::get('suppliers/{supplier}/items', [SupplierController::class, 'getItems'])->middleware('check.permission:suppliers,view'); // Get supplier items with costs and purchase UOM
         Route::get('suppliers/for-item-management', [SupplierController::class, 'listForItemSupplierManagement'])->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
+        Route::post('suppliers/{supplier}/attachments', [SupplierController::class, 'uploadAttachments'])->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
+        Route::get('suppliers/{supplier}/attachments', [SupplierController::class, 'getAttachments'])->middleware(['check.permission:suppliers,view']);
+        Route::delete('suppliers/{supplier}/attachments/{attachment}', [SupplierController::class, 'deleteAttachment'])->middleware(['check.permission:suppliers,view']);
         Route::apiResource('suppliers', SupplierController::class)->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
 
         // Supplier Opening Balances
@@ -188,6 +191,10 @@ Route::middleware([
         Route::get('currencies/{id}/rate-history', [CurrencyController::class, 'getRateHistory'])->middleware('check.permission:currencies,view');
         Route::apiResource('currencies', CurrencyController::class)->middleware(['subscription.limits:currency', 'check.permission:currencies,view']);
         Route::apiResource('salesmen', SalesmanController::class)->middleware('check.permission:salesmen,view');
+        // Customer attachments (dedicated endpoints; must be before apiResource)
+        Route::post('customers/{customer}/attachments', [CustomerController::class, 'uploadAttachments'])->middleware(['subscription.limits:customer', 'check.permission:customers,view']);
+        Route::get('customers/{customer}/attachments', [CustomerController::class, 'getAttachments'])->middleware(['check.permission:customers,view']);
+        Route::delete('customers/{customer}/attachments/{attachment}', [CustomerController::class, 'deleteAttachment'])->middleware(['check.permission:customers,view']);
         Route::apiResource('customers', CustomerController::class)->middleware(['subscription.limits:customer', 'check.permission:customers,view']);
         Route::apiResource('customer-groups', CustomerGroupController::class)->middleware('check.permission:customer_groups,view');
         // Route::apiResource('customer-attachments', CustomerAttachmentController::class);
@@ -257,6 +264,9 @@ Route::middleware([
         Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');
         Route::apiResource('specialists', SpecialistController::class)->middleware('check.permission:specialists,view');
         Route::get('services/names', [ServiceController::class, 'listNames'])->middleware('check.permission:services,view');
+        Route::post('services/{service}/attachments', [ServiceController::class, 'uploadAttachments'])->middleware('check.permission:services,view');
+        Route::get('services/{service}/attachments', [ServiceController::class, 'getAttachments'])->middleware('check.permission:services,view');
+        Route::delete('services/{service}/attachments/{attachment}', [ServiceController::class, 'deleteAttachment'])->middleware('check.permission:services,view');
         Route::apiResource('services', ServiceController::class)->middleware('check.permission:services,view');
         // Explicit POST route for services update with FormData (method spoofing support)
         Route::post('services/{service}', [ServiceController::class, 'update'])->middleware('check.permission:services,view');

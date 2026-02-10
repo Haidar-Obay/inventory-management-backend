@@ -6,6 +6,7 @@ use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Http\Requests\Supplier\StoreSupplierRequest;
 use App\Http\Requests\Supplier\UpdateSupplierRequest;
+use App\Http\Requests\Supplier\UploadSupplierAttachmentsRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Address;
 use App\Models\Currency;
@@ -217,6 +218,89 @@ class SupplierController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Upload attachments for a supplier (dedicated endpoint; use after create/update without files).
+     */
+    public function uploadAttachments(UploadSupplierAttachmentsRequest $request, Supplier $supplier)
+    {
+        $tenantId = tenant('id');
+        $files = $request->file('attachments');
+        if (! is_array($files)) {
+            $files = $files ? [$files] : [];
+        }
+        $metadata = [];
+        if ($request->has('data')) {
+            $decoded = json_decode($request->input('data'), true);
+            $metadata = $decoded['attachments'] ?? $decoded ?? [];
+        }
+        $created = [];
+        foreach ($files as $index => $file) {
+            if (! $file || ! $file->isValid()) {
+                continue;
+            }
+            $path = Storage::disk('public')->putFile(
+                "tenants/{$tenantId}/suppliers/{$supplier->id}/attachments",
+                $file
+            );
+            $meta = $metadata[$index] ?? [];
+            $attachment = SupplierAttachment::create([
+                'supplier_id' => $supplier->id,
+                'file_name' => $file->getClientOriginalName(),
+                'file_path' => url(Storage::url($path)),
+                'file_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'description' => $meta['description'] ?? '',
+                'category' => $meta['category'] ?? 'document',
+                'is_public' => $meta['is_public'] ?? true,
+            ]);
+            $created[] = $attachment;
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Attachments uploaded successfully.',
+            'data' => $created,
+        ], 201);
+    }
+
+    /**
+     * List attachments for a supplier.
+     */
+    public function getAttachments(Supplier $supplier)
+    {
+        $attachments = $supplier->attachments()->orderBy('created_at', 'desc')->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Attachments fetched successfully.',
+            'data' => $attachments,
+        ]);
+    }
+
+    /**
+     * Delete a supplier attachment.
+     */
+    public function deleteAttachment(Supplier $supplier, SupplierAttachment $attachment)
+    {
+        if ($attachment->supplier_id !== (int) $supplier->id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Attachment does not belong to this supplier.',
+            ], 403);
+        }
+        $filePath = str_replace(url('storage/'), '', $attachment->file_path);
+        $filePath = str_replace(url('/storage/'), '', $filePath);
+        if (Storage::disk('public')->exists($filePath)) {
+            Storage::disk('public')->delete($filePath);
+        }
+        $attachment->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Attachment deleted successfully.',
+        ]);
     }
 
     public function show(Supplier $supplier)

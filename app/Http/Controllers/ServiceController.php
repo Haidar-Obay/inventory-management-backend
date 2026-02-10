@@ -7,6 +7,7 @@ use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Http\Requests\StoreServiceRequest;
 use App\Http\Requests\UpdateServiceRequest;
+use App\Http\Requests\UploadServiceAttachmentsRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Item;
 use App\Models\Service;
@@ -251,6 +252,89 @@ class ServiceController extends Controller
             'status' => true,
             'message' => 'Service details fetched successfully.',
             'data' => $loaded,
+        ]);
+    }
+
+    /**
+     * Upload attachments for a service (dedicated endpoint for two-step save).
+     */
+    public function uploadAttachments(UploadServiceAttachmentsRequest $request, Service $service): JsonResponse
+    {
+        $tenantId = tenant('id');
+        $files = $request->file('attachments');
+        if (! is_array($files)) {
+            $files = $files ? [$files] : [];
+        }
+        $metadata = [];
+        if ($request->has('data')) {
+            $decoded = json_decode($request->input('data'), true);
+            $metadata = $decoded['attachments'] ?? $decoded ?? [];
+        }
+        $created = [];
+        foreach ($files as $index => $file) {
+            if (! $file || ! $file->isValid()) {
+                continue;
+            }
+            $path = Storage::disk('public')->putFile(
+                "tenants/{$tenantId}/services/{$service->id}/attachments",
+                $file
+            );
+            $meta = $metadata[$index] ?? [];
+            $attachment = ServiceAttachment::create([
+                'service_id' => $service->id,
+                'file_name' => $file->getClientOriginalName(),
+                'file_path' => url(Storage::url($path)),
+                'file_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'description' => $meta['description'] ?? '',
+                'category' => $meta['category'] ?? 'document',
+                'is_public' => $meta['is_public'] ?? true,
+            ]);
+            $created[] = $attachment;
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Attachments uploaded successfully.',
+            'data' => $created,
+        ]);
+    }
+
+    /**
+     * Get attachments for a service.
+     */
+    public function getAttachments(Service $service): JsonResponse
+    {
+        $attachments = $service->attachments()->orderBy('created_at', 'desc')->get();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Attachments fetched successfully.',
+            'data' => $attachments,
+        ]);
+    }
+
+    /**
+     * Delete a service attachment.
+     */
+    public function deleteAttachment(Service $service, ServiceAttachment $attachment): JsonResponse
+    {
+        if ((int) $attachment->service_id !== (int) $service->id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Attachment does not belong to this service.',
+            ], 403);
+        }
+        $filePath = str_replace(url('storage/'), '', $attachment->file_path);
+        $filePath = str_replace(url('/storage/'), '', $filePath);
+        if (Storage::disk('public')->exists($filePath)) {
+            Storage::disk('public')->delete($filePath);
+        }
+        $attachment->delete();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Attachment deleted successfully.',
         ]);
     }
 
