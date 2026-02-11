@@ -2613,12 +2613,15 @@ class CustomerController extends Controller
             ];
         });
 
-        // Get currencies from active opening balances
+        // Get currencies from active opening balances (include is_primary for default selection)
         $currencies = $customer->openingBalances->map(function ($openingBalance) {
+            $currency = $openingBalance->currency;
+
             return [
-                'id' => $openingBalance->currency->id,
-                'code' => $openingBalance->currency->code,
-                'name' => $openingBalance->currency->name,
+                'id' => $currency->id,
+                'code' => $currency->code,
+                'name' => $currency->name,
+                'is_primary' => $currency->isPrimary(),
             ];
         });
 

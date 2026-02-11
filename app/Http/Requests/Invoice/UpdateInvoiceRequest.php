@@ -45,6 +45,7 @@ class UpdateInvoiceRequest extends FormRequest
             'sales_order' => 'nullable|string|max:255',
             'supplier_invoice_number' => 'nullable|string|max:255',
             'supplier_invoice_date' => 'nullable|date',
+            'supplier_invoice_total' => 'nullable|numeric|min:0',
             'exchange_rate' => 'nullable|numeric|min:0',
 
             // Document-level discount

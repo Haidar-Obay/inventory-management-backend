@@ -182,6 +182,7 @@ class InvoiceController extends Controller
             'due_date' => $lastInvoice->due_date,
             'supplier_invoice_number' => $lastInvoice->supplier_invoice_number,
             'supplier_invoice_date' => $lastInvoice->supplier_invoice_date,
+            'supplier_invoice_total' => $lastInvoice->supplier_invoice_total !== null ? (float) $lastInvoice->supplier_invoice_total : null,
             'currency_id' => $lastInvoice->currency_id,
             'payment_term_id' => $lastInvoice->payment_term_id,
             'exchange_rate' => $lastInvoice->exchange_rate,
@@ -277,10 +278,18 @@ class InvoiceController extends Controller
             $data['sequence_number'] = $finalSequence;
 
             // Calculate due date if payment term is provided
-            if (isset($data['payment_term_id']) && isset($data['date'])) {
+            if (isset($data['payment_term_id'])) {
                 $paymentTerm = \App\Models\PaymentTerm::find($data['payment_term_id']);
                 if ($paymentTerm && $paymentTerm->nb_days) {
-                    $data['due_date'] = \Carbon\Carbon::parse($data['date'])->addDays($paymentTerm->nb_days)->toDateString();
+                    // Purchase: supplier_invoice_date + nb_days, fallback to date + nb_days
+                    $baseDate = null;
+                    if (isset($data['invoice_type']) && $data['invoice_type'] === 'purchase' && ! empty($data['supplier_invoice_date'] ?? null)) {
+                        $baseDate = $data['supplier_invoice_date'];
+                    }
+                    $baseDate = $baseDate ?? ($data['date'] ?? null);
+                    if ($baseDate) {
+                        $data['due_date'] = \Carbon\Carbon::parse($baseDate)->addDays($paymentTerm->nb_days)->toDateString();
+                    }
                 }
             }
 
@@ -351,15 +360,21 @@ class InvoiceController extends Controller
             $items = $data['items'] ?? null;
             unset($data['items']);
 
-            // Calculate due date if payment term or date changed
-            if (isset($data['payment_term_id']) || isset($data['date'])) {
-                $paymentTermId = $data['payment_term_id'] ?? $invoice->payment_term_id;
-                $date = $data['date'] ?? $invoice->date;
-
-                if ($paymentTermId && $date) {
-                    $paymentTerm = \App\Models\PaymentTerm::find($paymentTermId);
-                    if ($paymentTerm && $paymentTerm->nb_days) {
-                        $data['due_date'] = \Carbon\Carbon::parse($date)->addDays($paymentTerm->nb_days)->toDateString();
+            // Calculate due date if payment term, date, or (purchase) supplier_invoice_date changed
+            $paymentTermId = $data['payment_term_id'] ?? $invoice->payment_term_id;
+            if ($paymentTermId) {
+                $paymentTerm = \App\Models\PaymentTerm::find($paymentTermId);
+                if ($paymentTerm && $paymentTerm->nb_days) {
+                    $baseDate = null;
+                    if ($invoice->invoice_type->value === 'purchase') {
+                        $supplierInvoiceDate = $data['supplier_invoice_date'] ?? $invoice->supplier_invoice_date;
+                        if ($supplierInvoiceDate) {
+                            $baseDate = $supplierInvoiceDate;
+                        }
+                    }
+                    $baseDate = $baseDate ?? ($data['date'] ?? $invoice->date);
+                    if ($baseDate) {
+                        $data['due_date'] = \Carbon\Carbon::parse($baseDate)->addDays($paymentTerm->nb_days)->toDateString();
                     }
                 }
             }
