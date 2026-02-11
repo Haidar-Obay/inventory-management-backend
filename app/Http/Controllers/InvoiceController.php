@@ -32,7 +32,7 @@ class InvoiceController extends Controller
             'supplier:id,first_name,last_name,display_name,company_name',
             'currency:id,code,name',
             'salesman:id,name',
-            'warehouse:id,name',
+            'warehouse:id,name,code',
             'paymentTerm:id,name,nb_days',
         ]);
 
