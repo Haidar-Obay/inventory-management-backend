@@ -42,6 +42,7 @@ return new class extends Migration
             $table->string('sales_order')->nullable(); // Sales order number
             $table->string('supplier_invoice_number')->nullable(); // Supplier invoice number (for purchase invoices)
             $table->date('supplier_invoice_date')->nullable(); // Supplier invoice date (date when supplier created the invoice, for purchase invoices)
+            $table->decimal('supplier_invoice_total', 15, 2)->nullable(); // Supplier invoice total (for purchase invoices)
 
             // Exchange rate
             $table->decimal('exchange_rate', 12, 4)->nullable()->default(1.0000); // Exchange rate for currency conversion
