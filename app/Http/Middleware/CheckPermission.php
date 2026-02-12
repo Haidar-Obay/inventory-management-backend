@@ -37,14 +37,15 @@ class CheckPermission
 
         // Module-resource gate: ensure this tenant has a module that exposes this backend resource
         $tenantId = tenant('id');
-        // Check centrally: modules/module_resources/tenant_modules live in central DB
+        // Check centrally: module_resources (pivot) → resources.code, modules, tenant_modules
         $central = config('tenancy.database.central_connection', config('database.default'));
         $resourceAvailable = DB::connection($central)
             ->table('module_resources')
+            ->join('resources', 'module_resources.resource_id', '=', 'resources.id')
             ->join('modules', 'module_resources.module_id', '=', 'modules.id')
             ->join('tenant_modules', 'modules.id', '=', 'tenant_modules.module_id')
             ->join('tenants', 'tenant_modules.tenant_id', '=', 'tenants.id')
-            ->where('module_resources.code', $resourceKey)
+            ->where('resources.code', $resourceKey)
             ->where('tenants.id', $tenantId)
             ->exists();
 

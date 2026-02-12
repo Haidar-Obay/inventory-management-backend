@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Module extends Model
 {
@@ -22,14 +21,23 @@ class Module extends Model
         'sort_order' => 'integer',
     ];
 
-    public function pages(): HasMany
+    public function pages(): BelongsToMany
     {
-        return $this->hasMany(ModulePage::class);
+        return $this->belongsToMany(Page::class, 'module_pages')
+            ->withPivot('order', 'is_public')
+            ->withTimestamps();
     }
 
-    public function resources(): HasMany
+    public function resources(): BelongsToMany
     {
-        return $this->hasMany(ModuleResource::class);
+        return $this->belongsToMany(Resource::class, 'module_resources')
+            ->withTimestamps();
+    }
+
+    public function subscriptionPlans(): BelongsToMany
+    {
+        return $this->belongsToMany(SubscriptionPlan::class, 'subscription_plan_modules')
+            ->withTimestamps();
     }
 
     public function tenants(): BelongsToMany

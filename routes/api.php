@@ -8,6 +8,8 @@ use App\Http\Controllers\Central\AvailableCurrencyController;
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\ModulePageController;
 use App\Http\Controllers\ModuleResourceController;
+use App\Http\Controllers\PageController;
+use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\SubscriptionPlanController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\TenantModuleController;
@@ -61,6 +63,24 @@ foreach (config('tenancy.central_domains') as $domain) {
             Route::get('{id}', [TenantController::class, 'getTenant']);
             Route::delete('{id}', [TenantController::class, 'deleteTenant']);
             Route::put('{id}', [TenantController::class, 'updateTenant']);
+        });
+
+        // Pages (standalone)
+        Route::middleware(['auth:sanctum'])->prefix('pages')->group(function () {
+            Route::get('/', [PageController::class, 'index']);
+            Route::post('/', [PageController::class, 'store']);
+            Route::get('/{id}', [PageController::class, 'show']);
+            Route::put('/{id}', [PageController::class, 'update']);
+            Route::delete('/{id}', [PageController::class, 'destroy']);
+        });
+
+        // Resources (standalone)
+        Route::middleware(['auth:sanctum'])->prefix('resources')->group(function () {
+            Route::get('/', [ResourceController::class, 'index']);
+            Route::post('/', [ResourceController::class, 'store']);
+            Route::get('/{id}', [ResourceController::class, 'show']);
+            Route::put('/{id}', [ResourceController::class, 'update']);
+            Route::delete('/{id}', [ResourceController::class, 'destroy']);
         });
 
         // Modules Management
