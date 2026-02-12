@@ -20,7 +20,7 @@ class TenantModuleController extends Controller
         $pages = Page::whereHas('modules', fn ($q) => $q->whereIn('modules.id', $moduleIds))
             ->with(['modules' => fn ($q) => $q->whereIn('modules.id', $moduleIds)->orderByPivot('order')])
             ->get()
-            ->flatMap(function ($page) use ($moduleIds) {
+            ->flatMap(function ($page) {
                 return $page->modules->map(fn ($m) => array_merge($page->only(['id', 'name', 'code', 'path', 'description']), [
                     'order' => (int) $m->pivot->order,
                     'is_public' => (bool) $m->pivot->is_public,

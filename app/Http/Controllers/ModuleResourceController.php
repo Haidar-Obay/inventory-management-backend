@@ -54,6 +54,7 @@ class ModuleResourceController extends Controller
     public function update(Request $request, $moduleId, $resourceId): JsonResponse
     {
         Module::findOrFail($moduleId)->resources()->where('resources.id', $resourceId)->firstOrFail();
+
         // Pivot has no extra columns; no-op or update the resource itself via ResourceController
         return response()->json([
             'message' => 'Module resource link updated successfully',
