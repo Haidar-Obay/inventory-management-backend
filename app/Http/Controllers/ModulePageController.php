@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Module;
-use App\Models\ModulePage;
+use App\Models\Page;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -13,9 +13,13 @@ class ModulePageController extends Controller
     public function index($moduleId): JsonResponse
     {
         $module = Module::findOrFail($moduleId);
+        $pages = $module->pages()->orderByPivot('order')->get()->map(fn ($p) => array_merge($p->toArray(), [
+            'order' => (int) $p->pivot->order,
+            'is_public' => (bool) $p->pivot->is_public,
+        ]));
 
         return response()->json([
-            'pages' => $module->pages()->orderBy('order')->get(),
+            'pages' => $pages,
         ]);
     }
 
@@ -24,9 +28,7 @@ class ModulePageController extends Controller
         $module = Module::findOrFail($moduleId);
 
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|max:100',
-            'path' => 'required|string|max:255',
+            'page_id' => 'required|exists:pages,id',
             'order' => 'nullable|integer|min:0',
             'is_public' => 'boolean',
         ]);
@@ -35,41 +37,44 @@ class ModulePageController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Enforce uniqueness per module
-        if ($module->pages()->where('code', $request->code)->exists()) {
-            return response()->json(['errors' => ['code' => ['Code must be unique per module']]], 422);
-        }
-        if ($module->pages()->where('path', $request->path)->exists()) {
-            return response()->json(['errors' => ['path' => ['Path must be unique per module']]], 422);
+        if ($module->pages()->where('pages.id', $request->page_id)->exists()) {
+            return response()->json(['errors' => ['page_id' => ['Page is already attached to this module']]], 422);
         }
 
-        $nextId = $this->computeNextAvailableId(\App\Models\ModulePage::class, 'id');
-        $page = new \App\Models\ModulePage($request->only(['name', 'code', 'path', 'order', 'is_public']));
-        $page->id = $nextId;
-        $module->pages()->save($page);
+        $module->pages()->attach($request->page_id, [
+            'order' => $request->input('order', 0),
+            'is_public' => $request->boolean('is_public', false),
+        ]);
+
+        $page = Page::find($request->page_id);
+        $pivot = $module->pages()->where('pages.id', $request->page_id)->first()->pivot;
 
         return response()->json([
-            'message' => 'Module page created successfully',
-            'page' => $page,
+            'message' => 'Page attached to module successfully',
+            'page' => array_merge($page->toArray(), [
+                'order' => (int) $pivot->order,
+                'is_public' => (bool) $pivot->is_public,
+            ]),
         ], 201);
     }
 
     public function show($moduleId, $pageId): JsonResponse
     {
-        $page = ModulePage::where('module_id', $moduleId)->findOrFail($pageId);
+        $page = Module::findOrFail($moduleId)->pages()->where('pages.id', $pageId)->firstOrFail();
+        $data = array_merge($page->toArray(), [
+            'order' => (int) $page->pivot->order,
+            'is_public' => (bool) $page->pivot->is_public,
+        ]);
 
-        return response()->json(['page' => $page]);
+        return response()->json(['page' => $data]);
     }
 
     public function update(Request $request, $moduleId, $pageId): JsonResponse
     {
         $module = Module::findOrFail($moduleId);
-        $page = ModulePage::where('module_id', $moduleId)->findOrFail($pageId);
+        $module->pages()->where('pages.id', $pageId)->firstOrFail();
 
         $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|required|string|max:255',
-            'code' => 'sometimes|required|string|max:100',
-            'path' => 'sometimes|required|string|max:255',
             'order' => 'nullable|integer|min:0',
             'is_public' => 'boolean',
         ]);
@@ -78,26 +83,25 @@ class ModulePageController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        if ($request->filled('code') && $module->pages()->where('code', $request->code)->where('id', '!=', $page->id)->exists()) {
-            return response()->json(['errors' => ['code' => ['Code must be unique per module']]], 422);
-        }
-        if ($request->filled('path') && $module->pages()->where('path', $request->path)->where('id', '!=', $page->id)->exists()) {
-            return response()->json(['errors' => ['path' => ['Path must be unique per module']]], 422);
-        }
+        $module->pages()->updateExistingPivot($pageId, $request->only(['order', 'is_public']));
 
-        $page->update($request->only(['name', 'code', 'path', 'order', 'is_public']));
+        $page = $module->pages()->where('pages.id', $pageId)->first();
+        $data = array_merge($page->toArray(), [
+            'order' => (int) $page->pivot->order,
+            'is_public' => (bool) $page->pivot->is_public,
+        ]);
 
         return response()->json([
             'message' => 'Module page updated successfully',
-            'page' => $page,
+            'page' => $data,
         ]);
     }
 
     public function destroy($moduleId, $pageId): JsonResponse
     {
-        $page = ModulePage::where('module_id', $moduleId)->findOrFail($pageId);
-        $page->delete();
+        $module = Module::findOrFail($moduleId);
+        $module->pages()->detach($pageId);
 
-        return response()->json(['message' => 'Module page deleted successfully']);
+        return response()->json(['message' => 'Page detached from module successfully']);
     }
 }

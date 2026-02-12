@@ -22,11 +22,12 @@ class RolePermissionController extends Controller
             $allowedResourceKeys = collect(
                 DB::connection($central)
                     ->table('module_resources')
+                    ->join('resources', 'module_resources.resource_id', '=', 'resources.id')
                     ->join('modules', 'module_resources.module_id', '=', 'modules.id')
                     ->join('tenant_modules', 'modules.id', '=', 'tenant_modules.module_id')
                     ->join('tenants', 'tenant_modules.tenant_id', '=', 'tenants.id')
                     ->where('tenants.id', $tenantId)
-                    ->pluck('module_resources.code')
+                    ->pluck('resources.code')
             )->unique()->values();
 
             $role->load(['permissions' => function ($q) use ($allowedResourceKeys) {

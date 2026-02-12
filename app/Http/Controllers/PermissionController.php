@@ -28,16 +28,17 @@ class PermissionController extends Controller
 
             if (! $permissions) {
                 // Collect allowed backend resources for this tenant via assigned modules
-                // Fetch allowed resource keys from central DB (module_resources → modules → tenant_modules)
+                // Fetch allowed resource keys from central DB (module_resources → resources.code, modules, tenant_modules)
                 $central = config('tenancy.database.central_connection', config('database.default'));
                 $allowedResourceKeys = collect(
                     DB::connection($central)
                         ->table('module_resources')
+                        ->join('resources', 'module_resources.resource_id', '=', 'resources.id')
                         ->join('modules', 'module_resources.module_id', '=', 'modules.id')
                         ->join('tenant_modules', 'modules.id', '=', 'tenant_modules.module_id')
                         ->join('tenants', 'tenant_modules.tenant_id', '=', 'tenants.id')
                         ->where('tenants.id', $tenantId)
-                        ->pluck('module_resources.code')
+                        ->pluck('resources.code')
                 )->unique()->values();
 
                 $query = Permission::with('roles')

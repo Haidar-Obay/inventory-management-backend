@@ -11,13 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('module_resources', function (Blueprint $table) {
+        Schema::create('resources', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('module_id')->constrained()->onDelete('cascade');
-            $table->foreignId('resource_id')->constrained()->onDelete('cascade');
+            $table->string('name');
+            $table->string('code')->unique();
+            $table->text('description')->nullable();
+            $table->string('migration_class')->nullable();
+            $table->boolean('enabled')->default(true);
+            $table->unsignedInteger('version')->default(1);
             $table->timestamps();
-
-            $table->unique(['module_id', 'resource_id']);
         });
     }
 
@@ -26,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('module_resources');
+        Schema::dropIfExists('resources');
     }
 };
