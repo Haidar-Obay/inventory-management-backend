@@ -114,6 +114,7 @@ class ItemController extends Controller
                 'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
+                'attachments',
             ]);
             app('cache')->store('database')->forever($key, $cachedItem);
         }
@@ -452,23 +453,24 @@ class ItemController extends Controller
                     Storage::disk('public')->delete($relativePath);
                     // Delete attachment record
                     $existingAttachment->delete();
-                } else {
-                    // Update existing attachment metadata if provided
-                    $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
-                    if ($metadata) {
-                        if (isset($metadata['description'])) {
-                            $existingAttachment->description = $metadata['description'];
+                    } else {
+                        // Update existing attachment metadata if provided (match ServiceController logic)
+                        $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
+                        if ($metadata) {
+                            // Use array_key_exists to allow empty strings - isset can skip empty in some cases
+                            if (array_key_exists('description', $metadata)) {
+                                $existingAttachment->description = $metadata['description'] ?? '';
+                            }
+                            if (array_key_exists('is_public', $metadata)) {
+                                $existingAttachment->is_public = $metadata['is_public'];
+                            }
+                            if (array_key_exists('category', $metadata)) {
+                                $existingAttachment->category = $metadata['category'];
+                            }
+                            $existingAttachment->save();
                         }
-                        if (isset($metadata['is_public'])) {
-                            $existingAttachment->is_public = $metadata['is_public'];
-                        }
-                        if (isset($metadata['category'])) {
-                            $existingAttachment->category = $metadata['category'];
-                        }
-                        $existingAttachment->save();
                     }
                 }
-            }
 
             // Create new attachments from uploaded files
             // When using attachments[] in FormData, Laravel receives it as attachments.*
@@ -587,16 +589,17 @@ class ItemController extends Controller
                         // Delete attachment record
                         $existingAttachment->delete();
                     } else {
-                        // Update existing attachment metadata if provided
+                        // Update existing attachment metadata if provided (match ServiceController logic)
                         $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
                         if ($metadata) {
-                            if (isset($metadata['description'])) {
-                                $existingAttachment->description = $metadata['description'];
+                            // Use array_key_exists to allow empty strings - isset can skip empty in some cases
+                            if (array_key_exists('description', $metadata)) {
+                                $existingAttachment->description = $metadata['description'] ?? '';
                             }
-                            if (isset($metadata['is_public'])) {
+                            if (array_key_exists('is_public', $metadata)) {
                                 $existingAttachment->is_public = $metadata['is_public'];
                             }
-                            if (isset($metadata['category'])) {
+                            if (array_key_exists('category', $metadata)) {
                                 $existingAttachment->category = $metadata['category'];
                             }
                             $existingAttachment->save();

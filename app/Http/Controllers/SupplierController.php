@@ -985,8 +985,16 @@ class SupplierController extends Controller
             ]);
             $this->updateAttachments($supplier, $request);
 
-            // Handle multi-currency opening balances
+            // Handle multi-currency opening balances (replace with request list: delete removed, then upsert each)
             if ($request->has('opening_balances')) {
+                $requestCurrencyIds = collect($request->input('opening_balances', []))
+                    ->pluck('currency_id')
+                    ->filter(fn ($id) => $id !== null && $id !== '')
+                    ->unique()
+                    ->values()
+                    ->toArray();
+                $supplier->openingBalances()->whereNotIn('currency_id', $requestCurrencyIds)->delete();
+
                 foreach ($request->input('opening_balances') as $openingBalanceData) {
                     $this->openingBalanceService->setSupplierOpeningBalance(
                         $supplier,
@@ -2023,16 +2031,16 @@ class SupplierController extends Controller
                 // Delete attachment record
                 $existingAttachment->delete();
             } else {
-                // Update existing attachment metadata if provided
+                // Update existing attachment metadata if provided (match ServiceController logic)
                 $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
                 if ($metadata) {
-                    if (isset($metadata['description'])) {
-                        $existingAttachment->description = $metadata['description'];
+                    if (array_key_exists('description', $metadata)) {
+                        $existingAttachment->description = $metadata['description'] ?? '';
                     }
-                    if (isset($metadata['is_public'])) {
+                    if (array_key_exists('is_public', $metadata)) {
                         $existingAttachment->is_public = $metadata['is_public'];
                     }
-                    if (isset($metadata['category'])) {
+                    if (array_key_exists('category', $metadata)) {
                         $existingAttachment->category = $metadata['category'];
                     }
                     $existingAttachment->save();
@@ -2201,14 +2209,17 @@ class SupplierController extends Controller
                         // Delete attachment record
                         $existingAttachment->delete();
                     } else {
-                        // Update existing attachment metadata if provided
+                        // Update existing attachment metadata if provided (match ServiceController logic)
                         $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
                         if ($metadata) {
-                            if (isset($metadata['description'])) {
-                                $existingAttachment->description = $metadata['description'];
+                            if (array_key_exists('description', $metadata)) {
+                                $existingAttachment->description = $metadata['description'] ?? '';
                             }
-                            if (isset($metadata['is_public'])) {
+                            if (array_key_exists('is_public', $metadata)) {
                                 $existingAttachment->is_public = $metadata['is_public'];
+                            }
+                            if (array_key_exists('category', $metadata)) {
+                                $existingAttachment->category = $metadata['category'];
                             }
                             $existingAttachment->save();
                         }

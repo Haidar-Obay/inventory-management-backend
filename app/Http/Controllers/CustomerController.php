@@ -1356,16 +1356,16 @@ class CustomerController extends Controller
                         // Delete attachment record
                         $existingAttachment->delete();
                     } else {
-                        // Update existing attachment metadata if provided
+                        // Update existing attachment metadata if provided (match ServiceController logic)
                         $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
                         if ($metadata) {
-                            if (isset($metadata['description'])) {
-                                $existingAttachment->description = $metadata['description'];
+                            if (array_key_exists('description', $metadata)) {
+                                $existingAttachment->description = $metadata['description'] ?? '';
                             }
-                            if (isset($metadata['is_public'])) {
+                            if (array_key_exists('is_public', $metadata)) {
                                 $existingAttachment->is_public = $metadata['is_public'];
                             }
-                            if (isset($metadata['category'])) {
+                            if (array_key_exists('category', $metadata)) {
                                 $existingAttachment->category = $metadata['category'];
                             }
                             $existingAttachment->save();
@@ -1490,16 +1490,16 @@ class CustomerController extends Controller
                             // Delete attachment record
                             $existingAttachment->delete();
                         } else {
-                            // Update existing attachment metadata if provided
+                            // Update existing attachment metadata if provided (match ServiceController logic)
                             $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
                             if ($metadata) {
-                                if (isset($metadata['description'])) {
-                                    $existingAttachment->description = $metadata['description'];
+                                if (array_key_exists('description', $metadata)) {
+                                    $existingAttachment->description = $metadata['description'] ?? '';
                                 }
-                                if (isset($metadata['is_public'])) {
+                                if (array_key_exists('is_public', $metadata)) {
                                     $existingAttachment->is_public = $metadata['is_public'];
                                 }
-                                if (isset($metadata['category'])) {
+                                if (array_key_exists('category', $metadata)) {
                                     $existingAttachment->category = $metadata['category'];
                                 }
                                 $existingAttachment->save();
