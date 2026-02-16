@@ -24,9 +24,6 @@ class InvoiceController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_invoices";
-
         $query = Invoice::with([
             'customer:id,first_name,last_name,display_name,company_name',
             'supplier:id,first_name,last_name,display_name,company_name',
@@ -79,30 +76,22 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice): JsonResponse
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_invoice_{$invoice->id}";
-
-        $cachedInvoice = app('cache')->store('database')->get($key);
-
-        if (! $cachedInvoice) {
-            $cachedInvoice = $invoice->load([
-                'customer:id,first_name,last_name,display_name,company_name',
-                'supplier:id,first_name,last_name,display_name,company_name',
-                'currency:id,code,name',
-                'salesman:id,name',
-                'warehouse:id,name',
-                'paymentTerm:id,name,nb_days',
-                'items.item:id,code,name',
-                'items.uom:id,name',
-                'items.warehouse:id,name',
-            ]);
-            app('cache')->store('database')->forever($key, $cachedInvoice);
-        }
+        $invoice->load([
+            'customer:id,first_name,last_name,display_name,company_name',
+            'supplier:id,first_name,last_name,display_name,company_name',
+            'currency:id,code,name',
+            'salesman:id,name',
+            'warehouse:id,name,code',
+            'paymentTerm:id,name,nb_days',
+            'items.item:id,code,name',
+            'items.uom:id,name',
+            'items.warehouse:id,name,code',
+        ]);
 
         return response()->json([
             'status' => true,
             'message' => 'Invoice details fetched successfully.',
-            'data' => $cachedInvoice,
+            'data' => $invoice,
         ]);
     }
 
@@ -321,10 +310,6 @@ class InvoiceController extends Controller
 
             DB::commit();
 
-            // Clear cache
-            $tenantId = tenant('id');
-            app('cache')->store('database')->forget("tenant_{$tenantId}_invoices");
-
             return response()->json([
                 'status' => true,
                 'message' => 'Invoice created successfully.',
@@ -411,11 +396,6 @@ class InvoiceController extends Controller
 
             DB::commit();
 
-            // Clear cache
-            $tenantId = tenant('id');
-            app('cache')->store('database')->forget("tenant_{$tenantId}_invoices");
-            app('cache')->store('database')->forget("tenant_{$tenantId}_invoice_{$invoice->id}");
-
             return response()->json([
                 'status' => true,
                 'message' => 'Invoice updated successfully.',
@@ -450,11 +430,6 @@ class InvoiceController extends Controller
 
             DB::commit();
 
-            // Clear cache
-            $tenantId = tenant('id');
-            app('cache')->store('database')->forget("tenant_{$tenantId}_invoices");
-            app('cache')->store('database')->forget("tenant_{$tenantId}_invoice_{$invoice->id}");
-
             return response()->json([
                 'status' => true,
                 'message' => 'Invoice deleted successfully.',
@@ -483,7 +458,6 @@ class InvoiceController extends Controller
             'ids.*.exists' => 'One or more selected invoices do not exist.',
         ]);
 
-        $tenantId = tenant('id');
         $skipped = [];
         $deleted = 0;
 
@@ -505,9 +479,6 @@ class InvoiceController extends Controller
                 $invoice->delete();
                 $deleted++;
 
-                // Clear cache
-                app('cache')->store('database')->forget("tenant_{$tenantId}_invoice_{$id}");
-
             } catch (\Illuminate\Database\QueryException $e) {
                 $invoice = Invoice::withTrashed()->find($id);
                 $identifier = $invoice ? ($invoice->invoice_number ? "Invoice #{$invoice->invoice_number}" : "Invoice ID: {$id}") : "ID: {$id}";
@@ -526,9 +497,6 @@ class InvoiceController extends Controller
                 ];
             }
         }
-
-        // Clear invoices cache
-        app('cache')->store('database')->forget("tenant_{$tenantId}_invoices");
 
         return response()->json([
             'status' => true,
