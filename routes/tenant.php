@@ -15,6 +15,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\BusinessTypeController;
+use App\Http\Controllers\CashAccountController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CityController;
 use App\Http\Controllers\CompanyCodeController;
@@ -183,6 +184,7 @@ Route::middleware([
             Route::get('/check-currency/{currencyId}', [App\Http\Controllers\SupplierOpeningBalanceController::class, 'checkCurrencyExists']);
         });
         Route::apiResource('payment-terms', PaymentTermController::class)->middleware('check.permission:payment_terms,view');
+        Route::apiResource('cash-accounts', CashAccountController::class);
 
         // Define specific currency routes BEFORE apiResource to avoid route conflicts
         Route::get('currencies/exchange-rate', [CurrencyController::class, 'getExchangeRate'])->middleware('check.permission:currencies,view');
@@ -498,6 +500,7 @@ Route::middleware([
             Route::delete('/customer-groups', [CustomerGroupController::class, 'bulkDelete']);
             Route::delete('/payment-methods', [PaymentMethodController::class, 'bulkDelete']);
             Route::delete('/payment-terms', [PaymentTermController::class, 'bulkDelete']);
+            Route::delete('/cash-accounts', [CashAccountController::class, 'bulkDelete']);
             Route::delete('/salesmen', [SalesmanController::class, 'bulkDelete']);
             Route::delete('/refer-bies', [ReferByController::class, 'bulkDelete']);
             Route::delete('/trades', [TradeController::class, 'bulkDelete']);
