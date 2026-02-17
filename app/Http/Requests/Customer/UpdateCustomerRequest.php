@@ -37,7 +37,8 @@ class UpdateCustomerRequest extends FormRequest
 
     public function rules(): array
     {
-        $customerId = $this->route('customer'); // Adjust this if your route parameter is named differently
+        $customerParam = $this->route('customer');
+        $customerId = is_object($customerParam) ? $customerParam->id : $customerParam;
 
         return [
             'title' => 'sometimes|nullable|string|max:255',
@@ -52,7 +53,15 @@ class UpdateCustomerRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:20',
-                Rule::unique('customers', 'phone1')->ignore($customerId),
+                function ($attribute, $value, $fail) use ($customerId) {
+                    if (empty(trim($value ?? ''))) {
+                        return;
+                    }
+                    $exists = \App\Models\Customer::where('phone1', $value)->where('id', '!=', $customerId)->exists();
+                    if ($exists) {
+                        $fail('The phone number has already been taken.');
+                    }
+                },
             ],
             'phone2' => [
                 'sometimes',

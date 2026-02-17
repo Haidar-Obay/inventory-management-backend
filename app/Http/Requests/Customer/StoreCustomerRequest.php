@@ -42,7 +42,20 @@ class StoreCustomerRequest extends FormRequest
             'last_name' => 'required|string|max:255',
             'display_name' => 'nullable|string|max:255',
             'company_name' => 'nullable|string|max:255',
-            'phone1' => 'required|string|max:20|unique:customers,phone1',
+            'phone1' => [
+                'required_unless:one_time_account,true',
+                'nullable',
+                'string',
+                'max:20',
+                function ($attribute, $value, $fail) {
+                    if (empty(trim($value ?? ''))) {
+                        return;
+                    }
+                    if (\App\Models\Customer::where('phone1', $value)->exists()) {
+                        $fail('The phone number has already been taken.');
+                    }
+                },
+            ],
             'phone2' => 'nullable|string|max:20|unique:customers,phone2',
             'phone3' => 'nullable|string|max:20|unique:customers,phone3',
             'email' => 'nullable|email|max:255|unique:customers,email',
