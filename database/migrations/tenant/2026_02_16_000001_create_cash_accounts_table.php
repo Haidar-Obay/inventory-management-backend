@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('holder_name')->nullable(); // name on card/wallet
             $table->string('number')->nullable();      // card number / wallet number
             $table->string('phone')->nullable();
-            $table->date('expiry_date')->nullable();
+            $table->string('expiry_date')->nullable();
             $table->string('cvv', 10)->nullable();
             $table->timestamps();
         });

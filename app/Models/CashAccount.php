@@ -17,7 +17,6 @@ class CashAccount extends Model
         'type' => CashAccountType::class,
         'opening_amount' => 'decimal:4',
         'opening_date' => 'date',
-        'expiry_date' => 'date',
     ];
 
     public function currency()

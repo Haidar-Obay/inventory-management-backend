@@ -126,7 +126,6 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Sales Channels', 'code' => PageCode::GENERAL_FILES_SALES_CHANNELS->value, 'path' => '/main/mainfiles/generalfiles?tab=1', 'order' => 71, 'is_public' => false],
                     ['name' => 'Distribution Channels', 'code' => PageCode::GENERAL_FILES_DISTRIBUTION_CHANNELS->value, 'path' => '/main/mainfiles/generalfiles?tab=2', 'order' => 72, 'is_public' => false],
                     ['name' => 'Media Channels', 'code' => PageCode::GENERAL_FILES_MEDIA_CHANNELS->value, 'path' => '/main/mainfiles/generalfiles?tab=3', 'order' => 73, 'is_public' => false],
-                    ['name' => 'Cash Accounts', 'code' => PageCode::GENERAL_FILES_CASH_ACCOUNTS->value, 'path' => '/main/mainfiles/generalfiles?tab=4', 'order' => 74, 'is_public' => false],
                     ['name' => 'Projects', 'code' => PageCode::SECTIONS_PROJECTS->value, 'path' => '/main/mainfiles/sections?tab=0', 'order' => 80, 'is_public' => false],
                     ['name' => 'Cost Centers', 'code' => PageCode::SECTIONS_COST_CENTERS->value, 'path' => '/main/mainfiles/sections?tab=1', 'order' => 81, 'is_public' => false],
                     ['name' => 'Departments', 'code' => PageCode::SECTIONS_DEPARTMENTS->value, 'path' => '/main/mainfiles/sections?tab=2', 'order' => 82, 'is_public' => false],
