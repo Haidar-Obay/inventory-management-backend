@@ -31,7 +31,7 @@ class StoreCashAccountRequest extends FormRequest
             'holder_name' => 'nullable|string|max:255',
             'number' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:255',
-            'expiry_date' => 'nullable|date',
+            'expiry_date' => 'nullable|string|max:50',
             'cvv' => 'nullable|string|max:10',
         ];
     }
