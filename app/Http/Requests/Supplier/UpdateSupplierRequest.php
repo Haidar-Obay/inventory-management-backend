@@ -172,14 +172,17 @@ class UpdateSupplierRequest extends FormRequest
             'opening_balances.*.opening_amount' => ['required', 'numeric', 'min:0', 'max:999999999.99'],
             'opening_balances.*.opening_date' => ['nullable', 'date'],
             'opening_balances.*.notes' => ['nullable', 'string', 'max:1000'],
+            'opening_balances.*.payment_term_id' => ['nullable', 'exists:payment_terms,id'],
+            'opening_balances.*.payment_method_id' => ['nullable', 'exists:payment_methods,id'],
+            'opening_balances.*.allow_credit' => ['nullable', 'boolean'],
+            'opening_balances.*.payment_day' => ['nullable', 'string', 'in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30'],
+            'opening_balances.*.track_payment' => ['nullable', 'string', 'in:yes,no'],
+            'opening_balances.*.settlement_method' => ['nullable', 'string', 'in:FIFO,Manual'],
 
             // Payment Terms
             'payment_term_id' => ['nullable', 'exists:payment_terms,id'],
             'payment_method_id' => ['nullable', 'exists:payment_methods,id'],
             'allow_credit' => ['nullable', 'boolean'],
-            'payment_day' => ['nullable', 'string', 'in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30'],
-            'track_payment' => ['nullable', 'string', 'in:yes,no'],
-            'settlement_method' => ['nullable', 'string', 'in:FIFO,Manual'],
             'accept_cheques' => ['nullable', 'boolean'],
 
             // Credit limits and cheque limits are handled in separate tables for multi-currency support

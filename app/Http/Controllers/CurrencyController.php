@@ -29,7 +29,14 @@ class CurrencyController extends Controller
             app('cache')->store('database')->forever($key, $currencies);
         }
 
-        return response()->json($currencies);
+        $primaryCurrencyId = \App\Models\TenantSetting::getSettings()->primary_currency_id ?? null;
+        $mapped = collect($currencies)->map(function ($currency) use ($primaryCurrencyId) {
+            $arr = $currency instanceof \Illuminate\Database\Eloquent\Model ? $currency->toArray() : (array) $currency;
+            $arr['is_primary'] = $primaryCurrencyId && ($currency->id ?? $arr['id'] ?? null) == $primaryCurrencyId;
+            return $arr;
+        })->values()->all();
+
+        return response()->json($mapped);
     }
 
     public function store(StoreCurrencyRequest $request)

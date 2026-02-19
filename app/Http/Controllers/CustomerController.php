@@ -12,7 +12,6 @@ use App\Models\Address;
 use App\Models\Asset;
 use App\Models\Customer;
 use App\Models\CustomerAttachment;
-use App\Models\PaymentTerm;
 use App\Models\Project;
 use App\Models\Specialist;
 use Illuminate\Http\Request;
@@ -37,13 +36,11 @@ class CustomerController extends Controller
             'created_at',
             'customer_group_id',
             'salesman_id',
-            'payment_term_id',
-            'payment_method_id',
         ])->with([
             'customerGroup:id,name',
             'salesman:id,name',
-            'paymentTerm:id,name',
-            'paymentMethod:id,name',
+            'openingBalances.paymentTerm:id,name',
+            'openingBalances.paymentMethod:id,name',
         ]);
 
         // Get the customers data
@@ -69,13 +66,13 @@ class CustomerController extends Controller
                     'id' => $customer->salesman->id,
                     'name' => $customer->salesman->name,
                 ] : null,
-                'payment_term' => $customer->paymentTerm ? [
-                    'id' => $customer->paymentTerm->id,
-                    'name' => $customer->paymentTerm->name,
+                'payment_term' => $customer->openingBalances->first()?->paymentTerm ? [
+                    'id' => $customer->openingBalances->first()->paymentTerm->id,
+                    'name' => $customer->openingBalances->first()->paymentTerm->name,
                 ] : null,
-                'payment_method' => $customer->paymentMethod ? [
-                    'id' => $customer->paymentMethod->id,
-                    'name' => $customer->paymentMethod->name,
+                'payment_method' => $customer->openingBalances->first()?->paymentMethod ? [
+                    'id' => $customer->openingBalances->first()->paymentMethod->id,
+                    'name' => $customer->openingBalances->first()->paymentMethod->name,
                 ] : null,
 
                 // Status Indicators (Useful)
@@ -107,18 +104,8 @@ class CustomerController extends Controller
                 $validated['billing_apartment'], $validated['billing_zip_code'],
                 $validated['shipping_addresses']);
 
-            // Handle payment terms with new field names
-            if ($request->filled('selected_payment_term')) {
-                $validated['payment_term_id'] = $request->input('selected_payment_term');
-            } elseif ($request->filled('payment_term_id')) {
-                $validated['payment_term_id'] = $request->input('payment_term_id');
-            }
-
-            if ($request->filled('selected_payment_method')) {
-                $validated['payment_method_id'] = $request->input('selected_payment_method');
-            } elseif ($request->filled('payment_method_id')) {
-                $validated['payment_method_id'] = $request->input('payment_method_id');
-            }
+            // Payment terms are per-currency in opening_balances, not on customer
+            unset($validated['payment_term_id'], $validated['payment_method_id'], $validated['allow_credit']);
 
             // Handle pricing with new field names
             if ($request->filled('price_choice')) {
@@ -253,6 +240,12 @@ class CustomerController extends Controller
                             'opening_amount' => $openingBalanceData['amount'],
                             'opening_date' => $openingBalanceData['date'] ?? now()->toDateString(),
                             'notes' => $openingBalanceData['notes'] ?? null,
+                            'payment_term_id' => $openingBalanceData['payment_term_id'] ?? null,
+                            'payment_method_id' => $openingBalanceData['payment_method_id'] ?? null,
+                            'allow_credit' => (bool) ($openingBalanceData['allow_credit'] ?? false),
+                            'payment_day' => $openingBalanceData['payment_day'] ?? null,
+                            'track_payment' => $openingBalanceData['track_payment'] ?? 'no',
+                            'settlement_method' => $openingBalanceData['settlement_method'] ?? null,
                             'is_active' => true,
                         ]);
                     }
@@ -429,14 +422,14 @@ class CustomerController extends Controller
                     'shippingAddresses',
                     'primaryBillingAddress',
                     'primaryShippingAddress',
-                    'paymentMethod',
-                    'paymentTerm',
                     'primaryContact',
                     'contacts',
                     'attachments',
                     'creditLimits.currency',
                     'chequeLimits.currency',
                     'openingBalances.currency',
+                    'openingBalances.paymentTerm:id,code,name,nb_days',
+                    'openingBalances.paymentMethod:id,code,name',
                 ]),
             ]);
         });
@@ -537,8 +530,6 @@ class CustomerController extends Controller
             'collector:id,name',
             'supervisor:id,name',
             'manager:id,name',
-            'paymentTerm:id,code',
-            'paymentMethod:id,code',
             'trade:id,name',
             'companyCode:id,code',
             'businessType:id,name',
@@ -558,7 +549,7 @@ class CustomerController extends Controller
             'attachments:id,customer_id,file_name,file_path,file_type,file_size,description,category,is_public,created_at,updated_at',
             'creditLimits:id,currency_id,credit_limit,notes,is_active',
             'chequeLimits:id,currency_id,max_cheques,notes,is_active',
-            'openingBalances:id,currency_id,opening_amount,opening_date,notes,is_active',
+            'openingBalances:id,currency_id,opening_amount,opening_date,notes,payment_term_id,payment_method_id,allow_credit,payment_day,track_payment,settlement_method,is_active',
         ]);
 
         // Refresh contacts relationship to ensure all contacts are loaded
@@ -567,7 +558,12 @@ class CustomerController extends Controller
         // Load related currencies for credit limits, cheque limits, and opening balances
         $creditLimits = $customer->activeCreditLimits()->with('currency:id,code,name,iso_code')->get();
         $chequeLimits = $customer->activeChequeLimits()->with('currency:id,code,name,iso_code')->get();
-        $openingBalances = $customer->activeOpeningBalances()->with('currency:id,code,name,iso_code')->get();
+        $openingBalances = $customer->activeOpeningBalances()
+            ->with([
+                'currency:id,code,name,iso_code',
+                'paymentTerm:id,code,name,nb_days',
+                'paymentMethod:id,code,name',
+            ])->get();
 
         // Transform the response to include all customer data
         $transformedData = [
@@ -608,12 +604,9 @@ class CustomerController extends Controller
             'created_at' => $customer->created_at,
             'updated_at' => $customer->updated_at,
 
-            // Payment and credit related fields
-            'allow_credit' => $customer->allow_credit,
+            // Payment and credit related fields (allow_credit is per-currency in opening_balances)
+            'allow_credit' => $customer->openingBalances()->active()->where('allow_credit', true)->exists(),
             'accept_cheques' => $customer->accept_cheques,
-            'payment_day' => $customer->payment_day,
-            'track_payment' => $customer->track_payment,
-            'settlement_method' => $customer->settlement_method,
 
             // Pricing related fields
             'price_choice' => $customer->price_choice,
@@ -656,13 +649,13 @@ class CustomerController extends Controller
                 'id' => $customer->manager->id,
                 'name' => $customer->manager->name,
             ] : null,
-            'payment_term' => $customer->paymentTerm ? [
-                'id' => $customer->paymentTerm->id,
-                'code' => $customer->paymentTerm->code,
+            'payment_term' => $customer->openingBalances->first()?->paymentTerm ? [
+                'id' => $customer->openingBalances->first()->paymentTerm->id,
+                'code' => $customer->openingBalances->first()->paymentTerm->code,
             ] : null,
-            'payment_method' => $customer->paymentMethod ? [
-                'id' => $customer->paymentMethod->id,
-                'code' => $customer->paymentMethod->code,
+            'payment_method' => $customer->openingBalances->first()?->paymentMethod ? [
+                'id' => $customer->openingBalances->first()->paymentMethod->id,
+                'code' => $customer->openingBalances->first()->paymentMethod->code,
             ] : null,
             'trade' => $customer->trade ? [
                 'id' => $customer->trade->id,
@@ -871,7 +864,7 @@ class CustomerController extends Controller
                 ];
             }),
 
-            // Opening balances with currency info
+            // Opening balances with currency and payment term info
             'opening_balances' => $openingBalances->map(function ($openingBalance) {
                 return [
                     'id' => $openingBalance->id,
@@ -882,6 +875,23 @@ class CustomerController extends Controller
                     'opening_amount' => $openingBalance->opening_amount,
                     'opening_date' => $openingBalance->opening_date,
                     'notes' => $openingBalance->notes,
+                    'payment_term_id' => $openingBalance->payment_term_id,
+                    'payment_method_id' => $openingBalance->payment_method_id,
+                    'allow_credit' => $openingBalance->allow_credit,
+                    'payment_day' => $openingBalance->payment_day,
+                    'track_payment' => $openingBalance->track_payment,
+                    'settlement_method' => $openingBalance->settlement_method,
+                    'payment_term' => $openingBalance->paymentTerm ? [
+                        'id' => $openingBalance->paymentTerm->id,
+                        'code' => $openingBalance->paymentTerm->code,
+                        'name' => $openingBalance->paymentTerm->name,
+                        'nb_days' => $openingBalance->paymentTerm->nb_days,
+                    ] : null,
+                    'payment_method' => $openingBalance->paymentMethod ? [
+                        'id' => $openingBalance->paymentMethod->id,
+                        'code' => $openingBalance->paymentMethod->code,
+                        'name' => $openingBalance->paymentMethod->name,
+                    ] : null,
                     'is_active' => $openingBalance->is_active,
                 ];
             }),
@@ -1056,24 +1066,8 @@ class CustomerController extends Controller
                 $validated['markdown_percentage'] = $request->input('markdown');
             }
 
-            // Handle payment method - support both field name formats
-            if ($request->filled('primary_payment_method_id')) {
-                $validated['payment_method_id'] = $request->input('primary_payment_method_id');
-            } elseif ($request->filled('payment_method_id')) {
-                $validated['payment_method_id'] = $request->input('payment_method_id');
-            }
-
-            // Handle payment term - support both field name formats
-            if ($request->filled('payment_term')) {
-                if ($customer->paymentTerm) {
-                    $customer->paymentTerm()->update($request->input('payment_term'));
-                } else {
-                    $paymentTerm = PaymentTerm::create($request->input('payment_term'));
-                    $validated['payment_term_id'] = $paymentTerm->id;
-                }
-            } elseif ($request->filled('payment_term_id')) {
-                $validated['payment_term_id'] = $request->input('payment_term_id');
-            }
+            // Payment terms are per-currency in opening_balances, not on customer - remove from validated
+            unset($validated['payment_term_id'], $validated['payment_method_id'], $validated['allow_credit']);
 
             // Convert empty date strings to null for database compatibility
             $dateFields = ['taxed_from_date', 'taxed_till_date', 'exempted_from_date', 'exempted_till_date'];
@@ -1124,12 +1118,25 @@ class CustomerController extends Controller
 
                     $existing = $id ? $customer->openingBalances()->where('id', $id)->first() : null;
 
+                    $paymentTermId = $openingBalanceData['payment_term_id'] ?? null;
+                    $paymentMethodId = $openingBalanceData['payment_method_id'] ?? null;
+                    $allowCredit = (bool) ($openingBalanceData['allow_credit'] ?? false);
+                    $paymentDay = $openingBalanceData['payment_day'] ?? null;
+                    $trackPayment = $openingBalanceData['track_payment'] ?? 'no';
+                    $settlementMethod = $openingBalanceData['settlement_method'] ?? null;
+
                     if ($existing) {
                         $existing->update([
                             'currency_id' => $currencyId,
                             'opening_amount' => $amount,
                             'opening_date' => $date ?? now()->toDateString(),
                             'notes' => $notes,
+                            'payment_term_id' => $paymentTermId,
+                            'payment_method_id' => $paymentMethodId,
+                            'allow_credit' => $allowCredit,
+                            'payment_day' => $paymentDay,
+                            'track_payment' => $trackPayment,
+                            'settlement_method' => $settlementMethod,
                             'is_active' => true,
                         ]);
                     } else {
@@ -1140,6 +1147,12 @@ class CustomerController extends Controller
                             'opening_amount' => $amount,
                             'opening_date' => $date ?? now()->toDateString(),
                             'notes' => $notes,
+                            'payment_term_id' => $paymentTermId,
+                            'payment_method_id' => $paymentMethodId,
+                            'allow_credit' => $allowCredit,
+                            'payment_day' => $paymentDay,
+                            'track_payment' => $trackPayment,
+                            'settlement_method' => $settlementMethod,
                             'is_active' => true,
                         ]);
                     }
@@ -1541,14 +1554,14 @@ class CustomerController extends Controller
                 'shippingAddresses',
                 'primaryBillingAddress',
                 'primaryShippingAddress',
-                'paymentMethod',
-                'paymentTerm',
                 'primaryContact',
                 'contacts',
                 'attachments',
                 'creditLimits.currency',
                 'chequeLimits.currency',
                 'openingBalances.currency',
+                'openingBalances.paymentTerm:id,code,name,nb_days',
+                'openingBalances.paymentMethod:id,code,name',
             ]);
 
             return response()->json([
@@ -1752,9 +1765,6 @@ class CustomerController extends Controller
             'payment_method_id',
             'allow_credit',
             'accept_cheques',
-            'payment_day',
-            'track_payment',
-            'settlement_method',
             'price_choice',
             'global_discount',
             'discount_class',
@@ -1886,9 +1896,6 @@ class CustomerController extends Controller
             'payment_method_id',
             'allow_credit',
             'accept_cheques',
-            'payment_day',
-            'track_payment',
-            'settlement_method',
             'price_choice',
             'global_discount',
             'discount_class',
@@ -1965,9 +1972,6 @@ class CustomerController extends Controller
             'payment_method_id' => 'Payment Method ID',
             'allow_credit' => 'Allow Credit',
             'accept_cheques' => 'Accept Cheque',
-            'payment_day' => 'Payment Day',
-            'track_payment' => 'Track Payment',
-            'settlement_method' => 'Settlement Method',
             'price_choice' => 'Price Choice',
             'global_discount' => 'Global Discount',
             'discount_class' => 'Discount Class',
@@ -2068,9 +2072,6 @@ class CustomerController extends Controller
                     'payment_method_id',
                     'allow_credit',
                     'accept_cheques',
-                    'payment_day',
-                    'track_payment',
-                    'settlement_method',
                     'price_choice',
                     'global_discount',
                     'discount_class',
@@ -2234,9 +2235,6 @@ class CustomerController extends Controller
                         'payment_method_id' => $row['payment_method_id'] ?? null,
                         'allow_credit' => boolval($row['allow_credit'] ?? false),
                         'accept_cheques' => boolval($row['accept_cheques'] ?? false),
-                        'payment_day' => $row['payment_day'] ?? null,
-                        'track_payment' => $row['track_payment'] ?? 'no',
-                        'settlement_method' => $row['settlement_method'] ?? null,
                         'price_choice' => $row['price_choice'] ?? null,
                         'global_discount' => $row['global_discount'] ?? null,
                         'discount_class' => $row['discount_class'] ?? null,
@@ -2553,13 +2551,16 @@ class CustomerController extends Controller
     public function getForInvoice($customerId)
     {
         $customer = Customer::with([
-            'paymentTerm:id,name,code,nb_days',
             'salesman:id,name',
             'billingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
             'shippingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
             'openingBalances' => function ($query) {
                 $query->where('is_active', true)
-                    ->with('currency:id,code,name');
+                    ->with([
+                        'currency:id,code,name',
+                        'paymentTerm:id,code,name,nb_days',
+                        'paymentMethod:id,code,name',
+                    ]);
             },
         ])->find($customerId);
 
@@ -2613,13 +2614,26 @@ class CustomerController extends Controller
             ];
         });
 
-        // Get currencies from active opening balances
+        // Get currencies from active opening balances with per-currency payment terms
         $currencies = $customer->openingBalances->map(function ($openingBalance) {
-            return [
+            $currencyData = [
                 'id' => $openingBalance->currency->id,
                 'code' => $openingBalance->currency->code,
                 'name' => $openingBalance->currency->name,
+                'payment_day' => $openingBalance->payment_day,
+                'track_payment' => $openingBalance->track_payment,
+                'settlement_method' => $openingBalance->settlement_method,
             ];
+            if ($openingBalance->paymentTerm) {
+                $currencyData['payment_term_id'] = $openingBalance->payment_term_id;
+                $currencyData['payment_term'] = [
+                    'id' => $openingBalance->paymentTerm->id,
+                    'name' => $openingBalance->paymentTerm->name,
+                    'code' => $openingBalance->paymentTerm->code,
+                    'nb_days' => $openingBalance->paymentTerm->nb_days,
+                ];
+            }
+            return $currencyData;
         });
 
         return response()->json([
@@ -2639,11 +2653,11 @@ class CustomerController extends Controller
                     'id' => $customer->salesman->id,
                     'name' => $customer->salesman->name,
                 ] : null,
-                'payment_term' => $customer->paymentTerm ? [
-                    'id' => $customer->paymentTerm->id,
-                    'name' => $customer->paymentTerm->name,
-                    'code' => $customer->paymentTerm->code,
-                    'nb_days' => $customer->paymentTerm->nb_days,
+                'payment_term' => $customer->openingBalances->first()?->paymentTerm ? [
+                    'id' => $customer->openingBalances->first()->paymentTerm->id,
+                    'name' => $customer->openingBalances->first()->paymentTerm->name,
+                    'code' => $customer->openingBalances->first()->paymentTerm->code,
+                    'nb_days' => $customer->openingBalances->first()->paymentTerm->nb_days,
                 ] : null,
                 'billing_addresses' => $billingAddresses,
                 'shipping_addresses' => $shippingAddresses,

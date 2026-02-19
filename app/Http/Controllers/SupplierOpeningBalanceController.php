@@ -106,7 +106,13 @@ class SupplierOpeningBalanceController extends Controller
                 $request->currency_id,
                 $request->opening_amount,
                 $request->opening_date,
-                $request->notes
+                $request->notes,
+                $request->payment_term_id,
+                $request->payment_method_id,
+                (bool) ($request->allow_credit ?? false),
+                $request->payment_day,
+                $request->track_payment ?? 'no',
+                $request->settlement_method
             );
 
             $openingBalance->load('currency');
@@ -138,6 +144,12 @@ class SupplierOpeningBalanceController extends Controller
                 'opening_amount' => 'sometimes|required|numeric|min:0',
                 'opening_date' => 'sometimes|required|date',
                 'notes' => 'nullable|string|max:1000',
+                'payment_term_id' => 'nullable|exists:payment_terms,id',
+                'payment_method_id' => 'nullable|exists:payment_methods,id',
+                'allow_credit' => 'sometimes|boolean',
+                'payment_day' => 'nullable|string|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
+                'track_payment' => 'nullable|string|in:yes,no',
+                'settlement_method' => 'nullable|string|in:FIFO,Manual',
                 'is_active' => 'sometimes|boolean',
             ]);
 
@@ -153,6 +165,12 @@ class SupplierOpeningBalanceController extends Controller
                 'opening_amount',
                 'opening_date',
                 'notes',
+                'payment_term_id',
+                'payment_method_id',
+                'allow_credit',
+                'payment_day',
+                'track_payment',
+                'settlement_method',
                 'is_active',
             ]));
 
@@ -267,10 +285,16 @@ class SupplierOpeningBalanceController extends Controller
                     $openingBalanceData['currency_id'],
                     $openingBalanceData['opening_amount'],
                     $openingBalanceData['opening_date'] ?? null,
-                    $openingBalanceData['notes'] ?? null
+                    $openingBalanceData['notes'] ?? null,
+                    $openingBalanceData['payment_term_id'] ?? null,
+                    $openingBalanceData['payment_method_id'] ?? null,
+                    (bool) ($openingBalanceData['allow_credit'] ?? false),
+                    $openingBalanceData['payment_day'] ?? null,
+                    $openingBalanceData['track_payment'] ?? 'no',
+                    $openingBalanceData['settlement_method'] ?? null
                 );
 
-                $openingBalance->load('currency');
+                $openingBalance->load(['currency', 'paymentTerm', 'paymentMethod']);
                 $createdBalances[] = $openingBalance;
             }
 

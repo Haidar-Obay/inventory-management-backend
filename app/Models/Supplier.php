@@ -52,16 +52,6 @@ class Supplier extends Model implements Auditable
         return $this->belongsTo(BusinessType::class, 'business_type_id');
     }
 
-    public function paymentTerm()
-    {
-        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
-    }
-
-    public function paymentMethod()
-    {
-        return $this->belongsTo(PaymentMethod::class, 'payment_method_id');
-    }
-
     public function currency()
     {
         return $this->belongsTo(Currency::class, 'currency_id');

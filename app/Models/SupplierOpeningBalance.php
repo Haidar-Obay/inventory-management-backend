@@ -16,12 +16,19 @@ class SupplierOpeningBalance extends Model
         'opening_amount',
         'opening_date',
         'notes',
+        'payment_term_id',
+        'payment_method_id',
+        'allow_credit',
+        'payment_day',
+        'track_payment',
+        'settlement_method',
         'is_active',
     ];
 
     protected $casts = [
         'opening_amount' => 'decimal:2',
         'opening_date' => 'date',
+        'allow_credit' => 'boolean',
         'is_active' => 'boolean',
     ];
 
@@ -39,6 +46,16 @@ class SupplierOpeningBalance extends Model
     public function currency(): BelongsTo
     {
         return $this->belongsTo(Currency::class);
+    }
+
+    public function paymentTerm(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\PaymentTerm::class, 'payment_term_id');
+    }
+
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\PaymentMethod::class, 'payment_method_id');
     }
 
     /**

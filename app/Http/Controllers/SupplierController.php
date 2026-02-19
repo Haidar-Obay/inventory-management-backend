@@ -88,10 +88,13 @@ class SupplierController extends Controller
     {
         try {
             // bar_code is the canonical input
+            $validated = $request->validated();
+            // Payment terms are per-currency in opening_balances, not on supplier
+            unset($validated['payment_term_id'], $validated['payment_method_id'], $validated['allow_credit']);
 
             // Create the supplier with explicit sequential ID
             $nextId = $this->computeNextAvailableId(Supplier::class, 'id');
-            $supplier = new Supplier($request->validated());
+            $supplier = new Supplier($validated);
             $supplier->id = $nextId;
             $supplier->save();
 
@@ -136,7 +139,13 @@ class SupplierController extends Controller
                         $openingBalanceData['currency_id'],
                         $openingBalanceData['opening_amount'],
                         $openingBalanceData['opening_date'] ?? null,
-                        $openingBalanceData['notes'] ?? null
+                        $openingBalanceData['notes'] ?? null,
+                        $openingBalanceData['payment_term_id'] ?? null,
+                        $openingBalanceData['payment_method_id'] ?? null,
+                        (bool) ($openingBalanceData['allow_credit'] ?? false),
+                        $openingBalanceData['payment_day'] ?? null,
+                        $openingBalanceData['track_payment'] ?? 'no',
+                        $openingBalanceData['settlement_method'] ?? null
                     );
                 }
             }
@@ -191,18 +200,18 @@ class SupplierController extends Controller
                 }
             }
 
-            // Load relationships for response
+            // Load relationships for response (payment terms are on openingBalances, not supplier)
             $supplier->load([
                 'supplierGroup:id,name',
                 'trade:id,name',
                 'businessType:id,name',
-                'paymentTerm:id,code',
-                'paymentMethod:id,code',
                 'currency:id,code,name',
                 'addresses',
                 'contacts',
                 'attachments',
                 'openingBalances.currency:id,code,name',
+                'openingBalances.paymentTerm:id,code,name',
+                'openingBalances.paymentMethod:id,code,name',
             ]);
 
             return response()->json([
@@ -310,8 +319,6 @@ class SupplierController extends Controller
             'trade:id,name,code,active',
             // 'business_types' table does not have an 'active' column, so we only select existing columns
             'businessType:id,name,code',
-            'paymentTerm:id,code,name,nb_days,active',
-            'paymentMethod:id,code,name,active',
             'currency:id,code,name,iso_code,symbol,active',
             'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
             'addresses.country:id,name',
@@ -341,9 +348,11 @@ class SupplierController extends Controller
             'primaryContact:id,name,title,work_phone,mobile,position,extension,is_primary',
             'contacts:id,name,title,work_phone,mobile,position,extension,is_primary',
             'attachments:id,supplier_id,file_name,file_path,file_type,file_size,description,category,is_public,created_at,updated_at',
-            // Opening balances with currency
-            'openingBalances:id,currency_id,opening_amount,opening_date,notes,is_active,currency_id',
+            // Opening balances with currency and payment terms
+            'openingBalances:id,currency_id,opening_amount,opening_date,notes,payment_term_id,payment_method_id,allow_credit,payment_day,track_payment,settlement_method,is_active,currency_id',
             'openingBalances.currency:id,code,name,iso_code',
+            'openingBalances.paymentTerm:id,code,name,nb_days',
+            'openingBalances.paymentMethod:id,code,name',
             // Credit limits with currency
             'creditLimits:id,currency_id,credit_limit,used_credit,available_credit,notes,is_active',
             'creditLimits.currency:id,code,name,iso_code',
@@ -352,10 +361,14 @@ class SupplierController extends Controller
             'chequeLimits.currency:id,code,name,iso_code',
         ]);
 
-        // Load active opening balances with currency (multi-currency table)
+        // Load active opening balances with currency and payment terms
         $openingBalances = $supplier->openingBalances()
             ->where('is_active', true)
-            ->with('currency:id,code,name,iso_code')
+            ->with([
+                'currency:id,code,name,iso_code',
+                'paymentTerm:id,code,name,nb_days',
+                'paymentMethod:id,code,name',
+            ])
             ->get();
 
         // Load active credit limits and cheque limits with currency (like customer controller)
@@ -388,9 +401,6 @@ class SupplierController extends Controller
             'opening_amount' => $supplier->opening_amount,
             'opening_date' => $supplier->opening_date,
             'credit_limit' => $supplier->credit_limit,
-            'payment_day' => $supplier->payment_day,
-            'track_payment' => $supplier->track_payment,
-            'settlement_method' => $supplier->settlement_method,
             'accept_cheques' => $supplier->accept_cheques,
             'max_cheques' => $supplier->max_cheques,
             'taxable' => $supplier->taxable,
@@ -430,18 +440,18 @@ class SupplierController extends Controller
                 'code' => $supplier->businessType->code,
                 'active' => $supplier->businessType->active,
             ] : null,
-            'payment_term' => $supplier->paymentTerm ? [
-                'id' => $supplier->paymentTerm->id,
-                'code' => $supplier->paymentTerm->code,
-                'name' => $supplier->paymentTerm->name,
-                'nb_days' => $supplier->paymentTerm->nb_days,
-                'active' => $supplier->paymentTerm->active,
+            'payment_term' => $supplier->openingBalances->first()?->paymentTerm ? [
+                'id' => $supplier->openingBalances->first()->paymentTerm->id,
+                'code' => $supplier->openingBalances->first()->paymentTerm->code,
+                'name' => $supplier->openingBalances->first()->paymentTerm->name,
+                'nb_days' => $supplier->openingBalances->first()->paymentTerm->nb_days,
+                'active' => $supplier->openingBalances->first()->paymentTerm->active,
             ] : null,
-            'payment_method' => $supplier->paymentMethod ? [
-                'id' => $supplier->paymentMethod->id,
-                'code' => $supplier->paymentMethod->code,
-                'name' => $supplier->paymentMethod->name,
-                'active' => $supplier->paymentMethod->active,
+            'payment_method' => $supplier->openingBalances->first()?->paymentMethod ? [
+                'id' => $supplier->openingBalances->first()->paymentMethod->id,
+                'code' => $supplier->openingBalances->first()->paymentMethod->code,
+                'name' => $supplier->openingBalances->first()->paymentMethod->name,
+                'active' => $supplier->openingBalances->first()->paymentMethod->active,
             ] : null,
             'currency' => $supplier->currency ? [
                 'id' => $supplier->currency->id,
@@ -686,6 +696,23 @@ class SupplierController extends Controller
                         'opening_amount' => $openingBalance->opening_amount,
                         'opening_date' => $openingBalance->opening_date,
                         'notes' => $openingBalance->notes,
+                        'payment_term_id' => $openingBalance->payment_term_id,
+                        'payment_method_id' => $openingBalance->payment_method_id,
+                        'allow_credit' => $openingBalance->allow_credit,
+                        'payment_day' => $openingBalance->payment_day,
+                        'track_payment' => $openingBalance->track_payment,
+                        'settlement_method' => $openingBalance->settlement_method,
+                        'payment_term' => $openingBalance->paymentTerm ? [
+                            'id' => $openingBalance->paymentTerm->id,
+                            'code' => $openingBalance->paymentTerm->code,
+                            'name' => $openingBalance->paymentTerm->name,
+                            'nb_days' => $openingBalance->paymentTerm->nb_days,
+                        ] : null,
+                        'payment_method' => $openingBalance->paymentMethod ? [
+                            'id' => $openingBalance->paymentMethod->id,
+                            'code' => $openingBalance->paymentMethod->code,
+                            'name' => $openingBalance->paymentMethod->name,
+                        ] : null,
                         'is_active' => $openingBalance->is_active,
                     ];
                 })
@@ -889,9 +916,9 @@ class SupplierController extends Controller
 
     public function getForPurchaseInvoice(Supplier $supplier)
     {
-        // Load only essential relationships
+        // Load only essential relationships (payment terms are on openingBalances, not supplier)
         $supplier->load([
-            'paymentTerm:id,code,name,nb_days,active',
+            'openingBalances.paymentTerm:id,code,name,nb_days,active',
         ]);
 
         // Load active opening balances with currency (for currency selection)
@@ -922,12 +949,12 @@ class SupplierController extends Controller
             'company_name' => $supplier->company_name,
             'phone1' => $supplier->phone1, // For help popover
             'invoicing_mode' => $supplier->invoicing_mode,
-            'payment_term' => $supplier->paymentTerm ? [
-                'id' => $supplier->paymentTerm->id,
-                'code' => $supplier->paymentTerm->code,
-                'name' => $supplier->paymentTerm->name,
-                'nb_days' => $supplier->paymentTerm->nb_days,
-                'active' => $supplier->paymentTerm->active,
+            'payment_term' => $supplier->openingBalances->first()?->paymentTerm ? [
+                'id' => $supplier->openingBalances->first()->paymentTerm->id,
+                'code' => $supplier->openingBalances->first()->paymentTerm->code,
+                'name' => $supplier->openingBalances->first()->paymentTerm->name,
+                'nb_days' => $supplier->openingBalances->first()->paymentTerm->nb_days,
+                'active' => $supplier->openingBalances->first()->paymentTerm->active,
             ] : null,
             'opening_balances' => $openingBalancesData,
         ];
@@ -943,9 +970,12 @@ class SupplierController extends Controller
     {
         try {
             // bar_code is the canonical input
+            $validated = $request->validated();
+            // Payment terms are per-currency in opening_balances, not on supplier
+            unset($validated['payment_term_id'], $validated['payment_method_id'], $validated['allow_credit']);
 
             // Update the supplier
-            $supplier->update($request->validated());
+            $supplier->update($validated);
 
             // Handle addresses
             if ($request->has('billing_address_line1')) {
@@ -1001,7 +1031,13 @@ class SupplierController extends Controller
                         $openingBalanceData['currency_id'],
                         $openingBalanceData['opening_amount'],
                         $openingBalanceData['opening_date'] ?? null,
-                        $openingBalanceData['notes'] ?? null
+                        $openingBalanceData['notes'] ?? null,
+                        $openingBalanceData['payment_term_id'] ?? null,
+                        $openingBalanceData['payment_method_id'] ?? null,
+                        (bool) ($openingBalanceData['allow_credit'] ?? false),
+                        $openingBalanceData['payment_day'] ?? null,
+                        $openingBalanceData['track_payment'] ?? 'no',
+                        $openingBalanceData['settlement_method'] ?? null
                     );
                 }
             }
@@ -1062,18 +1098,18 @@ class SupplierController extends Controller
                 }
             }
 
-            // Load relationships for response
+            // Load relationships for response (payment terms are on openingBalances, not supplier)
             $supplier->load([
                 'supplierGroup:id,name',
                 'trade:id,name',
                 'businessType:id,name',
-                'paymentTerm:id,code',
-                'paymentMethod:id,code',
                 'currency:id,code,name',
                 'addresses',
                 'contacts',
                 'attachments',
                 'openingBalances.currency:id,code,name',
+                'openingBalances.paymentTerm:id,code,name',
+                'openingBalances.paymentMethod:id,code,name',
             ]);
 
             return response()->json([
@@ -1171,9 +1207,9 @@ class SupplierController extends Controller
                 'supplierGroup:id,name',
                 'trade:id,name',
                 'businessType:id,name',
-                'paymentTerm:id,code',
-                'paymentMethod:id,code',
                 'currency:id,code,name',
+                'openingBalances.paymentTerm:id,code',
+                'openingBalances.paymentMethod:id,code',
             ]);
 
             if ($suppliers->count() === 0) {
@@ -1184,7 +1220,7 @@ class SupplierController extends Controller
                 'id', 'title', 'first_name', 'middle_name', 'last_name', 'display_name',
                 'company_name', 'phone1', 'phone2', 'phone3', 'file_number', 'bar_code',
                 'search_terms', 'indicator', 'invoicing_mode', 'opening_amount', 'opening_date', 'credit_limit',
-                'payment_day', 'track_payment', 'settlement_method', 'accept_cheques',
+                'accept_cheques',
                 'max_cheques', 'taxable', 'taxed_from_date', 'taxed_till_date',
                 'subjected_to_tax', 'added_tax', 'is_foreign', 'active',
                 'message', 'notes', 'created_at', 'updated_at',
@@ -1194,7 +1230,7 @@ class SupplierController extends Controller
                 'ID', 'Title', 'First Name', 'Middle Name', 'Last Name', 'Display Name',
                 'Company Name', 'Phone 1', 'Phone 2', 'Phone 3', 'File Number', 'Bar Code',
                 'Search Terms', 'Indicator', 'Invoicing Mode', 'Opening Amount', 'Opening Date', 'Credit Limit',
-                'Payment Day', 'Track Payment', 'Settlement Method', 'Accept Cheques',
+                'Accept Cheques',
                 'Max Cheques', 'Taxable', 'Taxed From Date', 'Taxed Till Date',
                 'Subjected to Tax', 'Added Tax', 'Is Foreign', 'Active', 'Add Message',
                 'Message', 'Notes', 'Created At', 'Updated At',
@@ -1218,9 +1254,9 @@ class SupplierController extends Controller
                 'supplierGroup:id,name',
                 'trade:id,name',
                 'businessType:id,name',
-                'paymentTerm:id,code',
-                'paymentMethod:id,code',
                 'currency:id,code,name',
+                'openingBalances.paymentTerm:id,code',
+                'openingBalances.paymentMethod:id,code',
             ])->get();
 
             $data = $suppliers->map(function ($supplier) {
@@ -1246,12 +1282,9 @@ class SupplierController extends Controller
                     'Currency' => $supplier->currency ? $supplier->currency->code : '',
                     'Opening Amount' => $supplier->opening_amount,
                     'Opening Date' => $supplier->opening_date,
-                    'Payment Term' => $supplier->paymentTerm ? $supplier->paymentTerm->code : '',
-                    'Payment Method' => $supplier->paymentMethod ? $supplier->paymentMethod->code : '',
+                    'Payment Term' => $supplier->openingBalances->first()?->paymentTerm?->code ?? '',
+                    'Payment Method' => $supplier->openingBalances->first()?->paymentMethod?->code ?? '',
                     'Credit Limit' => $supplier->credit_limit,
-                    'Payment Day' => $supplier->payment_day,
-                    'Track Payment' => $supplier->track_payment,
-                    'Settlement Method' => $supplier->settlement_method,
                     'Accept Cheques' => $supplier->accept_cheques ? 'Yes' : 'No',
                     'Max Cheques' => $supplier->max_cheques,
                     'Taxable' => $supplier->taxable ? 'Yes' : 'No',
@@ -1368,12 +1401,7 @@ class SupplierController extends Controller
                     'currency_id',
                     'opening_amount',
                     'opening_date',
-                    'payment_term_id',
-                    'payment_method_id',
                     'credit_limit',
-                    'payment_day',
-                    'track_payment',
-                    'settlement_method',
                     'accept_cheques',
                     'max_cheques',
                     'notes',
@@ -1405,7 +1433,7 @@ class SupplierController extends Controller
                         $errors[] = 'Missing phone1';
                     }
                     // Validate foreign keys as numeric if present
-                    foreach (['trade_id', 'supplier_group_id', 'business_type_id', 'currency_id', 'payment_term_id', 'payment_method_id', 'contacts_id'] as $fk) {
+                    foreach (['trade_id', 'supplier_group_id', 'business_type_id', 'currency_id', 'contacts_id'] as $fk) {
                         if (isset($row[$fk]) && $row[$fk] !== '' && ! is_numeric($row[$fk])) {
                             $errors[] = "Invalid $fk: must be numeric ID";
                         }
@@ -1466,12 +1494,7 @@ class SupplierController extends Controller
                         'currency_id' => $row['currency_id'] ?? null,
                         'opening_amount' => $row['opening_amount'] ?? null,
                         'opening_date' => $row['opening_date'] ?? null,
-                        'payment_term_id' => $row['payment_term_id'] ?? null,
-                        'payment_method_id' => $row['payment_method_id'] ?? null,
                         'credit_limit' => $row['credit_limit'] ?? null,
-                        'payment_day' => $row['payment_day'] ?? null,
-                        'track_payment' => $row['track_payment'] ?? null,
-                        'settlement_method' => $row['settlement_method'] ?? null,
                         'accept_cheques' => $row['accept_cheques'] ?? null,
                         'max_cheques' => $row['max_cheques'] ?? null,
                         'notes' => $row['notes'] ?? null,

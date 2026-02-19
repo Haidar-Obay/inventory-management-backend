@@ -54,14 +54,8 @@ return new class extends Migration
             $table->foreignId('supervisor_id')->nullable()->constrained('salesmen');
             $table->foreignId('manager_id')->nullable()->constrained('salesmen');
 
-            // payment terms
-            $table->foreignId('payment_term_id')->nullable()->constrained('payment_terms');
-            $table->foreignId('payment_method_id')->nullable()->constrained('payment_methods');
-            $table->boolean('allow_credit')->default(false);
+            // payment terms (payment_term_id, payment_method_id, allow_credit are per-currency in customer_opening_balances)
             $table->boolean('accept_cheques')->default(false);
-            $table->enum('payment_day', ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30'])->nullable();
-            $table->enum('track_payment', ['yes', 'no'])->default('no');
-            $table->enum('settlement_method', ['FIFO', 'Manual'])->nullable();
 
             // pricing
             $table->enum('price_choice', ['price1', 'price2', 'price3', 'price4', 'price5', 'price6', 'last_invoice_price'])->nullable();

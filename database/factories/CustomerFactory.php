@@ -77,9 +77,6 @@ class CustomerFactory extends Factory
             'payment_method_id' => PaymentMethod::factory(),
             'allow_credit' => $this->faker->boolean(),
             'accept_cheques' => $this->faker->boolean(),
-            'payment_day' => (string) rand(1, 30),
-            'track_payment' => Arr::random(['yes', 'no']),
-            'settlement_method' => Arr::random(['FIFO', 'Manual']),
 
             // Pricing
             'price_choice' => Arr::random(['price1', 'price2', 'price3', 'price4', 'price5', 'price6', 'last_invoice_price']),
