@@ -76,6 +76,7 @@ use App\Http\Controllers\TaskStatusController;
 use App\Http\Controllers\TaxGroupController;
 use App\Http\Controllers\TenantModuleController;
 use App\Http\Controllers\TenantPurgeController;
+use App\Http\Controllers\TenantSettingsController;
 use App\Http\Controllers\TradeController;
 use App\Http\Controllers\TransactionSeriesController;
 use App\Http\Controllers\TransportationChannelController;
@@ -150,6 +151,10 @@ Route::middleware([
             Route::post('/', [SetupWizardController::class, 'store']);
             Route::post('/reset', [SetupWizardController::class, 'reset']);
         });
+
+        // Tenant settings (System Settings: section=company_info|full via ?section=)
+        Route::get('settings', [TenantSettingsController::class, 'index']);
+        Route::patch('settings', [TenantSettingsController::class, 'update']);
 
         // Resource APIs
         Route::apiResource('cities', CityController::class);

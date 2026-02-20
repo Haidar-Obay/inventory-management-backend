@@ -19,6 +19,12 @@ return new class extends Migration
             $table->string('rate_updated_by')->nullable(); // User who updated
             $table->boolean('auto_update_enabled')->default(false); // Allow scheduled updates
             $table->string('symbol')->nullable();
+            $table->decimal('smallest_unit', 20, 6)->nullable(); // e.g. 0.01 for cents
+            $table->decimal('round_limit', 20, 6)->nullable();
+            $table->decimal('acceptable_amount_overdue', 20, 4)->nullable();
+            $table->decimal('allowed_difference_in_receipt', 20, 4)->nullable();
+            $table->decimal('allowed_difference_in_payment', 20, 4)->nullable();
+            $table->boolean('active')->default(true);
             $table->timestamps();
 
             $table->index('code');

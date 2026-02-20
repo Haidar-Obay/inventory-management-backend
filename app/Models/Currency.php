@@ -22,7 +22,13 @@ class Currency extends Model implements Auditable
     protected $casts = [
         'rate' => 'decimal:4',
         'auto_update_enabled' => 'boolean',
+        'active' => 'boolean',
         'rate_updated_at' => 'datetime',
+        'smallest_unit' => 'decimal:6',
+        'round_limit' => 'decimal:6',
+        'acceptable_amount_overdue' => 'decimal:4',
+        'allowed_difference_in_receipt' => 'decimal:4',
+        'allowed_difference_in_payment' => 'decimal:4',
     ];
 
     /**
