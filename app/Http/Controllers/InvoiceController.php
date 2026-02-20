@@ -24,15 +24,12 @@ class InvoiceController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_invoices";
-
         $query = Invoice::with([
             'customer:id,first_name,last_name,display_name,company_name',
             'supplier:id,first_name,last_name,display_name,company_name',
             'currency:id,code,name',
             'salesman:id,name',
-            'warehouse:id,name',
+            'warehouse:id,name,code',
             'paymentTerm:id,name,nb_days',
         ]);
 
@@ -79,30 +76,22 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice): JsonResponse
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_invoice_{$invoice->id}";
-
-        $cachedInvoice = app('cache')->store('database')->get($key);
-
-        if (! $cachedInvoice) {
-            $cachedInvoice = $invoice->load([
-                'customer:id,first_name,last_name,display_name,company_name',
-                'supplier:id,first_name,last_name,display_name,company_name',
-                'currency:id,code,name',
-                'salesman:id,name',
-                'warehouse:id,name',
-                'paymentTerm:id,name,nb_days',
-                'items.item:id,code,name',
-                'items.uom:id,name',
-                'items.warehouse:id,name',
-            ]);
-            app('cache')->store('database')->forever($key, $cachedInvoice);
-        }
+        $invoice->load([
+            'customer:id,first_name,last_name,display_name,company_name',
+            'supplier:id,first_name,last_name,display_name,company_name',
+            'currency:id,code,name',
+            'salesman:id,name',
+            'warehouse:id,name,code',
+            'paymentTerm:id,name,nb_days',
+            'items.item:id,code,name',
+            'items.uom:id,name',
+            'items.warehouse:id,name,code',
+        ]);
 
         return response()->json([
             'status' => true,
             'message' => 'Invoice details fetched successfully.',
-            'data' => $cachedInvoice,
+            'data' => $invoice,
         ]);
     }
 
@@ -182,6 +171,7 @@ class InvoiceController extends Controller
             'due_date' => $lastInvoice->due_date,
             'supplier_invoice_number' => $lastInvoice->supplier_invoice_number,
             'supplier_invoice_date' => $lastInvoice->supplier_invoice_date,
+            'supplier_invoice_total' => $lastInvoice->supplier_invoice_total !== null ? (float) $lastInvoice->supplier_invoice_total : null,
             'currency_id' => $lastInvoice->currency_id,
             'payment_term_id' => $lastInvoice->payment_term_id,
             'exchange_rate' => $lastInvoice->exchange_rate,
@@ -277,10 +267,18 @@ class InvoiceController extends Controller
             $data['sequence_number'] = $finalSequence;
 
             // Calculate due date if payment term is provided
-            if (isset($data['payment_term_id']) && isset($data['date'])) {
+            if (isset($data['payment_term_id'])) {
                 $paymentTerm = \App\Models\PaymentTerm::find($data['payment_term_id']);
                 if ($paymentTerm && $paymentTerm->nb_days) {
-                    $data['due_date'] = \Carbon\Carbon::parse($data['date'])->addDays($paymentTerm->nb_days)->toDateString();
+                    // Purchase: supplier_invoice_date + nb_days, fallback to date + nb_days
+                    $baseDate = null;
+                    if (isset($data['invoice_type']) && $data['invoice_type'] === 'purchase' && ! empty($data['supplier_invoice_date'] ?? null)) {
+                        $baseDate = $data['supplier_invoice_date'];
+                    }
+                    $baseDate = $baseDate ?? ($data['date'] ?? null);
+                    if ($baseDate) {
+                        $data['due_date'] = \Carbon\Carbon::parse($baseDate)->addDays($paymentTerm->nb_days)->toDateString();
+                    }
                 }
             }
 
@@ -311,10 +309,6 @@ class InvoiceController extends Controller
             $invoice->refresh();
 
             DB::commit();
-
-            // Clear cache
-            $tenantId = tenant('id');
-            app('cache')->store('database')->forget("tenant_{$tenantId}_invoices");
 
             return response()->json([
                 'status' => true,
@@ -351,15 +345,21 @@ class InvoiceController extends Controller
             $items = $data['items'] ?? null;
             unset($data['items']);
 
-            // Calculate due date if payment term or date changed
-            if (isset($data['payment_term_id']) || isset($data['date'])) {
-                $paymentTermId = $data['payment_term_id'] ?? $invoice->payment_term_id;
-                $date = $data['date'] ?? $invoice->date;
-
-                if ($paymentTermId && $date) {
-                    $paymentTerm = \App\Models\PaymentTerm::find($paymentTermId);
-                    if ($paymentTerm && $paymentTerm->nb_days) {
-                        $data['due_date'] = \Carbon\Carbon::parse($date)->addDays($paymentTerm->nb_days)->toDateString();
+            // Calculate due date if payment term, date, or (purchase) supplier_invoice_date changed
+            $paymentTermId = $data['payment_term_id'] ?? $invoice->payment_term_id;
+            if ($paymentTermId) {
+                $paymentTerm = \App\Models\PaymentTerm::find($paymentTermId);
+                if ($paymentTerm && $paymentTerm->nb_days) {
+                    $baseDate = null;
+                    if ($invoice->invoice_type->value === 'purchase') {
+                        $supplierInvoiceDate = $data['supplier_invoice_date'] ?? $invoice->supplier_invoice_date;
+                        if ($supplierInvoiceDate) {
+                            $baseDate = $supplierInvoiceDate;
+                        }
+                    }
+                    $baseDate = $baseDate ?? ($data['date'] ?? $invoice->date);
+                    if ($baseDate) {
+                        $data['due_date'] = \Carbon\Carbon::parse($baseDate)->addDays($paymentTerm->nb_days)->toDateString();
                     }
                 }
             }
@@ -396,11 +396,6 @@ class InvoiceController extends Controller
 
             DB::commit();
 
-            // Clear cache
-            $tenantId = tenant('id');
-            app('cache')->store('database')->forget("tenant_{$tenantId}_invoices");
-            app('cache')->store('database')->forget("tenant_{$tenantId}_invoice_{$invoice->id}");
-
             return response()->json([
                 'status' => true,
                 'message' => 'Invoice updated successfully.',
@@ -435,11 +430,6 @@ class InvoiceController extends Controller
 
             DB::commit();
 
-            // Clear cache
-            $tenantId = tenant('id');
-            app('cache')->store('database')->forget("tenant_{$tenantId}_invoices");
-            app('cache')->store('database')->forget("tenant_{$tenantId}_invoice_{$invoice->id}");
-
             return response()->json([
                 'status' => true,
                 'message' => 'Invoice deleted successfully.',
@@ -468,7 +458,6 @@ class InvoiceController extends Controller
             'ids.*.exists' => 'One or more selected invoices do not exist.',
         ]);
 
-        $tenantId = tenant('id');
         $skipped = [];
         $deleted = 0;
 
@@ -490,9 +479,6 @@ class InvoiceController extends Controller
                 $invoice->delete();
                 $deleted++;
 
-                // Clear cache
-                app('cache')->store('database')->forget("tenant_{$tenantId}_invoice_{$id}");
-
             } catch (\Illuminate\Database\QueryException $e) {
                 $invoice = Invoice::withTrashed()->find($id);
                 $identifier = $invoice ? ($invoice->invoice_number ? "Invoice #{$invoice->invoice_number}" : "Invoice ID: {$id}") : "ID: {$id}";
@@ -511,9 +497,6 @@ class InvoiceController extends Controller
                 ];
             }
         }
-
-        // Clear invoices cache
-        app('cache')->store('database')->forget("tenant_{$tenantId}_invoices");
 
         return response()->json([
             'status' => true,

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Module;
-use App\Models\ModulePage;
+use App\Models\Page;
 use Illuminate\Http\JsonResponse;
 
 class TenantModuleController extends Controller
@@ -17,9 +17,18 @@ class TenantModuleController extends Controller
 
         $moduleIds = $tenant->modules()->where('modules.active', true)->pluck('modules.id');
 
-        $pages = ModulePage::whereIn('module_id', $moduleIds)
-            ->orderBy('order')
-            ->get();
+        $pages = Page::whereHas('modules', fn ($q) => $q->whereIn('modules.id', $moduleIds))
+            ->with(['modules' => fn ($q) => $q->whereIn('modules.id', $moduleIds)->orderByPivot('order')])
+            ->get()
+            ->flatMap(function ($page) {
+                return $page->modules->map(fn ($m) => array_merge($page->only(['id', 'name', 'code', 'path', 'description']), [
+                    'order' => (int) $m->pivot->order,
+                    'is_public' => (bool) $m->pivot->is_public,
+                ]));
+            })
+            ->values()
+            ->sortBy('order')
+            ->values();
 
         return response()->json([
             'pages' => $pages,
@@ -35,9 +44,7 @@ class TenantModuleController extends Controller
 
         $modules = $tenant->modules()
             ->where('modules.active', true)
-            ->with(['pages' => function ($q) {
-                $q->orderBy('order');
-            }])
+            ->with(['pages' => fn ($q) => $q->orderByPivot('order')])
             ->orderBy('modules.sort_order')
             ->get(['modules.id', 'modules.name', 'modules.code', 'modules.icon', 'modules.active', 'modules.sort_order']);
 
@@ -54,7 +61,6 @@ class TenantModuleController extends Controller
             return response()->json(['message' => 'Tenant not found'], 404);
         }
 
-        // Ensure module is assigned to tenant and active
         $isAssigned = $tenant->modules()
             ->where('modules.id', $moduleId)
             ->where('modules.active', true)
@@ -64,9 +70,11 @@ class TenantModuleController extends Controller
             return response()->json(['message' => 'Module not assigned or inactive'], 403);
         }
 
-        $pages = ModulePage::where('module_id', $moduleId)
-            ->orderBy('order')
-            ->get();
+        $module = Module::findOrFail($moduleId);
+        $pages = $module->pages()->orderByPivot('order')->get()->map(fn ($p) => array_merge($p->toArray(), [
+            'order' => (int) $p->pivot->order,
+            'is_public' => (bool) $p->pivot->is_public,
+        ]));
 
         return response()->json([
             'pages' => $pages,
@@ -75,10 +83,11 @@ class TenantModuleController extends Controller
 
     public function getModulePages(int $moduleId): JsonResponse
     {
-        // Simple method to get pages for a module without tenant validation
-        $pages = ModulePage::where('module_id', $moduleId)
-            ->orderBy('order')
-            ->get();
+        $module = Module::findOrFail($moduleId);
+        $pages = $module->pages()->orderByPivot('order')->get()->map(fn ($p) => array_merge($p->toArray(), [
+            'order' => (int) $p->pivot->order,
+            'is_public' => (bool) $p->pivot->is_public,
+        ]));
 
         return response()->json([
             'pages' => $pages,

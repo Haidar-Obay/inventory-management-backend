@@ -14,15 +14,12 @@ return new class extends Migration
         Schema::create('module_pages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('module_id')->constrained()->onDelete('cascade');
-            $table->string('name');
-            $table->string('code'); // unique per module
-            $table->string('path'); // frontend route path
+            $table->foreignId('page_id')->constrained()->onDelete('cascade');
             $table->unsignedInteger('order')->default(0);
             $table->boolean('is_public')->default(false);
             $table->timestamps();
 
-            $table->unique(['module_id', 'code']);
-            $table->unique(['module_id', 'path']);
+            $table->unique(['module_id', 'page_id']);
         });
     }
 

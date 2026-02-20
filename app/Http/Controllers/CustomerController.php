@@ -2614,15 +2614,17 @@ class CustomerController extends Controller
             ];
         });
 
-        // Get currencies from active opening balances with per-currency payment terms
+        // Get currencies from active opening balances with per-currency payment terms (include is_primary for default selection)
         $currencies = $customer->openingBalances->map(function ($openingBalance) {
+            $currency = $openingBalance->currency;
             $currencyData = [
-                'id' => $openingBalance->currency->id,
-                'code' => $openingBalance->currency->code,
-                'name' => $openingBalance->currency->name,
+                'id' => $currency->id,
+                'code' => $currency->code,
+                'name' => $currency->name,
                 'payment_day' => $openingBalance->payment_day,
                 'track_payment' => $openingBalance->track_payment,
                 'settlement_method' => $openingBalance->settlement_method,
+                'is_primary' => $currency->isPrimary(),
             ];
             if ($openingBalance->paymentTerm) {
                 $currencyData['payment_term_id'] = $openingBalance->payment_term_id;

@@ -927,14 +927,17 @@ class SupplierController extends Controller
             ->with('currency:id,code,name,iso_code')
             ->get();
 
-        // Transform opening balances to include flattened currency fields
+        // Transform opening balances to include flattened currency fields and is_primary for default selection
         $openingBalancesData = $openingBalances->map(function ($balance) {
+            $currency = $balance->currency;
+
             return [
                 'id' => $balance->id,
                 'currency_id' => $balance->currency_id,
-                'currency_code' => $balance->currency->code ?? null,
-                'currency_name' => $balance->currency->name ?? null,
-                'currency_iso_code' => $balance->currency->iso_code ?? null,
+                'currency_code' => $currency->code ?? null,
+                'currency_name' => $currency->name ?? null,
+                'currency_iso_code' => $currency->iso_code ?? null,
+                'is_primary' => $currency->isPrimary(),
                 'opening_amount' => $balance->opening_amount,
                 'opening_date' => $balance->opening_date,
                 'notes' => $balance->notes,
