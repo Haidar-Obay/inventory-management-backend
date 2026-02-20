@@ -8,6 +8,7 @@ use App\Http\Requests\Currency\StoreCurrencyRequest;
 use App\Http\Requests\Currency\UpdateCurrencyRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Currency;
+use App\Models\TenantSetting;
 use App\Services\ExchangeRateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,33 +20,37 @@ class CurrencyController extends Controller
 {
     public function index()
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_currencies";
+        // $tenantId = tenant('id');
+        // $key = "tenant_{$tenantId}_currencies";
 
-        $currencies = app('cache')->store('database')->get($key);
+        // $currencies = app('cache')->store('database')->get($key);
 
-        if (! $currencies) {
-            $currencies = Currency::all();
-            app('cache')->store('database')->forever($key, $currencies);
-        }
-
-        return response()->json($currencies);
+        return response()->json(Currency::all()->map(fn (Currency $c) => array_merge($c->toArray(), ['is_primary' => $c->isPrimary()])));
     }
 
     public function store(StoreCurrencyRequest $request)
     {
-        $apiKey = config('services.exchange_rate.key');
-        $baseCurrency = 'USD';
-        $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
-
-        $response = Http::get($url);
-        if (! $response->ok()) {
-            return response()->json(['message' => 'Failed to fetch exchange rate.'], 500);
+        $isPrimary = $request->boolean('is_primary');
+        $rate = null;
+        if ($isPrimary) {
+            $rate = 1.0;
+        } elseif ($request->filled('rate') && is_numeric($request->rate) && (float) $request->rate >= 0) {
+            $rate = (float) $request->rate;
         }
+        if ($rate === null) {
+            $apiKey = config('services.exchange_rate.key');
+            $baseCurrency = 'USD';
+            $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
 
-        $rate = $response['conversion_rates'][$request->code] ?? null;
-        if (! $rate) {
-            return response()->json(['message' => 'Invalid currency code.'], 422);
+            $response = Http::get($url);
+            if (! $response->ok()) {
+                return response()->json(['message' => 'Failed to fetch exchange rate.'], 500);
+            }
+
+            $rate = $response['conversion_rates'][$request->code] ?? null;
+            if (! $rate) {
+                return response()->json(['message' => 'Invalid currency code.'], 422);
+            }
         }
 
         $nextId = $this->computeNextAvailableId(Currency::class, 'id');
@@ -54,9 +59,19 @@ class CurrencyController extends Controller
             'code' => $request->code,
             'iso_code' => $request->iso_code,
             'rate' => $rate,
+            'active' => $request->active ?? true,
+            'smallest_unit' => $request->smallest_unit,
+            'round_limit' => $request->round_limit,
+            'acceptable_amount_overdue' => $request->acceptable_amount_overdue,
+            'allowed_difference_in_receipt' => $request->allowed_difference_in_receipt,
+            'allowed_difference_in_payment' => $request->allowed_difference_in_payment,
         ]);
         $currency->id = $nextId;
         $currency->save();
+
+        if ($isPrimary) {
+            TenantSetting::getSettings()->update(['primary_currency_id' => $currency->id]);
+        }
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_currencies");
@@ -92,30 +107,52 @@ class CurrencyController extends Controller
     {
         $currency = Currency::findOrFail($id);
 
-        $apiKey = config('services.exchange_rate.key');
-        $baseCurrency = 'USD';
-        $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
-
-        $response = Http::get($url);
-        if (! $response->ok()) {
-            return response()->json(['message' => 'Failed to fetch exchange rate.'], 500);
+        $update = [];
+        foreach (['name', 'code', 'iso_code', 'active', 'smallest_unit', 'round_limit', 'acceptable_amount_overdue', 'allowed_difference_in_receipt', 'allowed_difference_in_payment'] as $key) {
+            if ($request->has($key)) {
+                $update[$key] = $request->$key;
+            }
+        }
+        if (count($update) > 0) {
+            $currency->update($update);
         }
 
-        $rate = $response['conversion_rates'][$request->code] ?? null;
-        if (! $rate) {
-            return response()->json(['message' => 'Invalid currency code.'], 422);
+        $shouldUpdateRate = $request->has('rate') || $request->boolean('is_primary') || $currency->isPrimary();
+        if ($shouldUpdateRate) {
+            $rate = null;
+            if ($request->has('rate') && is_numeric($request->rate) && (float) $request->rate >= 0) {
+                $rate = (float) $request->rate;
+            }
+            $rateSource = 'manual';
+            if ($rate === null) {
+                $apiKey = config('services.exchange_rate.key');
+                $baseCurrency = 'USD';
+                $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
+
+                $response = Http::get($url);
+                if (! $response->ok()) {
+                    return response()->json(['message' => 'Failed to fetch exchange rate.'], 500);
+                }
+
+                $rate = $response['conversion_rates'][$request->code] ?? null;
+                if (! $rate) {
+                    return response()->json(['message' => 'Invalid currency code.'], 422);
+                }
+                $rateSource = 'api';
+            }
+
+            if ($request->boolean('is_primary')) {
+                TenantSetting::getSettings()->update(['primary_currency_id' => $currency->id]);
+                $rate = 1.0;
+                $rateSource = 'manual';
+            } elseif ($currency->isPrimary()) {
+                $rate = 1.0;
+                $rateSource = 'manual';
+            }
+            $currency->updateRate((float) $rate, $rateSource, Auth::check() ? Auth::user()->name : null, 'Updated via currency settings');
         }
 
-        $currency->update([
-            'name' => $request->name,
-            'code' => $request->code,
-            'iso_code' => $request->iso_code,
-            'rate' => $rate,
-        ]);
-
-        $tenantId = tenant('id');
-        app('cache')->store('database')->forget("tenant_{$tenantId}_currencies");
-        app('cache')->store('database')->forget("tenant_{$tenantId}_currency_show_{$id}");
+        $currency->refresh();
 
         return response()->json($currency);
     }
@@ -452,15 +489,15 @@ class CurrencyController extends Controller
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No currencies found.'], 404);
         }
-        $columns = ['id', 'name', 'code', 'iso_code', 'rate', 'created_at', 'updated_at'];
-        $headings = ['ID', 'Name', 'Code', 'ISO Code', 'Rate', 'Created At', 'Updated At'];
+        $columns = ['id', 'name', 'code', 'iso_code', 'rate', 'smallest_unit', 'round_limit', 'acceptable_amount_overdue', 'allowed_difference_in_receipt', 'allowed_difference_in_payment', 'created_at', 'updated_at'];
+        $headings = ['ID', 'Name', 'Code', 'ISO Code', 'Rate', 'Smallest Unit', 'Round Limit', 'Acceptable Amount Overdue', 'Allowed Difference (Receipt)', 'Allowed Difference (Payment)', 'Created At', 'Updated At'];
 
         return Excel::download(new Export($currencies, $columns, $headings), 'currencies.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $currencies = Currency::select('id', 'name', 'code', 'iso_code', 'rate', 'created_at', 'updated_at')->get();
+        $currencies = Currency::select('id', 'name', 'code', 'iso_code', 'rate', 'smallest_unit', 'round_limit', 'acceptable_amount_overdue', 'allowed_difference_in_receipt', 'allowed_difference_in_payment', 'created_at', 'updated_at')->get();
 
         if ($currencies->isEmpty()) {
             return response()->json(['message' => 'No currencies found.'], 404);
@@ -473,6 +510,11 @@ class CurrencyController extends Controller
             'code' => 'Currency Code',
             'iso_code' => 'ISO Code',
             'rate' => 'Exchange Rate',
+            'smallest_unit' => 'Smallest Unit',
+            'round_limit' => 'Round Limit',
+            'acceptable_amount_overdue' => 'Acceptable Amount Overdue',
+            'allowed_difference_in_receipt' => 'Allowed Difference (Receipt)',
+            'allowed_difference_in_payment' => 'Allowed Difference (Payment)',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];
@@ -508,7 +550,7 @@ class CurrencyController extends Controller
 
         $import = new DynamicExcelImport(
             Currency::class,
-            ['name', 'code', 'iso_code', 'rate'],
+            ['name', 'code', 'iso_code', 'rate', 'smallest_unit', 'round_limit', 'acceptable_amount_overdue', 'allowed_difference_in_receipt', 'allowed_difference_in_payment'],
             function ($row) {
                 $errors = [];
 
@@ -536,6 +578,11 @@ class CurrencyController extends Controller
                     'code' => $row['code'],
                     'iso_code' => $row['iso_code'],
                     'rate' => $row['rate'],
+                    'smallest_unit' => $row['smallest_unit'] ?? null,
+                    'round_limit' => $row['round_limit'] ?? null,
+                    'acceptable_amount_overdue' => $row['acceptable_amount_overdue'] ?? null,
+                    'allowed_difference_in_receipt' => $row['allowed_difference_in_receipt'] ?? null,
+                    'allowed_difference_in_payment' => $row['allowed_difference_in_payment'] ?? null,
                 ];
             },
             true // Enable header validation
