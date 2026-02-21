@@ -54,8 +54,7 @@ return new class extends Migration
             $table->foreignId('supervisor_id')->nullable()->constrained('salesmen');
             $table->foreignId('manager_id')->nullable()->constrained('salesmen');
 
-            // payment terms (payment_term_id, payment_method_id, allow_credit are per-currency in customer_opening_balances)
-            $table->boolean('accept_cheques')->default(false);
+            // payment terms (payment_term_id, payment_method_id, allow_credit, accept_cheques are per-currency in customer_opening_balances)
 
             // pricing
             $table->enum('price_choice', ['price1', 'price2', 'price3', 'price4', 'price5', 'price6', 'last_invoice_price'])->nullable();

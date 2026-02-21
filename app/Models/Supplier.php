@@ -26,7 +26,6 @@ class Supplier extends Model implements Auditable
         'exempted' => 'boolean',
         'exempted_from_date' => 'date',
         'exempted_till_date' => 'date',
-        'accept_cheques' => 'boolean',
         'active' => 'boolean',
         'is_foreign' => 'boolean',
         'opening_amount' => 'decimal:2',
@@ -537,7 +536,8 @@ class Supplier extends Model implements Auditable
     // Cheque limit helper methods (Legacy - kept for backward compatibility)
     public function hasChequeLimit()
     {
-        return $this->accept_cheques && ! is_null($this->max_cheques) && $this->max_cheques > 0;
+        return $this->openingBalances()->active()->where('accept_cheques', true)->exists()
+            && $this->chequeLimits()->active()->where('max_cheques', '>', 0)->exists();
     }
 
     public function getChequeLimitInfo()
@@ -546,19 +546,25 @@ class Supplier extends Model implements Auditable
             return;
         }
 
-        return [
-            'max_cheques' => $this->max_cheques,
-            'accept_cheques' => $this->accept_cheques,
+        $ob = $this->openingBalances()->active()->where('accept_cheques', true)->first();
+        $cl = $this->chequeLimits()->active()->where('currency_id', $ob->currency_id)->first();
+
+        return $cl ? [
+            'max_cheques' => $cl->max_cheques,
+            'accept_cheques' => true,
             'has_cheque_limit' => true,
-        ];
+        ] : null;
     }
 
     public function setChequeLimit($maxCheques)
     {
-        $this->update([
-            'accept_cheques' => true,
-            'max_cheques' => $maxCheques,
-        ]);
+        // Legacy: set cheque limit for first opening balance that accepts cheques, or first opening balance
+        $ob = $this->openingBalances()->active()->where('accept_cheques', true)->first()
+            ?? $this->openingBalances()->active()->first();
+        if ($ob) {
+            $this->setChequeLimitForCurrency($ob->currency_id, $maxCheques);
+            $ob->update(['accept_cheques' => true]);
+        }
     }
 
     // Multi-currency cheque limit methods
@@ -623,7 +629,8 @@ class Supplier extends Model implements Auditable
 
     public function canAcceptCheque($currencyId, $count = 1)
     {
-        if (! $this->accept_cheques) {
+        $openingBalance = $this->openingBalances()->active()->where('currency_id', $currencyId)->first();
+        if (! $openingBalance || ! $openingBalance->accept_cheques) {
             return false;
         }
 

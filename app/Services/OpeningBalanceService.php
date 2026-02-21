@@ -69,7 +69,8 @@ class OpeningBalanceService
         bool $allowCredit = false,
         ?string $paymentDay = null,
         ?string $trackPayment = 'no',
-        ?string $settlementMethod = null
+        ?string $settlementMethod = null,
+        bool $acceptCheques = false
     ): SupplierOpeningBalance {
         $openingBalance = $supplier->getOpeningBalanceForCurrency($currencyId);
 
@@ -80,6 +81,7 @@ class OpeningBalanceService
             'payment_day' => $paymentDay,
             'track_payment' => $trackPayment ?? 'no',
             'settlement_method' => $settlementMethod,
+            'accept_cheques' => $acceptCheques,
         ];
 
         if ($openingBalance) {
@@ -321,7 +323,8 @@ class OpeningBalanceService
                     (bool) ($openingBalanceData['allow_credit'] ?? false),
                     $openingBalanceData['payment_day'] ?? null,
                     $openingBalanceData['track_payment'] ?? 'no',
-                    $openingBalanceData['settlement_method'] ?? null
+                    $openingBalanceData['settlement_method'] ?? null,
+                    (bool) ($openingBalanceData['accept_cheques'] ?? false)
                 );
 
                 $openingBalance->load('currency');

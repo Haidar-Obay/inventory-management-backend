@@ -246,6 +246,7 @@ class CustomerController extends Controller
                             'payment_day' => $openingBalanceData['payment_day'] ?? null,
                             'track_payment' => $openingBalanceData['track_payment'] ?? 'no',
                             'settlement_method' => $openingBalanceData['settlement_method'] ?? null,
+                            'accept_cheques' => (bool) ($openingBalanceData['accept_cheques'] ?? false),
                             'is_active' => true,
                         ]);
                     }
@@ -549,7 +550,7 @@ class CustomerController extends Controller
             'attachments:id,customer_id,file_name,file_path,file_type,file_size,description,category,is_public,created_at,updated_at',
             'creditLimits:id,currency_id,credit_limit,notes,is_active',
             'chequeLimits:id,currency_id,max_cheques,notes,is_active',
-            'openingBalances:id,currency_id,opening_amount,opening_date,notes,payment_term_id,payment_method_id,allow_credit,payment_day,track_payment,settlement_method,is_active',
+            'openingBalances:id,currency_id,opening_amount,opening_date,notes,payment_term_id,payment_method_id,allow_credit,payment_day,track_payment,settlement_method,accept_cheques,is_active',
         ]);
 
         // Refresh contacts relationship to ensure all contacts are loaded
@@ -604,9 +605,9 @@ class CustomerController extends Controller
             'created_at' => $customer->created_at,
             'updated_at' => $customer->updated_at,
 
-            // Payment and credit related fields (allow_credit is per-currency in opening_balances)
+            // Payment and credit related fields (allow_credit, accept_cheques are per-currency in opening_balances)
             'allow_credit' => $customer->openingBalances()->active()->where('allow_credit', true)->exists(),
-            'accept_cheques' => $customer->accept_cheques,
+            'accept_cheques' => $customer->openingBalances()->active()->where('accept_cheques', true)->exists(),
 
             // Pricing related fields
             'price_choice' => $customer->price_choice,
@@ -881,6 +882,7 @@ class CustomerController extends Controller
                     'payment_day' => $openingBalance->payment_day,
                     'track_payment' => $openingBalance->track_payment,
                     'settlement_method' => $openingBalance->settlement_method,
+                    'accept_cheques' => (bool) $openingBalance->accept_cheques,
                     'payment_term' => $openingBalance->paymentTerm ? [
                         'id' => $openingBalance->paymentTerm->id,
                         'code' => $openingBalance->paymentTerm->code,
@@ -1125,6 +1127,8 @@ class CustomerController extends Controller
                     $trackPayment = $openingBalanceData['track_payment'] ?? 'no';
                     $settlementMethod = $openingBalanceData['settlement_method'] ?? null;
 
+                    $acceptCheques = (bool) ($openingBalanceData['accept_cheques'] ?? false);
+
                     if ($existing) {
                         $existing->update([
                             'currency_id' => $currencyId,
@@ -1137,6 +1141,7 @@ class CustomerController extends Controller
                             'payment_day' => $paymentDay,
                             'track_payment' => $trackPayment,
                             'settlement_method' => $settlementMethod,
+                            'accept_cheques' => $acceptCheques,
                             'is_active' => true,
                         ]);
                     } else {
@@ -1153,6 +1158,7 @@ class CustomerController extends Controller
                             'payment_day' => $paymentDay,
                             'track_payment' => $trackPayment,
                             'settlement_method' => $settlementMethod,
+                            'accept_cheques' => $acceptCheques,
                             'is_active' => true,
                         ]);
                     }
@@ -1764,7 +1770,6 @@ class CustomerController extends Controller
             'payment_term_id',
             'payment_method_id',
             'allow_credit',
-            'accept_cheques',
             'price_choice',
             'global_discount',
             'discount_class',
@@ -1895,7 +1900,6 @@ class CustomerController extends Controller
             'payment_term_id',
             'payment_method_id',
             'allow_credit',
-            'accept_cheques',
             'price_choice',
             'global_discount',
             'discount_class',
@@ -1971,7 +1975,6 @@ class CustomerController extends Controller
             'payment_term_id' => 'Payment Term ID',
             'payment_method_id' => 'Payment Method ID',
             'allow_credit' => 'Allow Credit',
-            'accept_cheques' => 'Accept Cheque',
             'price_choice' => 'Price Choice',
             'global_discount' => 'Global Discount',
             'discount_class' => 'Discount Class',
@@ -2234,7 +2237,6 @@ class CustomerController extends Controller
                         'payment_term_id' => $row['payment_term_id'] ?? null,
                         'payment_method_id' => $row['payment_method_id'] ?? null,
                         'allow_credit' => boolval($row['allow_credit'] ?? false),
-                        'accept_cheques' => boolval($row['accept_cheques'] ?? false),
                         'price_choice' => $row['price_choice'] ?? null,
                         'global_discount' => $row['global_discount'] ?? null,
                         'discount_class' => $row['discount_class'] ?? null,

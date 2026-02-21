@@ -245,7 +245,6 @@ class UpdateCustomerRequest extends FormRequest
                 },
             ],
             'allow_credit' => 'sometimes|nullable|boolean',
-            'accept_cheques' => 'sometimes|nullable|boolean',
 
             // Pricing
             'price_choice' => 'sometimes|nullable|in:price1,price2,price3,price4,price5,price6,last_invoice_price',
@@ -534,6 +533,7 @@ class UpdateCustomerRequest extends FormRequest
             'opening_balances.*.payment_day' => 'nullable|string|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
             'opening_balances.*.track_payment' => 'nullable|string|in:yes,no',
             'opening_balances.*.settlement_method' => 'nullable|string|in:FIFO,Manual',
+            'opening_balances.*.accept_cheques' => 'nullable|boolean',
 
             // Contacts validation
             'contacts' => 'sometimes|nullable|array',

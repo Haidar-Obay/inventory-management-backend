@@ -26,7 +26,6 @@ class Customer extends Model implements Auditable
         'exempted' => 'boolean',
         'exempted_from_date' => 'date',
         'exempted_till_date' => 'date',
-        'accept_cheques' => 'boolean',
         'active' => 'boolean',
         'black_listed' => 'boolean',
         'one_time_account' => 'boolean',
@@ -473,7 +472,8 @@ class Customer extends Model implements Auditable
 
     public function canAcceptCheque($currencyId, $count = 1)
     {
-        if (! $this->accept_cheques) {
+        $openingBalance = $this->openingBalances()->active()->where('currency_id', $currencyId)->first();
+        if (! $openingBalance || ! $openingBalance->accept_cheques) {
             return false;
         }
 

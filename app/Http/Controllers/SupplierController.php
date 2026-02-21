@@ -90,7 +90,7 @@ class SupplierController extends Controller
             // bar_code is the canonical input
             $validated = $request->validated();
             // Payment terms are per-currency in opening_balances, not on supplier
-            unset($validated['payment_term_id'], $validated['payment_method_id'], $validated['allow_credit']);
+            unset($validated['payment_term_id'], $validated['payment_method_id'], $validated['allow_credit'], $validated['accept_cheques']);
 
             // Create the supplier with explicit sequential ID
             $nextId = $this->computeNextAvailableId(Supplier::class, 'id');
@@ -145,7 +145,8 @@ class SupplierController extends Controller
                         (bool) ($openingBalanceData['allow_credit'] ?? false),
                         $openingBalanceData['payment_day'] ?? null,
                         $openingBalanceData['track_payment'] ?? 'no',
-                        $openingBalanceData['settlement_method'] ?? null
+                        $openingBalanceData['settlement_method'] ?? null,
+                        (bool) ($openingBalanceData['accept_cheques'] ?? false)
                     );
                 }
             }
@@ -401,7 +402,7 @@ class SupplierController extends Controller
             'opening_amount' => $supplier->opening_amount,
             'opening_date' => $supplier->opening_date,
             'credit_limit' => $supplier->credit_limit,
-            'accept_cheques' => $supplier->accept_cheques,
+            'accept_cheques' => $supplier->openingBalances()->active()->where('accept_cheques', true)->exists(),
             'max_cheques' => $supplier->max_cheques,
             'taxable' => $supplier->taxable,
             'taxed_from_date' => $supplier->taxed_from_date,
@@ -702,6 +703,7 @@ class SupplierController extends Controller
                         'payment_day' => $openingBalance->payment_day,
                         'track_payment' => $openingBalance->track_payment,
                         'settlement_method' => $openingBalance->settlement_method,
+                        'accept_cheques' => (bool) $openingBalance->accept_cheques,
                         'payment_term' => $openingBalance->paymentTerm ? [
                             'id' => $openingBalance->paymentTerm->id,
                             'code' => $openingBalance->paymentTerm->code,
@@ -941,6 +943,7 @@ class SupplierController extends Controller
                 'opening_amount' => $balance->opening_amount,
                 'opening_date' => $balance->opening_date,
                 'notes' => $balance->notes,
+                'accept_cheques' => (bool) $balance->accept_cheques,
                 'is_active' => $balance->is_active,
             ];
         });
@@ -975,7 +978,7 @@ class SupplierController extends Controller
             // bar_code is the canonical input
             $validated = $request->validated();
             // Payment terms are per-currency in opening_balances, not on supplier
-            unset($validated['payment_term_id'], $validated['payment_method_id'], $validated['allow_credit']);
+            unset($validated['payment_term_id'], $validated['payment_method_id'], $validated['allow_credit'], $validated['accept_cheques']);
 
             // Update the supplier
             $supplier->update($validated);
@@ -1040,7 +1043,8 @@ class SupplierController extends Controller
                         (bool) ($openingBalanceData['allow_credit'] ?? false),
                         $openingBalanceData['payment_day'] ?? null,
                         $openingBalanceData['track_payment'] ?? 'no',
-                        $openingBalanceData['settlement_method'] ?? null
+                        $openingBalanceData['settlement_method'] ?? null,
+                        (bool) ($openingBalanceData['accept_cheques'] ?? false)
                     );
                 }
             }
@@ -1223,7 +1227,6 @@ class SupplierController extends Controller
                 'id', 'title', 'first_name', 'middle_name', 'last_name', 'display_name',
                 'company_name', 'phone1', 'phone2', 'phone3', 'file_number', 'bar_code',
                 'search_terms', 'indicator', 'invoicing_mode', 'opening_amount', 'opening_date', 'credit_limit',
-                'accept_cheques',
                 'max_cheques', 'taxable', 'taxed_from_date', 'taxed_till_date',
                 'subjected_to_tax', 'added_tax', 'is_foreign', 'active',
                 'message', 'notes', 'created_at', 'updated_at',
@@ -1233,7 +1236,6 @@ class SupplierController extends Controller
                 'ID', 'Title', 'First Name', 'Middle Name', 'Last Name', 'Display Name',
                 'Company Name', 'Phone 1', 'Phone 2', 'Phone 3', 'File Number', 'Bar Code',
                 'Search Terms', 'Indicator', 'Invoicing Mode', 'Opening Amount', 'Opening Date', 'Credit Limit',
-                'Accept Cheques',
                 'Max Cheques', 'Taxable', 'Taxed From Date', 'Taxed Till Date',
                 'Subjected to Tax', 'Added Tax', 'Is Foreign', 'Active', 'Add Message',
                 'Message', 'Notes', 'Created At', 'Updated At',
@@ -1288,7 +1290,7 @@ class SupplierController extends Controller
                     'Payment Term' => $supplier->openingBalances->first()?->paymentTerm?->code ?? '',
                     'Payment Method' => $supplier->openingBalances->first()?->paymentMethod?->code ?? '',
                     'Credit Limit' => $supplier->credit_limit,
-                    'Accept Cheques' => $supplier->accept_cheques ? 'Yes' : 'No',
+                    'Accept Cheques' => $supplier->openingBalances()->active()->where('accept_cheques', true)->exists() ? 'Yes' : 'No',
                     'Max Cheques' => $supplier->max_cheques,
                     'Taxable' => $supplier->taxable ? 'Yes' : 'No',
                     'Taxed From Date' => $supplier->taxed_from_date,
@@ -1405,7 +1407,6 @@ class SupplierController extends Controller
                     'opening_amount',
                     'opening_date',
                     'credit_limit',
-                    'accept_cheques',
                     'max_cheques',
                     'notes',
                     'taxable',
@@ -1498,7 +1499,6 @@ class SupplierController extends Controller
                         'opening_amount' => $row['opening_amount'] ?? null,
                         'opening_date' => $row['opening_date'] ?? null,
                         'credit_limit' => $row['credit_limit'] ?? null,
-                        'accept_cheques' => $row['accept_cheques'] ?? null,
                         'max_cheques' => $row['max_cheques'] ?? null,
                         'notes' => $row['notes'] ?? null,
                         'taxable' => $row['taxable'] ?? null,

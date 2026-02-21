@@ -112,7 +112,8 @@ class SupplierOpeningBalanceController extends Controller
                 (bool) ($request->allow_credit ?? false),
                 $request->payment_day,
                 $request->track_payment ?? 'no',
-                $request->settlement_method
+                $request->settlement_method,
+                (bool) ($request->accept_cheques ?? false)
             );
 
             $openingBalance->load('currency');
@@ -150,6 +151,7 @@ class SupplierOpeningBalanceController extends Controller
                 'payment_day' => 'nullable|string|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
                 'track_payment' => 'nullable|string|in:yes,no',
                 'settlement_method' => 'nullable|string|in:FIFO,Manual',
+                'accept_cheques' => 'sometimes|boolean',
                 'is_active' => 'sometimes|boolean',
             ]);
 
@@ -171,6 +173,7 @@ class SupplierOpeningBalanceController extends Controller
                 'payment_day',
                 'track_payment',
                 'settlement_method',
+                'accept_cheques',
                 'is_active',
             ]));
 
@@ -291,7 +294,8 @@ class SupplierOpeningBalanceController extends Controller
                     (bool) ($openingBalanceData['allow_credit'] ?? false),
                     $openingBalanceData['payment_day'] ?? null,
                     $openingBalanceData['track_payment'] ?? 'no',
-                    $openingBalanceData['settlement_method'] ?? null
+                    $openingBalanceData['settlement_method'] ?? null,
+                    (bool) ($openingBalanceData['accept_cheques'] ?? false)
                 );
 
                 $openingBalance->load(['currency', 'paymentTerm', 'paymentMethod']);

@@ -22,6 +22,7 @@ class SupplierOpeningBalance extends Model
         'payment_day',
         'track_payment',
         'settlement_method',
+        'accept_cheques',
         'is_active',
     ];
 
@@ -29,6 +30,7 @@ class SupplierOpeningBalance extends Model
         'opening_amount' => 'decimal:2',
         'opening_date' => 'date',
         'allow_credit' => 'boolean',
+        'accept_cheques' => 'boolean',
         'is_active' => 'boolean',
     ];
 

@@ -34,8 +34,7 @@ return new class extends Migration
 
             // Opening balances are handled in separate supplier_opening_balances table
 
-            // Payment Terms (payment_term_id, payment_method_id, allow_credit are per-currency in supplier_opening_balances)
-            $table->boolean('accept_cheques')->default(false);
+            // Payment Terms (payment_term_id, payment_method_id, allow_credit, accept_cheques are per-currency in supplier_opening_balances)
 
             // Credit limits and cheque limits are handled in separate tables for multi-currency support
 
