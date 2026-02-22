@@ -453,24 +453,24 @@ class ItemController extends Controller
                     Storage::disk('public')->delete($relativePath);
                     // Delete attachment record
                     $existingAttachment->delete();
-                    } else {
-                        // Update existing attachment metadata if provided (match ServiceController logic)
-                        $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
-                        if ($metadata) {
-                            // Use array_key_exists to allow empty strings - isset can skip empty in some cases
-                            if (array_key_exists('description', $metadata)) {
-                                $existingAttachment->description = $metadata['description'] ?? '';
-                            }
-                            if (array_key_exists('is_public', $metadata)) {
-                                $existingAttachment->is_public = $metadata['is_public'];
-                            }
-                            if (array_key_exists('category', $metadata)) {
-                                $existingAttachment->category = $metadata['category'];
-                            }
-                            $existingAttachment->save();
+                } else {
+                    // Update existing attachment metadata if provided (match ServiceController logic)
+                    $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
+                    if ($metadata) {
+                        // Use array_key_exists to allow empty strings - isset can skip empty in some cases
+                        if (array_key_exists('description', $metadata)) {
+                            $existingAttachment->description = $metadata['description'] ?? '';
                         }
+                        if (array_key_exists('is_public', $metadata)) {
+                            $existingAttachment->is_public = $metadata['is_public'];
+                        }
+                        if (array_key_exists('category', $metadata)) {
+                            $existingAttachment->category = $metadata['category'];
+                        }
+                        $existingAttachment->save();
                     }
                 }
+            }
 
             // Create new attachments from uploaded files
             // When using attachments[] in FormData, Laravel receives it as attachments.*

@@ -2559,7 +2559,7 @@ class CustomerController extends Controller
             'openingBalances' => function ($query) {
                 $query->where('is_active', true)
                     ->with([
-                        'currency:id,code,name',
+                        'currency:id,code,name,iso_code',
                         'paymentTerm:id,code,name,nb_days',
                         'paymentMethod:id,code,name',
                     ]);
@@ -2616,29 +2616,35 @@ class CustomerController extends Controller
             ];
         });
 
-        // Get currencies from active opening balances with per-currency payment terms (include is_primary for default selection)
-        $currencies = $customer->openingBalances->map(function ($openingBalance) {
-            $currency = $openingBalance->currency;
-            $currencyData = [
-                'id' => $currency->id,
-                'code' => $currency->code,
-                'name' => $currency->name,
-                'payment_day' => $openingBalance->payment_day,
-                'track_payment' => $openingBalance->track_payment,
-                'settlement_method' => $openingBalance->settlement_method,
+        // opening_balances with currency + payment_term per row (same shape as supplier for-invoice)
+        $openingBalancesData = $customer->openingBalances->map(function ($balance) {
+            $currency = $balance->currency;
+            $paymentTerm = $balance->paymentTerm;
+
+            return [
+                'id' => $balance->id,
+                'currency_id' => $balance->currency_id,
+                'currency_code' => $currency->code ?? null,
+                'currency_name' => $currency->name ?? null,
+                'currency_iso_code' => $currency->iso_code ?? null,
                 'is_primary' => $currency->isPrimary(),
+                'opening_amount' => $balance->opening_amount,
+                'opening_date' => $balance->opening_date,
+                'notes' => $balance->notes,
+                'payment_day' => $balance->payment_day,
+                'track_payment' => $balance->track_payment,
+                'settlement_method' => $balance->settlement_method,
+                'accept_cheques' => (bool) $balance->accept_cheques,
+                'is_active' => $balance->is_active,
+                'payment_term_id' => $balance->payment_term_id,
+                'payment_term' => $paymentTerm ? [
+                    'id' => $paymentTerm->id,
+                    'code' => $paymentTerm->code,
+                    'name' => $paymentTerm->name,
+                    'nb_days' => $paymentTerm->nb_days,
+                ] : null,
             ];
-            if ($openingBalance->paymentTerm) {
-                $currencyData['payment_term_id'] = $openingBalance->payment_term_id;
-                $currencyData['payment_term'] = [
-                    'id' => $openingBalance->paymentTerm->id,
-                    'name' => $openingBalance->paymentTerm->name,
-                    'code' => $openingBalance->paymentTerm->code,
-                    'nb_days' => $openingBalance->paymentTerm->nb_days,
-                ];
-            }
-            return $currencyData;
-        });
+        })->values();
 
         return response()->json([
             'status' => true,
@@ -2665,7 +2671,7 @@ class CustomerController extends Controller
                 ] : null,
                 'billing_addresses' => $billingAddresses,
                 'shipping_addresses' => $shippingAddresses,
-                'currencies' => $currencies->values(),
+                'opening_balances' => $openingBalancesData,
             ],
         ]);
     }

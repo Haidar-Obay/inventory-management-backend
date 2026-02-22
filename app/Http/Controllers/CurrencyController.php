@@ -664,9 +664,11 @@ class CurrencyController extends Controller
         try {
             $currency = Currency::findOrFail($id);
             $limit = request()->input('limit', 50);
+            $from = request()->input('from');
+            $to = request()->input('to');
 
             $exchangeRateService = new ExchangeRateService;
-            $history = $exchangeRateService->getRateHistory($id, $limit);
+            $history = $exchangeRateService->getRateHistory($id, $limit, $from ?: null, $to ?: null);
 
             return response()->json([
                 'status' => true,

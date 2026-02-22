@@ -929,11 +929,11 @@ class SupplierController extends Controller
             ->with('currency:id,code,name,iso_code')
             ->get();
 
-        // Transform opening balances to include flattened currency fields and is_primary for default selection
+        // Transform opening balances to include flattened currency fields, is_primary, and payment_term per currency
         $openingBalancesData = $openingBalances->map(function ($balance) {
             $currency = $balance->currency;
-
-            return [
+            $paymentTerm = $balance->paymentTerm;
+            $row = [
                 'id' => $balance->id,
                 'currency_id' => $balance->currency_id,
                 'currency_code' => $currency->code ?? null,
@@ -945,10 +945,21 @@ class SupplierController extends Controller
                 'notes' => $balance->notes,
                 'accept_cheques' => (bool) $balance->accept_cheques,
                 'is_active' => $balance->is_active,
+                'payment_term_id' => $balance->payment_term_id,
+                'payment_term' => $paymentTerm ? [
+                    'id' => $paymentTerm->id,
+                    'code' => $paymentTerm->code,
+                    'name' => $paymentTerm->name,
+                    'nb_days' => $paymentTerm->nb_days,
+                    'active' => $paymentTerm->active ?? true,
+                ] : null,
             ];
+
+            return $row;
         });
 
-        // Return only essential data for purchase invoice
+        // Return only essential data for purchase invoice.
+        // opening_balances already contains currency + payment_term per row; no separate currencies array.
         $data = [
             'id' => $supplier->id,
             'display_name' => $supplier->display_name,
