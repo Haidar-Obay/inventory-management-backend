@@ -15,10 +15,10 @@ class CreditLimitService
      */
     public function canMakePurchase(Customer $customer, float $amount, int $currencyId): array
     {
-        if (! $customer->allow_credit) {
+        if (! $customer->hasAllowCreditForCurrency($currencyId)) {
             return [
                 'can_purchase' => false,
-                'reason' => 'Customer does not have credit enabled',
+                'reason' => 'Customer does not have credit enabled for this currency',
                 'available_credit' => 0,
                 'required_amount' => $amount,
             ];
@@ -153,7 +153,7 @@ class CreditLimitService
         return [
             'customer_id' => $customer->id,
             'customer_name' => $customer->display_name,
-            'allow_credit' => $customer->allow_credit,
+            'allow_credit' => $customer->openingBalances()->active()->where('allow_credit', true)->exists(),
             'credit_limits' => $summary,
             'totals' => [
                 'total_credit_limit' => $totalCreditLimit,

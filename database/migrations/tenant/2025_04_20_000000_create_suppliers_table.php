@@ -34,14 +34,7 @@ return new class extends Migration
 
             // Opening balances are handled in separate supplier_opening_balances table
 
-            // Payment Terms
-            $table->foreignId('payment_term_id')->nullable()->constrained('payment_terms');
-            $table->foreignId('payment_method_id')->nullable()->constrained('payment_methods');
-            $table->boolean('allow_credit')->default(false);
-            $table->enum('payment_day', ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30'])->nullable();
-            $table->enum('track_payment', ['yes', 'no'])->default('no');
-            $table->enum('settlement_method', ['FIFO', 'Manual'])->nullable();
-            $table->boolean('accept_cheques')->default(false);
+            // Payment Terms (payment_term_id, payment_method_id, allow_credit, accept_cheques are per-currency in supplier_opening_balances)
 
             // Credit limits and cheque limits are handled in separate tables for multi-currency support
 

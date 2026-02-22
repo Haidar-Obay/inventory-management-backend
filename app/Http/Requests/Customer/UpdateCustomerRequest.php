@@ -37,7 +37,8 @@ class UpdateCustomerRequest extends FormRequest
 
     public function rules(): array
     {
-        $customerId = $this->route('customer'); // Adjust this if your route parameter is named differently
+        $customerParam = $this->route('customer');
+        $customerId = is_object($customerParam) ? $customerParam->id : $customerParam;
 
         return [
             'title' => 'sometimes|nullable|string|max:255',
@@ -52,7 +53,15 @@ class UpdateCustomerRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:20',
-                Rule::unique('customers', 'phone1')->ignore($customerId),
+                function ($attribute, $value, $fail) use ($customerId) {
+                    if (empty(trim($value ?? ''))) {
+                        return;
+                    }
+                    $exists = \App\Models\Customer::where('phone1', $value)->where('id', '!=', $customerId)->exists();
+                    if ($exists) {
+                        $fail('The phone number has already been taken.');
+                    }
+                },
             ],
             'phone2' => [
                 'sometimes',
@@ -236,10 +245,6 @@ class UpdateCustomerRequest extends FormRequest
                 },
             ],
             'allow_credit' => 'sometimes|nullable|boolean',
-            'accept_cheques' => 'sometimes|nullable|boolean',
-            'payment_day' => 'sometimes|nullable|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
-            'track_payment' => 'sometimes|nullable|in:yes,no',
-            'settlement_method' => 'sometimes|nullable|in:FIFO,Manual',
 
             // Pricing
             'price_choice' => 'sometimes|nullable|in:price1,price2,price3,price4,price5,price6,last_invoice_price',
@@ -522,6 +527,13 @@ class UpdateCustomerRequest extends FormRequest
             'opening_balances.*.currency' => 'required|string|max:10',
             'opening_balances.*.amount' => 'required|numeric',
             'opening_balances.*.date' => 'nullable|date',
+            'opening_balances.*.payment_term_id' => 'nullable|exists:payment_terms,id',
+            'opening_balances.*.payment_method_id' => 'nullable|exists:payment_methods,id',
+            'opening_balances.*.allow_credit' => 'nullable|boolean',
+            'opening_balances.*.payment_day' => 'nullable|string|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
+            'opening_balances.*.track_payment' => 'nullable|string|in:yes,no',
+            'opening_balances.*.settlement_method' => 'nullable|string|in:FIFO,Manual',
+            'opening_balances.*.accept_cheques' => 'nullable|boolean',
 
             // Contacts validation
             'contacts' => 'sometimes|nullable|array',

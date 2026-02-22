@@ -114,6 +114,7 @@ class ItemController extends Controller
                 'itemGroup:id,code,name',
                 'baseUom:id,name,unit_group_id',
                 'parent:id,code,name',
+                'attachments',
             ]);
             app('cache')->store('database')->forever($key, $cachedItem);
         }
@@ -453,16 +454,17 @@ class ItemController extends Controller
                     // Delete attachment record
                     $existingAttachment->delete();
                 } else {
-                    // Update existing attachment metadata if provided
+                    // Update existing attachment metadata if provided (match ServiceController logic)
                     $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
                     if ($metadata) {
-                        if (isset($metadata['description'])) {
-                            $existingAttachment->description = $metadata['description'];
+                        // Use array_key_exists to allow empty strings - isset can skip empty in some cases
+                        if (array_key_exists('description', $metadata)) {
+                            $existingAttachment->description = $metadata['description'] ?? '';
                         }
-                        if (isset($metadata['is_public'])) {
+                        if (array_key_exists('is_public', $metadata)) {
                             $existingAttachment->is_public = $metadata['is_public'];
                         }
-                        if (isset($metadata['category'])) {
+                        if (array_key_exists('category', $metadata)) {
                             $existingAttachment->category = $metadata['category'];
                         }
                         $existingAttachment->save();
@@ -587,16 +589,17 @@ class ItemController extends Controller
                         // Delete attachment record
                         $existingAttachment->delete();
                     } else {
-                        // Update existing attachment metadata if provided
+                        // Update existing attachment metadata if provided (match ServiceController logic)
                         $metadata = $attachmentMetadataMap[$existingAttachment->id] ?? null;
                         if ($metadata) {
-                            if (isset($metadata['description'])) {
-                                $existingAttachment->description = $metadata['description'];
+                            // Use array_key_exists to allow empty strings - isset can skip empty in some cases
+                            if (array_key_exists('description', $metadata)) {
+                                $existingAttachment->description = $metadata['description'] ?? '';
                             }
-                            if (isset($metadata['is_public'])) {
+                            if (array_key_exists('is_public', $metadata)) {
                                 $existingAttachment->is_public = $metadata['is_public'];
                             }
-                            if (isset($metadata['category'])) {
+                            if (array_key_exists('category', $metadata)) {
                                 $existingAttachment->category = $metadata['category'];
                             }
                             $existingAttachment->save();

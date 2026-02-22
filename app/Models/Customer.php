@@ -26,8 +26,6 @@ class Customer extends Model implements Auditable
         'exempted' => 'boolean',
         'exempted_from_date' => 'date',
         'exempted_till_date' => 'date',
-        'allow_credit' => 'boolean',
-        'accept_cheques' => 'boolean',
         'active' => 'boolean',
         'black_listed' => 'boolean',
         'one_time_account' => 'boolean',
@@ -84,16 +82,6 @@ class Customer extends Model implements Auditable
     public function manager()
     {
         return $this->belongsTo(Salesman::class, 'manager_id');
-    }
-
-    public function paymentTerm()
-    {
-        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
-    }
-
-    public function paymentMethod()
-    {
-        return $this->belongsTo(PaymentMethod::class, 'payment_method_id');
     }
 
     public function trade()
@@ -330,7 +318,7 @@ class Customer extends Model implements Auditable
 
     public function canExceedCreditLimit($amount, $currencyId)
     {
-        if (! $this->allow_credit) {
+        if (! $this->hasAllowCreditForCurrency($currencyId)) {
             return false;
         }
 
@@ -484,7 +472,8 @@ class Customer extends Model implements Auditable
 
     public function canAcceptCheque($currencyId, $count = 1)
     {
-        if (! $this->accept_cheques) {
+        $openingBalance = $this->openingBalances()->active()->where('currency_id', $currencyId)->first();
+        if (! $openingBalance || ! $openingBalance->accept_cheques) {
             return false;
         }
 
@@ -769,6 +758,13 @@ class Customer extends Model implements Auditable
             ->where('currency_id', $currencyId)
             ->active()
             ->exists();
+    }
+
+    public function hasAllowCreditForCurrency($currencyId)
+    {
+        $openingBalance = $this->getOpeningBalanceForCurrency($currencyId);
+
+        return $openingBalance && $openingBalance->allow_credit;
     }
 
     public function getOpeningCurrencies()

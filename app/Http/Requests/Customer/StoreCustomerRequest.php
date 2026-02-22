@@ -42,7 +42,20 @@ class StoreCustomerRequest extends FormRequest
             'last_name' => 'required|string|max:255',
             'display_name' => 'nullable|string|max:255',
             'company_name' => 'nullable|string|max:255',
-            'phone1' => 'required|string|max:20|unique:customers,phone1',
+            'phone1' => [
+                'required_unless:one_time_account,true',
+                'nullable',
+                'string',
+                'max:20',
+                function ($attribute, $value, $fail) {
+                    if (empty(trim($value ?? ''))) {
+                        return;
+                    }
+                    if (\App\Models\Customer::where('phone1', $value)->exists()) {
+                        $fail('The phone number has already been taken.');
+                    }
+                },
+            ],
             'phone2' => 'nullable|string|max:20|unique:customers,phone2',
             'phone3' => 'nullable|string|max:20|unique:customers,phone3',
             'email' => 'nullable|email|max:255|unique:customers,email',
@@ -187,10 +200,6 @@ class StoreCustomerRequest extends FormRequest
                 },
             ],
             'allow_credit' => 'nullable|boolean',
-            'accept_cheques' => 'nullable|boolean',
-            'payment_day' => 'nullable|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
-            'track_payment' => 'nullable|in:yes,no',
-            'settlement_method' => 'nullable|in:FIFO,Manual',
 
             // Pricing
             'price_choice' => 'nullable|in:price1,price2,price3,price4,price5,price6,last_invoice_price',
@@ -393,6 +402,13 @@ class StoreCustomerRequest extends FormRequest
             'opening_balances.*.currency' => 'required|string|max:10',
             'opening_balances.*.amount' => 'required|numeric',
             'opening_balances.*.date' => 'nullable|date',
+            'opening_balances.*.payment_term_id' => 'nullable|exists:payment_terms,id',
+            'opening_balances.*.payment_method_id' => 'nullable|exists:payment_methods,id',
+            'opening_balances.*.allow_credit' => 'nullable|boolean',
+            'opening_balances.*.payment_day' => 'nullable|string|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
+            'opening_balances.*.track_payment' => 'nullable|string|in:yes,no',
+            'opening_balances.*.settlement_method' => 'nullable|string|in:FIFO,Manual',
+            'opening_balances.*.accept_cheques' => 'nullable|boolean',
 
             // Contacts validation
             'contacts' => 'nullable|array',

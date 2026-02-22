@@ -118,12 +118,21 @@ class ExchangeRateService
      *
      * @param  int  $currencyId  Currency ID
      * @param  int|null  $limit  Limit number of records
+     * @param  string|null  $fromDate  Filter from date (Y-m-d)
+     * @param  string|null  $toDate  Filter to date (Y-m-d)
      * @return \Illuminate\Database\Eloquent\Collection
      */
-    public function getRateHistory(int $currencyId, ?int $limit = null)
+    public function getRateHistory(int $currencyId, ?int $limit = null, ?string $fromDate = null, ?string $toDate = null)
     {
         $query = ExchangeRate::where('currency_id', $currencyId)
             ->orderBy('effective_from', 'desc');
+
+        if ($fromDate) {
+            $query->whereDate('effective_from', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $query->whereDate('effective_from', '<=', $toDate);
+        }
 
         if ($limit) {
             $query->limit($limit);

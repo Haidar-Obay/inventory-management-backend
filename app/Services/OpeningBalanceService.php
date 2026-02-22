@@ -58,15 +58,38 @@ class OpeningBalanceService
     /**
      * Set opening balance for a supplier in a specific currency
      */
-    public function setSupplierOpeningBalance(Supplier $supplier, int $currencyId, float $amount, ?string $openingDate = null, ?string $notes = null): SupplierOpeningBalance
-    {
+    public function setSupplierOpeningBalance(
+        Supplier $supplier,
+        int $currencyId,
+        float $amount,
+        ?string $openingDate = null,
+        ?string $notes = null,
+        ?int $paymentTermId = null,
+        ?int $paymentMethodId = null,
+        bool $allowCredit = false,
+        ?string $paymentDay = null,
+        ?string $trackPayment = 'no',
+        ?string $settlementMethod = null,
+        bool $acceptCheques = false
+    ): SupplierOpeningBalance {
         $openingBalance = $supplier->getOpeningBalanceForCurrency($currencyId);
+
+        $paymentData = [
+            'payment_term_id' => $paymentTermId,
+            'payment_method_id' => $paymentMethodId,
+            'allow_credit' => $allowCredit,
+            'payment_day' => $paymentDay,
+            'track_payment' => $trackPayment ?? 'no',
+            'settlement_method' => $settlementMethod,
+            'accept_cheques' => $acceptCheques,
+        ];
 
         if ($openingBalance) {
             $openingBalance->update([
                 'opening_amount' => $amount,
                 'opening_date' => $openingDate ?? now()->toDateString(),
                 'notes' => $notes,
+                ...$paymentData,
             ]);
 
             return $openingBalance;
@@ -77,6 +100,8 @@ class OpeningBalanceService
             'opening_amount' => $amount,
             'opening_date' => $openingDate ?? now()->toDateString(),
             'notes' => $notes,
+            'is_active' => true,
+            ...$paymentData,
         ]);
     }
 
@@ -292,7 +317,14 @@ class OpeningBalanceService
                     $openingBalanceData['currency_id'],
                     $openingBalanceData['opening_amount'],
                     $openingBalanceData['opening_date'] ?? null,
-                    $openingBalanceData['notes'] ?? null
+                    $openingBalanceData['notes'] ?? null,
+                    $openingBalanceData['payment_term_id'] ?? null,
+                    $openingBalanceData['payment_method_id'] ?? null,
+                    (bool) ($openingBalanceData['allow_credit'] ?? false),
+                    $openingBalanceData['payment_day'] ?? null,
+                    $openingBalanceData['track_payment'] ?? 'no',
+                    $openingBalanceData['settlement_method'] ?? null,
+                    (bool) ($openingBalanceData['accept_cheques'] ?? false)
                 );
 
                 $openingBalance->load('currency');

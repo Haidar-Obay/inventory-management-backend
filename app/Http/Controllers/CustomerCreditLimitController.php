@@ -249,7 +249,7 @@ class CustomerCreditLimitController extends Controller
             'total_credit_limit' => $customer->getTotalCreditLimit(),
             'total_used_credit' => $customer->getTotalUsedCredit(),
             'total_available_credit' => $customer->getTotalAvailableCredit(),
-            'allow_credit' => $customer->allow_credit,
+            'allow_credit' => $customer->openingBalances()->active()->where('allow_credit', true)->exists(),
         ];
 
         return response()->json([

@@ -86,11 +86,13 @@ class PaymentTermController extends Controller
 
     public function destroy(PaymentTerm $paymentTerm)
     {
-        // Prevent deletion if related customers or suppliers exist; include helpful details
+        // Prevent deletion if related customers, suppliers, or opening balances exist
         $customersCount = $paymentTerm->customers()->count();
         $suppliersCount = \App\Models\Supplier::where('payment_term_id', $paymentTerm->id)->count();
+        $customerOpeningCount = \App\Models\CustomerOpeningBalance::where('payment_term_id', $paymentTerm->id)->count();
+        $supplierOpeningCount = \App\Models\SupplierOpeningBalance::where('payment_term_id', $paymentTerm->id)->count();
 
-        if ($customersCount > 0 || $suppliersCount > 0) {
+        if ($customersCount > 0 || $suppliersCount > 0 || $customerOpeningCount > 0 || $supplierOpeningCount > 0) {
             $details = [];
             if ($customersCount > 0) {
                 $details['customers'] = [
@@ -107,12 +109,30 @@ class PaymentTermController extends Controller
                         ->pluck('id'),
                 ];
             }
+            if ($customerOpeningCount > 0) {
+                $details['customer_opening_balances'] = [
+                    'count' => $customerOpeningCount,
+                    'sample_ids' => \App\Models\CustomerOpeningBalance::where('payment_term_id', $paymentTerm->id)
+                        ->select('customer_opening_balances.id')
+                        ->limit(1)
+                        ->pluck('id'),
+                ];
+            }
+            if ($supplierOpeningCount > 0) {
+                $details['supplier_opening_balances'] = [
+                    'count' => $supplierOpeningCount,
+                    'sample_ids' => \App\Models\SupplierOpeningBalance::where('payment_term_id', $paymentTerm->id)
+                        ->select('supplier_opening_balances.id')
+                        ->limit(1)
+                        ->pluck('id'),
+                ];
+            }
 
             $identifier = $paymentTerm->name ?? $paymentTerm->code ?? "ID: {$paymentTerm->id}";
 
             return response()->json([
                 'status' => false,
-                'message' => "Cannot delete payment term \"{$identifier}\" (ID: {$paymentTerm->id}). It is referenced by existing customers or suppliers.",
+                'message' => "Cannot delete payment term \"{$identifier}\" (ID: {$paymentTerm->id}). It is referenced by existing customers, suppliers, or opening balances.",
                 'details' => $details,
             ], 409);
         }
@@ -151,11 +171,13 @@ class PaymentTermController extends Controller
                 continue;
             }
 
-            // Check if the payment term has any customers or suppliers linked to it and include details
+            // Check if the payment term has any customers, suppliers, or opening balances linked to it
             $customersCount = $term->customers()->count();
             $suppliersCount = \App\Models\Supplier::where('payment_term_id', $term->id)->count();
+            $customerOpeningCount = \App\Models\CustomerOpeningBalance::where('payment_term_id', $term->id)->count();
+            $supplierOpeningCount = \App\Models\SupplierOpeningBalance::where('payment_term_id', $term->id)->count();
 
-            if ($customersCount > 0 || $suppliersCount > 0) {
+            if ($customersCount > 0 || $suppliersCount > 0 || $customerOpeningCount > 0 || $supplierOpeningCount > 0) {
                 $details = [];
                 if ($customersCount > 0) {
                     $details['customers'] = [
@@ -172,12 +194,30 @@ class PaymentTermController extends Controller
                             ->pluck('id'),
                     ];
                 }
+                if ($customerOpeningCount > 0) {
+                    $details['customer_opening_balances'] = [
+                        'count' => $customerOpeningCount,
+                        'sample_ids' => \App\Models\CustomerOpeningBalance::where('payment_term_id', $term->id)
+                            ->select('customer_opening_balances.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
+                if ($supplierOpeningCount > 0) {
+                    $details['supplier_opening_balances'] = [
+                        'count' => $supplierOpeningCount,
+                        'sample_ids' => \App\Models\SupplierOpeningBalance::where('payment_term_id', $term->id)
+                            ->select('supplier_opening_balances.id')
+                            ->limit(1)
+                            ->pluck('id'),
+                    ];
+                }
 
                 $identifier = $term->name ?? $term->code ?? "ID: {$id}";
                 $skipped[] = [
                     'id' => $id,
                     'name' => $identifier,
-                    'reason' => 'Cannot delete payment term. It is referenced by existing customers or suppliers.',
+                    'reason' => 'Cannot delete payment term. It is referenced by existing customers, suppliers, or opening balances.',
                     'details' => $details,
                 ];
 
@@ -196,6 +236,8 @@ class PaymentTermController extends Controller
                     try {
                         $customersCount = $term?->customers()->count() ?? 0;
                         $suppliersCount = $term ? \App\Models\Supplier::where('payment_term_id', $term->id)->count() : 0;
+                        $customerOpeningCount = $term ? \App\Models\CustomerOpeningBalance::where('payment_term_id', $term->id)->count() : 0;
+                        $supplierOpeningCount = $term ? \App\Models\SupplierOpeningBalance::where('payment_term_id', $term->id)->count() : 0;
                         if ($customersCount > 0) {
                             $details['customers'] = [
                                 'count' => $customersCount,
@@ -211,6 +253,24 @@ class PaymentTermController extends Controller
                                     ->pluck('id'),
                             ];
                         }
+                        if ($customerOpeningCount > 0) {
+                            $details['customer_opening_balances'] = [
+                                'count' => $customerOpeningCount,
+                                'sample_ids' => \App\Models\CustomerOpeningBalance::where('payment_term_id', $term->id)
+                                    ->select('customer_opening_balances.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
+                        if ($supplierOpeningCount > 0) {
+                            $details['supplier_opening_balances'] = [
+                                'count' => $supplierOpeningCount,
+                                'sample_ids' => \App\Models\SupplierOpeningBalance::where('payment_term_id', $term->id)
+                                    ->select('supplier_opening_balances.id')
+                                    ->limit(1)
+                                    ->pluck('id'),
+                            ];
+                        }
                     } catch (\Throwable $ignored) {
                     }
 
@@ -219,7 +279,7 @@ class PaymentTermController extends Controller
                     $skipped[] = [
                         'id' => $id,
                         'name' => $identifier,
-                        'reason' => 'Cannot delete payment term. It is referenced by existing customers or suppliers.',
+                        'reason' => 'Cannot delete payment term. It is referenced by existing customers, suppliers, or opening balances.',
                         'details' => $details,
                     ];
                 } else {

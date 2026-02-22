@@ -9,7 +9,7 @@ class CustomerOpeningBalance extends Model implements Auditable
 {
     use \OwenIt\Auditing\Auditable;
 
-    protected $fillable = ['id', 'customer_id', 'currency_id', 'opening_amount', 'opening_date', 'notes', 'is_active'];
+    protected $fillable = ['id', 'customer_id', 'currency_id', 'opening_amount', 'opening_date', 'notes', 'payment_term_id', 'payment_method_id', 'allow_credit', 'payment_day', 'track_payment', 'settlement_method', 'accept_cheques', 'is_active'];
 
     protected $table = 'customer_opening_balances';
 
@@ -20,6 +20,8 @@ class CustomerOpeningBalance extends Model implements Auditable
     protected $casts = [
         'opening_amount' => 'decimal:2',
         'opening_date' => 'date',
+        'allow_credit' => 'boolean',
+        'accept_cheques' => 'boolean',
         'is_active' => 'boolean',
     ];
 
@@ -32,6 +34,16 @@ class CustomerOpeningBalance extends Model implements Auditable
     public function currency()
     {
         return $this->belongsTo(Currency::class);
+    }
+
+    public function paymentTerm()
+    {
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
+    }
+
+    public function paymentMethod()
+    {
+        return $this->belongsTo(PaymentMethod::class, 'payment_method_id');
     }
 
     /**
