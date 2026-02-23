@@ -14,6 +14,7 @@ use App\Models\Supplier;
 use App\Models\SupplierAttachment;
 use App\Services\OpeningBalanceService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
@@ -1573,9 +1574,7 @@ class SupplierController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            // Log the error for debugging
-            \Log::error('Supplier import failed: '.$e->getMessage(), ['exception' => $e]);
-
+            Log::error('Supplier import failed: '.$e->getMessage(), ['exception' => $e]);
             return response()->json([
                 'success' => false,
                 'message' => 'Import failed due to invalid data. Please check your file for invalid or missing references (e.g., payment method, etc.).',
@@ -1955,8 +1954,8 @@ class SupplierController extends Controller
                     $address = Address::find($addressId);
                     if ($address) {
                         // Check if address is used by other customers or suppliers via pivot tables
-                        $usedByCustomers = \DB::table('customer_addresses')->where('address_id', $addressId)->exists();
-                        $usedBySuppliers = \DB::table('supplier_addresses')->where('address_id', $addressId)->exists();
+                        $usedByCustomers = DB::table('customer_addresses')->where('address_id', $addressId)->exists();
+                        $usedBySuppliers = DB::table('supplier_addresses')->where('address_id', $addressId)->exists();
                         if (! $usedByCustomers && ! $usedBySuppliers) {
                             $address->delete();
                         }
