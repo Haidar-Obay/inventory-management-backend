@@ -161,8 +161,19 @@ class CurrencyController extends Controller
     {
         $currency = Currency::findOrFail($id);
 
-        // Prevent deletion if referenced by suppliers, customers, or any limit/balance tables
-        $suppliersCount = \App\Models\Supplier::where('currency_id', $currency->id)->count();
+        // Prevent deletion if used in transactions (invoices; receipts when implemented)
+        $invoicesCount = \App\Models\Invoice::where('currency_id', $currency->id)->count();
+        if ($invoicesCount > 0) {
+            $identifier = $currency->name ?? $currency->code ?? $currency->iso_code ?? "ID: {$currency->id}";
+
+            return response()->json([
+                'status' => false,
+                'message' => "Cannot delete currency \"{$identifier}\". It is used in transactions (invoices).",
+                'details' => ['invoices' => ['count' => $invoicesCount]],
+            ], 409);
+        }
+
+        // Prevent deletion if referenced by customers/suppliers limits or opening balances (per-currency tables)
         $customerCreditLimitsCount = \App\Models\CustomerCreditLimit::where('currency_id', $currency->id)->count();
         $customerChequeLimitsCount = \App\Models\CustomerChequeLimit::where('currency_id', $currency->id)->count();
         $customerOpeningBalancesCount = \App\Models\CustomerOpeningBalance::where('currency_id', $currency->id)->count();
@@ -170,20 +181,11 @@ class CurrencyController extends Controller
         $supplierChequeLimitsCount = \App\Models\SupplierChequeLimit::where('currency_id', $currency->id)->count();
         $supplierOpeningBalancesCount = \App\Models\SupplierOpeningBalance::where('currency_id', $currency->id)->count();
 
-        if ($suppliersCount > 0 || $customerCreditLimitsCount > 0 || $customerChequeLimitsCount > 0 ||
+        if ($customerCreditLimitsCount > 0 || $customerChequeLimitsCount > 0 ||
             $customerOpeningBalancesCount > 0 || $supplierCreditLimitsCount > 0 ||
             $supplierChequeLimitsCount > 0 || $supplierOpeningBalancesCount > 0) {
 
             $details = [];
-            if ($suppliersCount > 0) {
-                $details['suppliers'] = [
-                    'count' => $suppliersCount,
-                    'sample_ids' => \App\Models\Supplier::where('currency_id', $currency->id)
-                        ->select('suppliers.id')
-                        ->limit(1)
-                        ->pluck('id'),
-                ];
-            }
             if ($customerCreditLimitsCount > 0) {
                 $details['customer_credit_limits'] = [
                     'count' => $customerCreditLimitsCount,
@@ -281,8 +283,20 @@ class CurrencyController extends Controller
                 continue;
             }
 
-            // Check if referenced by suppliers, customers, or any limit/balance tables and include details
-            $suppliersCount = \App\Models\Supplier::where('currency_id', $id)->count();
+            // Check if used in transactions (invoices; receipts when implemented)
+            $invoicesCount = \App\Models\Invoice::where('currency_id', $id)->count();
+            if ($invoicesCount > 0) {
+                $identifier = $currency->name ?? $currency->code ?? $currency->iso_code ?? "ID: {$id}";
+                $skipped[] = [
+                    'id' => $id,
+                    'name' => $identifier,
+                    'reason' => 'Cannot delete currency. It is used in transactions (invoices).',
+                    'details' => ['invoices' => ['count' => $invoicesCount]],
+                ];
+                continue;
+            }
+
+            // Check if referenced by customers/suppliers limits or opening balances (per-currency tables)
             $customerCreditLimitsCount = \App\Models\CustomerCreditLimit::where('currency_id', $id)->count();
             $customerChequeLimitsCount = \App\Models\CustomerChequeLimit::where('currency_id', $id)->count();
             $customerOpeningBalancesCount = \App\Models\CustomerOpeningBalance::where('currency_id', $id)->count();
@@ -290,20 +304,11 @@ class CurrencyController extends Controller
             $supplierChequeLimitsCount = \App\Models\SupplierChequeLimit::where('currency_id', $id)->count();
             $supplierOpeningBalancesCount = \App\Models\SupplierOpeningBalance::where('currency_id', $id)->count();
 
-            if ($suppliersCount > 0 || $customerCreditLimitsCount > 0 || $customerChequeLimitsCount > 0 ||
+            if ($customerCreditLimitsCount > 0 || $customerChequeLimitsCount > 0 ||
                 $customerOpeningBalancesCount > 0 || $supplierCreditLimitsCount > 0 ||
                 $supplierChequeLimitsCount > 0 || $supplierOpeningBalancesCount > 0) {
 
                 $details = [];
-                if ($suppliersCount > 0) {
-                    $details['suppliers'] = [
-                        'count' => $suppliersCount,
-                        'sample_ids' => \App\Models\Supplier::where('currency_id', $id)
-                            ->select('suppliers.id')
-                            ->limit(1)
-                            ->pluck('id'),
-                    ];
-                }
                 if ($customerCreditLimitsCount > 0) {
                     $details['customer_credit_limits'] = [
                         'count' => $customerCreditLimitsCount,
