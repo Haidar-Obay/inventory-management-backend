@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Currency;
 use App\Models\Customer;
+use App\Services\OpeningBalanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,9 @@ use Illuminate\Support\Facades\Validator;
 
 class CustomerOpeningBalanceController extends Controller
 {
+    public function __construct(
+        protected OpeningBalanceService $openingBalanceService
+    ) {}
     /**
      * Get all opening balances for a customer
      */
@@ -75,6 +79,13 @@ class CustomerOpeningBalanceController extends Controller
                 'opening_amount' => 'required|numeric|min:0',
                 'opening_date' => 'required|date',
                 'notes' => 'nullable|string|max:1000',
+                'payment_term_id' => 'nullable|exists:payment_terms,id',
+                'payment_method_id' => 'nullable|exists:payment_methods,id',
+                'allow_credit' => 'nullable|boolean',
+                'payment_day' => 'nullable|string|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
+                'track_payment' => 'nullable|string|in:yes,no',
+                'settlement_method' => 'nullable|string|in:FIFO,Manual',
+                'accept_cheques' => 'nullable|boolean',
             ]);
 
             if ($validator->fails()) {
@@ -85,9 +96,7 @@ class CustomerOpeningBalanceController extends Controller
                 ], 422);
             }
 
-            // Check if opening balance already exists for this currency
-            $existingBalance = $customer->getOpeningBalanceForCurrency($request->currency_id);
-            if ($existingBalance) {
+            if ($this->openingBalanceService->hasOpeningBalanceForCurrency($customer, $request->currency_id)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Opening balance already exists for this currency',
@@ -95,16 +104,21 @@ class CustomerOpeningBalanceController extends Controller
             }
 
             $nextId = $this->computeNextAvailableId(\App\Models\CustomerOpeningBalance::class, 'id');
-            $openingBalance = new \App\Models\CustomerOpeningBalance([
-                'customer_id' => $customer->id,
-                'currency_id' => $request->currency_id,
-                'opening_amount' => $request->opening_amount,
-                'opening_date' => $request->opening_date,
-                'notes' => $request->notes,
-                'is_active' => true,
-            ]);
-            $openingBalance->id = $nextId;
-            $openingBalance->save();
+            $openingBalance = $this->openingBalanceService->setCustomerOpeningBalance(
+                $customer,
+                $request->currency_id,
+                $request->opening_amount,
+                $request->opening_date,
+                $request->notes,
+                $request->payment_term_id,
+                $request->payment_method_id,
+                (bool) ($request->allow_credit ?? false),
+                $request->payment_day,
+                $request->track_payment ?? 'no',
+                $request->settlement_method,
+                (bool) ($request->accept_cheques ?? false),
+                $nextId
+            );
 
             $openingBalance->load('currency');
 
@@ -128,12 +142,19 @@ class CustomerOpeningBalanceController extends Controller
     {
         try {
             $customer = Customer::findOrFail($customerId);
-            $openingBalance = $customer->openingBalances()->findOrFail($openingBalanceId);
+            $customer->openingBalances()->findOrFail($openingBalanceId);
 
             $validator = Validator::make($request->all(), [
                 'opening_amount' => 'sometimes|required|numeric|min:0',
                 'opening_date' => 'sometimes|required|date',
                 'notes' => 'nullable|string|max:1000',
+                'payment_term_id' => 'nullable|exists:payment_terms,id',
+                'payment_method_id' => 'nullable|exists:payment_methods,id',
+                'allow_credit' => 'sometimes|boolean',
+                'payment_day' => 'nullable|string|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
+                'track_payment' => 'nullable|string|in:yes,no',
+                'settlement_method' => 'nullable|string|in:FIFO,Manual',
+                'accept_cheques' => 'sometimes|boolean',
             ]);
 
             if ($validator->fails()) {
@@ -144,7 +165,23 @@ class CustomerOpeningBalanceController extends Controller
                 ], 422);
             }
 
-            $openingBalance->update($request->only(['opening_amount', 'opening_date', 'notes']));
+            $openingBalance = $customer->openingBalances()->findOrFail($openingBalanceId);
+            $openingBalance = $this->openingBalanceService->setCustomerOpeningBalance(
+                $customer,
+                $openingBalance->currency_id,
+                $request->opening_amount ?? $openingBalance->opening_amount,
+                $request->opening_date ?? $openingBalance->opening_date?->toDateString(),
+                $request->notes ?? $openingBalance->notes,
+                $request->payment_term_id ?? $openingBalance->payment_term_id,
+                $request->payment_method_id ?? $openingBalance->payment_method_id,
+                (bool) ($request->has('allow_credit') ? $request->allow_credit : $openingBalance->allow_credit),
+                $request->payment_day ?? $openingBalance->payment_day,
+                $request->track_payment ?? $openingBalance->track_payment ?? 'no',
+                $request->settlement_method ?? $openingBalance->settlement_method,
+                (bool) ($request->has('accept_cheques') ? $request->accept_cheques : $openingBalance->accept_cheques),
+                (int) $openingBalanceId
+            );
+
             $openingBalance->load('currency');
 
             return response()->json([
@@ -254,6 +291,13 @@ class CustomerOpeningBalanceController extends Controller
                 'opening_balances.*.opening_amount' => 'required|numeric|min:0',
                 'opening_balances.*.opening_date' => 'required|date',
                 'opening_balances.*.notes' => 'nullable|string|max:1000',
+                'opening_balances.*.payment_term_id' => 'nullable|exists:payment_terms,id',
+                'opening_balances.*.payment_method_id' => 'nullable|exists:payment_methods,id',
+                'opening_balances.*.allow_credit' => 'nullable|boolean',
+                'opening_balances.*.payment_day' => 'nullable|string|in:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30',
+                'opening_balances.*.track_payment' => 'nullable|string|in:yes,no',
+                'opening_balances.*.settlement_method' => 'nullable|string|in:FIFO,Manual',
+                'opening_balances.*.accept_cheques' => 'nullable|boolean',
             ]);
 
             if ($validator->fails()) {
@@ -264,23 +308,10 @@ class CustomerOpeningBalanceController extends Controller
                 ], 422);
             }
 
-            DB::beginTransaction();
-
-            foreach ($request->opening_balances as $balanceData) {
-                $customer->setOpeningBalance(
-                    $balanceData['currency_id'],
-                    $balanceData['opening_amount'],
-                    $balanceData['opening_date'],
-                    $balanceData['notes'] ?? null
-                );
-            }
-
-            DB::commit();
-
-            $updatedBalances = $customer->openingBalances()
-                ->with('currency')
-                ->active()
-                ->get();
+            $updatedBalances = $this->openingBalanceService->bulkUpdateCustomerOpeningBalances(
+                $customer,
+                $request->opening_balances
+            );
 
             return response()->json([
                 'success' => true,
@@ -288,8 +319,6 @@ class CustomerOpeningBalanceController extends Controller
                 'message' => 'Opening balances updated successfully',
             ]);
         } catch (\Exception $e) {
-            DB::rollBack();
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update opening balances: '.$e->getMessage(),

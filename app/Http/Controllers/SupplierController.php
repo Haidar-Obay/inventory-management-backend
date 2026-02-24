@@ -190,14 +190,21 @@ class SupplierController extends Controller
                 }
             }
 
-            // Handle multi-currency credit limits
+            // Handle multi-currency credit limits - only for currencies with allow_credit=true
             if ($request->input('credit_limits')) {
                 foreach ($request->input('credit_limits') as $creditLimitData) {
-                    $supplier->setCreditLimitForCurrency(
-                        $creditLimitData['currency_id'],
-                        $creditLimitData['credit_limit'],
-                        $creditLimitData['notes'] ?? null
-                    );
+                    $currencyId = $creditLimitData['currency_id'] ?? null;
+                    if ($currencyId && $supplier->hasAllowCreditForCurrency($currencyId)) {
+                        try {
+                            $supplier->setCreditLimitForCurrency(
+                                $currencyId,
+                                $creditLimitData['credit_limit'],
+                                $creditLimitData['notes'] ?? null
+                            );
+                        } catch (\Exception $e) {
+                            throw new \Exception('Credit limit validation failed: '.$e->getMessage());
+                        }
+                    }
                 }
             }
 
@@ -1094,14 +1101,51 @@ class SupplierController extends Controller
                 }
             }
 
-            // Handle multi-currency credit limits
+            // Remove credit limits for currencies where allow_credit is false
+            if ($request->has('opening_balances')) {
+                $currenciesWithAllowCredit = collect($request->input('opening_balances', []))
+                    ->filter(fn ($ob) => (bool) ($ob['allow_credit'] ?? false))
+                    ->map(function ($ob) {
+                        $currencyId = $ob['currency_id'] ?? null;
+                        if ($currencyId) {
+                            return (int) $currencyId;
+                        }
+                        $code = $ob['currency'] ?? null;
+                        if (! $code) {
+                            return null;
+                        }
+                        $currency = is_numeric($code)
+                            ? \App\Models\Currency::find($code)
+                            : \App\Models\Currency::where('code', $code)->first();
+
+                        return $currency?->id;
+                    })
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->toArray();
+                if (empty($currenciesWithAllowCredit)) {
+                    $supplier->creditLimits()->delete();
+                } else {
+                    $supplier->creditLimits()->whereNotIn('currency_id', $currenciesWithAllowCredit)->delete();
+                }
+            }
+
+            // Handle multi-currency credit limits - only for currencies with allow_credit=true
             if ($request->has('credit_limits')) {
                 foreach ($request->input('credit_limits') as $creditLimitData) {
-                    $supplier->setCreditLimitForCurrency(
-                        $creditLimitData['currency_id'],
-                        $creditLimitData['credit_limit'],
-                        $creditLimitData['notes'] ?? null
-                    );
+                    $currencyId = $creditLimitData['currency_id'] ?? null;
+                    if ($currencyId && $supplier->hasAllowCreditForCurrency($currencyId)) {
+                        try {
+                            $supplier->setCreditLimitForCurrency(
+                                $currencyId,
+                                $creditLimitData['credit_limit'],
+                                $creditLimitData['notes'] ?? null
+                            );
+                        } catch (\Exception $e) {
+                            throw new \Exception('Credit limit validation failed: '.$e->getMessage());
+                        }
+                    }
                 }
             }
 
