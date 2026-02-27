@@ -169,9 +169,7 @@ class SupplierController extends Controller
                     // Check if this currency has an opening balance
                     if (in_array($chequeLimitData['currency_id'], $openingBalanceCurrencies)) {
                         try {
-                            // Create cheque limit directly using computeNextAvailableId
-                            $nextChequeId = $this->computeNextAvailableId(\App\Models\SupplierChequeLimit::class, 'id');
-                            $supplierCheque = new \App\Models\SupplierChequeLimit([
+                            $supplierCheque = \App\Models\SupplierChequeLimit::create([
                                 'supplier_id' => $supplier->id,
                                 'currency_id' => $chequeLimitData['currency_id'],
                                 'max_cheques' => $maxCheques,
@@ -180,8 +178,6 @@ class SupplierController extends Controller
                                 'notes' => $chequeLimitData['notes'] ?? null,
                                 'is_active' => true,
                             ]);
-                            $supplierCheque->id = $nextChequeId;
-                            $supplierCheque->save();
                         } catch (\Exception $e) {
                             // Re-throw the exception to trigger transaction rollback
                             throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
@@ -1056,49 +1052,54 @@ class SupplierController extends Controller
                 }
             }
 
-            // Handle multi-currency cheque limits
-            // Always delete existing cheque limits first (like customer) to handle cleared fields
-            // This ensures that when fields are cleared in frontend, they are deleted in backend
-            // Delete regardless of whether cheque_limits is in request (handles case when all are cleared)
-            $supplier->chequeLimits()->delete();
-
-            // Get currencies that have opening balances from the request
-            $openingBalanceCurrencies = collect($request->input('opening_balances', []))
-                ->pluck('currency_id')
-                ->filter()
-                ->toArray();
-
-            // Recreate only the ones that are in the request (non-empty values)
+            // Handle multi-currency cheque limits - update existing or create new
             if ($request->has('cheque_limits') && is_array($request->input('cheque_limits'))) {
+                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
+                    ->pluck('currency_id')
+                    ->filter()
+                    ->toArray();
+
+                $existingChequeLimits = $supplier->chequeLimits()->get()->keyBy('currency_id');
+                $incomingCurrencyIds = [];
+
                 foreach ($request->input('cheque_limits') as $chequeLimitData) {
-                    // Skip empty, null, or zero values (cleared fields)
                     $maxCheques = $chequeLimitData['max_cheques'] ?? null;
                     if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
                         continue;
                     }
 
-                    // Check if this currency has an opening balance
-                    if (in_array($chequeLimitData['currency_id'], $openingBalanceCurrencies)) {
+                    $currencyId = $chequeLimitData['currency_id'] ?? null;
+                    if ($currencyId && in_array($currencyId, $openingBalanceCurrencies)) {
                         try {
-                            // Create cheque limit directly using computeNextAvailableId
-                            $nextChequeId = $this->computeNextAvailableId(\App\Models\SupplierChequeLimit::class, 'id');
-                            $supplierCheque = new \App\Models\SupplierChequeLimit([
-                                'supplier_id' => $supplier->id,
-                                'currency_id' => $chequeLimitData['currency_id'],
-                                'max_cheques' => $maxCheques,
-                                'used_cheques' => 0,
-                                'available_cheques' => $maxCheques,
-                                'notes' => $chequeLimitData['notes'] ?? null,
-                                'is_active' => true,
-                            ]);
-                            $supplierCheque->id = $nextChequeId;
-                            $supplierCheque->save();
+                            $existing = $existingChequeLimits->get($currencyId);
+                            if ($existing) {
+                                $existing->update([
+                                    'max_cheques' => $maxCheques,
+                                    'available_cheques' => max(0, $maxCheques - $existing->used_cheques),
+                                    'notes' => $chequeLimitData['notes'] ?? $existing->notes,
+                                    'is_active' => true,
+                                ]);
+                            } else {
+                                \App\Models\SupplierChequeLimit::create([
+                                    'supplier_id' => $supplier->id,
+                                    'currency_id' => $currencyId,
+                                    'max_cheques' => $maxCheques,
+                                    'used_cheques' => 0,
+                                    'available_cheques' => $maxCheques,
+                                    'notes' => $chequeLimitData['notes'] ?? null,
+                                    'is_active' => true,
+                                ]);
+                            }
+                            $incomingCurrencyIds[] = $currencyId;
                         } catch (\Exception $e) {
-                            // Re-throw the exception to trigger transaction rollback
                             throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
                         }
                     }
                 }
+
+                $supplier->chequeLimits()->whereNotIn('currency_id', $incomingCurrencyIds)->delete();
+            } else {
+                $supplier->chequeLimits()->delete();
             }
 
             // Remove credit limits for currencies where allow_credit is false
@@ -1791,8 +1792,7 @@ class SupplierController extends Controller
     private function createContacts($supplier, $request)
     {
         foreach ($request->contacts as $contactData) {
-            $nextContactId = $this->computeNextAvailableId(\App\Models\SupplierContact::class, 'id');
-            $contact = new \App\Models\SupplierContact([
+            $contact = \App\Models\SupplierContact::create([
                 'supplier_id' => $supplier->id,
                 'title' => $contactData['title'] ?? null,
                 'name' => $contactData['name'],
@@ -1802,8 +1802,6 @@ class SupplierController extends Controller
                 'extension' => $contactData['extension'] ?? null,
                 'is_primary' => $contactData['is_primary'] ?? false,
             ]);
-            $contact->id = $nextContactId;
-            $contact->save();
 
             if ($contactData['is_primary'] ?? false) {
                 $supplier->setPrimaryContact($contact->id);

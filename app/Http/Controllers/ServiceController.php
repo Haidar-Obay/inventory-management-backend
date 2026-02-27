@@ -127,17 +127,12 @@ class ServiceController extends Controller
             $counter++;
         }
 
-        $itemNextId = $this->computeNextAvailableId(Item::class, 'id');
-        $item = new Item([
+        $item = Item::create([
             'code' => $itemCode,
             'name' => $service->name,
             'type' => ItemType::SERVICE,
             'description' => null,
         ]);
-        $item->id = $itemNextId;
-        $item->save();
-
-        // Link item to service
         $service->item_id = $item->id;
         $service->save();
 

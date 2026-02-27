@@ -39,8 +39,7 @@ class CustomerCreditLimitController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $nextId = $this->computeNextAvailableId(CustomerCreditLimit::class, 'id');
-        $creditLimit = new CustomerCreditLimit([
+        $creditLimit = CustomerCreditLimit::create([
             'customer_id' => $customer->id,
             'currency_id' => $request->currency_id,
             'credit_limit' => $request->credit_limit,
@@ -49,8 +48,6 @@ class CustomerCreditLimitController extends Controller
             'notes' => $request->notes,
             'is_active' => true,
         ]);
-        $creditLimit->id = $nextId;
-        $creditLimit->save();
 
         $creditLimit->load('currency');
 
@@ -168,8 +165,7 @@ class CustomerCreditLimitController extends Controller
                     continue;
                 }
 
-                $nextId = $this->computeNextAvailableId(CustomerCreditLimit::class, 'id');
-                $creditLimit = new CustomerCreditLimit([
+                $creditLimit = CustomerCreditLimit::create([
                     'customer_id' => $customer->id,
                     'currency_id' => $creditLimitData['currency_id'],
                     'credit_limit' => $creditLimitData['credit_limit'],
@@ -178,8 +174,6 @@ class CustomerCreditLimitController extends Controller
                     'notes' => $creditLimitData['notes'] ?? null,
                     'is_active' => true,
                 ]);
-                $creditLimit->id = $nextId;
-                $creditLimit->save();
 
                 $creditLimit->load('currency');
                 $results[] = $creditLimit;

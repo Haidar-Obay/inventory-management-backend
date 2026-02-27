@@ -103,7 +103,6 @@ class CustomerOpeningBalanceController extends Controller
                 ], 409);
             }
 
-            $nextId = $this->computeNextAvailableId(\App\Models\CustomerOpeningBalance::class, 'id');
             $openingBalance = $this->openingBalanceService->setCustomerOpeningBalance(
                 $customer,
                 $request->currency_id,
@@ -116,8 +115,7 @@ class CustomerOpeningBalanceController extends Controller
                 $request->payment_day,
                 $request->track_payment ?? 'no',
                 $request->settlement_method,
-                (bool) ($request->accept_cheques ?? false),
-                $nextId
+                (bool) ($request->accept_cheques ?? false)
             );
 
             $openingBalance->load('currency');
