@@ -56,10 +56,7 @@ class ReferrerServiceCommissionController extends Controller
                         continue;
                     }
                     $rowData = $validator->validated();
-                    $nextId = $this->computeNextAvailableId(ReferrerServiceCommission::class, 'id');
-                    $newRow = new ReferrerServiceCommission($rowData);
-                    $newRow->id = $nextId;
-                    $newRow->save();
+                    $newRow = ReferrerServiceCommission::create($rowData);
                     $created[] = $newRow
                         ->load(['referrer:id,name', 'service:id,name']);
                 }
@@ -93,10 +90,7 @@ class ReferrerServiceCommissionController extends Controller
         ]);
         $validator->validate();
         $data = $validator->validated();
-        $nextId = $this->computeNextAvailableId(ReferrerServiceCommission::class, 'id');
-        $row = new ReferrerServiceCommission($data);
-        $row->id = $nextId;
-        $row->save();
+        $row = ReferrerServiceCommission::create($data);
         $row->load(['referrer:id,name', 'service:id,name']);
 
         return response()->json([

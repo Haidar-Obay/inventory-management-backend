@@ -120,6 +120,8 @@ class ModuleSeeder extends Seeder
                     ['name' => 'Cash Accounts', 'code' => PageCode::PAYMENT_CASH_ACCOUNTS->value, 'path' => '/main/mainfiles/payment?tab=3', 'order' => 63, 'is_public' => false],
                     ['name' => 'Purchase Invoices', 'code' => PageCode::INVOICES_PURCHASE_INVOICES->value, 'path' => '/main/mainfiles/invoices?tab=0', 'order' => 64, 'is_public' => false],
                     ['name' => 'Sales Invoices', 'code' => PageCode::INVOICES_SALES_INVOICES->value, 'path' => '/main/mainfiles/invoices?tab=1', 'order' => 65, 'is_public' => false],
+                    ['name' => 'Receipt Voucher', 'code' => PageCode::VOUCHERS_RECEIPT->value, 'path' => '/main/mainfiles/vouchers?tab=0', 'order' => 66, 'is_public' => false],
+                    ['name' => 'Payment Voucher', 'code' => PageCode::VOUCHERS_PAYMENT->value, 'path' => '/main/mainfiles/vouchers?tab=1', 'order' => 67, 'is_public' => false],
                     ['name' => 'Unit Groups', 'code' => PageCode::UNITS_GROUPS->value, 'path' => '/main/mainfiles/units?tab=0', 'order' => 62, 'is_public' => false],
                     ['name' => 'Unit Of Measurements', 'code' => PageCode::UNITS_MEASUREMENTS->value, 'path' => '/main/mainfiles/units?tab=1', 'order' => 63, 'is_public' => false],
                     ['name' => 'Business Types', 'code' => PageCode::GENERAL_FILES_BUSINESS_TYPES->value, 'path' => '/main/mainfiles/generalfiles?tab=0', 'order' => 70, 'is_public' => false],

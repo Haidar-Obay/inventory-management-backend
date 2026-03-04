@@ -66,6 +66,9 @@ class BootstrapTenantRbac implements ShouldQueue
 
             // Invoices
             ['resource_key' => 'invoices', 'resource_label' => 'Invoice Management'],
+
+            // Vouchers (receipt / payment)
+            ['resource_key' => 'vouchers', 'resource_label' => 'Voucher Management'],
         ];
 
         foreach ($permissionKeys as $perm) {

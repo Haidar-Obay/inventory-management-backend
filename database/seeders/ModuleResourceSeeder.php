@@ -57,6 +57,8 @@ class ModuleResourceSeeder extends Seeder
             PageCode::INVOICES_INVOICES->value => 'invoices',
             PageCode::INVOICES_PURCHASE_INVOICES->value => 'invoices',
             PageCode::INVOICES_SALES_INVOICES->value => 'invoices',
+            PageCode::VOUCHERS_RECEIPT->value => 'receipts',
+            PageCode::VOUCHERS_PAYMENT->value => 'payments',
         ];
 
         $modules = Module::with('pages')->get();
@@ -90,7 +92,7 @@ class ModuleResourceSeeder extends Seeder
                     'projects', 'cost_centers', 'departments', 'trades', 'company_codes', 'jobs', 'associations',
                     'referrers', 'media_types', 'customer_groups', 'salesmen', 'specialists', 'specialities',
                     'locations', 'rooms', 'sections', 'assets', 'table_templates', 'unit_groups', 'unit_of_measurements',
-                    'warehouses', 'tax_groups', 'invoices',
+                    'warehouses', 'tax_groups', 'invoices', 'vouchers',
                 ],
             ];
 

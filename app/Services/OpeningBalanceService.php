@@ -30,28 +30,67 @@ class OpeningBalanceService
     /**
      * Set opening balance for a customer in a specific currency
      */
-    public function setCustomerOpeningBalance(Customer $customer, int $currencyId, float $amount, ?string $openingDate = null, ?string $notes = null): CustomerOpeningBalance
-    {
-        return DB::transaction(function () use ($customer, $currencyId, $amount, $openingDate, $notes) {
-            $openingBalance = $customer->getOpeningBalanceForCurrency($currencyId);
+    public function setCustomerOpeningBalance(
+        Customer $customer,
+        int $currencyId,
+        float $amount,
+        ?string $openingDate = null,
+        ?string $notes = null,
+        ?int $paymentTermId = null,
+        ?int $paymentMethodId = null,
+        bool $allowCredit = false,
+        ?string $paymentDay = null,
+        ?string $trackPayment = 'no',
+        ?string $settlementMethod = null,
+        bool $acceptCheques = false,
+        ?int $id = null
+    ): CustomerOpeningBalance {
+        return DB::transaction(function () use ($customer, $currencyId, $amount, $openingDate, $notes, $paymentTermId, $paymentMethodId, $allowCredit, $paymentDay, $trackPayment, $settlementMethod, $acceptCheques, $id) {
+            // When id is provided, try to find by id first (for stable-id update)
+            $openingBalance = $id !== null
+                ? $customer->openingBalances()->where('id', $id)->first()
+                : null;
+
+            if ($openingBalance === null) {
+                $openingBalance = $customer->getOpeningBalanceForCurrency($currencyId);
+            }
+
+            $paymentData = [
+                'payment_term_id' => $paymentTermId,
+                'payment_method_id' => $paymentMethodId,
+                'allow_credit' => $allowCredit,
+                'payment_day' => $paymentDay,
+                'track_payment' => $trackPayment ?? 'no',
+                'settlement_method' => $settlementMethod,
+                'accept_cheques' => $acceptCheques,
+            ];
 
             if ($openingBalance) {
                 $openingBalance->update([
-                    'opening_amount' => $amount,
-                    'opening_date' => $openingDate ?? now()->toDateString(),
-                    'notes' => $notes,
-                ]);
-
-                return $openingBalance;
-            } else {
-                return $customer->openingBalances()->create([
                     'currency_id' => $currencyId,
                     'opening_amount' => $amount,
                     'opening_date' => $openingDate ?? now()->toDateString(),
                     'notes' => $notes,
-                    'is_active' => true,
+                    ...$paymentData,
                 ]);
+
+                return $openingBalance;
             }
+
+            $createData = [
+                'currency_id' => $currencyId,
+                'opening_amount' => $amount,
+                'opening_date' => $openingDate ?? now()->toDateString(),
+                'notes' => $notes,
+                'is_active' => true,
+                ...$paymentData,
+            ];
+
+            if ($id !== null) {
+                $createData['id'] = $id;
+            }
+
+            return $customer->openingBalances()->create($createData);
         });
     }
 
@@ -70,9 +109,16 @@ class OpeningBalanceService
         ?string $paymentDay = null,
         ?string $trackPayment = 'no',
         ?string $settlementMethod = null,
-        bool $acceptCheques = false
+        bool $acceptCheques = false,
+        ?int $id = null
     ): SupplierOpeningBalance {
-        $openingBalance = $supplier->getOpeningBalanceForCurrency($currencyId);
+        $openingBalance = $id !== null
+            ? $supplier->openingBalances()->where('id', $id)->first()
+            : null;
+
+        if ($openingBalance === null) {
+            $openingBalance = $supplier->getOpeningBalanceForCurrency($currencyId);
+        }
 
         $paymentData = [
             'payment_term_id' => $paymentTermId,
@@ -95,14 +141,20 @@ class OpeningBalanceService
             return $openingBalance;
         }
 
-        return $supplier->openingBalances()->create([
+        $createData = [
             'currency_id' => $currencyId,
             'opening_amount' => $amount,
             'opening_date' => $openingDate ?? now()->toDateString(),
             'notes' => $notes,
             'is_active' => true,
             ...$paymentData,
-        ]);
+        ];
+
+        if ($id !== null) {
+            $createData['id'] = $id;
+        }
+
+        return $supplier->openingBalances()->create($createData);
     }
 
     /**
@@ -288,9 +340,17 @@ class OpeningBalanceService
                 $this->setCustomerOpeningBalance(
                     $customer,
                     $balanceData['currency_id'],
-                    $balanceData['opening_amount'],
-                    $balanceData['opening_date'] ?? null,
-                    $balanceData['notes'] ?? null
+                    $balanceData['opening_amount'] ?? $balanceData['amount'] ?? 0,
+                    $balanceData['opening_date'] ?? $balanceData['date'] ?? null,
+                    $balanceData['notes'] ?? null,
+                    $balanceData['payment_term_id'] ?? null,
+                    $balanceData['payment_method_id'] ?? null,
+                    (bool) ($balanceData['allow_credit'] ?? false),
+                    $balanceData['payment_day'] ?? null,
+                    $balanceData['track_payment'] ?? 'no',
+                    $balanceData['settlement_method'] ?? null,
+                    (bool) ($balanceData['accept_cheques'] ?? false),
+                    $balanceData['id'] ?? null
                 );
             }
 
@@ -324,7 +384,8 @@ class OpeningBalanceService
                     $openingBalanceData['payment_day'] ?? null,
                     $openingBalanceData['track_payment'] ?? 'no',
                     $openingBalanceData['settlement_method'] ?? null,
-                    (bool) ($openingBalanceData['accept_cheques'] ?? false)
+                    (bool) ($openingBalanceData['accept_cheques'] ?? false),
+                    $openingBalanceData['id'] ?? null
                 );
 
                 $openingBalance->load('currency');

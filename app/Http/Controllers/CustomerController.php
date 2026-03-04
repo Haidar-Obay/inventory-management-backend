@@ -14,6 +14,7 @@ use App\Models\Customer;
 use App\Models\CustomerAttachment;
 use App\Models\Project;
 use App\Models\Specialist;
+use App\Services\OpeningBalanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +23,10 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class CustomerController extends Controller
 {
+    public function __construct(
+        protected OpeningBalanceService $openingBalanceService
+    ) {}
+
     public function index()
     {
         // Optimized query - only fetch essential data for grid
@@ -233,37 +238,63 @@ class CustomerController extends Controller
                 foreach ($request->input('opening_balances') as $openingBalanceData) {
                     $currency = \App\Models\Currency::where('code', $openingBalanceData['currency'])->first();
                     if ($currency) {
-                        $nextId = $this->computeNextAvailableId(\App\Models\CustomerOpeningBalance::class);
-                        $customer->openingBalances()->create([
-                            'id' => $nextId,
-                            'currency_id' => $currency->id,
-                            'opening_amount' => $openingBalanceData['amount'],
-                            'opening_date' => $openingBalanceData['date'] ?? now()->toDateString(),
-                            'notes' => $openingBalanceData['notes'] ?? null,
-                            'payment_term_id' => $openingBalanceData['payment_term_id'] ?? null,
-                            'payment_method_id' => $openingBalanceData['payment_method_id'] ?? null,
-                            'allow_credit' => (bool) ($openingBalanceData['allow_credit'] ?? false),
-                            'payment_day' => $openingBalanceData['payment_day'] ?? null,
-                            'track_payment' => $openingBalanceData['track_payment'] ?? 'no',
-                            'settlement_method' => $openingBalanceData['settlement_method'] ?? null,
-                            'accept_cheques' => (bool) ($openingBalanceData['accept_cheques'] ?? false),
-                            'is_active' => true,
-                        ]);
+                        $this->openingBalanceService->setCustomerOpeningBalance(
+                            $customer,
+                            $currency->id,
+                            $openingBalanceData['amount'],
+                            $openingBalanceData['date'] ?? null,
+                            $openingBalanceData['notes'] ?? null,
+                            $openingBalanceData['payment_term_id'] ?? null,
+                            $openingBalanceData['payment_method_id'] ?? null,
+                            (bool) ($openingBalanceData['allow_credit'] ?? false),
+                            $openingBalanceData['payment_day'] ?? null,
+                            $openingBalanceData['track_payment'] ?? 'no',
+                            $openingBalanceData['settlement_method'] ?? null,
+                            (bool) ($openingBalanceData['accept_cheques'] ?? false)
+                        );
                     }
                 }
             }
 
-            // Handle credit limits with new structure (after opening balances)
+            // Remove credit limits for currencies where allow_credit is false (no row in customer_credit_limits)
+            if ($request->has('opening_balances')) {
+                $currenciesWithAllowCredit = collect($request->input('opening_balances', []))
+                    ->filter(fn ($ob) => (bool) ($ob['allow_credit'] ?? false))
+                    ->map(function ($ob) {
+                        $currencyId = $ob['currency_id'] ?? null;
+                        if ($currencyId) {
+                            return (int) $currencyId;
+                        }
+                        $code = $ob['currency'] ?? null;
+                        if (! $code) {
+                            return;
+                        }
+                        $currency = is_numeric($code)
+                            ? \App\Models\Currency::find($code)
+                            : \App\Models\Currency::where('code', $code)->first();
+
+                        return $currency?->id;
+                    })
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->toArray();
+                if (empty($currenciesWithAllowCredit)) {
+                    $customer->creditLimits()->delete();
+                } else {
+                    $customer->creditLimits()->whereNotIn('currency_id', $currenciesWithAllowCredit)->delete();
+                }
+            }
+
+            // Handle credit limits with new structure (after opening balances) - only for currencies with allow_credit=true
             if ($request->has('credit_limits')) {
                 $creditLimits = $request->input('credit_limits');
                 foreach ($creditLimits as $currencyCode => $amount) {
-                    // Find currency by code
                     $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency) {
+                    if ($currency && $customer->hasAllowCreditForCurrency($currency->id)) {
                         try {
                             $customer->setCreditLimit($currency->id, $amount);
                         } catch (\Exception $e) {
-                            // Re-throw the exception to trigger transaction rollback
                             throw new \Exception('Credit limit validation failed: '.$e->getMessage());
                         }
                     }
@@ -292,9 +323,7 @@ class CustomerController extends Controller
                         try {
                             // Check if this currency has an opening balance
                             if (in_array($currencyCode, $openingBalanceCurrencies)) {
-                                // Create cheque limit directly using computeNextAvailableId
-                                $nextChequeId = $this->computeNextAvailableId(\App\Models\CustomerChequeLimit::class, 'id');
-                                $customerCheque = new \App\Models\CustomerChequeLimit([
+                                $customerCheque = \App\Models\CustomerChequeLimit::create([
                                     'customer_id' => $customer->id,
                                     'currency_id' => $currency->id,
                                     'max_cheques' => $maxCheques,
@@ -303,8 +332,6 @@ class CustomerController extends Controller
                                     'notes' => null,
                                     'is_active' => true,
                                 ]);
-                                $customerCheque->id = $nextChequeId;
-                                $customerCheque->save();
                             }
                         } catch (\Exception $e) {
                             // Re-throw the exception to trigger transaction rollback
@@ -319,8 +346,7 @@ class CustomerController extends Controller
                 foreach ($request->input('contacts') as $contactData) {
                     $isPrimary = isset($contactData['is_primary']) && (bool) $contactData['is_primary'];
 
-                    $nextContactId = $this->computeNextAvailableId(\App\Models\CustomerContact::class, 'id');
-                    $contact = new \App\Models\CustomerContact([
+                    $contact = \App\Models\CustomerContact::create([
                         'customer_id' => $customer->id,
                         'title' => $contactData['title'] ?? null,
                         'name' => $contactData['name'],
@@ -331,8 +357,6 @@ class CustomerController extends Controller
                         'extension' => $contactData['extension'] ?? null,
                         'is_primary' => $isPrimary,
                     ]);
-                    $contact->id = $nextContactId;
-                    $contact->save();
 
                     // Set as primary contact if specified (also updates customer.contacts_id)
                     if ($isPrimary) {
@@ -1119,120 +1143,100 @@ class CustomerController extends Controller
                         : null;
 
                     $existing = $id ? $customer->openingBalances()->where('id', $id)->first() : null;
+                    $rowId = $existing ? $id : null;
 
-                    $paymentTermId = $openingBalanceData['payment_term_id'] ?? null;
-                    $paymentMethodId = $openingBalanceData['payment_method_id'] ?? null;
-                    $allowCredit = (bool) ($openingBalanceData['allow_credit'] ?? false);
-                    $paymentDay = $openingBalanceData['payment_day'] ?? null;
-                    $trackPayment = $openingBalanceData['track_payment'] ?? 'no';
-                    $settlementMethod = $openingBalanceData['settlement_method'] ?? null;
-
-                    $acceptCheques = (bool) ($openingBalanceData['accept_cheques'] ?? false);
-
-                    if ($existing) {
-                        $existing->update([
-                            'currency_id' => $currencyId,
-                            'opening_amount' => $amount,
-                            'opening_date' => $date ?? now()->toDateString(),
-                            'notes' => $notes,
-                            'payment_term_id' => $paymentTermId,
-                            'payment_method_id' => $paymentMethodId,
-                            'allow_credit' => $allowCredit,
-                            'payment_day' => $paymentDay,
-                            'track_payment' => $trackPayment,
-                            'settlement_method' => $settlementMethod,
-                            'accept_cheques' => $acceptCheques,
-                            'is_active' => true,
-                        ]);
-                    } else {
-                        $nextId = $this->computeNextAvailableId(\App\Models\CustomerOpeningBalance::class);
-                        $customer->openingBalances()->create([
-                            'id' => $nextId,
-                            'currency_id' => $currencyId,
-                            'opening_amount' => $amount,
-                            'opening_date' => $date ?? now()->toDateString(),
-                            'notes' => $notes,
-                            'payment_term_id' => $paymentTermId,
-                            'payment_method_id' => $paymentMethodId,
-                            'allow_credit' => $allowCredit,
-                            'payment_day' => $paymentDay,
-                            'track_payment' => $trackPayment,
-                            'settlement_method' => $settlementMethod,
-                            'accept_cheques' => $acceptCheques,
-                            'is_active' => true,
-                        ]);
-                    }
+                    $this->openingBalanceService->setCustomerOpeningBalance(
+                        $customer,
+                        $currencyId,
+                        $amount,
+                        $date,
+                        $notes,
+                        $openingBalanceData['payment_term_id'] ?? null,
+                        $openingBalanceData['payment_method_id'] ?? null,
+                        (bool) ($openingBalanceData['allow_credit'] ?? false),
+                        $openingBalanceData['payment_day'] ?? null,
+                        $openingBalanceData['track_payment'] ?? 'no',
+                        $openingBalanceData['settlement_method'] ?? null,
+                        (bool) ($openingBalanceData['accept_cheques'] ?? false),
+                        $rowId
+                    );
                 }
 
                 $customer->load('openingBalances');
             }
 
-            // Handle credit limits (after opening balances)
-            if ($request->has('credit_limits')) {
-                // Delete existing credit limits completely instead of just marking as inactive
-                $customer->creditLimits()->delete();
+            // Remove credit limits for currencies where allow_credit is false
+            if ($request->has('opening_balances')) {
+                $currenciesWithAllowCredit = collect($request->input('opening_balances', []))
+                    ->filter(fn ($ob) => (bool) ($ob['allow_credit'] ?? false))
+                    ->map(function ($ob) {
+                        $currencyId = $ob['currency_id'] ?? null;
+                        if ($currencyId) {
+                            return (int) $currencyId;
+                        }
+                        $code = $ob['currency'] ?? null;
+                        if (! $code) {
+                            return;
+                        }
+                        $currency = is_numeric($code)
+                            ? \App\Models\Currency::find($code)
+                            : \App\Models\Currency::where('code', $code)->first();
 
-                // Get the currencies that have opening balances (from the request data)
-                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
-                    ->pluck('currency')
+                        return $currency?->id;
+                    })
                     ->filter()
+                    ->unique()
+                    ->values()
                     ->toArray();
+                if (empty($currenciesWithAllowCredit)) {
+                    $customer->creditLimits()->delete();
+                } else {
+                    $customer->creditLimits()->whereNotIn('currency_id', $currenciesWithAllowCredit)->delete();
+                }
+            }
 
+            // Handle credit limits (after opening balances) - only for currencies with allow_credit=true
+            if ($request->has('credit_limits')) {
                 foreach ($request->input('credit_limits') as $currencyCode => $amount) {
-                    // Find currency by code
                     $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency) {
-                        // Check if this currency has an opening balance (from request data, not database)
-                        if (in_array($currencyCode, $openingBalanceCurrencies)) {
-                            try {
-                                // Create credit limit directly instead of using setCreditLimit method
-                                $nextCreditId = $this->computeNextAvailableId(\App\Models\CustomerCreditLimit::class, 'id');
-                                $customerCredit = new \App\Models\CustomerCreditLimit([
-                                    'customer_id' => $customer->id,
-                                    'currency_id' => $currency->id,
-                                    'credit_limit' => $amount,
-                                    'used_credit' => 0,
-                                    'available_credit' => $amount,
-                                    'notes' => null,
-                                    'is_active' => true,
-                                ]);
-                                $customerCredit->id = $nextCreditId;
-                                $customerCredit->save();
-                            } catch (\Exception $e) {
-                                // Re-throw the exception to trigger transaction rollback
-                                throw new \Exception('Credit limit validation failed: '.$e->getMessage());
-                            }
+                    if ($currency && $customer->hasAllowCreditForCurrency($currency->id)) {
+                        try {
+                            $customer->setCreditLimit($currency->id, $amount);
+                        } catch (\Exception $e) {
+                            throw new \Exception('Credit limit validation failed: '.$e->getMessage());
                         }
                     }
                 }
             }
 
-            // Handle cheque limits (after opening balances)
+            // Handle cheque limits (after opening balances) - update existing or create new
             if ($request->has('max_cheques')) {
-                // Delete existing cheque limits completely instead of just marking as inactive
-                $customer->chequeLimits()->delete();
-
-                // Get the currencies that have opening balances (from the request data)
                 $openingBalanceCurrencies = collect($request->input('opening_balances', []))
                     ->pluck('currency')
                     ->filter()
                     ->toArray();
 
+                $existingChequeLimits = $customer->chequeLimits()->get()->keyBy('currency_id');
+                $incomingCurrencyIds = [];
+
                 foreach ($request->input('max_cheques') as $currencyCode => $maxCheques) {
-                    // Skip empty, null, or zero values (cleared fields)
                     if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
                         continue;
                     }
 
-                    // Find currency by code
                     $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency) {
+                    if ($currency && in_array($currencyCode, $openingBalanceCurrencies)) {
                         try {
-                            // Check if this currency has an opening balance (from request data, not database)
-                            if (in_array($currencyCode, $openingBalanceCurrencies)) {
-                                // Create cheque limit directly using computeNextAvailableId
-                                $nextChequeId = $this->computeNextAvailableId(\App\Models\CustomerChequeLimit::class, 'id');
-                                $customerCheque = new \App\Models\CustomerChequeLimit([
+                            $existing = $existingChequeLimits->get($currency->id);
+                            if ($existing) {
+                                $existing->update([
+                                    'max_cheques' => $maxCheques,
+                                    'available_cheques' => max(0, $maxCheques - $existing->used_cheques),
+                                    'notes' => $existing->notes,
+                                    'is_active' => true,
+                                ]);
+                            } else {
+                                \App\Models\CustomerChequeLimit::create([
                                     'customer_id' => $customer->id,
                                     'currency_id' => $currency->id,
                                     'max_cheques' => $maxCheques,
@@ -1241,15 +1245,15 @@ class CustomerController extends Controller
                                     'notes' => null,
                                     'is_active' => true,
                                 ]);
-                                $customerCheque->id = $nextChequeId;
-                                $customerCheque->save();
                             }
+                            $incomingCurrencyIds[] = $currency->id;
                         } catch (\Exception $e) {
-                            // Re-throw the exception to trigger transaction rollback
                             throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
                         }
                     }
                 }
+
+                $customer->chequeLimits()->whereNotIn('currency_id', $incomingCurrencyIds)->delete();
             }
 
             // Handle contacts - update existing or create new
@@ -1294,8 +1298,7 @@ class CustomerController extends Controller
                         $incomingContactIds[] = $contactId;
                     } else {
                         // Create new contact
-                        $nextContactId = $this->computeNextAvailableId(\App\Models\CustomerContact::class, 'id');
-                        $contact = new \App\Models\CustomerContact([
+                        $contact = \App\Models\CustomerContact::create([
                             'customer_id' => $customer->id,
                             'title' => $contactData['title'] ?? null,
                             'name' => $contactData['name'],
@@ -1306,8 +1309,6 @@ class CustomerController extends Controller
                             'extension' => $contactData['extension'] ?? null,
                             'is_primary' => $isPrimary,
                         ]);
-                        $contact->id = $nextContactId;
-                        $contact->save();
 
                         // Set as primary contact if specified (also updates customer.contacts_id)
                         if ($isPrimary) {

@@ -8,6 +8,7 @@ use App\Http\Requests\Currency\StoreCurrencyRequest;
 use App\Http\Requests\Currency\UpdateCurrencyRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Currency;
+use App\Models\CurrencyPairRate;
 use App\Models\TenantSetting;
 use App\Services\ExchangeRateService;
 use Illuminate\Http\JsonResponse;
@@ -37,28 +38,13 @@ class CurrencyController extends Controller
         } elseif ($request->filled('rate') && is_numeric($request->rate) && (float) $request->rate >= 0) {
             $rate = (float) $request->rate;
         }
-        if ($rate === null) {
-            $apiKey = config('services.exchange_rate.key');
-            $baseCurrency = 'USD';
-            $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
-
-            $response = Http::get($url);
-            if (! $response->ok()) {
-                return response()->json(['message' => 'Failed to fetch exchange rate.'], 500);
-            }
-
-            $rate = $response['conversion_rates'][$request->code] ?? null;
-            if (! $rate) {
-                return response()->json(['message' => 'Invalid currency code.'], 422);
-            }
-        }
+        // Rate is configured separately via Exchange rates (pair rates). No API fetch when adding currency.
 
         $nextId = $this->computeNextAvailableId(Currency::class, 'id');
         $currency = new Currency([
             'name' => $request->name,
             'code' => $request->code,
             'iso_code' => $request->iso_code,
-            'rate' => $rate,
             'active' => $request->active ?? true,
             'smallest_unit' => $request->smallest_unit,
             'round_limit' => $request->round_limit,
@@ -71,6 +57,14 @@ class CurrencyController extends Controller
 
         if ($isPrimary) {
             TenantSetting::getSettings()->update(['primary_currency_id' => $currency->id]);
+        } else {
+            // Store pair rate: from_currency_id → to_currency_id (1 from = rate × to). to defaults to new currency.
+            $fromId = $request->filled('from_currency_id') ? (int) $request->from_currency_id : null;
+            $toId = $request->filled('to_currency_id') ? (int) $request->to_currency_id : $currency->id;
+            if ($rate !== null && $rate > 0 && $fromId && $fromId !== $currency->id) {
+                $exchangeRateService = new ExchangeRateService;
+                $exchangeRateService->setPairRate($fromId, $toId, (float) $rate, Auth::check() ? Auth::user()->name : null);
+            }
         }
 
         $tenantId = tenant('id');
@@ -81,24 +75,7 @@ class CurrencyController extends Controller
 
     public function show($id)
     {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_currency_show_{$id}";
-
-        $cached = app('cache')->store('database')->get($key);
-
-        if (! $cached) {
-            $currency = Currency::findOrFail($id);
-            $apiKey = config('services.exchange_rate.key');
-            $baseCurrency = 'USD';
-            $url = "https://v6.exchangerate-api.com/v6/{$apiKey}/latest/{$baseCurrency}";
-            $response = Http::get($url);
-            if ($response->ok()) {
-                $currency->rate = $response['conversion_rates'][$currency->code] ?? $currency->rate;
-            }
-            app('cache')->store('database')->forever($key, $currency);
-        } else {
-            $currency = $cached;
-        }
+        $currency = Currency::findOrFail($id);
 
         return response()->json($currency);
     }
@@ -149,7 +126,8 @@ class CurrencyController extends Controller
                 $rate = 1.0;
                 $rateSource = 'manual';
             }
-            $currency->updateRate((float) $rate, $rateSource, Auth::check() ? Auth::user()->name : null, 'Updated via currency settings');
+            $exchangeRateService = new ExchangeRateService;
+            $exchangeRateService->updateRate($currency->id, (float) $rate, $rateSource, Auth::check() ? Auth::user()->name : null, 'Updated via currency settings');
         }
 
         $currency->refresh();
@@ -293,6 +271,7 @@ class CurrencyController extends Controller
                     'reason' => 'Cannot delete currency. It is used in transactions (invoices).',
                     'details' => ['invoices' => ['count' => $invoicesCount]],
                 ];
+
                 continue;
             }
 
@@ -489,23 +468,37 @@ class CurrencyController extends Controller
 
     public function exportExcell()
     {
-        $currencies = Currency::query();
-        $collection = $currencies->get();
+        $collection = Currency::all();
         if ($collection->isEmpty()) {
             return response()->json(['message' => 'No currencies found.'], 404);
+        }
+        $primary = Currency::getPrimary();
+        if ($primary) {
+            $exchangeRateService = new ExchangeRateService;
+            foreach ($collection as $c) {
+                $c->setAttribute('rate', $c->isPrimary() ? 1.0 : $exchangeRateService->getRate($primary->code, $c->code));
+            }
         }
         $columns = ['id', 'name', 'code', 'iso_code', 'rate', 'smallest_unit', 'round_limit', 'acceptable_amount_overdue', 'allowed_difference_in_receipt', 'allowed_difference_in_payment', 'created_at', 'updated_at'];
         $headings = ['ID', 'Name', 'Code', 'ISO Code', 'Rate', 'Smallest Unit', 'Round Limit', 'Acceptable Amount Overdue', 'Allowed Difference (Receipt)', 'Allowed Difference (Payment)', 'Created At', 'Updated At'];
 
-        return Excel::download(new Export($currencies, $columns, $headings), 'currencies.xlsx');
+        return Excel::download(new Export($collection, $columns, $headings), 'currencies.xlsx');
     }
 
     public function exportPdf(ExportPDF $pdfService)
     {
-        $currencies = Currency::select('id', 'name', 'code', 'iso_code', 'rate', 'smallest_unit', 'round_limit', 'acceptable_amount_overdue', 'allowed_difference_in_receipt', 'allowed_difference_in_payment', 'created_at', 'updated_at')->get();
+        $currencies = Currency::select('id', 'name', 'code', 'iso_code', 'smallest_unit', 'round_limit', 'acceptable_amount_overdue', 'allowed_difference_in_receipt', 'allowed_difference_in_payment', 'created_at', 'updated_at')->get();
 
         if ($currencies->isEmpty()) {
             return response()->json(['message' => 'No currencies found.'], 404);
+        }
+
+        $primary = Currency::getPrimary();
+        if ($primary) {
+            $exchangeRateService = new ExchangeRateService;
+            foreach ($currencies as $c) {
+                $c->setAttribute('rate', $c->isPrimary() ? 1.0 : $exchangeRateService->getRate($primary->code, $c->code));
+            }
         }
 
         $title = 'Currency Report';
@@ -555,7 +548,7 @@ class CurrencyController extends Controller
 
         $import = new DynamicExcelImport(
             Currency::class,
-            ['name', 'code', 'iso_code', 'rate', 'smallest_unit', 'round_limit', 'acceptable_amount_overdue', 'allowed_difference_in_receipt', 'allowed_difference_in_payment'],
+            ['name', 'code', 'iso_code', 'smallest_unit', 'round_limit', 'acceptable_amount_overdue', 'allowed_difference_in_receipt', 'allowed_difference_in_payment'],
             function ($row) {
                 $errors = [];
 
@@ -571,10 +564,6 @@ class CurrencyController extends Controller
                     $errors[] = 'ISO code must be numeric';
                 }
 
-                if (! isset($row['rate']) || ! is_numeric($row['rate'])) {
-                    $errors[] = 'Rate must be numeric';
-                }
-
                 return $errors;
             },
             function ($row) {
@@ -582,7 +571,6 @@ class CurrencyController extends Controller
                     'name' => $row['name'],
                     'code' => $row['code'],
                     'iso_code' => $row['iso_code'],
-                    'rate' => $row['rate'],
                     'smallest_unit' => $row['smallest_unit'] ?? null,
                     'round_limit' => $row['round_limit'] ?? null,
                     'acceptable_amount_overdue' => $row['acceptable_amount_overdue'] ?? null,
@@ -646,7 +634,7 @@ class CurrencyController extends Controller
             return response()->json([
                 'status' => true,
                 'message' => 'Exchange rate updated successfully.',
-                'data' => $currency->load('exchangeRates'),
+                'data' => $currency,
             ]);
         } catch (\InvalidArgumentException $e) {
             return response()->json([
@@ -662,25 +650,136 @@ class CurrencyController extends Controller
     }
 
     /**
-     * Get exchange rate history for a currency.
+     * List all pair rates (for settings UI). Returns from/to codes and rate.
      */
-    public function getRateHistory($id)
+    public function indexPairRates(Request $request): JsonResponse
     {
-        try {
-            $currency = Currency::findOrFail($id);
-            $limit = request()->input('limit', 50);
-            $from = request()->input('from');
-            $to = request()->input('to');
+        $pairs = CurrencyPairRate::with(['fromCurrency', 'toCurrency'])->get();
+        $data = $pairs->map(function ($row) {
+            return [
+                'id' => $row->id,
+                'from_currency_id' => $row->from_currency_id,
+                'to_currency_id' => $row->to_currency_id,
+                'from_code' => $row->fromCurrency?->code,
+                'to_code' => $row->toCurrency?->code,
+                'rate' => (float) $row->rate,
+                'effective_from' => $row->effective_from?->toIso8601String(),
+            ];
+        });
 
+        return response()->json($data);
+    }
+
+    /**
+     * Set or update a pair rate (1 from_currency = rate × to_currency).
+     * Only one direction per pair is stored; the inverse is computed automatically.
+     */
+    public function storePairRate(Request $request)
+    {
+        $request->validate([
+            'from_currency_id' => 'required|integer|exists:currencies,id',
+            'to_currency_id' => 'required|integer|exists:currencies,id',
+            'rate' => 'required|numeric|min:0.000001',
+        ]);
+
+        if ((int) $request->from_currency_id === (int) $request->to_currency_id) {
+            return response()->json([
+                'status' => false,
+                'message' => 'From and to currency must be different.',
+            ], 422);
+        }
+
+        try {
             $exchangeRateService = new ExchangeRateService;
-            $history = $exchangeRateService->getRateHistory($id, $limit, $from ?: null, $to ?: null);
+            $pair = $exchangeRateService->setPairRate(
+                (int) $request->from_currency_id,
+                (int) $request->to_currency_id,
+                (float) $request->rate,
+                Auth::check() ? Auth::user()->name : null
+            );
 
             return response()->json([
                 'status' => true,
-                'message' => 'Rate history retrieved successfully.',
+                'message' => 'Pair rate saved. Inverse (to→from) is computed as 1/rate when needed.',
+                'data' => $pair->load(['fromCurrency', 'toCurrency']),
+            ], 201);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Failed to save pair rate: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a pair rate (by from_currency_id and to_currency_id).
+     */
+    public function destroyPairRate(Request $request): JsonResponse
+    {
+        $request->validate([
+            'from_currency_id' => 'required|integer|exists:currencies,id',
+            'to_currency_id' => 'required|integer|exists:currencies,id',
+        ]);
+        $fromId = (int) $request->from_currency_id;
+        $toId = (int) $request->to_currency_id;
+
+        $deleted = CurrencyPairRate::where('from_currency_id', $fromId)
+            ->where('to_currency_id', $toId)
+            ->delete();
+        if ($deleted === 0) {
+            $reverse = CurrencyPairRate::where('from_currency_id', $toId)
+                ->where('to_currency_id', $fromId)
+                ->first();
+            if ($reverse) {
+                $reverse->delete();
+                $deleted = 1;
+            }
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Pair rate removed.',
+            'deleted' => $deleted > 0,
+        ]);
+    }
+
+    /**
+     * Get exchange rate history for a currency (all pairs where this currency is "from", e.g. USD→LBP, USD→EUR).
+     * Query: from, to (date range, optional).
+     */
+    public function getRateHistory(Request $request, $id)
+    {
+        $request->validate([
+            'from' => 'nullable|date',
+            'to' => 'nullable|date|after_or_equal:from',
+        ]);
+
+        try {
+            $currency = Currency::findOrFail($id);
+            $exchangeRateService = new ExchangeRateService;
+            $data = $exchangeRateService->getPairRateHistory(
+                (int) $id,
+                $request->input('from'),
+                $request->input('to')
+            );
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Rate history retrieved.',
                 'data' => [
-                    'currency' => $currency,
-                    'history' => $history,
+                    'currency' => $data['currency']->only(['id', 'code', 'name', 'symbol']),
+                    'pairs' => array_map(function ($p) {
+                        return [
+                            'to_currency' => $p['to_currency']->only(['id', 'code', 'name', 'symbol']),
+                            'current_rate' => $p['current_rate'],
+                            'history' => $p['history'],
+                        ];
+                    }, $data['pairs']),
                 ],
             ]);
         } catch (\Exception $e) {
@@ -765,6 +864,7 @@ class CurrencyController extends Controller
                     'data' => [
                         'exchange_rate' => 1.0000,
                         'is_primary' => true,
+                        'rate_source' => 'current',
                         'primary_currency' => [
                             'code' => $primaryCurrency->code,
                             'name' => $primaryCurrency->name,
@@ -774,33 +874,58 @@ class CurrencyController extends Controller
                 ]);
             }
 
-            // Get rate for the selected currency (relative to primary)
-            // If date is provided, use historical rate, otherwise use current rate
-            $rate = $currency->rate;
+            $exchangeRateService = app(ExchangeRateService::class);
+            $requestedDate = $request->input('date');
 
-            if ($request->date) {
-                $exchangeRateService = new ExchangeRateService;
-                $historicalRate = $exchangeRateService->getRateForDate(
-                    $currency->id,
-                    $request->date
+            if ($requestedDate) {
+                $result = $exchangeRateService->getRateAsOfDate(
+                    $currency->code,
+                    $primaryCurrency->code,
+                    $requestedDate
                 );
-                if ($historicalRate) {
-                    $rate = $historicalRate->rate;
-                }
-            }
-
-            return response()->json([
-                'status' => true,
-                'data' => [
-                    'exchange_rate' => (float) $rate,
+                $stored = isset($result['from_code'], $result['to_code'], $result['stored_rate'])
+                    ? ['from_code' => $result['from_code'], 'to_code' => $result['to_code'], 'rate' => $result['stored_rate']]
+                    : $exchangeRateService->getStoredPair($currency->code, $primaryCurrency->code);
+                $data = [
+                    'exchange_rate' => (float) $result['rate'],
                     'is_primary' => false,
+                    'rate_source' => $result['source'],
+                    'effective_from' => $result['effective_from'] ?? null,
+                    'effective_to' => $result['effective_to'] ?? null,
                     'primary_currency' => [
                         'code' => $primaryCurrency->code,
                         'name' => $primaryCurrency->name,
                         'symbol' => $primaryCurrency->symbol,
                     ],
+                ];
+                if ($stored) {
+                    $data['from_code'] = $stored['from_code'];
+                    $data['to_code'] = $stored['to_code'];
+                    $data['rate'] = $stored['rate'];
+                }
+
+                return response()->json(['status' => true, 'data' => $data]);
+            }
+
+            $rate = $exchangeRateService->getRate($currency->code, $primaryCurrency->code);
+            $stored = $exchangeRateService->getStoredPair($currency->code, $primaryCurrency->code);
+            $data = [
+                'exchange_rate' => (float) $rate,
+                'is_primary' => false,
+                'rate_source' => 'current',
+                'primary_currency' => [
+                    'code' => $primaryCurrency->code,
+                    'name' => $primaryCurrency->name,
+                    'symbol' => $primaryCurrency->symbol,
                 ],
-            ]);
+            ];
+            if ($stored) {
+                $data['from_code'] = $stored['from_code'];
+                $data['to_code'] = $stored['to_code'];
+                $data['rate'] = $stored['rate'];
+            }
+
+            return response()->json(['status' => true, 'data' => $data]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,

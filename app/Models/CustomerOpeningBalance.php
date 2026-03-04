@@ -9,7 +9,7 @@ class CustomerOpeningBalance extends Model implements Auditable
 {
     use \OwenIt\Auditing\Auditable;
 
-    protected $fillable = ['id', 'customer_id', 'currency_id', 'opening_amount', 'opening_date', 'notes', 'payment_term_id', 'payment_method_id', 'allow_credit', 'payment_day', 'track_payment', 'settlement_method', 'accept_cheques', 'is_active'];
+    protected $fillable = ['customer_id', 'currency_id', 'opening_amount', 'opening_date', 'notes', 'payment_term_id', 'payment_method_id', 'allow_credit', 'payment_day', 'track_payment', 'settlement_method', 'accept_cheques', 'is_active'];
 
     protected $table = 'customer_opening_balances';
 

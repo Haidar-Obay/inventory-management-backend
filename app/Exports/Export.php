@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -11,13 +12,13 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 
 class Export implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping
 {
-    protected $query;
+    protected Builder|Collection $query;
 
-    protected $columns;
+    protected array $columns;
 
-    protected $headings;
+    protected array $headings;
 
-    public function __construct(Builder $query, array $columns, array $headings)
+    public function __construct(Builder|Collection $query, array $columns, array $headings)
     {
         $this->query = $query;
         $this->columns = $columns;
@@ -26,8 +27,7 @@ class Export implements FromCollection, ShouldAutoSize, WithHeadings, WithMappin
 
     public function collection()
     {
-        // Fetch full rows so nested relation paths in $this->columns are accessible via data_get
-        return $this->query->get();
+        return $this->query instanceof Collection ? $this->query : $this->query->get();
     }
 
     public function headings(): array
