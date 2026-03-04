@@ -58,13 +58,11 @@ class SetupWizardController extends Controller
 
                 // Create currencies in tenant database
                 $currencyService = new CurrencyCreationService;
-                $currencyRates = $validated['currency_rates'] ?? null;
-                $currencyRateSources = $validated['currency_rate_sources'] ?? null;
+                $currencyPairs = $validated['currency_pairs'] ?? null;
                 $currencyResult = $currencyService->createCurrenciesForTenant(
                     $validated['selected_currencies'],
                     $validated['primary_currency_code'],
-                    $currencyRates,
-                    $currencyRateSources
+                    $currencyPairs
                 );
 
                 // Get or create settings

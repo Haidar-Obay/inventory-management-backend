@@ -152,23 +152,20 @@ class Invoice extends Model implements Auditable
 
     /**
      * Get or calculate the exchange rate for this invoice's currency.
-     * If exchange_rate is already set, return it. Otherwise, calculate from currency rate.
+     * If exchange_rate is already set, return it. Otherwise, get from pair table (invoice currency → primary).
      *
-     * @return float Exchange rate (relative to primary currency)
+     * @return float Exchange rate (1 invoice currency = rate × primary)
      */
     public function getExchangeRate(): float
     {
-        // If exchange_rate is already set, use it (allows manual override)
         if ($this->exchange_rate !== null && $this->exchange_rate != 0) {
             return (float) $this->exchange_rate;
         }
 
-        // If no currency is set, return 1.0
         if (! $this->currency_id) {
             return 1.0000;
         }
 
-        // Load currency if not already loaded
         if (! $this->relationLoaded('currency')) {
             $this->load('currency');
         }
@@ -177,48 +174,59 @@ class Invoice extends Model implements Auditable
             return 1.0000;
         }
 
-        // If currency is primary, rate is always 1.0
         if ($this->currency->isPrimary()) {
             return 1.0000;
         }
 
-        // Return the currency's rate (relative to primary)
-        return (float) $this->currency->rate;
+        $primary = \App\Models\Currency::getPrimary();
+        if (! $primary) {
+            return 1.0000;
+        }
+
+        try {
+            $service = app(\App\Services\ExchangeRateService::class);
+            return $service->getRate($this->currency->code, $primary->code);
+        } catch (\Throwable) {
+            return 1.0000;
+        }
     }
 
     /**
-     * Auto-fill exchange_rate based on currency_id and invoice date.
-     * Call this method before saving the invoice to ensure exchange_rate is set.
+     * Auto-fill exchange_rate (currency → primary) from pair table.
      */
     public function autoFillExchangeRate(): void
     {
         if (! $this->currency_id) {
             $this->exchange_rate = 1.0000;
-
             return;
         }
 
-        // Load currency if not already loaded
         if (! $this->relationLoaded('currency')) {
             $this->load('currency');
         }
 
         if (! $this->currency) {
             $this->exchange_rate = 1.0000;
-
             return;
         }
 
-        // If currency is primary, rate is always 1.0
         if ($this->currency->isPrimary()) {
             $this->exchange_rate = 1.0000;
-
             return;
         }
 
-        // Use current rate (for historical invoices, you might want to use date-based rate)
-        // For now, we use current rate. Can be enhanced later to use historical rates.
-        $this->exchange_rate = (float) $this->currency->rate;
+        $primary = \App\Models\Currency::getPrimary();
+        if (! $primary) {
+            $this->exchange_rate = 1.0000;
+            return;
+        }
+
+        try {
+            $service = app(\App\Services\ExchangeRateService::class);
+            $this->exchange_rate = $service->getRate($this->currency->code, $primary->code);
+        } catch (\Throwable) {
+            $this->exchange_rate = 1.0000;
+        }
     }
 
     /**

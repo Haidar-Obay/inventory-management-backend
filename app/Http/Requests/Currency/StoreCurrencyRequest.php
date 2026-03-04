@@ -13,11 +13,13 @@ class StoreCurrencyRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        $rules = [
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:10|unique:currencies,code',
             'iso_code' => 'required|string|max:10|unique:currencies,iso_code',
             'rate' => 'nullable|numeric|min:0',
+            'from_currency_id' => 'nullable|integer|exists:currencies,id',
+            'to_currency_id' => 'nullable|integer|exists:currencies,id',
             'smallest_unit' => 'nullable|numeric|min:0',
             'round_limit' => 'nullable|numeric|min:0',
             'acceptable_amount_overdue' => 'nullable|numeric|min:0',
@@ -26,5 +28,11 @@ class StoreCurrencyRequest extends FormRequest
             'active' => 'nullable|boolean',
             'is_primary' => 'nullable|boolean',
         ];
+
+        if (! $this->boolean('is_primary') && $this->filled('rate') && is_numeric($this->rate) && (float) $this->rate > 0) {
+            $rules['from_currency_id'] = 'required|integer|exists:currencies,id';
+        }
+
+        return $rules;
     }
 }

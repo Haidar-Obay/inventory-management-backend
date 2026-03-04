@@ -85,6 +85,7 @@ use App\Http\Controllers\UnitOfMeasurementController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\VisitController;
+use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ZoneController;
 use App\Models\User;
@@ -194,7 +195,10 @@ Route::middleware([
         // Define specific currency routes BEFORE apiResource to avoid route conflicts
         Route::get('currencies/exchange-rate', [CurrencyController::class, 'getExchangeRate'])->middleware('check.permission:currencies,view');
         Route::post('currencies/convert', [CurrencyController::class, 'convert'])->middleware('check.permission:currencies,view');
-        Route::put('currencies/{id}/rate', [CurrencyController::class, 'updateRate'])->middleware('check.permission:currencies,update');
+        Route::get('currencies/pair-rates', [CurrencyController::class, 'indexPairRates'])->middleware('check.permission:currencies,view');
+        Route::post('currencies/pair-rate', [CurrencyController::class, 'storePairRate'])->middleware('check.permission:currencies,edit');
+        Route::delete('currencies/pair-rate', [CurrencyController::class, 'destroyPairRate'])->middleware('check.permission:currencies,edit');
+        Route::put('currencies/{id}/rate', [CurrencyController::class, 'updateRate'])->middleware('check.permission:currencies,edit');
         Route::get('currencies/{id}/rate-history', [CurrencyController::class, 'getRateHistory'])->middleware('check.permission:currencies,view');
         Route::apiResource('currencies', CurrencyController::class)->middleware(['subscription.limits:currency', 'check.permission:currencies,view']);
         Route::apiResource('salesmen', SalesmanController::class)->middleware('check.permission:salesmen,view');
@@ -267,6 +271,8 @@ Route::middleware([
         Route::get('invoices/next-number', [InvoiceController::class, 'getNextInvoiceNumber'])->middleware('check.permission:invoices,view');
         Route::get('invoices/last-invoice', [InvoiceController::class, 'getLastInvoice'])->middleware('check.permission:invoices,view');
         Route::apiResource('invoices', InvoiceController::class)->middleware('check.permission:invoices,view');
+        Route::get('vouchers/next-number', [VoucherController::class, 'getNextVoucherNumber'])->middleware('check.permission:vouchers,view');
+        Route::apiResource('vouchers', VoucherController::class)->middleware('check.permission:vouchers,view');
         Route::apiResource('customer-master-lists', CustomerMasterListController::class);
         Route::apiResource('specialities', SpecialityController::class)->middleware('check.permission:specialities,view');
         Route::apiResource('specialists', SpecialistController::class)->middleware('check.permission:specialists,view');
@@ -561,6 +567,7 @@ Route::middleware([
             Route::delete('/media-channels', [MediaChannelController::class, 'bulkDelete']);
             Route::delete('/items', [ItemController::class, 'bulkDelete']);
             Route::delete('/invoices', [InvoiceController::class, 'bulkDelete'])->middleware('check.permission:invoices,delete');
+            Route::delete('/vouchers', [VoucherController::class, 'bulkDelete'])->middleware('check.permission:vouchers,delete');
             Route::delete('/specialities', [SpecialityController::class, 'bulkDelete']);
             Route::delete('/specialists', [SpecialistController::class, 'bulkDelete']);
             Route::delete('/services', [ServiceController::class, 'bulkDelete']);

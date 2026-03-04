@@ -68,10 +68,10 @@ class StoreSetupWizardRequest extends FormRequest
                     }
                 },
             ],
-            'currency_rates' => 'nullable|array',
-            'currency_rates.*' => 'nullable|numeric|min:0.0001',
-            'currency_rate_sources' => 'nullable|array',
-            'currency_rate_sources.*' => 'nullable|string|in:manual,api,scheduled',
+            'currency_pairs' => 'nullable|array',
+            'currency_pairs.*.from_code' => ['nullable', 'string', Rule::in($availableCurrencyCodes)],
+            'currency_pairs.*.to_code' => ['nullable', 'string', Rule::in($availableCurrencyCodes)],
+            'currency_pairs.*.rate' => 'nullable|numeric|min:0.0001',
 
             // Working Hours
             'working_time_from' => 'required|date_format:H:i',
