@@ -54,10 +54,7 @@ class AssociationServicePriceController extends Controller
                         continue;
                     }
                     $rowData = $validator->validated();
-                    $nextId = $this->computeNextAvailableId(AssociationServicePrice::class, 'id');
-                    $newRow = new AssociationServicePrice($rowData);
-                    $newRow->id = $nextId;
-                    $newRow->save();
+                    $newRow = AssociationServicePrice::create($rowData);
                     $created[] = $newRow->load(['association:id,name', 'service:id,name']);
                 }
                 if (! empty($errors) && empty($created)) {
@@ -83,10 +80,7 @@ class AssociationServicePriceController extends Controller
         ]);
         $validator->validate();
         $data = $validator->validated();
-        $nextId = $this->computeNextAvailableId(AssociationServicePrice::class, 'id');
-        $row = new AssociationServicePrice($data);
-        $row->id = $nextId;
-        $row->save();
+        $row = AssociationServicePrice::create($data);
 
         return response()->json($row->load(['association:id,name', 'service:id,name']), 201);
     }

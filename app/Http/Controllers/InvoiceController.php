@@ -563,9 +563,7 @@ class InvoiceController extends Controller
         // Step 4: Final total = afterDiscount + tax
         $total = $afterDiscount + $taxAmount;
 
-        // Create invoice item
-        $nextId = $this->computeNextAvailableId(InvoiceItem::class, 'id');
-        $invoiceItem = new InvoiceItem([
+        return InvoiceItem::create([
             'invoice_id' => $invoice->id,
             'item_id' => $item->id,
             'barcode' => $barcode ?? $itemData['barcode'] ?? null,
@@ -581,9 +579,5 @@ class InvoiceController extends Controller
             'subtotal' => $subtotal,
             'total' => $total,
         ]);
-        $invoiceItem->id = $nextId;
-        $invoiceItem->save();
-
-        return $invoiceItem;
     }
 }

@@ -315,6 +315,13 @@ class Supplier extends Model implements Auditable
             ->exists();
     }
 
+    public function hasAllowCreditForCurrency($currencyId)
+    {
+        $openingBalance = $this->getOpeningBalanceForCurrency($currencyId);
+
+        return $openingBalance && $openingBalance->allow_credit;
+    }
+
     public function getOpeningCurrencyIds()
     {
         return $this->openingBalances()

@@ -33,10 +33,7 @@ class SubCategoryController extends Controller
             return response()->json(['message' => 'A subcategory with this name already exists for the selected category'], 422);
         }
 
-        $nextId = $this->computeNextAvailableId(SubCategory::class, 'id');
-        $subCategory = new SubCategory($request->only(['name', 'category_id']));
-        $subCategory->id = $nextId;
-        $subCategory->save();
+        $subCategory = SubCategory::create($request->only(['name', 'category_id']));
 
         $subCategory->load('category');
 
