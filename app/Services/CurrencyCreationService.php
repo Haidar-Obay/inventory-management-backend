@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\AvailableCurrency;
 use App\Models\Currency;
-use App\Models\CurrencyPairRate;
 use App\Models\TenantSetting;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +49,7 @@ class CurrencyCreationService
                     if ($code === $primaryCode) {
                         $primaryCurrencyId = $existingCurrency->id;
                     }
+
                     continue;
                 }
 

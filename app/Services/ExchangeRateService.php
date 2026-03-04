@@ -49,6 +49,7 @@ class ExchangeRateService
             if ($r <= 0) {
                 throw new \InvalidArgumentException('Exchange rate must be greater than 0');
             }
+
             return 1.0 / $r;
         }
 
@@ -120,6 +121,7 @@ class ExchangeRateService
             if ($r <= 0) {
                 throw new \InvalidArgumentException('Exchange rate must be greater than 0');
             }
+
             return [
                 'rate' => 1.0 / $r,
                 'source' => 'history',
@@ -209,6 +211,7 @@ class ExchangeRateService
             if ($r <= 0) {
                 throw new \InvalidArgumentException('Exchange rate must be greater than 0');
             }
+
             return 1.0 / $r;
         }
 
@@ -216,6 +219,7 @@ class ExchangeRateService
         $to = Currency::find($toCurrencyId);
         $fromCode = $from ? $from->code : (string) $fromCurrencyId;
         $toCode = $to ? $to->code : (string) $toCurrencyId;
+
         throw new \InvalidArgumentException("No exchange rate defined for pair: {$fromCode} -> {$toCode}");
     }
 
@@ -227,6 +231,7 @@ class ExchangeRateService
         if ($fromCode === $toCode) {
             return $amount;
         }
+
         return $amount * $this->getRate($fromCode, $toCode);
     }
 
@@ -268,6 +273,7 @@ class ExchangeRateService
                 'rate' => $rate,
                 'effective_from' => now(),
             ]);
+
             return $reverse->fresh();
         }
 
@@ -303,13 +309,14 @@ class ExchangeRateService
      */
     public function updateRate(int $currencyId, float $rate, string $source = 'manual', ?string $updatedBy = null, ?string $notes = null): Currency
     {
-        return DB::transaction(function () use ($currencyId, $rate, $source, $updatedBy, $notes) {
+        return DB::transaction(function () use ($currencyId, $rate, $updatedBy) {
             $currency = Currency::findOrFail($currencyId);
 
             if ($currency->isPrimary()) {
                 if ($rate != 1.0000) {
                     throw new \InvalidArgumentException('Primary currency rate must always be 1.0000');
                 }
+
                 return $currency->fresh();
             }
 

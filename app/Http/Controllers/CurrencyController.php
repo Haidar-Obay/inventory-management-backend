@@ -76,6 +76,7 @@ class CurrencyController extends Controller
     public function show($id)
     {
         $currency = Currency::findOrFail($id);
+
         return response()->json($currency);
     }
 
@@ -270,6 +271,7 @@ class CurrencyController extends Controller
                     'reason' => 'Cannot delete currency. It is used in transactions (invoices).',
                     'details' => ['invoices' => ['count' => $invoicesCount]],
                 ];
+
                 continue;
             }
 
@@ -664,6 +666,7 @@ class CurrencyController extends Controller
                 'effective_from' => $row->effective_from?->toIso8601String(),
             ];
         });
+
         return response()->json($data);
     }
 
@@ -737,6 +740,7 @@ class CurrencyController extends Controller
                 $deleted = 1;
             }
         }
+
         return response()->json([
             'status' => true,
             'message' => 'Pair rate removed.',
@@ -899,6 +903,7 @@ class CurrencyController extends Controller
                     $data['to_code'] = $stored['to_code'];
                     $data['rate'] = $stored['rate'];
                 }
+
                 return response()->json(['status' => true, 'data' => $data]);
             }
 
@@ -919,6 +924,7 @@ class CurrencyController extends Controller
                 $data['to_code'] = $stored['to_code'];
                 $data['rate'] = $stored['rate'];
             }
+
             return response()->json(['status' => true, 'data' => $data]);
         } catch (\Exception $e) {
             return response()->json([

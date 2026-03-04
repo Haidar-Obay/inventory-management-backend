@@ -7,7 +7,6 @@ use App\Models\Customer;
 use App\Services\OpeningBalanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class CustomerOpeningBalanceController extends Controller
@@ -15,6 +14,7 @@ class CustomerOpeningBalanceController extends Controller
     public function __construct(
         protected OpeningBalanceService $openingBalanceService
     ) {}
+
     /**
      * Get all opening balances for a customer
      */

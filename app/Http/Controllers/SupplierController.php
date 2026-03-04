@@ -1126,7 +1126,7 @@ class SupplierController extends Controller
                         }
                         $code = $ob['currency'] ?? null;
                         if (! $code) {
-                            return null;
+                            return;
                         }
                         $currency = is_numeric($code)
                             ? \App\Models\Currency::find($code)
@@ -1622,6 +1622,7 @@ class SupplierController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Supplier import failed: '.$e->getMessage(), ['exception' => $e]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Import failed due to invalid data. Please check your file for invalid or missing references (e.g., payment method, etc.).',

@@ -267,7 +267,7 @@ class CustomerController extends Controller
                         }
                         $code = $ob['currency'] ?? null;
                         if (! $code) {
-                            return null;
+                            return;
                         }
                         $currency = is_numeric($code)
                             ? \App\Models\Currency::find($code)
@@ -1176,7 +1176,7 @@ class CustomerController extends Controller
                         }
                         $code = $ob['currency'] ?? null;
                         if (! $code) {
-                            return null;
+                            return;
                         }
                         $currency = is_numeric($code)
                             ? \App\Models\Currency::find($code)

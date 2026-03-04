@@ -185,6 +185,7 @@ class Invoice extends Model implements Auditable
 
         try {
             $service = app(\App\Services\ExchangeRateService::class);
+
             return $service->getRate($this->currency->code, $primary->code);
         } catch (\Throwable) {
             return 1.0000;
@@ -198,6 +199,7 @@ class Invoice extends Model implements Auditable
     {
         if (! $this->currency_id) {
             $this->exchange_rate = 1.0000;
+
             return;
         }
 
@@ -207,17 +209,20 @@ class Invoice extends Model implements Auditable
 
         if (! $this->currency) {
             $this->exchange_rate = 1.0000;
+
             return;
         }
 
         if ($this->currency->isPrimary()) {
             $this->exchange_rate = 1.0000;
+
             return;
         }
 
         $primary = \App\Models\Currency::getPrimary();
         if (! $primary) {
             $this->exchange_rate = 1.0000;
+
             return;
         }
 

@@ -254,6 +254,7 @@ class VoucherController extends Controller
                         'name' => "Voucher ID: {$id}",
                         'reason' => 'Voucher not found.',
                     ];
+
                     continue;
                 }
 
