@@ -21,6 +21,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class SupplierController extends Controller
 {
+    use \App\Http\Controllers\Concerns\HasBillingAddressHandling;
     protected $openingBalanceService;
 
     public function __construct(OpeningBalanceService $openingBalanceService)
@@ -100,21 +101,7 @@ class SupplierController extends Controller
             $supplier->save();
 
             // Handle addresses
-            $hasAnyBilling = $request->filled('billing_address_line1');
-            if (! $hasAnyBilling) {
-                foreach ([
-                    'billing_country_id', 'billing_city_id', 'billing_district_id', 'billing_zone_id',
-                    'billing_building', 'billing_block', 'billing_floor', 'billing_side',
-                    'billing_apartment', 'billing_zip_code', 'billing_address_line2', 'billing_address_name', 'billing_notes',
-                ] as $k) {
-                    if ($request->has($k)) {
-                        $hasAnyBilling = true;
-
-                        break;
-                    }
-                }
-            }
-            if ($hasAnyBilling) {
+            if ($this->hasAnyBillingField($request)) {
                 $this->createBillingAddress($supplier, $request);
             }
 
@@ -1000,9 +987,7 @@ class SupplierController extends Controller
             $supplier->update($validated);
 
             // Handle addresses
-            if ($request->has('billing_address_line1')) {
-                $this->updateBillingAddress($supplier, $request);
-            }
+            $this->updateBillingAddress($supplier, $request);
 
             if ($request->has('shipping_addresses')) {
                 $this->updateShippingAddresses($supplier, $request);
@@ -1887,9 +1872,7 @@ class SupplierController extends Controller
 
     private function updateBillingAddress($supplier, $request)
     {
-        // Handle billing address - update existing or create new
-        if ($request->filled('billing_address_line1')) {
-            // Get existing primary billing address via pivot
+        if ($this->hasAnyBillingField($request)) {
             $existingBillingPivot = $supplier->primaryBillingAddress()->first();
 
             $billingAddressData = [
@@ -1915,22 +1898,17 @@ class SupplierController extends Controller
             ];
 
             if ($existingBillingPivot) {
-                // UPDATE existing address data
                 $existingBillingPivot->update($billingAddressData);
-                // UPDATE pivot data
                 $supplier->addresses()->updateExistingPivot($existingBillingPivot->id, $billingPivotData);
             } else {
-                // CREATE new address
                 $billingAddress = Address::create($billingAddressData);
-                // Attach to supplier via pivot table
                 $supplier->addresses()->attach($billingAddress->id, $billingPivotData);
             }
         } else {
-            // Remove billing address if not provided
+            // All billing fields empty - remove billing address from database
             $billingAddresses = $supplier->billingAddresses()->get();
             foreach ($billingAddresses as $address) {
                 $supplier->addresses()->detach($address->id);
-                // Optionally delete the address if not used by others
                 $address->delete();
             }
         }
@@ -2012,11 +1990,76 @@ class SupplierController extends Controller
 
     private function updateContacts($supplier, $request)
     {
-        // Remove existing contacts
-        $supplier->contacts()->delete();
+        // Update existing or create new (match CustomerController logic)
+        $contacts = $request->input('contacts');
+        $existingContacts = $supplier->contacts()->get()->keyBy('id');
+        $existingContactIds = $existingContacts->keys()->toArray();
+        $incomingContactIds = [];
 
-        // Create new contacts
-        $this->createContacts($supplier, $request);
+        // Find existing primary contact
+        $existingPrimaryContact = $supplier->contacts()->where('is_primary', true)->first();
+
+        foreach ($contacts as $contactData) {
+            $isPrimary = isset($contactData['is_primary']) && (bool) $contactData['is_primary'];
+            $contactId = isset($contactData['id']) ? (int) $contactData['id'] : null;
+
+            // For primary contact without ID, try to find existing primary contact
+            if ($isPrimary && ! $contactId && $existingPrimaryContact) {
+                $contactId = $existingPrimaryContact->id;
+            }
+
+            // Check if this is an existing contact (has ID and exists in database)
+            if ($contactId && isset($existingContacts[$contactId])) {
+                // Update existing contact
+                $contact = $existingContacts[$contactId];
+                $contact->update([
+                    'title' => $contactData['title'] ?? null,
+                    'name' => $contactData['name'],
+                    'work_phone' => $contactData['work_phone'] ?? null,
+                    'mobile' => $contactData['mobile'] ?? null,
+                    'position' => $contactData['position'] ?? null,
+                    'extension' => $contactData['extension'] ?? null,
+                    'is_primary' => $isPrimary,
+                ]);
+
+                if ($isPrimary) {
+                    $supplier->setPrimaryContact($contact->id);
+                }
+
+                $incomingContactIds[] = $contactId;
+            } else {
+                // Create new contact
+                $contact = \App\Models\SupplierContact::create([
+                    'supplier_id' => $supplier->id,
+                    'title' => $contactData['title'] ?? null,
+                    'name' => $contactData['name'],
+                    'work_phone' => $contactData['work_phone'] ?? null,
+                    'mobile' => $contactData['mobile'] ?? null,
+                    'position' => $contactData['position'] ?? null,
+                    'extension' => $contactData['extension'] ?? null,
+                    'is_primary' => $isPrimary,
+                ]);
+
+                if ($isPrimary) {
+                    $supplier->setPrimaryContact($contact->id);
+                }
+
+                $incomingContactIds[] = $contact->id;
+            }
+        }
+
+        // Delete contacts that are no longer in the request
+        $contactsToDelete = array_diff($existingContactIds, $incomingContactIds);
+        if (! empty($contactsToDelete)) {
+            \App\Models\SupplierContact::whereIn('id', $contactsToDelete)
+                ->where('supplier_id', $supplier->id)
+                ->delete();
+        }
+
+        // If contacts_id provided at top level, ensure primary is set
+        if ($request->filled('contacts_id')) {
+            $supplier->setPrimaryContact((int) $request->input('contacts_id'));
+        }
     }
 
     private function updateAttachments($supplier, $request)

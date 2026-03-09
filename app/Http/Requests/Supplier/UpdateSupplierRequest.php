@@ -260,8 +260,12 @@ class UpdateSupplierRequest extends FormRequest
             'exempted_from_date' => ['sometimes', 'nullable', 'date'],
             'exempted_till_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:exempted_from_date'],
 
+            // Primary contact (optional)
+            'contacts_id' => ['sometimes', 'nullable', 'integer', 'exists:supplier_contacts,id'],
+
             // Contacts
             'contacts' => ['nullable', 'array'],
+            'contacts.*.id' => ['sometimes', 'nullable', 'integer'],
             'contacts.*.title' => ['nullable', 'string', 'max:255'],
             'contacts.*.name' => ['required', 'string', 'max:255'],
             'contacts.*.work_phone' => ['nullable', 'string', 'max:20'],

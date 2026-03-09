@@ -23,6 +23,7 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class CustomerController extends Controller
 {
+    use \App\Http\Controllers\Concerns\HasBillingAddressHandling;
     public function __construct(
         protected OpeningBalanceService $openingBalanceService
     ) {}
@@ -149,30 +150,7 @@ class CustomerController extends Controller
             $customer->save();
 
             // Handle billing address - unified structure (after customer is created)
-            $hasAnyBillingField = $request->filled('billing_address_line1');
-            if (! $hasAnyBillingField) {
-                foreach ([
-                    'billing_country_id',
-                    'billing_city_id',
-                    'billing_district_id',
-                    'billing_zone_id',
-                    'billing_building',
-                    'billing_block',
-                    'billing_floor',
-                    'billing_side',
-                    'billing_apartment',
-                    'billing_zip_code',
-                    'billing_address_line2',
-                    'billing_notes',
-                ] as $key) {
-                    if ($request->has($key)) {
-                        $hasAnyBillingField = true;
-
-                        break;
-                    }
-                }
-            }
-            if ($hasAnyBillingField) {
+            if ($this->hasAnyBillingField($request)) {
                 // Create address in addresses table
                 $billingAddress = Address::create([
                     'address_line1' => $request->input('billing_address_line1'),
@@ -951,126 +929,108 @@ class CustomerController extends Controller
         // Use database transaction to ensure all operations succeed or fail together
         return DB::transaction(function () use ($request, $validated, $customer) {
 
-            // Handle addresses - unified structure (update existing or create new)
-            if ($request->filled('billing_address_line1') || $request->has('shipping_addresses')) {
-                // Handle billing address - update existing or create new
-                if ($request->filled('billing_address_line1')) {
-                    // Get existing primary billing address via pivot
-                    $existingBillingPivot = $customer->primaryBillingAddress()->first();
+            // Handle billing address - update/create when any field filled; delete when all empty
+            if ($this->hasAnyBillingField($request)) {
+                $existingBillingPivot = $customer->primaryBillingAddress()->first();
 
-                    $billingAddressData = [
-                        'address_line1' => $request->input('billing_address_line1'),
-                        'address_line2' => $request->input('billing_address_line2'),
-                        'country_id' => $request->input('billing_country_id'),
-                        'city_id' => $request->input('billing_city_id'),
-                        'district_id' => $request->input('billing_district_id'),
-                        'zone_id' => $request->input('billing_zone_id'),
-                        'building' => $request->input('billing_building'),
-                        'block' => $request->input('billing_block'),
-                        'floor' => $request->input('billing_floor'),
-                        'side' => $request->input('billing_side'),
-                        'appartment' => $request->input('billing_apartment'),
-                        'zip_code' => $request->input('billing_zip_code'),
-                    ];
+                $billingAddressData = [
+                    'address_line1' => $request->input('billing_address_line1'),
+                    'address_line2' => $request->input('billing_address_line2'),
+                    'country_id' => $request->input('billing_country_id'),
+                    'city_id' => $request->input('billing_city_id'),
+                    'district_id' => $request->input('billing_district_id'),
+                    'zone_id' => $request->input('billing_zone_id'),
+                    'building' => $request->input('billing_building'),
+                    'block' => $request->input('billing_block'),
+                    'floor' => $request->input('billing_floor'),
+                    'side' => $request->input('billing_side'),
+                    'appartment' => $request->input('billing_apartment'),
+                    'zip_code' => $request->input('billing_zip_code'),
+                ];
 
-                    $billingPivotData = [
-                        'address_type' => 'billing',
-                        'is_primary' => true,
-                        'address_name' => 'Primary Billing Address',
-                        'notes' => $request->input('billing_notes'),
-                    ];
+                $billingPivotData = [
+                    'address_type' => 'billing',
+                    'is_primary' => true,
+                    'address_name' => 'Primary Billing Address',
+                    'notes' => $request->input('billing_notes'),
+                ];
 
-                    if ($existingBillingPivot) {
-                        // UPDATE existing address data
-                        $existingBillingPivot->update($billingAddressData);
-                        // UPDATE pivot data
-                        $customer->addresses()->updateExistingPivot($existingBillingPivot->id, $billingPivotData);
-                    } else {
-                        // CREATE new address
-                        $billingAddress = Address::create($billingAddressData);
-                        // Attach to customer via pivot table
-                        $customer->addresses()->attach($billingAddress->id, $billingPivotData);
-                    }
+                if ($existingBillingPivot) {
+                    $existingBillingPivot->update($billingAddressData);
+                    $customer->addresses()->updateExistingPivot($existingBillingPivot->id, $billingPivotData);
                 } else {
-                    // Remove billing address if not provided
-                    $billingAddresses = $customer->billingAddresses()->get();
-                    foreach ($billingAddresses as $address) {
-                        $customer->addresses()->detach($address->id);
-                        // Optionally delete the address if not used by others
-                        $address->delete();
+                    $billingAddress = Address::create($billingAddressData);
+                    $customer->addresses()->attach($billingAddress->id, $billingPivotData);
+                }
+            } else {
+                // All billing fields empty - remove billing address from database
+                $billingAddresses = $customer->billingAddresses()->get();
+                foreach ($billingAddresses as $address) {
+                    $customer->addresses()->detach($address->id);
+                    $address->delete();
+                }
+            }
+
+            // Handle shipping addresses - update existing or create new
+            if ($request->has('shipping_addresses')) {
+                $shippingAddresses = $request->input('shipping_addresses');
+                $existingShippingPivots = $customer->shippingAddresses()->get()->keyBy('id');
+                $newShippingIds = [];
+
+                $existingPrimaryShipping = $customer->primaryShippingAddress()->first();
+                if ($existingPrimaryShipping) {
+                    $customer->addresses()->updateExistingPivot($existingPrimaryShipping->id, ['is_primary' => false]);
+                }
+
+                foreach ($shippingAddresses as $index => $shippingAddressData) {
+                    $shippingAddressDataForTable = [
+                        'address_line1' => $shippingAddressData['address_line1'],
+                        'address_line2' => $shippingAddressData['address_line2'] ?? null,
+                        'country_id' => $shippingAddressData['country_id'],
+                        'city_id' => $shippingAddressData['city_id'],
+                        'district_id' => $shippingAddressData['district_id'] ?? null,
+                        'zone_id' => $shippingAddressData['zone_id'] ?? null,
+                        'building' => $shippingAddressData['building'] ?? null,
+                        'block' => $shippingAddressData['block'] ?? null,
+                        'floor' => $shippingAddressData['floor'] ?? null,
+                        'side' => $shippingAddressData['side'] ?? null,
+                        'appartment' => $shippingAddressData['apartment'] ?? null,
+                        'zip_code' => $shippingAddressData['zip_code'] ?? null,
+                    ];
+
+                    $shippingPivotData = [
+                        'address_type' => 'shipping',
+                        'is_primary' => $index === 0,
+                        'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
+                        'notes' => $shippingAddressData['notes'] ?? null,
+                    ];
+
+                    if (isset($shippingAddressData['id']) && $existingShippingPivots->has($shippingAddressData['id'])) {
+                        $existingShipping = $existingShippingPivots->get($shippingAddressData['id']);
+                        $existingShipping->update($shippingAddressDataForTable);
+                        $customer->addresses()->updateExistingPivot($existingShipping->id, $shippingPivotData);
+                        $newShippingIds[] = $existingShipping->id;
+                    } else {
+                        $newAddress = Address::create($shippingAddressDataForTable);
+                        $customer->addresses()->attach($newAddress->id, $shippingPivotData);
+                        $newShippingIds[] = $newAddress->id;
                     }
                 }
 
-                // Handle shipping addresses - update existing or create new
-                if ($request->has('shipping_addresses')) {
-                    $shippingAddresses = $request->input('shipping_addresses');
-                    $existingShippingPivots = $customer->shippingAddresses()->get()->keyBy('id');
-                    $newShippingIds = [];
-
-                    // First, unset all existing primary shipping addresses to avoid unique constraint violation
-                    $existingPrimaryShipping = $customer->primaryShippingAddress()->first();
-                    if ($existingPrimaryShipping) {
-                        $customer->addresses()->updateExistingPivot($existingPrimaryShipping->id, ['is_primary' => false]);
-                    }
-
-                    foreach ($shippingAddresses as $index => $shippingAddressData) {
-                        $shippingAddressDataForTable = [
-                            'address_line1' => $shippingAddressData['address_line1'],
-                            'address_line2' => $shippingAddressData['address_line2'] ?? null,
-                            'country_id' => $shippingAddressData['country_id'],
-                            'city_id' => $shippingAddressData['city_id'],
-                            'district_id' => $shippingAddressData['district_id'] ?? null,
-                            'zone_id' => $shippingAddressData['zone_id'] ?? null,
-                            'building' => $shippingAddressData['building'] ?? null,
-                            'block' => $shippingAddressData['block'] ?? null,
-                            'floor' => $shippingAddressData['floor'] ?? null,
-                            'side' => $shippingAddressData['side'] ?? null,
-                            'appartment' => $shippingAddressData['apartment'] ?? null,
-                            'zip_code' => $shippingAddressData['zip_code'] ?? null,
-                        ];
-
-                        $shippingPivotData = [
-                            'address_type' => 'shipping',
-                            'is_primary' => $index === 0, // First shipping address is primary
-                            'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
-                            'notes' => $shippingAddressData['notes'] ?? null,
-                        ];
-
-                        // Check if we should update existing address (by ID if provided)
-                        if (isset($shippingAddressData['id']) && $existingShippingPivots->has($shippingAddressData['id'])) {
-                            $existingShipping = $existingShippingPivots->get($shippingAddressData['id']);
-                            // UPDATE existing address data
-                            $existingShipping->update($shippingAddressDataForTable);
-                            // UPDATE pivot data
-                            $customer->addresses()->updateExistingPivot($existingShipping->id, $shippingPivotData);
-                            $newShippingIds[] = $existingShipping->id;
-                        } else {
-                            // CREATE new address
-                            $newAddress = Address::create($shippingAddressDataForTable);
-                            // Attach to customer via pivot table
-                            $customer->addresses()->attach($newAddress->id, $shippingPivotData);
-                            $newShippingIds[] = $newAddress->id;
-                        }
-                    }
-
-                    // Delete addresses that were removed
-                    $addressesToDelete = $existingShippingPivots->keys()->diff($newShippingIds);
-                    foreach ($addressesToDelete as $addressId) {
-                        $customer->addresses()->detach($addressId);
-                        // Optionally delete the address if not used by others
-                        $address = Address::find($addressId);
-                        if ($address) {
-                            $address->delete();
-                        }
-                    }
-                } else {
-                    // Remove all shipping addresses if not provided
-                    $shippingAddresses = $customer->shippingAddresses()->get();
-                    foreach ($shippingAddresses as $address) {
-                        $customer->addresses()->detach($address->id);
-                        // Optionally delete the address if not used by others
+                $addressesToDelete = $existingShippingPivots->keys()->diff($newShippingIds);
+                foreach ($addressesToDelete as $addressId) {
+                    $customer->addresses()->detach($addressId);
+                    $address = Address::find($addressId);
+                    if ($address) {
                         $address->delete();
                     }
+                }
+            } else {
+                // Remove all shipping addresses if not provided
+                $shippingAddresses = $customer->shippingAddresses()->get();
+                foreach ($shippingAddresses as $address) {
+                    $customer->addresses()->detach($address->id);
+                    $address->delete();
                 }
             }
 
