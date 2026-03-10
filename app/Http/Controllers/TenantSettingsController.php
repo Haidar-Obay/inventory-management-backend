@@ -34,7 +34,7 @@ class TenantSettingsController extends Controller
                 (new UpdateCompanyInfoRequest)->rules(),
                 (new UpdateCompanyInfoRequest)->messages()
             );
-            $settings = TenantSetting::getSettings();
+             $settings = TenantSetting::getSettings();
             $settings->update([
                 'company_name' => $validated['company_name'],
                 'location' => $validated['location'],

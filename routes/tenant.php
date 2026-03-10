@@ -202,9 +202,8 @@ Route::middleware([
         Route::get('currencies/{id}/rate-history', [CurrencyController::class, 'getRateHistory'])->middleware('check.permission:currencies,view');
         Route::apiResource('currencies', CurrencyController::class)->middleware(['subscription.limits:currency', 'check.permission:currencies,view']);
         Route::apiResource('salesmen', SalesmanController::class)->middleware('check.permission:salesmen,view');
-        // Customer attachments (dedicated endpoints; must be before apiResource)
+        // Customer attachments: fetch via GET customers/{customer}?section=attachments
         Route::post('customers/{customer}/attachments', [CustomerController::class, 'uploadAttachments'])->middleware(['subscription.limits:customer', 'check.permission:customers,view']);
-        Route::get('customers/{customer}/attachments', [CustomerController::class, 'getAttachments'])->middleware(['check.permission:customers,view']);
         Route::delete('customers/{customer}/attachments/{attachment}', [CustomerController::class, 'deleteAttachment'])->middleware(['check.permission:customers,view']);
         Route::apiResource('customers', CustomerController::class)->middleware(['subscription.limits:customer', 'check.permission:customers,view']);
         Route::apiResource('customer-groups', CustomerGroupController::class)->middleware('check.permission:customer_groups,view');
@@ -813,16 +812,16 @@ Route::middleware([
 
 // These routes use 'api' middleware instead of 'web' to avoid session/CSRF issues
 // when called from frontend API requests, especially concurrent requests
+// Customer fetch (section-based). Invalid section returns 422.
+// GET /customers?section=names (list); default = grid. GET /customers/{id}?section=full|attachments|appointments|visits|for_invoice (default: full).
 Route::middleware([
     'api',
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
-    Route::get('/names/customers', [CustomerController::class, 'getNames']);
+    Route::get('/customers', [CustomerController::class, 'index']);
+    Route::get('/customers/{customer}', [CustomerController::class, 'show']);
     Route::post('/customers/search-by-phone', [CustomerController::class, 'searchByPhone']);
-    Route::get('/customers/{customerId}/appointments', [CustomerController::class, 'getAppointmentHistory']);
-    Route::get('/customers/{customerId}/visits', [CustomerController::class, 'getVisitHistory']);
-    Route::get('/customers/{customerId}/for-invoice', [CustomerController::class, 'getForInvoice']);
     Route::get('/names/cost-centers', [CostCenterController::class, 'getNames']);
     Route::get('/names/departments', [DepartmentController::class, 'getNames']);
     Route::get('/names/projects', [ProjectController::class, 'getNames']);
