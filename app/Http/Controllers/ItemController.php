@@ -1338,7 +1338,20 @@ class ItemController extends Controller
             );
         }
 
-        $item->suppliers()->syncWithoutDetaching($payload);
+        // Preserve pivot IDs: update existing, attach new, detach removed
+        $requestSupplierIds = array_keys($payload);
+        $currentSupplierIds = $item->suppliers()->pluck('suppliers.id')->toArray();
+        $toDetach = array_diff($currentSupplierIds, $requestSupplierIds);
+        $toAttach = array_diff($requestSupplierIds, $currentSupplierIds);
+        if (! empty($toDetach)) {
+            $item->suppliers()->detach($toDetach);
+        }
+        foreach ($toAttach as $supplierId) {
+            $item->suppliers()->attach($supplierId, $payload[$supplierId]);
+        }
+        foreach (array_intersect($currentSupplierIds, $requestSupplierIds) as $supplierId) {
+            $item->suppliers()->updateExistingPivot($supplierId, $payload[$supplierId]);
+        }
 
         $tenantId = tenant('id');
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
@@ -1567,9 +1580,8 @@ class ItemController extends Controller
                 ]
             );
 
-            // Sync barcodes to item_barcodes (never to item_unit_of_measurement). Replace any existing for this pivot.
+            // Sync barcodes to item_barcodes - preserve IDs: update existing by barcode, create new, delete removed
             $barcodes = is_array($row['barcodes'] ?? null) ? $row['barcodes'] : [];
-            \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->delete();
             $barcodeValues = [];
             foreach ($barcodes as $index => $barcodeValue) {
                 $v = is_scalar($barcodeValue) ? trim((string) $barcodeValue) : '';
@@ -1577,25 +1589,30 @@ class ItemController extends Controller
                     $barcodeValues[] = $v;
                 }
             }
-            // Skip barcodes that already exist (unique constraint: barcode is global). Avoids duplicate key violation.
-            $existingBarcodes = \App\Models\ItemBarcode::whereIn('barcode', $barcodeValues)->pluck('barcode')->toArray();
-            $barcodesToInsert = [];
-            foreach ($barcodeValues as $index => $v) {
-                if (in_array($v, $existingBarcodes, true)) {
-                    continue;
-                }
-                $barcodesToInsert[] = [
-                    'item_id' => $item->id,
-                    'item_unit_of_measurement_id' => $itemUom->id,
-                    'barcode' => $v,
-                    'is_primary' => count($barcodesToInsert) === 0,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-                $existingBarcodes[] = $v; // Prevent duplicate within same request
+            $barcodeValues = array_values(array_unique($barcodeValues));
+            $currentBarcodes = \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->get()->keyBy('barcode');
+            $toDelete = $currentBarcodes->keys()->diff($barcodeValues)->values()->toArray();
+            if (! empty($toDelete)) {
+                \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->whereIn('barcode', $toDelete)->delete();
             }
-            if (! empty($barcodesToInsert)) {
-                \App\Models\ItemBarcode::insert($barcodesToInsert);
+            $primarySet = false;
+            foreach ($barcodeValues as $index => $v) {
+                $existing = \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->where('barcode', $v)->first();
+                if ($existing) {
+                    $existing->update(['is_primary' => ! $primarySet && $index === 0]);
+                    $primarySet = $primarySet || $index === 0;
+                } else {
+                    $existingElsewhere = \App\Models\ItemBarcode::where('barcode', $v)->exists();
+                    if (! $existingElsewhere) {
+                        \App\Models\ItemBarcode::create([
+                            'item_id' => $item->id,
+                            'item_unit_of_measurement_id' => $itemUom->id,
+                            'barcode' => $v,
+                            'is_primary' => ! $primarySet && $index === 0,
+                        ]);
+                        $primarySet = $primarySet || $index === 0;
+                    }
+                }
             }
         }
 
@@ -1679,30 +1696,34 @@ class ItemController extends Controller
             $data
         );
 
-        // Sync barcodes to item_barcodes. Replace any existing for this pivot.
-        \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->delete();
+        // Sync barcodes to item_barcodes - preserve IDs: update existing by barcode, create new, delete removed
         $barcodeValues = array_values(array_unique(array_filter(array_map(function ($b) {
             return is_scalar($b) ? trim((string) $b) : '';
         }, $barcodes))));
         $barcodeValues = array_filter($barcodeValues, fn ($v) => $v !== '');
-        $existingBarcodes = \App\Models\ItemBarcode::whereIn('barcode', $barcodeValues)->pluck('barcode')->toArray();
-        $barcodesToInsert = [];
-        foreach ($barcodeValues as $index => $v) {
-            if (in_array($v, $existingBarcodes, true)) {
-                continue;
-            }
-            $barcodesToInsert[] = [
-                'item_id' => $item->id,
-                'item_unit_of_measurement_id' => $itemUom->id,
-                'barcode' => $v,
-                'is_primary' => count($barcodesToInsert) === 0,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-            $existingBarcodes[] = $v;
+        $currentBarcodes = \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->get()->keyBy('barcode');
+        $toDelete = $currentBarcodes->keys()->diff($barcodeValues)->values()->toArray();
+        if (! empty($toDelete)) {
+            \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->whereIn('barcode', $toDelete)->delete();
         }
-        if (! empty($barcodesToInsert)) {
-            \App\Models\ItemBarcode::insert($barcodesToInsert);
+        $primarySet = false;
+        foreach ($barcodeValues as $index => $v) {
+            $existing = \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)->where('barcode', $v)->first();
+            if ($existing) {
+                $existing->update(['is_primary' => ! $primarySet && $index === 0]);
+                $primarySet = $primarySet || $index === 0;
+            } else {
+                $existingElsewhere = \App\Models\ItemBarcode::where('barcode', $v)->exists();
+                if (! $existingElsewhere) {
+                    \App\Models\ItemBarcode::create([
+                        'item_id' => $item->id,
+                        'item_unit_of_measurement_id' => $itemUom->id,
+                        'barcode' => $v,
+                        'is_primary' => ! $primarySet && $index === 0,
+                    ]);
+                    $primarySet = $primarySet || $index === 0;
+                }
+            }
         }
 
         $uom = $item->unitOfMeasurements()

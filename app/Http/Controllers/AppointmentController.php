@@ -236,9 +236,9 @@ class AppointmentController extends Controller
         // Status will be auto-calculated in the saving event
         $appointment->save();
 
-        // Attach customers if provided
+        // Attach customers if provided (use attach on create - no existing to preserve)
         if (! empty($customerIds) && is_array($customerIds)) {
-            $appointment->customers()->sync($customerIds);
+            $appointment->customers()->attach($customerIds);
         }
 
         // Attach services with their specialists and assets if provided
@@ -270,7 +270,7 @@ class AppointmentController extends Controller
                     'asset_id' => $assetId,
                 ];
             }
-            $appointment->services()->sync($syncData);
+            $appointment->services()->attach($syncData);
         } elseif (! empty($serviceIds) && is_array($serviceIds)) {
             // Simple array format - automatically assign assets for each service
             $syncData = [];
@@ -290,7 +290,7 @@ class AppointmentController extends Controller
                     'asset_id' => $assetId,
                 ];
             }
-            $appointment->services()->sync($syncData);
+            $appointment->services()->attach($syncData);
         }
 
         // Clear scheduler cache for specialists and assets if they exist
@@ -467,9 +467,18 @@ class AppointmentController extends Controller
             $appointment->refresh();
         }
 
-        // Sync customers if provided; allow clearing by sending empty array
+        // Sync customers if provided - preserve pivot IDs: only detach removed, attach new
         if ($request->has('customer_ids')) {
-            $appointment->customers()->sync($customerIds ?? []);
+            $requestIds = array_values(array_unique(array_filter((array) ($customerIds ?? []), fn ($id) => $id !== null && $id !== '')));
+            $currentIds = $appointment->customers()->pluck('customers.id')->toArray();
+            $toDetach = array_diff($currentIds, $requestIds);
+            $toAttach = array_diff($requestIds, $currentIds);
+            if (! empty($toDetach)) {
+                $appointment->customers()->detach($toDetach);
+            }
+            if (! empty($toAttach)) {
+                $appointment->customers()->attach($toAttach);
+            }
         }
 
         // Sync services with their specialists and assets if explicitly provided
@@ -479,7 +488,7 @@ class AppointmentController extends Controller
                 // Format: [['service_id' => 1, 'specialist_id' => 5, 'asset_id' => 3], ...]
                 // Handle empty array to clear all services
                 if (empty($services)) {
-                    $appointment->services()->sync([]);
+                    $appointment->services()->detach($appointment->services()->pluck('services.id')->toArray());
                 } else {
                     $syncData = [];
                     foreach ($services as $serviceData) {
@@ -501,13 +510,25 @@ class AppointmentController extends Controller
                                 // $assetId can be null if service has no related assets (which is allowed)
                             }
 
-                            $syncData[$serviceId] = [
+                            $syncData[(int) $serviceId] = [
                                 'specialist_id' => $specialistId,
                                 'asset_id' => $assetId,
                             ];
                         }
                     }
-                    $appointment->services()->sync($syncData);
+                    $requestServiceIds = array_keys($syncData);
+                    $currentServiceIds = $appointment->services()->pluck('services.id')->toArray();
+                    $toDetach = array_diff($currentServiceIds, $requestServiceIds);
+                    $toAttach = array_diff($requestServiceIds, $currentServiceIds);
+                    if (! empty($toDetach)) {
+                        $appointment->services()->detach($toDetach);
+                    }
+                    foreach ($toAttach as $serviceId) {
+                        $appointment->services()->attach($serviceId, $syncData[$serviceId]);
+                    }
+                    foreach (array_intersect($currentServiceIds, $requestServiceIds) as $serviceId) {
+                        $appointment->services()->updateExistingPivot($serviceId, $syncData[$serviceId]);
+                    }
                 }
             } elseif (! empty($serviceIds) && is_array($serviceIds)) {
                 // Simple array format - automatically assign assets for each service
@@ -534,7 +555,19 @@ class AppointmentController extends Controller
                         'asset_id' => $assetId,
                     ];
                 }
-                $appointment->services()->sync($syncData);
+                $requestServiceIds = array_keys($syncData);
+                $currentServiceIds = $appointment->services()->pluck('services.id')->toArray();
+                $toDetach = array_diff($currentServiceIds, $requestServiceIds);
+                $toAttach = array_diff($requestServiceIds, $currentServiceIds);
+                if (! empty($toDetach)) {
+                    $appointment->services()->detach($toDetach);
+                }
+                foreach ($toAttach as $serviceId) {
+                    $appointment->services()->attach($serviceId, $syncData[$serviceId]);
+                }
+                foreach (array_intersect($currentServiceIds, $requestServiceIds) as $serviceId) {
+                    $appointment->services()->updateExistingPivot($serviceId, $syncData[$serviceId]);
+                }
             } elseif ($request->has('service_id') && $request->input('service_id')) {
                 // Handle legacy service_id format
                 $serviceId = $request->input('service_id');
@@ -545,12 +578,17 @@ class AppointmentController extends Controller
                         'message' => 'No available assets found for the selected service during this time period.',
                     ], 422);
                 }
-                $appointment->services()->sync([
-                    $serviceId => [
-                        'specialist_id' => null,
-                        'asset_id' => $assetId,
-                    ],
-                ]);
+                $pivotData = ['specialist_id' => null, 'asset_id' => $assetId];
+                $currentServiceIds = $appointment->services()->pluck('services.id')->toArray();
+                $toDetach = array_diff($currentServiceIds, [$serviceId]);
+                if (! empty($toDetach)) {
+                    $appointment->services()->detach($toDetach);
+                }
+                if (in_array($serviceId, $currentServiceIds)) {
+                    $appointment->services()->updateExistingPivot($serviceId, $pivotData);
+                } else {
+                    $appointment->services()->attach($serviceId, $pivotData);
+                }
             }
             // If none of the above conditions match, preserve existing services (don't sync)
         } else {

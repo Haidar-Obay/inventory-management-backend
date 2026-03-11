@@ -343,9 +343,12 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle associations (many-to-many)
+            // Handle associations (many-to-many) - use attach on create (no existing to preserve)
             if ($request->has('associations')) {
-                $customer->associations()->sync($request->input('associations'));
+                $associationIds = array_values(array_unique(array_filter((array) $request->input('associations'), fn ($id) => $id !== null && $id !== '')));
+                if (! empty($associationIds)) {
+                    $customer->associations()->attach($associationIds);
+                }
             }
 
             // Handle attachments - check for actual file uploads first
@@ -1288,9 +1291,18 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle associations (many-to-many)
+            // Handle associations (many-to-many) - preserve pivot IDs: only detach removed, attach new
             if ($request->has('associations')) {
-                $customer->associations()->sync($request->input('associations'));
+                $requestIds = array_values(array_unique(array_filter((array) $request->input('associations'), fn ($id) => $id !== null && $id !== '')));
+                $currentIds = $customer->associations()->pluck('associations.id')->toArray();
+                $toDetach = array_diff($currentIds, $requestIds);
+                $toAttach = array_diff($requestIds, $currentIds);
+                if (! empty($toDetach)) {
+                    $customer->associations()->detach($toDetach);
+                }
+                if (! empty($toAttach)) {
+                    $customer->associations()->attach($toAttach);
+                }
             }
 
             // Handle attachments (multipart) - support both 'attachments' and 'attachments[]'
