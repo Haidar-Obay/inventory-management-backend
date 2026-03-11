@@ -991,6 +991,13 @@ class SupplierController extends Controller
 
             if ($request->has('shipping_addresses')) {
                 $this->updateShippingAddresses($supplier, $request);
+            } else {
+                // Remove all shipping addresses if not provided (user cleared all fields)
+                $shippingAddresses = $supplier->shippingAddresses()->get();
+                foreach ($shippingAddresses as $address) {
+                    $supplier->addresses()->detach($address->id);
+                    $address->delete();
+                }
             }
 
             // Handle contacts
