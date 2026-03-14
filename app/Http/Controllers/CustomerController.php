@@ -264,14 +264,13 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle credit limits with new structure (after opening balances) - only for currencies with allow_credit=true
-            if ($request->has('credit_limits')) {
-                $creditLimits = $request->input('credit_limits');
-                foreach ($creditLimits as $currencyCode => $amount) {
-                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency && $customer->hasAllowCreditForCurrency($currency->id)) {
+            // Handle credit limits (array format - aligned with supplier)
+            if ($request->has('credit_limits') && is_array($request->input('credit_limits'))) {
+                foreach ($request->input('credit_limits') as $creditLimitData) {
+                    $currencyId = $creditLimitData['currency_id'] ?? null;
+                    if ($currencyId && $customer->hasAllowCreditForCurrency($currencyId)) {
                         try {
-                            $customer->setCreditLimit($currency->id, $amount);
+                            $customer->setCreditLimit($currencyId, $creditLimitData['credit_limit']);
                         } catch (\Exception $e) {
                             throw new \Exception('Credit limit validation failed: '.$e->getMessage());
                         }
@@ -279,40 +278,41 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle cheque limits with new structure (after opening balances)
-            if ($request->has('max_cheques')) {
-                $chequeLimits = $request->input('max_cheques');
+            // Handle cheque limits (array format - aligned with supplier)
+            if ($request->has('cheque_limits') && is_array($request->input('cheque_limits'))) {
+                $openingBalanceCurrencyIds = collect($request->input('opening_balances', []))
+                    ->map(function ($ob) {
+                        $code = $ob['currency'] ?? null;
+                        if (! $code) {
+                            return null;
+                        }
 
-                // Get currencies that have opening balances from the request
-                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
-                    ->pluck('currency')
+                        return \App\Models\Currency::where('code', $code)->first()?->id;
+                    })
                     ->filter()
+                    ->unique()
+                    ->values()
                     ->toArray();
 
-                foreach ($chequeLimits as $currencyCode => $maxCheques) {
-                    // Skip empty, null, or zero values (cleared fields)
+                foreach ($request->input('cheque_limits') as $chequeLimitData) {
+                    $maxCheques = $chequeLimitData['max_cheques'] ?? null;
                     if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
                         continue;
                     }
 
-                    // Find currency by code
-                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency) {
+                    $currencyId = $chequeLimitData['currency_id'] ?? null;
+                    if ($currencyId && in_array($currencyId, $openingBalanceCurrencyIds)) {
                         try {
-                            // Check if this currency has an opening balance
-                            if (in_array($currencyCode, $openingBalanceCurrencies)) {
-                                $customerCheque = \App\Models\CustomerChequeLimit::create([
-                                    'customer_id' => $customer->id,
-                                    'currency_id' => $currency->id,
-                                    'max_cheques' => $maxCheques,
-                                    'used_cheques' => 0,
-                                    'available_cheques' => $maxCheques,
-                                    'notes' => null,
-                                    'is_active' => true,
-                                ]);
-                            }
+                            \App\Models\CustomerChequeLimit::create([
+                                'customer_id' => $customer->id,
+                                'currency_id' => $currencyId,
+                                'max_cheques' => $maxCheques,
+                                'used_cheques' => 0,
+                                'available_cheques' => $maxCheques,
+                                'notes' => $chequeLimitData['notes'] ?? null,
+                                'is_active' => true,
+                            ]);
                         } catch (\Exception $e) {
-                            // Re-throw the exception to trigger transaction rollback
                             throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
                         }
                     }
@@ -1158,13 +1158,13 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle credit limits (after opening balances) - only for currencies with allow_credit=true
-            if ($request->has('credit_limits')) {
-                foreach ($request->input('credit_limits') as $currencyCode => $amount) {
-                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency && $customer->hasAllowCreditForCurrency($currency->id)) {
+            // Handle credit limits (array format - aligned with supplier)
+            if ($request->has('credit_limits') && is_array($request->input('credit_limits'))) {
+                foreach ($request->input('credit_limits') as $creditLimitData) {
+                    $currencyId = $creditLimitData['currency_id'] ?? null;
+                    if ($currencyId && $customer->hasAllowCreditForCurrency($currencyId)) {
                         try {
-                            $customer->setCreditLimit($currency->id, $amount);
+                            $customer->setCreditLimit($currencyId, $creditLimitData['credit_limit']);
                         } catch (\Exception $e) {
                             throw new \Exception('Credit limit validation failed: '.$e->getMessage());
                         }
@@ -1172,44 +1172,54 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle cheque limits (after opening balances) - update existing or create new
-            if ($request->has('max_cheques')) {
-                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
-                    ->pluck('currency')
+            // Handle cheque limits (array format - aligned with supplier) - update existing or create new
+            if ($request->has('cheque_limits') && is_array($request->input('cheque_limits'))) {
+                $openingBalanceCurrencyIds = collect($request->input('opening_balances', []))
+                    ->map(function ($ob) {
+                        $code = $ob['currency'] ?? null;
+                        if (! $code) {
+                            return null;
+                        }
+
+                        return \App\Models\Currency::where('code', $code)->first()?->id;
+                    })
                     ->filter()
+                    ->unique()
+                    ->values()
                     ->toArray();
 
                 $existingChequeLimits = $customer->chequeLimits()->get()->keyBy('currency_id');
                 $incomingCurrencyIds = [];
 
-                foreach ($request->input('max_cheques') as $currencyCode => $maxCheques) {
+                foreach ($request->input('cheque_limits') as $chequeLimitData) {
+                    $maxCheques = $chequeLimitData['max_cheques'] ?? null;
                     if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
                         continue;
                     }
 
-                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency && in_array($currencyCode, $openingBalanceCurrencies)) {
+                    $currencyId = $chequeLimitData['currency_id'] ?? null;
+                    if ($currencyId && in_array($currencyId, $openingBalanceCurrencyIds)) {
                         try {
-                            $existing = $existingChequeLimits->get($currency->id);
+                            $existing = $existingChequeLimits->get($currencyId);
                             if ($existing) {
                                 $existing->update([
                                     'max_cheques' => $maxCheques,
                                     'available_cheques' => max(0, $maxCheques - $existing->used_cheques),
-                                    'notes' => $existing->notes,
+                                    'notes' => $chequeLimitData['notes'] ?? $existing->notes,
                                     'is_active' => true,
                                 ]);
                             } else {
                                 \App\Models\CustomerChequeLimit::create([
                                     'customer_id' => $customer->id,
-                                    'currency_id' => $currency->id,
+                                    'currency_id' => $currencyId,
                                     'max_cheques' => $maxCheques,
                                     'used_cheques' => 0,
                                     'available_cheques' => $maxCheques,
-                                    'notes' => null,
+                                    'notes' => $chequeLimitData['notes'] ?? null,
                                     'is_active' => true,
                                 ]);
                             }
-                            $incomingCurrencyIds[] = $currency->id;
+                            $incomingCurrencyIds[] = $currencyId;
                         } catch (\Exception $e) {
                             throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
                         }
@@ -1217,6 +1227,8 @@ class CustomerController extends Controller
                 }
 
                 $customer->chequeLimits()->whereNotIn('currency_id', $incomingCurrencyIds)->delete();
+            } else {
+                $customer->chequeLimits()->delete();
             }
 
             // Handle contacts - update existing or create new

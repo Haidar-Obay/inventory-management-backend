@@ -205,6 +205,8 @@ class SupplierController extends Controller
                 'openingBalances.currency:id,code,name',
                 'openingBalances.paymentTerm:id,code,name',
                 'openingBalances.paymentMethod:id,code,name',
+                'creditLimits.currency:id,code,name',
+                'chequeLimits.currency:id,code,name',
             ]);
 
             return response()->json([
@@ -1168,6 +1170,8 @@ class SupplierController extends Controller
                 'openingBalances.currency:id,code,name',
                 'openingBalances.paymentTerm:id,code,name',
                 'openingBalances.paymentMethod:id,code,name',
+                'creditLimits.currency:id,code,name',
+                'chequeLimits.currency:id,code,name',
             ]);
 
             return response()->json([

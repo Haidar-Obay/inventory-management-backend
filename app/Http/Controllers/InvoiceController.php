@@ -381,12 +381,22 @@ class InvoiceController extends Controller
 
             // Update items if provided
             if ($items !== null) {
-                // Delete existing items
-                $invoice->items()->delete();
+                $existingIds = $invoice->items()->pluck('id')->toArray();
+                $payloadIds = array_filter(array_map(fn ($i) => $i['id'] ?? null, $items));
 
-                // Create new items
+                foreach ($existingIds as $id) {
+                    if (! in_array($id, $payloadIds)) {
+                        InvoiceItem::where('id', $id)->where('invoice_id', $invoice->id)->delete();
+                    }
+                }
+
                 foreach ($items as $itemData) {
-                    $this->createInvoiceItem($invoice, $itemData);
+                    $id = $itemData['id'] ?? null;
+                    if ($id && $invoice->items()->where('id', $id)->exists()) {
+                        $this->updateInvoiceItem($invoice, $itemData);
+                    } else {
+                        $this->createInvoiceItem($invoice, $itemData);
+                    }
                 }
             }
 
@@ -579,5 +589,67 @@ class InvoiceController extends Controller
             'subtotal' => $subtotal,
             'total' => $total,
         ]);
+    }
+
+    /**
+     * Update an existing invoice item with proper calculations.
+     */
+    protected function updateInvoiceItem(Invoice $invoice, array $itemData): InvoiceItem
+    {
+        $invoiceItem = InvoiceItem::where('id', $itemData['id'])->where('invoice_id', $invoice->id)->firstOrFail();
+        $item = Item::findOrFail($itemData['item_id']);
+        $uomId = $itemData['uom_id'];
+
+        $itemUom = ItemUnitOfMeasurement::where('item_id', $item->id)
+            ->where('unit_of_measurement_id', $uomId)
+            ->first();
+
+        if (! $itemUom) {
+            throw new \Exception("UOM {$uomId} is not associated with item {$item->id}");
+        }
+
+        $itemBarcode = \App\Models\ItemBarcode::where('item_unit_of_measurement_id', $itemUom->id)
+            ->where('is_primary', true)
+            ->first();
+        $barcode = $itemBarcode ? $itemBarcode->barcode : null;
+
+        $price = $itemData['price'];
+        $conversion = $itemUom->conversion ?? 1;
+        $unitPrice = InvoiceItem::calculateUnitPrice($price, $conversion);
+
+        $unit = null;
+        if ($item->base_uom_id) {
+            $baseUom = \App\Models\UnitOfMeasurement::find($item->base_uom_id);
+            if ($baseUom) {
+                $unit = $conversion.$baseUom->name;
+            }
+        }
+
+        $quantity = $itemData['quantity'];
+        $subtotal = $quantity * $price;
+        $discountPercent = $itemData['discount_percent'] ?? 0;
+        $discountAmount = $subtotal * ($discountPercent / 100);
+        $afterDiscount = $subtotal - $discountAmount;
+        $taxPercent = $itemData['tax_percent'] ?? 0;
+        $taxAmount = $afterDiscount * ($taxPercent / 100);
+        $total = $afterDiscount + $taxAmount;
+
+        $invoiceItem->update([
+            'item_id' => $item->id,
+            'barcode' => $barcode ?? $itemData['barcode'] ?? null,
+            'description' => $itemData['description'],
+            'uom_id' => $uomId,
+            'warehouse_id' => $itemData['warehouse_id'],
+            'quantity' => $quantity,
+            'price' => $price,
+            'unit_price' => $unitPrice,
+            'unit' => $unit,
+            'discount_percent' => $discountPercent,
+            'tax_percent' => $taxPercent,
+            'subtotal' => $subtotal,
+            'total' => $total,
+        ]);
+
+        return $invoiceItem->fresh();
     }
 }
