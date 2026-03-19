@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Supplier\GetSupplierBalanceAction;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Http\Requests\Supplier\StoreSupplierRequest;
@@ -28,8 +29,12 @@ class SupplierController extends Controller
         $this->openingBalanceService = $openingBalanceService;
     }
 
-    public function index()
+    public function index(Request $request)
     {
+        if ($request->query('section') === 'balance') {
+            return app(GetSupplierBalanceAction::class)->execute($request);
+        }
+
         $suppliers = Supplier::with(['supplierGroup:id,name,code', 'openingBalances.currency:id,code,name']);
 
         // Get the suppliers data

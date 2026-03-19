@@ -2,22 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Customer\GetCustomerAppointmentHistoryAction;
+use App\Actions\Customer\GetCustomerAttachmentsAction;
+use App\Actions\Customer\GetCustomerBalanceAction;
+use App\Actions\Customer\GetCustomerForInvoiceAction;
+use App\Actions\Customer\GetCustomerNamesAction;
+use App\Actions\Customer\GetCustomerVisitHistoryAction;
+use App\Actions\Customer\ShowCustomerFullAction;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Http\Requests\Customer\UploadCustomerAttachmentsRequest;
-use App\Http\Resources\Customer\CustomerAttachmentResource;
-use App\Http\Resources\Customer\CustomerForInvoiceResource;
-use App\Http\Resources\Customer\CustomerFullResource;
-use App\Http\Resources\Customer\CustomerNameResource;
 use App\Imports\DynamicExcelImport;
 use App\Models\Address;
-use App\Models\Asset;
 use App\Models\Customer;
 use App\Models\CustomerAttachment;
 use App\Models\Project;
-use App\Models\Specialist;
 use App\Services\OpeningBalanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +32,7 @@ class CustomerController extends Controller
         protected OpeningBalanceService $openingBalanceService
     ) {}
 
-    private const INDEX_SECTIONS = ['names'];
+    private const INDEX_SECTIONS = ['names', 'balance'];
 
     private const SHOW_SECTIONS = ['full', 'attachments', 'appointments', 'visits', 'for_invoice'];
 
@@ -48,7 +49,10 @@ class CustomerController extends Controller
             ], 422);
         }
         if ($section === 'names') {
-            return $this->getNamesResponse();
+            return app(GetCustomerNamesAction::class)->execute();
+        }
+        if ($section === 'balance') {
+            return app(GetCustomerBalanceAction::class)->execute($request);
         }
 
         // Optimized query - only fetch essential data for grid
@@ -543,26 +547,12 @@ class CustomerController extends Controller
         }
 
         return match ($section) {
-            'attachments' => $this->getAttachmentsResponse($customer),
-            'appointments' => $this->getAppointmentHistoryResponse($customer->id),
-            'visits' => $this->getVisitHistoryResponse($customer->id),
-            'for_invoice' => $this->getForInvoiceResponse($customer->id),
-            default => $this->showFullResponse($customer),
+            'attachments' => app(GetCustomerAttachmentsAction::class)->execute($customer),
+            'appointments' => app(GetCustomerAppointmentHistoryAction::class)->execute($customer->id),
+            'visits' => app(GetCustomerVisitHistoryAction::class)->execute($customer->id),
+            'for_invoice' => app(GetCustomerForInvoiceAction::class)->execute($customer->id),
+            default => app(ShowCustomerFullAction::class)->execute($customer),
         };
-    }
-
-    /**
-     * List attachments for a customer (used by show?section=attachments).
-     */
-    protected function getAttachmentsResponse(Customer $customer)
-    {
-        $attachments = $customer->attachments()->orderBy('created_at', 'desc')->get();
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Attachments fetched successfully.',
-            'data' => CustomerAttachmentResource::collection($attachments)->resolve(),
-        ]);
     }
 
     /**
@@ -588,63 +578,6 @@ class CustomerController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Attachment deleted successfully.',
-        ]);
-    }
-
-    protected function showFullResponse(Customer $customer)
-    {
-        $customer->load([
-            'customerGroup:id,name',
-            'salesman:id,name',
-            'collector:id,name',
-            'supervisor:id,name',
-            'manager:id,name',
-            'trade:id,name',
-            'companyCode:id,code',
-            'businessType:id,name',
-            'salesChannel:id,name',
-            'distributionChannel:id,name',
-            'mediaChannel:id,name',
-            'mediaType:id,name',
-            'referral:id,name',
-            'associations:id,name',
-            'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'primaryContact:id,name,title,work_phone,mobile,position,extension,is_primary',
-            'contacts:id,name,title,work_phone,mobile,position,extension,is_primary',
-            'attachments:id,customer_id,file_name,file_path,file_type,file_size,description,category,is_public,created_at,updated_at',
-            'creditLimits:id,currency_id,credit_limit,notes,is_active',
-            'chequeLimits:id,currency_id,max_cheques,notes,is_active',
-            'openingBalances:id,currency_id,opening_amount,opening_date,notes,payment_term_id,payment_method_id,allow_credit,payment_day,track_payment,settlement_method,accept_cheques,is_active',
-        ]);
-
-        // Refresh contacts relationship to ensure all contacts are loaded
-        $customer->load('contacts');
-
-        // Load related currencies for credit limits, cheque limits, and opening balances
-        $creditLimits = $customer->activeCreditLimits()->with('currency:id,code,name,iso_code')->get();
-        $chequeLimits = $customer->activeChequeLimits()->with('currency:id,code,name,iso_code')->get();
-        $openingBalances = $customer->activeOpeningBalances()
-            ->with([
-                'currency:id,code,name,iso_code',
-                'paymentTerm:id,code,name,nb_days',
-                'paymentMethod:id,code,name',
-            ])->get();
-
-        $payload = [
-            'customer' => $customer,
-            'creditLimits' => $creditLimits,
-            'chequeLimits' => $chequeLimits,
-            'openingBalances' => $openingBalances,
-        ];
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer details fetched successfully.',
-            'data' => (new CustomerFullResource($payload))->toArray(request()),
         ]);
     }
 
@@ -2031,49 +1964,6 @@ class CustomerController extends Controller
         }
     }
 
-    protected function getNamesResponse()
-    {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_customer_names";
-
-        $customers = app('cache')->store('database')->get($key);
-
-        $needsRegeneration = false;
-        if ($customers && $customers->isNotEmpty()) {
-            $firstCustomer = $customers->first();
-            if (! isset($firstCustomer['phone'])) {
-                $needsRegeneration = true;
-            }
-        }
-
-        if (! $customers || $needsRegeneration) {
-            $customers = Customer::select('id', 'first_name', 'middle_name', 'last_name', 'phone1')
-                ->orderBy('first_name')
-                ->get()
-                ->map(function ($customer) {
-                    $parts = [
-                        $customer->first_name,
-                        $customer->middle_name,
-                        $customer->last_name,
-                    ];
-
-                    return [
-                        'id' => $customer->id,
-                        'name' => trim(implode(' ', array_filter($parts))),
-                        'phone' => $customer->phone1 ?? '',
-                    ];
-                });
-
-            app('cache')->store('database')->forever($key, $customers);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer names fetched successfully.',
-            'data' => CustomerNameResource::collection($customers)->resolve(),
-        ]);
-    }
-
     /**
      * Search customer by phone number
      */
@@ -2121,148 +2011,6 @@ class CustomerController extends Controller
                 'address_line1' => $addressLine1,
                 'black_listed' => $customer->black_listed,
             ],
-        ]);
-    }
-
-    protected function getAppointmentHistoryResponse($customerId)
-    {
-        $customer = Customer::find($customerId);
-
-        if (! $customer) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Customer not found.',
-                'data' => [],
-            ], 404);
-        }
-
-        $appointments = $customer->appointments()
-            ->with([
-                'services:id,name',
-                'visit:id,appointment_id,status,arrived_at,in_progress_at,completed_at,cancelled_at',
-            ])
-            ->orderBy('start_at', 'desc')
-            ->get();
-
-        $appointments->each(function ($appointment) {
-            $specialistIds = $appointment->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
-            $assetIds = $appointment->services->pluck('pivot.asset_id')->filter()->unique()->toArray();
-
-            $specialists = $specialistIds ? Specialist::whereIn('id', $specialistIds)->get()->keyBy('id') : collect();
-            $assets = $assetIds ? Asset::whereIn('id', $assetIds)->get()->keyBy('id') : collect();
-
-            $appointment->services->each(function ($service) use ($specialists, $assets) {
-                $specialistId = $service->pivot->specialist_id ?? null;
-                $assetId = $service->pivot->asset_id ?? null;
-
-                if ($specialistId && $specialists->has($specialistId)) {
-                    $service->setRelation('specialist', $specialists->get($specialistId));
-                }
-
-                if ($assetId && $assets->has($assetId)) {
-                    $service->setRelation('asset', $assets->get($assetId));
-                }
-            });
-        });
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Appointment history fetched successfully.',
-            'data' => $appointments,
-        ]);
-    }
-
-    protected function getVisitHistoryResponse($customerId)
-    {
-        $customer = Customer::find($customerId);
-
-        if (! $customer) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Customer not found.',
-                'data' => [],
-            ], 404);
-        }
-
-        $visits = $customer->visits()
-            ->with([
-                'appointment.customers',
-                'appointment.services',
-                'services',
-            ])
-            ->orderBy('arrived_at', 'desc')
-            ->get();
-
-        foreach ($visits as $visit) {
-            if ($visit->appointment) {
-                $specialistIds = $visit->appointment->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
-                $assetIds = $visit->appointment->services->pluck('pivot.asset_id')->filter()->unique()->toArray();
-
-                $specialists = $specialistIds ? Specialist::whereIn('id', $specialistIds)->get()->keyBy('id') : collect();
-                $assets = $assetIds ? Asset::whereIn('id', $assetIds)->get()->keyBy('id') : collect();
-
-                $visit->appointment->services->each(function ($service) use ($specialists, $assets) {
-                    $specialistId = $service->pivot->specialist_id ?? null;
-                    $assetId = $service->pivot->asset_id ?? null;
-
-                    if ($specialistId && $specialists->has($specialistId)) {
-                        $service->setRelation('specialist', $specialists->get($specialistId));
-                    }
-
-                    if ($assetId && $assets->has($assetId)) {
-                        $service->setRelation('asset', $assets->get($assetId));
-                    }
-                });
-            }
-
-            if ($visit->services->isNotEmpty()) {
-                $specialistIds = $visit->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
-                if (! empty($specialistIds)) {
-                    $specialists = Specialist::whereIn('id', $specialistIds)->get()->keyBy('id');
-                    $visit->services->each(function ($service) use ($specialists) {
-                        $specialistId = $service->pivot->specialist_id ?? null;
-                        if ($specialistId && $specialists->has($specialistId)) {
-                            $service->setRelation('specialist', $specialists->get($specialistId));
-                        }
-                    });
-                }
-            }
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Visit history fetched successfully.',
-            'data' => $visits,
-        ]);
-    }
-
-    protected function getForInvoiceResponse($customerId)
-    {
-        $customer = Customer::with([
-            'salesman:id,name',
-            'billingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
-            'shippingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
-            'openingBalances' => function ($query) {
-                $query->where('is_active', true)
-                    ->with([
-                        'currency:id,code,name,iso_code',
-                        'paymentTerm:id,code,name,nb_days',
-                        'paymentMethod:id,code,name',
-                    ]);
-            },
-        ])->find($customerId);
-
-        if (! $customer) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Customer not found.',
-            ], 404);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer data retrieved successfully.',
-            'data' => (new CustomerForInvoiceResource($customer))->toArray(request()),
         ]);
     }
 }
