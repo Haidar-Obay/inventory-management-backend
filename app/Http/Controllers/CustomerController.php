@@ -29,6 +29,7 @@ use Maatwebsite\Excel\Facades\Excel;
 class CustomerController extends Controller
 {
     use \App\Http\Controllers\Concerns\HasBillingAddressHandling;
+
     public function __construct(
         protected OpeningBalanceService $openingBalanceService
     ) {}
@@ -310,7 +311,7 @@ class CustomerController extends Controller
                     ->map(function ($ob) {
                         $code = $ob['currency'] ?? null;
                         if (! $code) {
-                            return null;
+                            return;
                         }
 
                         return \App\Models\Currency::where('code', $code)->first()?->id;
@@ -816,7 +817,7 @@ class CustomerController extends Controller
                     ->map(function ($ob) {
                         $code = $ob['currency'] ?? null;
                         if (! $code) {
-                            return null;
+                            return;
                         }
 
                         return \App\Models\Currency::where('code', $code)->first()?->id;
