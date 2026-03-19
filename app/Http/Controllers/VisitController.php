@@ -157,9 +157,9 @@ class VisitController extends Controller
 
         $visit->save();
 
-        // Attach multiple services
+        // Attach multiple services (use attach on create - no existing to preserve)
         if (! empty($servicesData)) {
-            $visit->services()->sync($servicesData);
+            $visit->services()->attach($servicesData);
         }
 
         // Optionally, we could sync appointment status here (usually remains "active" on arrival)
@@ -268,17 +268,29 @@ class VisitController extends Controller
             $visit->cancellation_reason = $data['cancellation_reason'];
         }
 
-        // Handle services update
+        // Handle services update - preserve pivot IDs: update existing, attach new, detach removed
         if (array_key_exists('services', $data) && is_array($data['services'])) {
             $servicesData = [];
             foreach ($data['services'] as $serviceData) {
                 $serviceId = is_array($serviceData) ? ($serviceData['service_id'] ?? $serviceData) : $serviceData;
                 $specialistId = is_array($serviceData) ? ($serviceData['specialist_id'] ?? null) : null;
                 if ($serviceId) {
-                    $servicesData[$serviceId] = ['specialist_id' => $specialistId];
+                    $servicesData[(int) $serviceId] = ['specialist_id' => $specialistId];
                 }
             }
-            $visit->services()->sync($servicesData);
+            $requestServiceIds = array_keys($servicesData);
+            $currentServiceIds = $visit->services()->pluck('services.id')->toArray();
+            $toDetach = array_diff($currentServiceIds, $requestServiceIds);
+            $toAttach = array_diff($requestServiceIds, $currentServiceIds);
+            if (! empty($toDetach)) {
+                $visit->services()->detach($toDetach);
+            }
+            foreach ($toAttach as $serviceId) {
+                $visit->services()->attach($serviceId, $servicesData[$serviceId]);
+            }
+            foreach (array_intersect($currentServiceIds, $requestServiceIds) as $serviceId) {
+                $visit->services()->updateExistingPivot($serviceId, $servicesData[$serviceId]);
+            }
         }
 
         if (! empty($data['status'])) {

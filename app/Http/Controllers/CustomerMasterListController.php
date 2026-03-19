@@ -139,16 +139,31 @@ class CustomerMasterListController extends Controller
                 'valid_till' => $validated['valid_till'] ?? null,
             ], fn ($v) => ! is_null($v)));
 
-            // Sync items with pivot if provided
+            // Sync items with pivot if provided - preserve pivot IDs: update existing, attach new, detach removed
             if (isset($validated['items'])) {
-                $sync = [];
+                $requestItems = [];
                 foreach ($validated['items'] as $row) {
-                    $sync[$row['item_id']] = [
-                        'price' => $row['price'],
-                        'discount' => $row['discount'] ?? 0,
-                    ];
+                    $itemId = $row['item_id'] ?? null;
+                    if ($itemId !== null && $itemId !== '') {
+                        $requestItems[(int) $itemId] = [
+                            'price' => $row['price'],
+                            'discount' => $row['discount'] ?? 0,
+                        ];
+                    }
                 }
-                $customerMasterList->items()->sync($sync);
+                $requestItemIds = array_keys($requestItems);
+                $currentItemIds = $customerMasterList->items()->pluck('items.id')->toArray();
+                $toDetach = array_diff($currentItemIds, $requestItemIds);
+                $toAttach = array_diff($requestItemIds, $currentItemIds);
+                if (! empty($toDetach)) {
+                    $customerMasterList->items()->detach($toDetach);
+                }
+                foreach ($toAttach as $itemId) {
+                    $customerMasterList->items()->attach($itemId, $requestItems[$itemId]);
+                }
+                foreach (array_intersect($currentItemIds, $requestItemIds) as $itemId) {
+                    $customerMasterList->items()->updateExistingPivot($itemId, $requestItems[$itemId]);
+                }
             }
 
             // Clear cache

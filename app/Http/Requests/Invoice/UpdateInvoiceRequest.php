@@ -79,6 +79,7 @@ class UpdateInvoiceRequest extends FormRequest
 
             // Invoice items
             'items' => 'sometimes|array',
+            'items.*.id' => 'nullable|integer|exists:invoice_items,id',
             'items.*.item_id' => 'required_with:items|integer|exists:items,id',
             'items.*.barcode' => 'nullable|string',
             'items.*.description' => 'required_with:items|string',

@@ -127,12 +127,15 @@ class ServiceController extends Controller
             $counter++;
         }
 
-        $item = Item::create([
+        $itemNextId = $this->computeNextAvailableId(Item::class, 'id');
+        $item = new Item([
             'code' => $itemCode,
             'name' => $service->name,
             'type' => ItemType::SERVICE,
             'description' => null,
         ]);
+        $item->id = $itemNextId;
+        $item->save();
         $service->item_id = $item->id;
         $service->save();
 
@@ -144,10 +147,10 @@ class ServiceController extends Controller
         app('cache')->store('database')->forget("tenant_{$tenantId}_item_{$item->id}");
 
         if (! empty($specialistIds)) {
-            $service->specialists()->sync($specialistIds);
+            $service->specialists()->attach($specialistIds);
         }
         if (! empty($assetIds)) {
-            $service->assets()->sync($assetIds);
+            $service->assets()->attach($assetIds);
         }
 
         // Handle attachments - check for actual file uploads first
@@ -357,10 +360,28 @@ class ServiceController extends Controller
         }
 
         if (is_array($specialistIds)) {
-            $service->specialists()->sync($specialistIds);
+            $requestIds = array_values(array_unique(array_filter($specialistIds, fn ($id) => $id !== null && $id !== '')));
+            $currentIds = $service->specialists()->pluck('specialists.id')->toArray();
+            $toDetach = array_diff($currentIds, $requestIds);
+            $toAttach = array_diff($requestIds, $currentIds);
+            if (! empty($toDetach)) {
+                $service->specialists()->detach($toDetach);
+            }
+            if (! empty($toAttach)) {
+                $service->specialists()->attach($toAttach);
+            }
         }
         if (is_array($assetIds)) {
-            $service->assets()->sync($assetIds);
+            $requestIds = array_values(array_unique(array_filter($assetIds, fn ($id) => $id !== null && $id !== '')));
+            $currentIds = $service->assets()->pluck('assets.id')->toArray();
+            $toDetach = array_diff($currentIds, $requestIds);
+            $toAttach = array_diff($requestIds, $currentIds);
+            if (! empty($toDetach)) {
+                $service->assets()->detach($toDetach);
+            }
+            if (! empty($toAttach)) {
+                $service->assets()->attach($toAttach);
+            }
         }
 
         // Handle attachments (multipart) - support both 'attachments' and 'attachments[]'
