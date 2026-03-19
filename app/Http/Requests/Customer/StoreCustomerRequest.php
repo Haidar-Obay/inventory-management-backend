@@ -380,13 +380,17 @@ class StoreCustomerRequest extends FormRequest
             'shipping_addresses.*.apartment' => 'nullable|string|max:255',
             'shipping_addresses.*.zip_code' => 'nullable|string|max:20',
 
-            // Credit limits with new structure
-            'credit_limits' => 'nullable|array',
-            'credit_limits.*' => 'numeric|min:0',
+            // Credit limits (array format - aligned with supplier)
+            'credit_limits' => ['nullable', 'array'],
+            'credit_limits.*.currency_id' => ['required', 'exists:currencies,id'],
+            'credit_limits.*.credit_limit' => ['required', 'numeric', 'min:0', 'max:999999999.99'],
+            'credit_limits.*.notes' => ['nullable', 'string', 'max:1000'],
 
-            // Cheque limits with new structure
-            'max_cheques' => 'nullable|array',
-            'max_cheques.*' => 'nullable|integer|min:0',
+            // Cheque limits (array format - aligned with supplier)
+            'cheque_limits' => ['nullable', 'array'],
+            'cheque_limits.*.currency_id' => ['required', 'exists:currencies,id'],
+            'cheque_limits.*.max_cheques' => ['nullable', 'integer', 'min:0'],
+            'cheque_limits.*.notes' => ['nullable', 'string', 'max:1000'],
 
             // Opening balances with new structure
             'opening_balances' => [
@@ -472,12 +476,15 @@ class StoreCustomerRequest extends FormRequest
             'shipping_addresses.*.zone_id.exists' => 'Selected zone does not exist.',
 
             // Credit limits messages
-            'credit_limits.*.numeric' => 'Credit limit must be a number.',
-            'credit_limits.*.min' => 'Credit limit must be at least 0.',
+            'credit_limits.*.currency_id.required' => 'Currency is required for each credit limit.',
+            'credit_limits.*.credit_limit.required' => 'Credit limit amount is required.',
+            'credit_limits.*.credit_limit.numeric' => 'Credit limit must be a number.',
+            'credit_limits.*.credit_limit.min' => 'Credit limit must be at least 0.',
 
             // Cheque limits messages
-            'max_cheques.*.integer' => 'Maximum cheques must be a whole number.',
-            'max_cheques.*.min' => 'Maximum cheques must be at least 0.',
+            'cheque_limits.*.currency_id.required' => 'Currency is required for each cheque limit.',
+            'cheque_limits.*.max_cheques.integer' => 'Maximum cheques must be a whole number.',
+            'cheque_limits.*.max_cheques.min' => 'Maximum cheques must be at least 0.',
 
             // Opening balances messages
             'opening_balances.*.currency.required' => 'Currency is required for each opening balance.',

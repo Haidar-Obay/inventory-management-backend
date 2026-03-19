@@ -2,6 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Customer\GetCustomerAppointmentHistoryAction;
+use App\Actions\Customer\GetCustomerAttachmentsAction;
+use App\Actions\Customer\GetCustomerBalanceAction;
+use App\Actions\Customer\GetCustomerForInvoiceAction;
+use App\Actions\Customer\GetCustomerNamesAction;
+use App\Actions\Customer\GetCustomerVisitHistoryAction;
+use App\Actions\Customer\ShowCustomerFullAction;
 use App\Exports\Export;
 use App\Exports\ExportPDF;
 use App\Http\Requests\Customer\StoreCustomerRequest;
@@ -9,11 +16,9 @@ use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Http\Requests\Customer\UploadCustomerAttachmentsRequest;
 use App\Imports\DynamicExcelImport;
 use App\Models\Address;
-use App\Models\Asset;
 use App\Models\Customer;
 use App\Models\CustomerAttachment;
 use App\Models\Project;
-use App\Models\Specialist;
 use App\Services\OpeningBalanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,12 +28,34 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class CustomerController extends Controller
 {
+    use \App\Http\Controllers\Concerns\HasBillingAddressHandling;
     public function __construct(
         protected OpeningBalanceService $openingBalanceService
     ) {}
 
-    public function index()
+    private const INDEX_SECTIONS = ['names', 'balance'];
+
+    private const SHOW_SECTIONS = ['full', 'attachments', 'appointments', 'visits', 'for_invoice'];
+
+    /**
+     * List customers. Use ?section=names for id/name/phone list; default is grid data.
+     */
+    public function index(Request $request)
     {
+        $section = $request->query('section');
+        if ($section !== null && ! in_array($section, self::INDEX_SECTIONS, true)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Invalid section. Allowed: '.implode(', ', self::INDEX_SECTIONS).'.',
+            ], 422);
+        }
+        if ($section === 'names') {
+            return app(GetCustomerNamesAction::class)->execute();
+        }
+        if ($section === 'balance') {
+            return app(GetCustomerBalanceAction::class)->execute($request);
+        }
+
         // Optimized query - only fetch essential data for grid
         $customers = Customer::select([
             'id',
@@ -149,30 +176,7 @@ class CustomerController extends Controller
             $customer->save();
 
             // Handle billing address - unified structure (after customer is created)
-            $hasAnyBillingField = $request->filled('billing_address_line1');
-            if (! $hasAnyBillingField) {
-                foreach ([
-                    'billing_country_id',
-                    'billing_city_id',
-                    'billing_district_id',
-                    'billing_zone_id',
-                    'billing_building',
-                    'billing_block',
-                    'billing_floor',
-                    'billing_side',
-                    'billing_apartment',
-                    'billing_zip_code',
-                    'billing_address_line2',
-                    'billing_notes',
-                ] as $key) {
-                    if ($request->has($key)) {
-                        $hasAnyBillingField = true;
-
-                        break;
-                    }
-                }
-            }
-            if ($hasAnyBillingField) {
+            if ($this->hasAnyBillingField($request)) {
                 // Create address in addresses table
                 $billingAddress = Address::create([
                     'address_line1' => $request->input('billing_address_line1'),
@@ -286,14 +290,13 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle credit limits with new structure (after opening balances) - only for currencies with allow_credit=true
-            if ($request->has('credit_limits')) {
-                $creditLimits = $request->input('credit_limits');
-                foreach ($creditLimits as $currencyCode => $amount) {
-                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency && $customer->hasAllowCreditForCurrency($currency->id)) {
+            // Handle credit limits (array format - aligned with supplier)
+            if ($request->has('credit_limits') && is_array($request->input('credit_limits'))) {
+                foreach ($request->input('credit_limits') as $creditLimitData) {
+                    $currencyId = $creditLimitData['currency_id'] ?? null;
+                    if ($currencyId && $customer->hasAllowCreditForCurrency($currencyId)) {
                         try {
-                            $customer->setCreditLimit($currency->id, $amount);
+                            $customer->setCreditLimit($currencyId, $creditLimitData['credit_limit']);
                         } catch (\Exception $e) {
                             throw new \Exception('Credit limit validation failed: '.$e->getMessage());
                         }
@@ -301,40 +304,41 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle cheque limits with new structure (after opening balances)
-            if ($request->has('max_cheques')) {
-                $chequeLimits = $request->input('max_cheques');
+            // Handle cheque limits (array format - aligned with supplier)
+            if ($request->has('cheque_limits') && is_array($request->input('cheque_limits'))) {
+                $openingBalanceCurrencyIds = collect($request->input('opening_balances', []))
+                    ->map(function ($ob) {
+                        $code = $ob['currency'] ?? null;
+                        if (! $code) {
+                            return null;
+                        }
 
-                // Get currencies that have opening balances from the request
-                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
-                    ->pluck('currency')
+                        return \App\Models\Currency::where('code', $code)->first()?->id;
+                    })
                     ->filter()
+                    ->unique()
+                    ->values()
                     ->toArray();
 
-                foreach ($chequeLimits as $currencyCode => $maxCheques) {
-                    // Skip empty, null, or zero values (cleared fields)
+                foreach ($request->input('cheque_limits') as $chequeLimitData) {
+                    $maxCheques = $chequeLimitData['max_cheques'] ?? null;
                     if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
                         continue;
                     }
 
-                    // Find currency by code
-                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency) {
+                    $currencyId = $chequeLimitData['currency_id'] ?? null;
+                    if ($currencyId && in_array($currencyId, $openingBalanceCurrencyIds)) {
                         try {
-                            // Check if this currency has an opening balance
-                            if (in_array($currencyCode, $openingBalanceCurrencies)) {
-                                $customerCheque = \App\Models\CustomerChequeLimit::create([
-                                    'customer_id' => $customer->id,
-                                    'currency_id' => $currency->id,
-                                    'max_cheques' => $maxCheques,
-                                    'used_cheques' => 0,
-                                    'available_cheques' => $maxCheques,
-                                    'notes' => null,
-                                    'is_active' => true,
-                                ]);
-                            }
+                            \App\Models\CustomerChequeLimit::create([
+                                'customer_id' => $customer->id,
+                                'currency_id' => $currencyId,
+                                'max_cheques' => $maxCheques,
+                                'used_cheques' => 0,
+                                'available_cheques' => $maxCheques,
+                                'notes' => $chequeLimitData['notes'] ?? null,
+                                'is_active' => true,
+                            ]);
                         } catch (\Exception $e) {
-                            // Re-throw the exception to trigger transaction rollback
                             throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
                         }
                     }
@@ -365,9 +369,12 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle associations (many-to-many)
+            // Handle associations (many-to-many) - use attach on create (no existing to preserve)
             if ($request->has('associations')) {
-                $customer->associations()->sync($request->input('associations'));
+                $associationIds = array_values(array_unique(array_filter((array) $request->input('associations'), fn ($id) => $id !== null && $id !== '')));
+                if (! empty($associationIds)) {
+                    $customer->associations()->attach($associationIds);
+                }
             }
 
             // Handle attachments - check for actual file uploads first
@@ -508,17 +515,25 @@ class CustomerController extends Controller
     }
 
     /**
-     * List attachments for a customer.
+     * Show customer. Use ?section=full|attachments|appointments|visits|for_invoice (default: full).
      */
-    public function getAttachments(Customer $customer)
+    public function show(Request $request, Customer $customer)
     {
-        $attachments = $customer->attachments()->orderBy('created_at', 'desc')->get();
+        $section = $request->query('section', 'full');
+        if (! in_array($section, self::SHOW_SECTIONS, true)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Invalid section. Allowed: '.implode(', ', self::SHOW_SECTIONS).'.',
+            ], 422);
+        }
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Attachments fetched successfully.',
-            'data' => $attachments,
-        ]);
+        return match ($section) {
+            'attachments' => app(GetCustomerAttachmentsAction::class)->execute($customer),
+            'appointments' => app(GetCustomerAppointmentHistoryAction::class)->execute($customer->id),
+            'visits' => app(GetCustomerVisitHistoryAction::class)->execute($customer->id),
+            'for_invoice' => app(GetCustomerForInvoiceAction::class)->execute($customer->id),
+            default => app(ShowCustomerFullAction::class)->execute($customer),
+        };
     }
 
     /**
@@ -547,402 +562,6 @@ class CustomerController extends Controller
         ]);
     }
 
-    public function show(Customer $customer)
-    {
-        $customer->load([
-            'customerGroup:id,name',
-            'salesman:id,name',
-            'collector:id,name',
-            'supervisor:id,name',
-            'manager:id,name',
-            'trade:id,name',
-            'companyCode:id,code',
-            'businessType:id,name',
-            'salesChannel:id,name',
-            'distributionChannel:id,name',
-            'mediaChannel:id,name',
-            'mediaType:id,name',
-            'referral:id,name',
-            'associations:id,name',
-            'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'primaryContact:id,name,title,work_phone,mobile,position,extension,is_primary',
-            'contacts:id,name,title,work_phone,mobile,position,extension,is_primary',
-            'attachments:id,customer_id,file_name,file_path,file_type,file_size,description,category,is_public,created_at,updated_at',
-            'creditLimits:id,currency_id,credit_limit,notes,is_active',
-            'chequeLimits:id,currency_id,max_cheques,notes,is_active',
-            'openingBalances:id,currency_id,opening_amount,opening_date,notes,payment_term_id,payment_method_id,allow_credit,payment_day,track_payment,settlement_method,accept_cheques,is_active',
-        ]);
-
-        // Refresh contacts relationship to ensure all contacts are loaded
-        $customer->load('contacts');
-
-        // Load related currencies for credit limits, cheque limits, and opening balances
-        $creditLimits = $customer->activeCreditLimits()->with('currency:id,code,name,iso_code')->get();
-        $chequeLimits = $customer->activeChequeLimits()->with('currency:id,code,name,iso_code')->get();
-        $openingBalances = $customer->activeOpeningBalances()
-            ->with([
-                'currency:id,code,name,iso_code',
-                'paymentTerm:id,code,name,nb_days',
-                'paymentMethod:id,code,name',
-            ])->get();
-
-        // Transform the response to include all customer data
-        $transformedData = [
-            'id' => $customer->id,
-            'title' => $customer->title,
-            'first_name' => $customer->first_name,
-            'middle_name' => $customer->middle_name,
-            'last_name' => $customer->last_name,
-            'display_name' => $customer->display_name,
-            'company_name' => $customer->company_name,
-            'phone1' => $customer->phone1,
-            'phone2' => $customer->phone2,
-            'phone3' => $customer->phone3,
-            'email' => $customer->email,
-            'date_of_birth' => $customer->date_of_birth,
-            'place_of_birth' => $customer->place_of_birth,
-            'gender' => $customer->gender,
-            'blood_type' => $customer->blood_type,
-            'marital_status' => $customer->marital_status,
-            'card_number' => $customer->card_number,
-            'file_number' => $customer->file_number,
-            'bar_code' => $customer->bar_code,
-            'search_terms' => $customer->search_terms,
-            'indicator' => $customer->indicator,
-            'risk_category' => $customer->risk_category,
-            'active' => $customer->active,
-            'black_listed' => $customer->black_listed,
-            'blacklisted_reason' => $customer->blacklisted_reason,
-            'one_time_account' => $customer->one_time_account,
-            'cash_customer' => $customer->cash_customer,
-            'special_account' => $customer->special_account,
-            'pos_customer' => $customer->pos_customer,
-            'free_delivery_charge' => $customer->free_delivery_charge,
-            'print_invoice_language' => $customer->print_invoice_language,
-            'send_invoice' => $customer->send_invoice,
-            'message' => $customer->message,
-            'notes' => $customer->notes,
-            'created_at' => $customer->created_at,
-            'updated_at' => $customer->updated_at,
-
-            // Payment and credit related fields (allow_credit, accept_cheques are per-currency in opening_balances)
-            'allow_credit' => $customer->openingBalances()->active()->where('allow_credit', true)->exists(),
-            'accept_cheques' => $customer->openingBalances()->active()->where('accept_cheques', true)->exists(),
-
-            // Pricing related fields
-            'price_choice' => $customer->price_choice,
-            'price_list' => $customer->price_list,
-            'global_discount' => $customer->global_discount,
-            'discount_class' => $customer->discount_class,
-            'markup_percentage' => $customer->markup_percentage,
-            'markdown_percentage' => $customer->markdown_percentage,
-
-            // Tax related fields
-            'taxable' => $customer->taxable,
-            'taxed_from_date' => $customer->taxed_from_date,
-            'taxed_till_date' => $customer->taxed_till_date,
-            'subjected_to_tax' => $customer->subjected_to_tax,
-            'added_tax' => $customer->added_tax,
-            'exempted' => $customer->exempted,
-            'exempted_from' => $customer->exempted_from,
-            'exemption_reference' => $customer->exemption_reference,
-            'exempted_from_date' => $customer->exempted_from_date,
-            'exempted_till_date' => $customer->exempted_till_date,
-
-            // Related data with full info
-            'customer_group' => $customer->customerGroup ? [
-                'id' => $customer->customerGroup->id,
-                'name' => $customer->customerGroup->name,
-            ] : null,
-            'salesman' => $customer->salesman ? [
-                'id' => $customer->salesman->id,
-                'name' => $customer->salesman->name,
-            ] : null,
-            'collector' => $customer->collector ? [
-                'id' => $customer->collector->id,
-                'name' => $customer->collector->name,
-            ] : null,
-            'supervisor' => $customer->supervisor ? [
-                'id' => $customer->supervisor->id,
-                'name' => $customer->supervisor->name,
-            ] : null,
-            'manager' => $customer->manager ? [
-                'id' => $customer->manager->id,
-                'name' => $customer->manager->name,
-            ] : null,
-            'payment_term' => $customer->openingBalances->first()?->paymentTerm ? [
-                'id' => $customer->openingBalances->first()->paymentTerm->id,
-                'code' => $customer->openingBalances->first()->paymentTerm->code,
-            ] : null,
-            'payment_method' => $customer->openingBalances->first()?->paymentMethod ? [
-                'id' => $customer->openingBalances->first()->paymentMethod->id,
-                'code' => $customer->openingBalances->first()->paymentMethod->code,
-            ] : null,
-            'trade' => $customer->trade ? [
-                'id' => $customer->trade->id,
-                'name' => $customer->trade->name,
-            ] : null,
-            'company_code' => $customer->companyCode ? [
-                'id' => $customer->companyCode->id,
-                'code' => $customer->companyCode->code,
-            ] : null,
-            'business_type' => $customer->businessType ? [
-                'id' => $customer->businessType->id,
-                'name' => $customer->businessType->name,
-            ] : null,
-            'sales_channel' => $customer->salesChannel ? [
-                'id' => $customer->salesChannel->id,
-                'name' => $customer->salesChannel->name,
-            ] : null,
-            'distribution_channel' => $customer->distributionChannel ? [
-                'id' => $customer->distributionChannel->id,
-                'name' => $customer->distributionChannel->name,
-            ] : null,
-            'media_channel' => $customer->mediaChannel ? [
-                'id' => $customer->mediaChannel->id,
-                'name' => $customer->mediaChannel->name,
-            ] : null,
-
-            // New relationships for ClientDrawer
-            'media_type' => $customer->mediaType ? [
-                'id' => $customer->mediaType->id,
-                'name' => $customer->mediaType->name,
-            ] : null,
-            'referral' => $customer->referral ? [
-                'id' => $customer->referral->id,
-                'name' => $customer->referral->name,
-            ] : null,
-            'associations' => $customer->associations->map(function ($association) {
-                return [
-                    'id' => $association->id,
-                    'name' => $association->name,
-                ];
-            }),
-            'status' => $customer->status,
-
-            // Addresses with full details
-            'addresses' => $customer->addresses->map(function ($address) {
-                return [
-                    'id' => $address->id,
-                    'address_line1' => $address->address_line1,
-                    'address_line2' => $address->address_line2,
-                    'country_id' => $address->country_id,
-                    'city_id' => $address->city_id,
-                    'district_id' => $address->district_id,
-                    'zone_id' => $address->zone_id,
-                    'building' => $address->building,
-                    'block' => $address->block,
-                    'floor' => $address->floor,
-                    'side' => $address->side,
-                    'appartment' => $address->appartment,
-                    'zip_code' => $address->zip_code,
-                ];
-            }),
-
-            // Billing addresses (sorted: primary first, then others)
-            'billing_addresses' => $customer->billingAddresses
-                ->sortByDesc(function ($address) {
-                    return $address->pivot->is_primary;
-                })
-                ->values()
-                ->map(function ($address) {
-                    return [
-                        'id' => $address->id,
-                        'address_line1' => $address->address_line1,
-                        'address_line2' => $address->address_line2,
-                        'country_id' => $address->country_id,
-                        'city_id' => $address->city_id,
-                        'district_id' => $address->district_id,
-                        'zone_id' => $address->zone_id,
-                        'building' => $address->building,
-                        'block' => $address->block,
-                        'floor' => $address->floor,
-                        'side' => $address->side,
-                        'appartment' => $address->appartment,
-                        'zip_code' => $address->zip_code,
-                    ];
-                }),
-
-            // Shipping addresses (sorted: primary first, then others)
-            'shipping_addresses' => $customer->shippingAddresses
-                ->sortByDesc(function ($address) {
-                    return $address->pivot->is_primary;
-                })
-                ->values()
-                ->map(function ($address) {
-                    return [
-                        'id' => $address->id,
-                        'address_line1' => $address->address_line1,
-                        'address_line2' => $address->address_line2,
-                        'country_id' => $address->country_id,
-                        'city_id' => $address->city_id,
-                        'district_id' => $address->district_id,
-                        'zone_id' => $address->zone_id,
-                        'building' => $address->building,
-                        'block' => $address->block,
-                        'floor' => $address->floor,
-                        'side' => $address->side,
-                        'appartment' => $address->appartment,
-                        'zip_code' => $address->zip_code,
-                    ];
-                }),
-
-            // Primary addresses (belongsToMany relationships return collection, use first())
-            'primary_billing_address' => ($primaryBilling = $customer->primaryBillingAddress()->first()) ? [
-                'id' => $primaryBilling->id,
-                'address_line1' => $primaryBilling->address_line1,
-                'address_line2' => $primaryBilling->address_line2,
-                'country_id' => $primaryBilling->country_id,
-                'city_id' => $primaryBilling->city_id,
-                'district_id' => $primaryBilling->district_id,
-                'zone_id' => $primaryBilling->zone_id,
-                'building' => $primaryBilling->building,
-                'block' => $primaryBilling->block,
-                'floor' => $primaryBilling->floor,
-                'side' => $primaryBilling->side,
-                'appartment' => $primaryBilling->appartment,
-                'zip_code' => $primaryBilling->zip_code,
-            ] : null,
-
-            'primary_shipping_address' => ($primaryShipping = $customer->primaryShippingAddress()->first()) ? [
-                'id' => $primaryShipping->id,
-                'address_line1' => $primaryShipping->address_line1,
-                'address_line2' => $primaryShipping->address_line2,
-                'country_id' => $primaryShipping->country_id,
-                'city_id' => $primaryShipping->city_id,
-                'district_id' => $primaryShipping->district_id,
-                'zone_id' => $primaryShipping->zone_id,
-                'building' => $primaryShipping->building,
-                'block' => $primaryShipping->block,
-                'floor' => $primaryShipping->floor,
-                'side' => $primaryShipping->side,
-                'appartment' => $primaryShipping->appartment,
-                'zip_code' => $primaryShipping->zip_code,
-            ] : null,
-
-            // Contacts with full details - get all contacts for this customer
-            'contacts' => $customer->contacts()->get()->map(function ($contact) {
-                return [
-                    'id' => $contact->id,
-                    'title' => $contact->title,
-                    'name' => $contact->name,
-                    'work_phone' => $contact->work_phone,
-                    'mobile' => $contact->mobile,
-                    'position' => $contact->position,
-                    'extension' => $contact->extension,
-                    'is_primary' => $contact->is_primary,
-                ];
-            }),
-
-            // Primary contact
-            'primary_contact' => $customer->primaryContact ? [
-                'id' => $customer->primaryContact->id,
-                'title' => $customer->primaryContact->title,
-                'name' => $customer->primaryContact->name,
-                'work_phone' => $customer->primaryContact->work_phone,
-                'mobile' => $customer->primaryContact->mobile,
-                'position' => $customer->primaryContact->position,
-                'extension' => $customer->primaryContact->extension,
-            ] : null,
-
-            // Attachments with full details
-            'attachments' => $customer->attachments->map(function ($attachment) {
-                return [
-                    'id' => $attachment->id,
-                    'file_name' => $attachment->file_name,
-                    'file_path' => $attachment->file_path,
-                    'file_type' => $attachment->file_type,
-                    'file_size' => $attachment->file_size,
-                    'category' => $attachment->category,
-                ];
-            }),
-
-            // Credit limits with currency info
-            'credit_limits' => $creditLimits->map(function ($creditLimit) {
-                return [
-                    'id' => $creditLimit->id,
-                    'currency_id' => $creditLimit->currency_id,
-                    'currency_code' => $creditLimit->currency->code,
-                    'currency_name' => $creditLimit->currency->name,
-                    'currency_iso_code' => $creditLimit->currency->iso_code,
-                    'credit_limit' => $creditLimit->credit_limit,
-                    'notes' => $creditLimit->notes,
-                    'is_active' => $creditLimit->is_active,
-                ];
-            }),
-
-            // Cheque limits with currency info
-            'cheque_limits' => $chequeLimits->map(function ($chequeLimit) {
-                return [
-                    'id' => $chequeLimit->id,
-                    'currency_id' => $chequeLimit->currency_id,
-                    'currency_code' => $chequeLimit->currency->code,
-                    'currency_name' => $chequeLimit->currency->name,
-                    'currency_iso_code' => $chequeLimit->currency->iso_code,
-                    'max_cheques' => $chequeLimit->max_cheques,
-                    'notes' => $chequeLimit->notes,
-                    'is_active' => $chequeLimit->is_active,
-                ];
-            }),
-
-            // Opening balances with currency and payment term info
-            'opening_balances' => $openingBalances->map(function ($openingBalance) {
-                return [
-                    'id' => $openingBalance->id,
-                    'currency_id' => $openingBalance->currency_id,
-                    'currency_code' => $openingBalance->currency->code,
-                    'currency_name' => $openingBalance->currency->name,
-                    'currency_iso_code' => $openingBalance->currency->iso_code,
-                    'opening_amount' => $openingBalance->opening_amount,
-                    'opening_date' => $openingBalance->opening_date,
-                    'notes' => $openingBalance->notes,
-                    'payment_term_id' => $openingBalance->payment_term_id,
-                    'payment_method_id' => $openingBalance->payment_method_id,
-                    'allow_credit' => $openingBalance->allow_credit,
-                    'payment_day' => $openingBalance->payment_day,
-                    'track_payment' => $openingBalance->track_payment,
-                    'settlement_method' => $openingBalance->settlement_method,
-                    'accept_cheques' => (bool) $openingBalance->accept_cheques,
-                    'payment_term' => $openingBalance->paymentTerm ? [
-                        'id' => $openingBalance->paymentTerm->id,
-                        'code' => $openingBalance->paymentTerm->code,
-                        'name' => $openingBalance->paymentTerm->name,
-                        'nb_days' => $openingBalance->paymentTerm->nb_days,
-                    ] : null,
-                    'payment_method' => $openingBalance->paymentMethod ? [
-                        'id' => $openingBalance->paymentMethod->id,
-                        'code' => $openingBalance->paymentMethod->code,
-                        'name' => $openingBalance->paymentMethod->name,
-                    ] : null,
-                    'is_active' => $openingBalance->is_active,
-                ];
-            }),
-            // Attachments
-            'attachments' => $customer->attachments->map(function ($attachment) {
-                return [
-                    'id' => $attachment->id,
-                    'file_name' => $attachment->file_name,
-                    'file_path' => $attachment->file_path,
-                    'file_type' => $attachment->file_type,
-                    'file_size' => $attachment->file_size,
-                    'description' => $attachment->description,
-                    'category' => $attachment->category,
-                    'is_public' => (bool) $attachment->is_public,
-                ];
-            }),
-        ];
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer details fetched successfully.',
-            'data' => $transformedData,
-        ]);
-    }
-
     public function update(UpdateCustomerRequest $request, Customer $customer)
     {
         $validated = $request->validated();
@@ -951,126 +570,108 @@ class CustomerController extends Controller
         // Use database transaction to ensure all operations succeed or fail together
         return DB::transaction(function () use ($request, $validated, $customer) {
 
-            // Handle addresses - unified structure (update existing or create new)
-            if ($request->filled('billing_address_line1') || $request->has('shipping_addresses')) {
-                // Handle billing address - update existing or create new
-                if ($request->filled('billing_address_line1')) {
-                    // Get existing primary billing address via pivot
-                    $existingBillingPivot = $customer->primaryBillingAddress()->first();
+            // Handle billing address - update/create when any field filled; delete when all empty
+            if ($this->hasAnyBillingField($request)) {
+                $existingBillingPivot = $customer->primaryBillingAddress()->first();
 
-                    $billingAddressData = [
-                        'address_line1' => $request->input('billing_address_line1'),
-                        'address_line2' => $request->input('billing_address_line2'),
-                        'country_id' => $request->input('billing_country_id'),
-                        'city_id' => $request->input('billing_city_id'),
-                        'district_id' => $request->input('billing_district_id'),
-                        'zone_id' => $request->input('billing_zone_id'),
-                        'building' => $request->input('billing_building'),
-                        'block' => $request->input('billing_block'),
-                        'floor' => $request->input('billing_floor'),
-                        'side' => $request->input('billing_side'),
-                        'appartment' => $request->input('billing_apartment'),
-                        'zip_code' => $request->input('billing_zip_code'),
-                    ];
+                $billingAddressData = [
+                    'address_line1' => $request->input('billing_address_line1'),
+                    'address_line2' => $request->input('billing_address_line2'),
+                    'country_id' => $request->input('billing_country_id'),
+                    'city_id' => $request->input('billing_city_id'),
+                    'district_id' => $request->input('billing_district_id'),
+                    'zone_id' => $request->input('billing_zone_id'),
+                    'building' => $request->input('billing_building'),
+                    'block' => $request->input('billing_block'),
+                    'floor' => $request->input('billing_floor'),
+                    'side' => $request->input('billing_side'),
+                    'appartment' => $request->input('billing_apartment'),
+                    'zip_code' => $request->input('billing_zip_code'),
+                ];
 
-                    $billingPivotData = [
-                        'address_type' => 'billing',
-                        'is_primary' => true,
-                        'address_name' => 'Primary Billing Address',
-                        'notes' => $request->input('billing_notes'),
-                    ];
+                $billingPivotData = [
+                    'address_type' => 'billing',
+                    'is_primary' => true,
+                    'address_name' => 'Primary Billing Address',
+                    'notes' => $request->input('billing_notes'),
+                ];
 
-                    if ($existingBillingPivot) {
-                        // UPDATE existing address data
-                        $existingBillingPivot->update($billingAddressData);
-                        // UPDATE pivot data
-                        $customer->addresses()->updateExistingPivot($existingBillingPivot->id, $billingPivotData);
-                    } else {
-                        // CREATE new address
-                        $billingAddress = Address::create($billingAddressData);
-                        // Attach to customer via pivot table
-                        $customer->addresses()->attach($billingAddress->id, $billingPivotData);
-                    }
+                if ($existingBillingPivot) {
+                    $existingBillingPivot->update($billingAddressData);
+                    $customer->addresses()->updateExistingPivot($existingBillingPivot->id, $billingPivotData);
                 } else {
-                    // Remove billing address if not provided
-                    $billingAddresses = $customer->billingAddresses()->get();
-                    foreach ($billingAddresses as $address) {
-                        $customer->addresses()->detach($address->id);
-                        // Optionally delete the address if not used by others
-                        $address->delete();
+                    $billingAddress = Address::create($billingAddressData);
+                    $customer->addresses()->attach($billingAddress->id, $billingPivotData);
+                }
+            } else {
+                // All billing fields empty - remove billing address from database
+                $billingAddresses = $customer->billingAddresses()->get();
+                foreach ($billingAddresses as $address) {
+                    $customer->addresses()->detach($address->id);
+                    $address->delete();
+                }
+            }
+
+            // Handle shipping addresses - update existing or create new
+            if ($request->has('shipping_addresses')) {
+                $shippingAddresses = $request->input('shipping_addresses');
+                $existingShippingPivots = $customer->shippingAddresses()->get()->keyBy('id');
+                $newShippingIds = [];
+
+                $existingPrimaryShipping = $customer->primaryShippingAddress()->first();
+                if ($existingPrimaryShipping) {
+                    $customer->addresses()->updateExistingPivot($existingPrimaryShipping->id, ['is_primary' => false]);
+                }
+
+                foreach ($shippingAddresses as $index => $shippingAddressData) {
+                    $shippingAddressDataForTable = [
+                        'address_line1' => $shippingAddressData['address_line1'],
+                        'address_line2' => $shippingAddressData['address_line2'] ?? null,
+                        'country_id' => $shippingAddressData['country_id'],
+                        'city_id' => $shippingAddressData['city_id'],
+                        'district_id' => $shippingAddressData['district_id'] ?? null,
+                        'zone_id' => $shippingAddressData['zone_id'] ?? null,
+                        'building' => $shippingAddressData['building'] ?? null,
+                        'block' => $shippingAddressData['block'] ?? null,
+                        'floor' => $shippingAddressData['floor'] ?? null,
+                        'side' => $shippingAddressData['side'] ?? null,
+                        'appartment' => $shippingAddressData['apartment'] ?? null,
+                        'zip_code' => $shippingAddressData['zip_code'] ?? null,
+                    ];
+
+                    $shippingPivotData = [
+                        'address_type' => 'shipping',
+                        'is_primary' => $index === 0,
+                        'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
+                        'notes' => $shippingAddressData['notes'] ?? null,
+                    ];
+
+                    if (isset($shippingAddressData['id']) && $existingShippingPivots->has($shippingAddressData['id'])) {
+                        $existingShipping = $existingShippingPivots->get($shippingAddressData['id']);
+                        $existingShipping->update($shippingAddressDataForTable);
+                        $customer->addresses()->updateExistingPivot($existingShipping->id, $shippingPivotData);
+                        $newShippingIds[] = $existingShipping->id;
+                    } else {
+                        $newAddress = Address::create($shippingAddressDataForTable);
+                        $customer->addresses()->attach($newAddress->id, $shippingPivotData);
+                        $newShippingIds[] = $newAddress->id;
                     }
                 }
 
-                // Handle shipping addresses - update existing or create new
-                if ($request->has('shipping_addresses')) {
-                    $shippingAddresses = $request->input('shipping_addresses');
-                    $existingShippingPivots = $customer->shippingAddresses()->get()->keyBy('id');
-                    $newShippingIds = [];
-
-                    // First, unset all existing primary shipping addresses to avoid unique constraint violation
-                    $existingPrimaryShipping = $customer->primaryShippingAddress()->first();
-                    if ($existingPrimaryShipping) {
-                        $customer->addresses()->updateExistingPivot($existingPrimaryShipping->id, ['is_primary' => false]);
-                    }
-
-                    foreach ($shippingAddresses as $index => $shippingAddressData) {
-                        $shippingAddressDataForTable = [
-                            'address_line1' => $shippingAddressData['address_line1'],
-                            'address_line2' => $shippingAddressData['address_line2'] ?? null,
-                            'country_id' => $shippingAddressData['country_id'],
-                            'city_id' => $shippingAddressData['city_id'],
-                            'district_id' => $shippingAddressData['district_id'] ?? null,
-                            'zone_id' => $shippingAddressData['zone_id'] ?? null,
-                            'building' => $shippingAddressData['building'] ?? null,
-                            'block' => $shippingAddressData['block'] ?? null,
-                            'floor' => $shippingAddressData['floor'] ?? null,
-                            'side' => $shippingAddressData['side'] ?? null,
-                            'appartment' => $shippingAddressData['apartment'] ?? null,
-                            'zip_code' => $shippingAddressData['zip_code'] ?? null,
-                        ];
-
-                        $shippingPivotData = [
-                            'address_type' => 'shipping',
-                            'is_primary' => $index === 0, // First shipping address is primary
-                            'address_name' => $index === 0 ? 'Primary Shipping Address' : 'Shipping Address '.($index + 1),
-                            'notes' => $shippingAddressData['notes'] ?? null,
-                        ];
-
-                        // Check if we should update existing address (by ID if provided)
-                        if (isset($shippingAddressData['id']) && $existingShippingPivots->has($shippingAddressData['id'])) {
-                            $existingShipping = $existingShippingPivots->get($shippingAddressData['id']);
-                            // UPDATE existing address data
-                            $existingShipping->update($shippingAddressDataForTable);
-                            // UPDATE pivot data
-                            $customer->addresses()->updateExistingPivot($existingShipping->id, $shippingPivotData);
-                            $newShippingIds[] = $existingShipping->id;
-                        } else {
-                            // CREATE new address
-                            $newAddress = Address::create($shippingAddressDataForTable);
-                            // Attach to customer via pivot table
-                            $customer->addresses()->attach($newAddress->id, $shippingPivotData);
-                            $newShippingIds[] = $newAddress->id;
-                        }
-                    }
-
-                    // Delete addresses that were removed
-                    $addressesToDelete = $existingShippingPivots->keys()->diff($newShippingIds);
-                    foreach ($addressesToDelete as $addressId) {
-                        $customer->addresses()->detach($addressId);
-                        // Optionally delete the address if not used by others
-                        $address = Address::find($addressId);
-                        if ($address) {
-                            $address->delete();
-                        }
-                    }
-                } else {
-                    // Remove all shipping addresses if not provided
-                    $shippingAddresses = $customer->shippingAddresses()->get();
-                    foreach ($shippingAddresses as $address) {
-                        $customer->addresses()->detach($address->id);
-                        // Optionally delete the address if not used by others
+                $addressesToDelete = $existingShippingPivots->keys()->diff($newShippingIds);
+                foreach ($addressesToDelete as $addressId) {
+                    $customer->addresses()->detach($addressId);
+                    $address = Address::find($addressId);
+                    if ($address) {
                         $address->delete();
                     }
+                }
+            } else {
+                // Remove all shipping addresses if not provided
+                $shippingAddresses = $customer->shippingAddresses()->get();
+                foreach ($shippingAddresses as $address) {
+                    $customer->addresses()->detach($address->id);
+                    $address->delete();
                 }
             }
 
@@ -1195,13 +796,13 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle credit limits (after opening balances) - only for currencies with allow_credit=true
-            if ($request->has('credit_limits')) {
-                foreach ($request->input('credit_limits') as $currencyCode => $amount) {
-                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency && $customer->hasAllowCreditForCurrency($currency->id)) {
+            // Handle credit limits (array format - aligned with supplier)
+            if ($request->has('credit_limits') && is_array($request->input('credit_limits'))) {
+                foreach ($request->input('credit_limits') as $creditLimitData) {
+                    $currencyId = $creditLimitData['currency_id'] ?? null;
+                    if ($currencyId && $customer->hasAllowCreditForCurrency($currencyId)) {
                         try {
-                            $customer->setCreditLimit($currency->id, $amount);
+                            $customer->setCreditLimit($currencyId, $creditLimitData['credit_limit']);
                         } catch (\Exception $e) {
                             throw new \Exception('Credit limit validation failed: '.$e->getMessage());
                         }
@@ -1209,44 +810,54 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle cheque limits (after opening balances) - update existing or create new
-            if ($request->has('max_cheques')) {
-                $openingBalanceCurrencies = collect($request->input('opening_balances', []))
-                    ->pluck('currency')
+            // Handle cheque limits (array format - aligned with supplier) - update existing or create new
+            if ($request->has('cheque_limits') && is_array($request->input('cheque_limits'))) {
+                $openingBalanceCurrencyIds = collect($request->input('opening_balances', []))
+                    ->map(function ($ob) {
+                        $code = $ob['currency'] ?? null;
+                        if (! $code) {
+                            return null;
+                        }
+
+                        return \App\Models\Currency::where('code', $code)->first()?->id;
+                    })
                     ->filter()
+                    ->unique()
+                    ->values()
                     ->toArray();
 
                 $existingChequeLimits = $customer->chequeLimits()->get()->keyBy('currency_id');
                 $incomingCurrencyIds = [];
 
-                foreach ($request->input('max_cheques') as $currencyCode => $maxCheques) {
+                foreach ($request->input('cheque_limits') as $chequeLimitData) {
+                    $maxCheques = $chequeLimitData['max_cheques'] ?? null;
                     if (empty($maxCheques) || $maxCheques === '' || $maxCheques === null) {
                         continue;
                     }
 
-                    $currency = \App\Models\Currency::where('code', $currencyCode)->first();
-                    if ($currency && in_array($currencyCode, $openingBalanceCurrencies)) {
+                    $currencyId = $chequeLimitData['currency_id'] ?? null;
+                    if ($currencyId && in_array($currencyId, $openingBalanceCurrencyIds)) {
                         try {
-                            $existing = $existingChequeLimits->get($currency->id);
+                            $existing = $existingChequeLimits->get($currencyId);
                             if ($existing) {
                                 $existing->update([
                                     'max_cheques' => $maxCheques,
                                     'available_cheques' => max(0, $maxCheques - $existing->used_cheques),
-                                    'notes' => $existing->notes,
+                                    'notes' => $chequeLimitData['notes'] ?? $existing->notes,
                                     'is_active' => true,
                                 ]);
                             } else {
                                 \App\Models\CustomerChequeLimit::create([
                                     'customer_id' => $customer->id,
-                                    'currency_id' => $currency->id,
+                                    'currency_id' => $currencyId,
                                     'max_cheques' => $maxCheques,
                                     'used_cheques' => 0,
                                     'available_cheques' => $maxCheques,
-                                    'notes' => null,
+                                    'notes' => $chequeLimitData['notes'] ?? null,
                                     'is_active' => true,
                                 ]);
                             }
-                            $incomingCurrencyIds[] = $currency->id;
+                            $incomingCurrencyIds[] = $currencyId;
                         } catch (\Exception $e) {
                             throw new \Exception('Cheque limit validation failed: '.$e->getMessage());
                         }
@@ -1254,6 +865,8 @@ class CustomerController extends Controller
                 }
 
                 $customer->chequeLimits()->whereNotIn('currency_id', $incomingCurrencyIds)->delete();
+            } else {
+                $customer->chequeLimits()->delete();
             }
 
             // Handle contacts - update existing or create new
@@ -1328,9 +941,18 @@ class CustomerController extends Controller
                 }
             }
 
-            // Handle associations (many-to-many)
+            // Handle associations (many-to-many) - preserve pivot IDs: only detach removed, attach new
             if ($request->has('associations')) {
-                $customer->associations()->sync($request->input('associations'));
+                $requestIds = array_values(array_unique(array_filter((array) $request->input('associations'), fn ($id) => $id !== null && $id !== '')));
+                $currentIds = $customer->associations()->pluck('associations.id')->toArray();
+                $toDetach = array_diff($currentIds, $requestIds);
+                $toAttach = array_diff($requestIds, $currentIds);
+                if (! empty($toDetach)) {
+                    $customer->associations()->detach($toDetach);
+                }
+                if (! empty($toAttach)) {
+                    $customer->associations()->attach($toAttach);
+                }
             }
 
             // Handle attachments (multipart) - support both 'attachments' and 'attachments[]'
@@ -2326,50 +1948,6 @@ class CustomerController extends Controller
         }
     }
 
-    public function getNames()
-    {
-        $tenantId = tenant('id');
-        $key = "tenant_{$tenantId}_customer_names";
-
-        $customers = app('cache')->store('database')->get($key);
-
-        // Check if cached data has phone field, if not regenerate cache
-        $needsRegeneration = false;
-        if ($customers && $customers->isNotEmpty()) {
-            $firstCustomer = $customers->first();
-            if (! isset($firstCustomer['phone'])) {
-                $needsRegeneration = true;
-            }
-        }
-
-        if (! $customers || $needsRegeneration) {
-            $customers = Customer::select('id', 'first_name', 'middle_name', 'last_name', 'phone1')
-                ->orderBy('first_name')
-                ->get()
-                ->map(function ($customer) {
-                    $parts = [
-                        $customer->first_name,
-                        $customer->middle_name,
-                        $customer->last_name,
-                    ];
-
-                    return [
-                        'id' => $customer->id,
-                        'name' => trim(implode(' ', array_filter($parts))),
-                        'phone' => $customer->phone1 ?? '',
-                    ];
-                });
-
-            app('cache')->store('database')->forever($key, $customers);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer names fetched successfully.',
-            'data' => $customers,
-        ]);
-    }
-
     /**
      * Search customer by phone number
      */
@@ -2416,263 +1994,6 @@ class CustomerController extends Controller
                 'phone3' => $customer->phone3,
                 'address_line1' => $addressLine1,
                 'black_listed' => $customer->black_listed,
-            ],
-        ]);
-    }
-
-    /**
-     * Get customer appointment history
-     */
-    public function getAppointmentHistory($customerId)
-    {
-        $customer = Customer::find($customerId);
-
-        if (! $customer) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Customer not found.',
-                'data' => [],
-            ], 404);
-        }
-
-        $appointments = $customer->appointments()
-            ->with([
-                'services:id,name',
-                'visit:id,appointment_id,status,arrived_at,in_progress_at,completed_at,cancelled_at',
-            ])
-            ->orderBy('start_at', 'desc')
-            ->get();
-
-        // Load specialists and assets for services in each appointment
-        $appointments->each(function ($appointment) {
-            // Get unique specialist and asset IDs from pivot
-            $specialistIds = $appointment->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
-            $assetIds = $appointment->services->pluck('pivot.asset_id')->filter()->unique()->toArray();
-
-            // Load specialists and assets
-            $specialists = $specialistIds ? Specialist::whereIn('id', $specialistIds)->get()->keyBy('id') : collect();
-            $assets = $assetIds ? Asset::whereIn('id', $assetIds)->get()->keyBy('id') : collect();
-
-            // Attach specialists and assets to services
-            $appointment->services->each(function ($service) use ($specialists, $assets) {
-                $specialistId = $service->pivot->specialist_id ?? null;
-                $assetId = $service->pivot->asset_id ?? null;
-
-                if ($specialistId && $specialists->has($specialistId)) {
-                    $service->setRelation('specialist', $specialists->get($specialistId));
-                }
-
-                if ($assetId && $assets->has($assetId)) {
-                    $service->setRelation('asset', $assets->get($assetId));
-                }
-            });
-        });
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Appointment history fetched successfully.',
-            'data' => $appointments,
-        ]);
-    }
-
-    /**
-     * Get customer visit history
-     */
-    public function getVisitHistory($customerId)
-    {
-        $customer = Customer::find($customerId);
-
-        if (! $customer) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Customer not found.',
-                'data' => [],
-            ], 404);
-        }
-
-        $visits = $customer->visits()
-            ->with([
-                'appointment.customers',
-                'appointment.services',
-                'services', // Load multiple services
-            ])
-            ->orderBy('arrived_at', 'desc')
-            ->get();
-
-        // Load specialists and assets for each visit's appointment and visit services
-        foreach ($visits as $visit) {
-            if ($visit->appointment) {
-                // Get unique specialist and asset IDs from pivot
-                $specialistIds = $visit->appointment->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
-                $assetIds = $visit->appointment->services->pluck('pivot.asset_id')->filter()->unique()->toArray();
-
-                // Load specialists and assets
-                $specialists = $specialistIds ? \App\Models\Specialist::whereIn('id', $specialistIds)->get()->keyBy('id') : collect();
-                $assets = $assetIds ? \App\Models\Asset::whereIn('id', $assetIds)->get()->keyBy('id') : collect();
-
-                // Attach specialists and assets to services
-                $visit->appointment->services->each(function ($service) use ($specialists, $assets) {
-                    $specialistId = $service->pivot->specialist_id ?? null;
-                    $assetId = $service->pivot->asset_id ?? null;
-
-                    if ($specialistId && $specialists->has($specialistId)) {
-                        $service->setRelation('specialist', $specialists->get($specialistId));
-                    }
-
-                    if ($assetId && $assets->has($assetId)) {
-                        $service->setRelation('asset', $assets->get($assetId));
-                    }
-                });
-            }
-
-            // Load specialists for visit services
-            if ($visit->services->isNotEmpty()) {
-                $specialistIds = $visit->services->pluck('pivot.specialist_id')->filter()->unique()->toArray();
-                if (! empty($specialistIds)) {
-                    $specialists = \App\Models\Specialist::whereIn('id', $specialistIds)->get()->keyBy('id');
-                    $visit->services->each(function ($service) use ($specialists) {
-                        $specialistId = $service->pivot->specialist_id ?? null;
-                        if ($specialistId && $specialists->has($specialistId)) {
-                            $service->setRelation('specialist', $specialists->get($specialistId));
-                        }
-                    });
-                }
-            }
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Visit history fetched successfully.',
-            'data' => $visits,
-        ]);
-    }
-
-    /**
-     * Get customer data optimized for invoice creation
-     * Returns customer with payment terms, phones, and addresses
-     */
-    public function getForInvoice($customerId)
-    {
-        $customer = Customer::with([
-            'salesman:id,name',
-            'billingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
-            'shippingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
-            'openingBalances' => function ($query) {
-                $query->where('is_active', true)
-                    ->with([
-                        'currency:id,code,name,iso_code',
-                        'paymentTerm:id,code,name,nb_days',
-                        'paymentMethod:id,code,name',
-                    ]);
-            },
-        ])->find($customerId);
-
-        if (! $customer) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Customer not found.',
-            ], 404);
-        }
-
-        // Format phones array (only non-null values)
-        $phones = array_filter([
-            $customer->phone1,
-            $customer->phone2,
-            $customer->phone3,
-        ]);
-
-        // Format billing addresses
-        $billingAddresses = $customer->billingAddresses->map(function ($address) {
-            $parts = array_filter([
-                $address->address_line1,
-                $address->address_line2,
-                $address->building ? "Building: {$address->building}" : null,
-                $address->floor ? "Floor: {$address->floor}" : null,
-                $address->zip_code,
-            ]);
-
-            return [
-                'id' => $address->id,
-                'formatted' => implode(', ', $parts),
-                'address_line1' => $address->address_line1,
-                'address_line2' => $address->address_line2,
-            ];
-        });
-
-        // Format shipping addresses
-        $shippingAddresses = $customer->shippingAddresses->map(function ($address) {
-            $parts = array_filter([
-                $address->address_line1,
-                $address->address_line2,
-                $address->building ? "Building: {$address->building}" : null,
-                $address->floor ? "Floor: {$address->floor}" : null,
-                $address->zip_code,
-            ]);
-
-            return [
-                'id' => $address->id,
-                'formatted' => implode(', ', $parts),
-                'address_line1' => $address->address_line1,
-                'address_line2' => $address->address_line2,
-            ];
-        });
-
-        // opening_balances with currency + payment_term per row (same shape as supplier for-invoice)
-        $openingBalancesData = $customer->openingBalances->map(function ($balance) {
-            $currency = $balance->currency;
-            $paymentTerm = $balance->paymentTerm;
-
-            return [
-                'id' => $balance->id,
-                'currency_id' => $balance->currency_id,
-                'currency_code' => $currency->code ?? null,
-                'currency_name' => $currency->name ?? null,
-                'currency_iso_code' => $currency->iso_code ?? null,
-                'is_primary' => $currency->isPrimary(),
-                'opening_amount' => $balance->opening_amount,
-                'opening_date' => $balance->opening_date,
-                'notes' => $balance->notes,
-                'payment_day' => $balance->payment_day,
-                'track_payment' => $balance->track_payment,
-                'settlement_method' => $balance->settlement_method,
-                'accept_cheques' => (bool) $balance->accept_cheques,
-                'is_active' => $balance->is_active,
-                'payment_term_id' => $balance->payment_term_id,
-                'payment_term' => $paymentTerm ? [
-                    'id' => $paymentTerm->id,
-                    'code' => $paymentTerm->code,
-                    'name' => $paymentTerm->name,
-                    'nb_days' => $paymentTerm->nb_days,
-                ] : null,
-            ];
-        })->values();
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer data retrieved successfully.',
-            'data' => [
-                'id' => $customer->id,
-                'first_name' => $customer->first_name,
-                'middle_name' => $customer->middle_name,
-                'last_name' => $customer->last_name,
-                'display_name' => $customer->display_name,
-                'company_name' => $customer->company_name,
-                'phones' => array_values($phones),
-                'one_time_account' => $customer->one_time_account,
-                'salesman_id' => $customer->salesman_id,
-                'salesman' => $customer->salesman ? [
-                    'id' => $customer->salesman->id,
-                    'name' => $customer->salesman->name,
-                ] : null,
-                'payment_term' => $customer->openingBalances->first()?->paymentTerm ? [
-                    'id' => $customer->openingBalances->first()->paymentTerm->id,
-                    'name' => $customer->openingBalances->first()->paymentTerm->name,
-                    'code' => $customer->openingBalances->first()->paymentTerm->code,
-                    'nb_days' => $customer->openingBalances->first()->paymentTerm->nb_days,
-                ] : null,
-                'billing_addresses' => $billingAddresses,
-                'shipping_addresses' => $shippingAddresses,
-                'opening_balances' => $openingBalancesData,
             ],
         ]);
     }

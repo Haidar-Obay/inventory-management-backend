@@ -184,7 +184,19 @@ class RoleController extends Controller
                 }
 
                 if ($sync) {
-                    $role->permissions()->sync($syncMap);
+                    $requestPermissionIds = array_keys($syncMap);
+                    $currentPermissionIds = $role->permissions()->pluck('permissions.id')->toArray();
+                    $toDetach = array_diff($currentPermissionIds, $requestPermissionIds);
+                    $toAttach = array_diff($requestPermissionIds, $currentPermissionIds);
+                    if (! empty($toDetach)) {
+                        $role->permissions()->detach($toDetach);
+                    }
+                    foreach ($toAttach as $permissionId) {
+                        $role->permissions()->attach($permissionId, $syncMap[$permissionId]);
+                    }
+                    foreach (array_intersect($currentPermissionIds, $requestPermissionIds) as $permissionId) {
+                        $role->permissions()->updateExistingPivot($permissionId, $syncMap[$permissionId]);
+                    }
                 } else {
                     // Attach/update without removing existing others
                     foreach ($syncMap as $permissionId => $pivot) {

@@ -24,7 +24,7 @@ class UpdateItemRequest extends FormRequest
             if (is_array($data)) {
                 // If files are being uploaded via 'attachments' field, store attachments metadata
                 // in a separate field before unsetting it, so the controller can access it
-                if ($this->hasFile('attachments') && isset($data['attachments'])) {
+                if (($this->hasFile('attachments') || $this->hasFile('attachments.*')) && isset($data['attachments'])) {
                     $this->merge(['_attachment_metadata' => $data['attachments']]);
                     unset($data['attachments']);
                 }

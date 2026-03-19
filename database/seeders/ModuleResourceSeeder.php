@@ -34,6 +34,7 @@ class ModuleResourceSeeder extends Seeder
             PageCode::UNITS_MEASUREMENTS->value => 'unit_of_measurements',
             PageCode::SUPPLIERS_GROUPS->value => 'suppliers',
             PageCode::SUPPLIERS_SUPPLIERS->value => 'suppliers',
+            PageCode::SUPPLIERS_BALANCE->value => 'suppliers',
             PageCode::CUSTOMERS_GROUPS->value => 'customer_groups',
             PageCode::CUSTOMERS_SALESMEN->value => 'salesmen',
             PageCode::CUSTOMERS_CUSTOMERS->value => 'customers',

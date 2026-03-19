@@ -54,10 +54,10 @@ class SpecialistController extends Controller
         $specialist->id = $nextId;
         $specialist->save();
         if (! empty($data['speciality_ids'])) {
-            $specialist->specialities()->sync($data['speciality_ids']);
+            $specialist->specialities()->attach($data['speciality_ids']);
         }
         if (! empty($data['asset_ids'])) {
-            $specialist->assets()->sync($data['asset_ids']);
+            $specialist->assets()->attach($data['asset_ids']);
         }
 
         return response()->json($specialist->load(['specialities:id,name', 'assets:id,name']), 201);
@@ -81,10 +81,28 @@ class SpecialistController extends Controller
             'email' => $data['email'] ?? null,
         ]);
         if (array_key_exists('speciality_ids', $data)) {
-            $specialist->specialities()->sync($data['speciality_ids'] ?? []);
+            $requestIds = array_values(array_unique(array_filter((array) ($data['speciality_ids'] ?? []), fn ($id) => $id !== null && $id !== '')));
+            $currentIds = $specialist->specialities()->pluck('specialities.id')->toArray();
+            $toDetach = array_diff($currentIds, $requestIds);
+            $toAttach = array_diff($requestIds, $currentIds);
+            if (! empty($toDetach)) {
+                $specialist->specialities()->detach($toDetach);
+            }
+            if (! empty($toAttach)) {
+                $specialist->specialities()->attach($toAttach);
+            }
         }
         if (array_key_exists('asset_ids', $data)) {
-            $specialist->assets()->sync($data['asset_ids'] ?? []);
+            $requestIds = array_values(array_unique(array_filter((array) ($data['asset_ids'] ?? []), fn ($id) => $id !== null && $id !== '')));
+            $currentIds = $specialist->assets()->pluck('assets.id')->toArray();
+            $toDetach = array_diff($currentIds, $requestIds);
+            $toAttach = array_diff($requestIds, $currentIds);
+            if (! empty($toDetach)) {
+                $specialist->assets()->detach($toDetach);
+            }
+            if (! empty($toAttach)) {
+                $specialist->assets()->attach($toAttach);
+            }
         }
 
         return response()->json($specialist->load(['specialities:id,name', 'assets:id,name']));
