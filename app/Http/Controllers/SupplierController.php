@@ -23,6 +23,7 @@ use Maatwebsite\Excel\Facades\Excel;
 class SupplierController extends Controller
 {
     use \App\Http\Controllers\Concerns\HasBillingAddressHandling;
+
     protected $openingBalanceService;
 
     public function __construct(OpeningBalanceService $openingBalanceService)
