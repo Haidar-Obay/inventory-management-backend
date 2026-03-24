@@ -6,11 +6,13 @@ namespace App\Actions\Customer;
 
 use App\Http\Resources\Customer\CustomerFullResource;
 use App\Models\Customer;
-use Illuminate\Http\JsonResponse;
 
 class ShowCustomerFullAction
 {
-    public function execute(Customer $customer): JsonResponse
+    /**
+     * @return array<string, mixed>
+     */
+    public function execute(Customer $customer): array
     {
         $customer->load([
             'customerGroup:id,name',
@@ -58,10 +60,6 @@ class ShowCustomerFullAction
             'openingBalances' => $openingBalances,
         ];
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer details fetched successfully.',
-            'data' => (new CustomerFullResource($payload))->toArray(request()),
-        ]);
+        return (new CustomerFullResource($payload))->toArray(request());
     }
 }

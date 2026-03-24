@@ -6,13 +6,15 @@ namespace App\Actions\Customer;
 
 use App\Http\Resources\Customer\CustomerForInvoiceResource;
 use App\Models\Customer;
-use Illuminate\Http\JsonResponse;
 
 class GetCustomerForInvoiceAction
 {
-    public function execute(int $customerId): JsonResponse
+    /**
+     * @return array<string, mixed>
+     */
+    public function execute(Customer $customer): array
     {
-        $customer = Customer::with([
+        $customer->load([
             'salesman:id,name',
             'billingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
             'shippingAddresses:id,address_line1,address_line2,city_id,country_id,building,floor,zip_code',
@@ -24,19 +26,8 @@ class GetCustomerForInvoiceAction
                         'paymentMethod:id,code,name',
                     ]);
             },
-        ])->find($customerId);
-
-        if (! $customer) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Customer not found.',
-            ], 404);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer data retrieved successfully.',
-            'data' => (new CustomerForInvoiceResource($customer))->toArray(request()),
         ]);
+
+        return (new CustomerForInvoiceResource($customer))->toArray(request());
     }
 }

@@ -6,12 +6,14 @@ namespace App\Actions\Customer;
 
 use App\Http\Resources\Customer\CustomerBalanceResource;
 use App\Models\Customer;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class GetCustomerBalanceAction
 {
-    public function execute(Request $request): JsonResponse
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function execute(Request $request): array
     {
         $currencyId = $request->query('currency_id') ? (int) $request->query('currency_id') : null;
         $activeOnly = $request->boolean('active_only');
@@ -107,10 +109,6 @@ class GetCustomerBalanceAction
             }
         }
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer balances fetched successfully.',
-            'data' => CustomerBalanceResource::collection($rows)->resolve(),
-        ]);
+        return CustomerBalanceResource::collection($rows)->resolve();
     }
 }

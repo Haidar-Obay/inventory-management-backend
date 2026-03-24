@@ -6,11 +6,13 @@ namespace App\Actions\Customer;
 
 use App\Http\Resources\Customer\CustomerNameResource;
 use App\Models\Customer;
-use Illuminate\Http\JsonResponse;
 
 class GetCustomerNamesAction
 {
-    public function execute(): JsonResponse
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function execute(): array
     {
         $tenantId = tenant('id');
         $key = "tenant_{$tenantId}_customer_names";
@@ -46,10 +48,6 @@ class GetCustomerNamesAction
             app('cache')->store('database')->forever($key, $customers);
         }
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer names fetched successfully.',
-            'data' => CustomerNameResource::collection($customers)->resolve(),
-        ]);
+        return CustomerNameResource::collection($customers)->resolve();
     }
 }

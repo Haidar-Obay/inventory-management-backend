@@ -170,11 +170,10 @@ Route::middleware([
         Route::apiResource('sub-categories', SubCategoryController::class)->middleware('check.permission:sub_categories,view');
         Route::apiResource('item-groups', ItemGroupController::class)->middleware('check.permission:item_groups,view');
         Route::apiResource('supplier-groups', SupplierGroupController::class)->middleware('check.permission:supplier_groups,view');
-        Route::get('suppliers/{supplier}/for-purchase-invoice', [SupplierController::class, 'getForPurchaseInvoice'])->middleware('check.permission:suppliers,view'); // Optimized endpoint for purchase invoice
+        // Supplier fetch: GET suppliers/{id}?section=full|attachments|for_purchase_invoice (default full)
         Route::get('suppliers/{supplier}/items', [SupplierController::class, 'getItems'])->middleware('check.permission:suppliers,view'); // Get supplier items with costs and purchase UOM
         Route::get('suppliers/for-item-management', [SupplierController::class, 'listForItemSupplierManagement'])->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
         Route::post('suppliers/{supplier}/attachments', [SupplierController::class, 'uploadAttachments'])->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
-        Route::get('suppliers/{supplier}/attachments', [SupplierController::class, 'getAttachments'])->middleware(['check.permission:suppliers,view']);
         Route::delete('suppliers/{supplier}/attachments/{attachment}', [SupplierController::class, 'deleteAttachment'])->middleware(['check.permission:suppliers,view']);
         Route::apiResource('suppliers', SupplierController::class)->middleware(['subscription.limits:opening_balance', 'check.permission:suppliers,view']);
 
@@ -837,6 +836,7 @@ Route::middleware([
     Route::get('/names/trades', [TradeController::class, 'getNames']);
     Route::get('/names/items', [ItemController::class, 'getNames']);
     Route::get('/items/{itemId}/for-invoice', [ItemController::class, 'getItemForInvoice']);
-    Route::get('/names/suppliers', [SupplierController::class, 'getNames']);
-    Route::get('/names/suppliers-brief', [SupplierController::class, 'getBrief']);
+    // Supplier list/fetch: GET /suppliers?section=balance|names|brief; GET /suppliers/{id}?section=full|attachments|for_purchase_invoice
+    Route::get('/suppliers', [SupplierController::class, 'index']);
+    Route::get('/suppliers/{supplier}', [SupplierController::class, 'show']);
 });
