@@ -6,12 +6,14 @@ namespace App\Actions\Supplier;
 
 use App\Http\Resources\Supplier\SupplierBalanceResource;
 use App\Models\Supplier;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class GetSupplierBalanceAction
 {
-    public function execute(Request $request): JsonResponse
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function execute(Request $request): array
     {
         $currencyId = $request->query('currency_id') ? (int) $request->query('currency_id') : null;
         $activeOnly = $request->boolean('active_only');
@@ -107,10 +109,6 @@ class GetSupplierBalanceAction
             }
         }
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Supplier balances fetched successfully.',
-            'data' => SupplierBalanceResource::collection($rows)->resolve(),
-        ]);
+        return SupplierBalanceResource::collection($rows)->resolve();
     }
 }

@@ -6,11 +6,13 @@ namespace App\Actions\Customer;
 
 use App\Http\Resources\Customer\CustomerFullResource;
 use App\Models\Customer;
-use Illuminate\Http\JsonResponse;
 
 class ShowCustomerFullAction
 {
-    public function execute(Customer $customer): JsonResponse
+    /**
+     * @return array<string, mixed>
+     */
+    public function execute(Customer $customer): array
     {
         $customer->load([
             'customerGroup:id,name',
@@ -27,11 +29,11 @@ class ShowCustomerFullAction
             'mediaType:id,name',
             'referral:id,name',
             'associations:id,name',
-            'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
-            'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,appartment,zip_code',
+            'addresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,apartment,zip_code',
+            'billingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,apartment,zip_code',
+            'shippingAddresses:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,apartment,zip_code',
+            'primaryBillingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,apartment,zip_code',
+            'primaryShippingAddress:id,address_line1,address_line2,country_id,city_id,district_id,zone_id,building,block,floor,side,apartment,zip_code',
             'primaryContact:id,name,title,work_phone,mobile,position,extension,is_primary',
             'contacts:id,name,title,work_phone,mobile,position,extension,is_primary',
             'attachments:id,customer_id,file_name,file_path,file_type,file_size,description,category,is_public,created_at,updated_at',
@@ -58,10 +60,6 @@ class ShowCustomerFullAction
             'openingBalances' => $openingBalances,
         ];
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Customer details fetched successfully.',
-            'data' => (new CustomerFullResource($payload))->toArray(request()),
-        ]);
+        return (new CustomerFullResource($payload))->toArray(request());
     }
 }

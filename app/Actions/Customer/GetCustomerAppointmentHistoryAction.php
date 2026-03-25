@@ -7,22 +7,11 @@ namespace App\Actions\Customer;
 use App\Models\Asset;
 use App\Models\Customer;
 use App\Models\Specialist;
-use Illuminate\Http\JsonResponse;
 
 class GetCustomerAppointmentHistoryAction
 {
-    public function execute(int $customerId): JsonResponse
+    public function execute(Customer $customer): array
     {
-        $customer = Customer::find($customerId);
-
-        if (! $customer) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Customer not found.',
-                'data' => [],
-            ], 404);
-        }
-
         $appointments = $customer->appointments()
             ->with([
                 'services:id,name',
@@ -52,10 +41,6 @@ class GetCustomerAppointmentHistoryAction
             });
         });
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Appointment history fetched successfully.',
-            'data' => $appointments,
-        ]);
+        return $appointments->toArray();
     }
 }

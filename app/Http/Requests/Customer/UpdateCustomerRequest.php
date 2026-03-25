@@ -417,7 +417,7 @@ class UpdateCustomerRequest extends FormRequest
             'addresses.*.block' => 'nullable|string|max:255',
             'addresses.*.floor' => 'nullable|string|max:255',
             'addresses.*.side' => 'nullable|string|max:255',
-            'addresses.*.appartment' => 'nullable|string|max:255',
+            'addresses.*.apartment' => 'nullable|string|max:255',
             'addresses.*.zip_code' => 'nullable|string|max:20',
             'addresses.*.address_type' => 'required|in:billing,shipping,both',
             'addresses.*.is_primary' => 'boolean',
@@ -450,7 +450,7 @@ class UpdateCustomerRequest extends FormRequest
             'billing_address.block' => 'sometimes|nullable|string|max:255',
             'billing_address.floor' => 'sometimes|nullable|string|max:255',
             'billing_address.side' => 'sometimes|nullable|string|max:255',
-            'billing_address.appartment' => 'sometimes|nullable|string|max:255',
+            'billing_address.apartment' => 'sometimes|nullable|string|max:255',
             'billing_address.zip_code' => 'sometimes|nullable|string|max:20',
 
             'shipping_address.address_line1' => 'sometimes|nullable|string|max:255',
@@ -463,7 +463,7 @@ class UpdateCustomerRequest extends FormRequest
             'shipping_address.block' => 'sometimes|nullable|string|max:255',
             'shipping_address.floor' => 'sometimes|nullable|string|max:255',
             'shipping_address.side' => 'sometimes|nullable|string|max:255',
-            'shipping_address.appartment' => 'sometimes|nullable|string|max:255',
+            'shipping_address.apartment' => 'sometimes|nullable|string|max:255',
             'shipping_address.zip_code' => 'sometimes|nullable|string|max:20',
 
             // Attachments (handled separately in controller)
