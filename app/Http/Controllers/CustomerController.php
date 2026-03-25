@@ -22,9 +22,9 @@ use App\Actions\Customer\UpdateCustomerAction;
 use App\Actions\Customer\UploadCustomerAttachmentsAction;
 use App\Exports\ExportPDF;
 use App\Http\Requests\Customer\StoreCustomerRequest;
-use App\Http\Responses\ApiResponse;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Http\Requests\Customer\UploadCustomerAttachmentsRequest;
+use App\Http\Responses\ApiResponse;
 use App\Models\Customer;
 use App\Models\CustomerAttachment;
 use App\Models\Project;
@@ -50,6 +50,7 @@ class CustomerController extends Controller
                 'Invalid section. Allowed: '.implode(', ', self::INDEX_SECTIONS).'.'
             );
         }
+
         try {
             if ($section === 'names') {
                 return ApiResponse::success(
@@ -266,14 +267,14 @@ class CustomerController extends Controller
                     'Invalid Excel file headers.',
                     422,
                     [
-                    'success' => false,
-                    'header_validation' => $headerResult,
-                    'errors' => [
-                        'missing_headers' => $headerResult['missing'],
-                        'extra_headers' => $headerResult['extra'],
-                        'expected_headers' => $headerResult['expected_headers'],
-                        'actual_headers' => $headerResult['excel_headers'],
-                    ],
+                        'success' => false,
+                        'header_validation' => $headerResult,
+                        'errors' => [
+                            'missing_headers' => $headerResult['missing'],
+                            'extra_headers' => $headerResult['extra'],
+                            'expected_headers' => $headerResult['expected_headers'],
+                            'actual_headers' => $headerResult['excel_headers'],
+                        ],
                     ],
                     [],
                     'header_validation'
@@ -298,12 +299,12 @@ class CustomerController extends Controller
 
             return ApiResponse::success(
                 [
-                'success' => $imported > 0,
-                'rows_processed' => $totalProcessed,
-                'rows_imported' => $imported,
-                'rows_skipped_count' => $skippedCount,
-                'skipped_rows' => $skippedRows,
-                'header_validation' => $import->getHeaderValidationResult(),
+                    'success' => $imported > 0,
+                    'rows_processed' => $totalProcessed,
+                    'rows_imported' => $imported,
+                    'rows_skipped_count' => $skippedCount,
+                    'skipped_rows' => $skippedRows,
+                    'header_validation' => $import->getHeaderValidationResult(),
                 ],
                 $message
             );
@@ -315,8 +316,8 @@ class CustomerController extends Controller
                 'Import failed due to invalid data. Please check your file for invalid or missing references (e.g., payment method, salesman, etc.).',
                 422,
                 [
-                'success' => false,
-                'error_type' => 'database',
+                    'success' => false,
+                    'error_type' => 'database',
                 ]
             );
         }

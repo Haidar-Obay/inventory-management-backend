@@ -156,4 +156,3 @@ class ImportSuppliersFromExcelAction
         return $import;
     }
 }
-

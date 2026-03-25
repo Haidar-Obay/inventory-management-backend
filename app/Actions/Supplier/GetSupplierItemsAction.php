@@ -137,4 +137,3 @@ class GetSupplierItemsAction
         return SupplierItemResource::collection($mapped)->resolve();
     }
 }
-

@@ -48,4 +48,3 @@ class ListSuppliersForItemSupplierManagementAction
         return SupplierItemManagementSupplierResource::collection($mapped)->resolve();
     }
 }
-

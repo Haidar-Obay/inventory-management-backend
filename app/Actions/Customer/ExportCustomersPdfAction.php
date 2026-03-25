@@ -92,7 +92,7 @@ class ExportCustomersPdfAction
         $customers = $query->get();
 
         if ($customers->isEmpty()) {
-            return null;
+            return;
         }
 
         $title = 'Customer Report';

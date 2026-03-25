@@ -31,4 +31,3 @@ class CurrencyResolverService
         return $this->resolveId($payload['currency'] ?? null);
     }
 }
-

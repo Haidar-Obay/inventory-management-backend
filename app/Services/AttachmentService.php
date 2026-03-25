@@ -161,6 +161,7 @@ class AttachmentService
                 $relativePath = str_replace(url('/storage'), '', (string) $existingAttachment->file_path);
                 Storage::disk('public')->delete($relativePath);
                 $existingAttachment->delete();
+
                 continue;
             }
 
@@ -233,4 +234,3 @@ class AttachmentService
         }
     }
 }
-

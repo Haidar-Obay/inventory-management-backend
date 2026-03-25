@@ -17,7 +17,7 @@ class ExportCustomersExcelAction
     {
         $customers = Customer::query();
         if ((clone $customers)->count() === 0) {
-            return null;
+            return;
         }
         $columns = [
             'id',

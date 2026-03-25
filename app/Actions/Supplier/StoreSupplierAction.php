@@ -165,4 +165,3 @@ class StoreSupplierAction
         return $supplier;
     }
 }
-

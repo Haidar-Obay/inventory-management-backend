@@ -53,4 +53,3 @@ class UploadSupplierAttachmentsAction
         return $created;
     }
 }
-

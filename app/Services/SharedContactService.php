@@ -68,6 +68,7 @@ class SharedContactService
                     $owner->setPrimaryContact($contact->id);
                 }
                 $incomingContactIds[] = $contactId;
+
                 continue;
             }
 
@@ -120,4 +121,3 @@ class SharedContactService
         return $payload;
     }
 }
-

@@ -212,4 +212,3 @@ class UpdateSupplierAction
         return $supplier;
     }
 }
-
