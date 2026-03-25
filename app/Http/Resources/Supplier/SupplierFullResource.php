@@ -121,7 +121,7 @@ class SupplierFullResource extends JsonResource
                     'block' => $address->block,
                     'floor' => $address->floor,
                     'side' => $address->side,
-                    'appartment' => $address->appartment,
+                    'apartment' => $address->apartment,
                     'zip_code' => $address->zip_code,
                     'country' => $address->country ? [
                         'id' => $address->country->id,
@@ -159,7 +159,7 @@ class SupplierFullResource extends JsonResource
                         'block' => $address->block,
                         'floor' => $address->floor,
                         'side' => $address->side,
-                        'appartment' => $address->appartment,
+                        'apartment' => $address->apartment,
                         'zip_code' => $address->zip_code,
                         'country' => $address->country ? [
                             'id' => $address->country->id,
@@ -196,7 +196,7 @@ class SupplierFullResource extends JsonResource
                         'block' => $address->block,
                         'floor' => $address->floor,
                         'side' => $address->side,
-                        'appartment' => $address->appartment,
+                        'apartment' => $address->apartment,
                         'zip_code' => $address->zip_code,
                         'country' => $address->country ? [
                             'id' => $address->country->id,
@@ -229,7 +229,7 @@ class SupplierFullResource extends JsonResource
                 'block' => $primaryBilling->block,
                 'floor' => $primaryBilling->floor,
                 'side' => $primaryBilling->side,
-                'appartment' => $primaryBilling->appartment,
+                'apartment' => $primaryBilling->apartment,
                 'zip_code' => $primaryBilling->zip_code,
                 'country' => $primaryBilling->country ? [
                     'id' => $primaryBilling->country->id,
@@ -261,7 +261,7 @@ class SupplierFullResource extends JsonResource
                 'block' => $primaryShipping->block,
                 'floor' => $primaryShipping->floor,
                 'side' => $primaryShipping->side,
-                'appartment' => $primaryShipping->appartment,
+                'apartment' => $primaryShipping->apartment,
                 'zip_code' => $primaryShipping->zip_code,
                 'country' => $primaryShipping->country ? [
                     'id' => $primaryShipping->country->id,

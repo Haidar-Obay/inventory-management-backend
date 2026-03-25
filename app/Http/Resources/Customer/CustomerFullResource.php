@@ -156,7 +156,7 @@ class CustomerFullResource extends JsonResource
                 'block' => $address->block,
                 'floor' => $address->floor,
                 'side' => $address->side,
-                'appartment' => $address->appartment,
+                'apartment' => $address->apartment,
                 'zip_code' => $address->zip_code,
             ]),
             'billing_addresses' => $customer->billingAddresses
@@ -174,7 +174,7 @@ class CustomerFullResource extends JsonResource
                     'block' => $address->block,
                     'floor' => $address->floor,
                     'side' => $address->side,
-                    'appartment' => $address->appartment,
+                    'apartment' => $address->apartment,
                     'zip_code' => $address->zip_code,
                 ]),
             'shipping_addresses' => $customer->shippingAddresses
@@ -192,7 +192,7 @@ class CustomerFullResource extends JsonResource
                     'block' => $address->block,
                     'floor' => $address->floor,
                     'side' => $address->side,
-                    'appartment' => $address->appartment,
+                    'apartment' => $address->apartment,
                     'zip_code' => $address->zip_code,
                 ]),
             'primary_billing_address' => $primaryBilling ? [
@@ -207,7 +207,7 @@ class CustomerFullResource extends JsonResource
                 'block' => $primaryBilling->block,
                 'floor' => $primaryBilling->floor,
                 'side' => $primaryBilling->side,
-                'appartment' => $primaryBilling->appartment,
+                'apartment' => $primaryBilling->apartment,
                 'zip_code' => $primaryBilling->zip_code,
             ] : null,
             'primary_shipping_address' => $primaryShipping ? [
@@ -222,7 +222,7 @@ class CustomerFullResource extends JsonResource
                 'block' => $primaryShipping->block,
                 'floor' => $primaryShipping->floor,
                 'side' => $primaryShipping->side,
-                'appartment' => $primaryShipping->appartment,
+                'apartment' => $primaryShipping->apartment,
                 'zip_code' => $primaryShipping->zip_code,
             ] : null,
             'contacts' => $customer->contacts()->get()->map(fn ($contact) => [

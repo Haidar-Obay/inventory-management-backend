@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('block')->nullable();
             $table->string('floor')->nullable();
             $table->string('side')->nullable();
-            $table->string('appartment')->nullable();
+            $table->string('apartment')->nullable();
             $table->string('zip_code')->nullable();
             // $table->string('complex')->nullable();
 

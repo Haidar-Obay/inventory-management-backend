@@ -167,7 +167,7 @@ class AddressSyncService
             'block' => $request->input('billing_block'),
             'floor' => $request->input('billing_floor'),
             'side' => $request->input('billing_side'),
-            'appartment' => $request->input('billing_apartment'),
+            'apartment' => $request->input('billing_apartment'),
             'zip_code' => $request->input('billing_zip_code'),
         ];
     }
@@ -200,7 +200,7 @@ class AddressSyncService
             'block' => $shippingAddressData['block'] ?? null,
             'floor' => $shippingAddressData['floor'] ?? null,
             'side' => $shippingAddressData['side'] ?? null,
-            'appartment' => $shippingAddressData['apartment'] ?? null,
+            'apartment' => $shippingAddressData['apartment'] ?? null,
             'zip_code' => $shippingAddressData['zip_code'] ?? null,
         ];
     }
