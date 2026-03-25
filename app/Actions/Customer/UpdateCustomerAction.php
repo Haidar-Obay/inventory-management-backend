@@ -275,4 +275,6 @@ class UpdateCustomerAction
             'openingBalances.paymentMethod:id,code,name',
         ]);
     }
+
 }
+

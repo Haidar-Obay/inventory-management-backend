@@ -234,4 +234,6 @@ class StoreCustomerAction
             'openingBalances.paymentMethod:id,code,name',
         ]);
     }
+
 }
+

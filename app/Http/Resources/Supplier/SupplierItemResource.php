@@ -29,3 +29,4 @@ class SupplierItemResource extends JsonResource
         ];
     }
 }
+

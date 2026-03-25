@@ -248,3 +248,4 @@ class ImportCustomersFromExcelAction
         return $import;
     }
 }
+

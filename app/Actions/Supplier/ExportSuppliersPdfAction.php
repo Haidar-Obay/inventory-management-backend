@@ -11,6 +11,9 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ExportSuppliersPdfAction
 {
+    /**
+     * @return BinaryFileResponse|Response|null
+     */
     public function execute(ExportPDF $pdfService): BinaryFileResponse|Response|null
     {
         $suppliers = Supplier::with([

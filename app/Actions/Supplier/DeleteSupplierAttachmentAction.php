@@ -26,3 +26,4 @@ class DeleteSupplierAttachmentAction
         return true;
     }
 }
+

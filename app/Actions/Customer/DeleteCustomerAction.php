@@ -37,3 +37,4 @@ class DeleteCustomerAction
         app('cache')->store('database')->forget("tenant_{$tenantId}_customer_names");
     }
 }
+

@@ -24,3 +24,4 @@ class SupplierItemManagementSupplierResource extends JsonResource
         ];
     }
 }
+

@@ -16,8 +16,10 @@ class OpeningBalanceService
     /**
      * Set opening balance for a model (customer or supplier) in a specific currency
      */
-    public function setOpeningBalance(Model $model, int $currencyId, float $amount, ?string $openingDate = null, ?string $notes = null)
+    public function setOpeningBalance(Model $model, int $currencyId, float|int|string|null $amount, ?string $openingDate = null, ?string $notes = null)
     {
+        $amount = (float) ($amount ?? 0);
+
         if ($model instanceof Customer) {
             return $this->setCustomerOpeningBalance($model, $currencyId, $amount, $openingDate, $notes);
         } elseif ($model instanceof Supplier) {
@@ -33,7 +35,7 @@ class OpeningBalanceService
     public function setCustomerOpeningBalance(
         Customer $customer,
         int $currencyId,
-        float $amount,
+        float|int|string|null $amount,
         ?string $openingDate = null,
         ?string $notes = null,
         ?int $paymentTermId = null,
@@ -45,6 +47,8 @@ class OpeningBalanceService
         bool $acceptCheques = false,
         ?int $id = null
     ): CustomerOpeningBalance {
+        $amount = (float) ($amount ?? 0);
+
         return DB::transaction(function () use ($customer, $currencyId, $amount, $openingDate, $notes, $paymentTermId, $paymentMethodId, $allowCredit, $paymentDay, $trackPayment, $settlementMethod, $acceptCheques, $id) {
             // When id is provided, try to find by id first (for stable-id update)
             $openingBalance = $id !== null
@@ -100,7 +104,7 @@ class OpeningBalanceService
     public function setSupplierOpeningBalance(
         Supplier $supplier,
         int $currencyId,
-        float $amount,
+        float|int|string|null $amount,
         ?string $openingDate = null,
         ?string $notes = null,
         ?int $paymentTermId = null,
@@ -112,6 +116,8 @@ class OpeningBalanceService
         bool $acceptCheques = false,
         ?int $id = null
     ): SupplierOpeningBalance {
+        $amount = (float) ($amount ?? 0);
+
         $openingBalance = $id !== null
             ? $supplier->openingBalances()->where('id', $id)->first()
             : null;

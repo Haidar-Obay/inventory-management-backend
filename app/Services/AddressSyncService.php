@@ -134,7 +134,6 @@ class AddressSyncService
 
                 if (! $checkSharedUsageOnDelete) {
                     $address->delete();
-
                     continue;
                 }
 
@@ -231,3 +230,4 @@ class AddressSyncService
         ];
     }
 }
+
